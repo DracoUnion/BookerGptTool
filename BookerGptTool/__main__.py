@@ -28,7 +28,7 @@ def main():
 
     test_parser = subparsers.add_parser("trans", help="translate one sentence")
     test_parser.add_argument("en", help="en text")
-    test_parser.add_argument("-p", "--prompt", default=DFT_PROMPT, help="prompt for trans")
+    test_parser.add_argument("-p", "--prompt", default=DFT_TRANS_PROMPT, help="prompt for trans")
     test_parser.add_argument("-l", "--limit", type=int, default=4000, help="max token limit")
     test_parser.set_defaults(func=trans_handle)
 
