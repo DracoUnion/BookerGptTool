@@ -51,7 +51,7 @@ setuptools.setup(
     entry_points={
         'console_scripts': [
             "BookerGptTool=BookerGptTool.__main__:main",
-            "pdf-tool=BookerGptTool.__main__:main",
+            "gpt-tool=BookerGptTool.__main__:main",
         ],
     },
     packages=setuptools.find_packages(),
