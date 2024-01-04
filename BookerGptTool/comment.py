@@ -12,9 +12,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 
-__version__ = '2023.12.25.0'
-
-DFT_PROMPT = '''
+DFT_COMM_PROMPT = '''
 假设你是一位资深的程序员，请你参照示例为给定代码的每个语句添加注释，解释它们的作用。
 
 示例：
@@ -128,19 +126,7 @@ def extname(name):
     return m.group(1) if m else ''
 
     
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('fname', help='file or dir name')
-    parser.add_argument('-p', '--prompt', default=DFT_PROMPT, help='prompt for code comment')
-    parser.add_argument("-P", "--proxy", help="proxy")
-    parser.add_argument("-m", "--model", default='gpt-3.5-turbo-1106', help="model name")
-    parser.add_argument("-k", "--key", default=os.environ.get('OPENAI_API_KEY', ''), help="OpenAI API key")
-    parser.add_argument("-r", "--retry", type=int, default=10, help="times of retry")
-    parser.add_argument("-H", "--host", help="api host")
-    parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    parser.add_argument("-l", "--limit", type=int, default=20, help="lines limit")
-    args = parser.parse_args()
-    
+def comment_handle(args):
     openai.api_key = args.key
     openai.proxy = args.proxy
     openai.host = args.host
@@ -149,5 +135,3 @@ def main():
         process_dir(args)
     else:
         process_file(args)
-        
-if __name__ == '__main__': main()

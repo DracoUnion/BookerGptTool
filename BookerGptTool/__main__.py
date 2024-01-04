@@ -26,12 +26,18 @@ def main():
     trans_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
     trans_parser.set_defaults(func=trans_handle)
 
-    test_parser = subparsers.add_parser("trans-one", help="testing model with YAML files")
+    test_parser = subparsers.add_parser("trans-one", help="translate one sentence")
     test_parser.add_argument("en", help="en text")
     test_parser.add_argument("-p", "--prompt", default=DFT_PROMPT, help="prompt for trans")
     test_parser.add_argument("-l", "--limit", type=int, default=4000, help="max token limit")
     test_parser.set_defaults(func=test_trans_handle)
 
+    comm_parser = subparsers.add_parser("comment", help="comment code")
+    comm_parser.add_argument('fname', help='file or dir name')
+    comm_parser.add_argument('-p', '--prompt', default=DFT_COMM_PROMPT, help='prompt for code comment')
+    comm_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    comm_parser.add_argument("-l", "--limit", type=int, default=20, help="lines limit")
+    comm_parser.set_defaults(func=comment_handle)
 
     args = parser.parse_args()
     args.func(args)

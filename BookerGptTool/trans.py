@@ -10,8 +10,6 @@ import random
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 
-__version__ = '2023.12.11.0'
-
 DFT_TRANS_PROMPT = '请把以下文本按行翻译成中文，不要输出原文：\n\n{en}'
 
 def shuffle_group(g):
