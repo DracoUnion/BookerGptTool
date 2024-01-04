@@ -12,7 +12,7 @@ from threading import Lock
 
 __version__ = '2023.12.11.0'
 
-DFT_PROMPT = '请把以下文本按行翻译成中文，不要输出原文：\n\n{en}'
+DFT_TRANS_PROMPT = '请把以下文本按行翻译成中文，不要输出原文：\n\n{en}'
 
 def shuffle_group(g):
     count = len(g['ids'])
@@ -153,7 +153,7 @@ def trans_handle(args):
         trans_one(totrans, args, lambda: write_callback(f, totrans))
         
     
-def test_handle(args):
+def test_trans_handle(args):
     print(args)
     openai.api_key = args.key
     openai.proxy = args.proxy
@@ -167,17 +167,6 @@ def main():
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
     
-    trans_parser = subparsers.add_parser("trans", help="translate YAML files")
-    trans_parser.add_argument("fname", help="yaml file name of dir")
-    trans_parser.add_argument("-p", "--prompt", default=DFT_PROMPT, help="prompt for trans")
-    trans_parser.add_argument("-P", "--proxy", help="proxy")
-    trans_parser.add_argument("-m", "--model", default='gpt-3.5-turbo', help="model name")
-    trans_parser.add_argument("-l", "--limit", type=int, default=4000, help="max token limit")
-    trans_parser.add_argument("-k", "--key", default=os.environ.get('OPENAI_API_KEY', ''), help="OpenAI API key")
-    trans_parser.add_argument("-r", "--retry", type=int, default=10, help="times of retry")
-    trans_parser.add_argument("-H", "--host", help="api host")
-    trans_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    trans_parser.set_defaults(func=trans_handle)
     
     test_parser = subparsers.add_parser("test", help="testing model with YAML files")
     test_parser.add_argument("en", help="en text")
