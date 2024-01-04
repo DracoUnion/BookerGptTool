@@ -128,7 +128,7 @@ def write_callback(fname, totrans):
         open(fname, 'w', encoding='utf8') \
             .write(yaml.safe_dump(totrans, allow_unicode=True))
 
-def trans_handle(args):
+def trans_yaml_handle(args):
     print(args)
     openai.api_key = args.key
     openai.proxy = args.proxy
@@ -151,33 +151,10 @@ def trans_handle(args):
         trans_one(totrans, args, lambda: write_callback(f, totrans))
         
     
-def test_trans_handle(args):
+def trans_handle(args):
     print(args)
     openai.api_key = args.key
     openai.proxy = args.proxy
     openai.host = args.host
     ans = trans_openai_retry(args.en, args.prompt, args.model)
     
-     
-def main():
-    parser = argparse.ArgumentParser(prog="GPTTrans", description="ChatGPT training and translation tool for GLM", formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("-v", "--version", action="version", version=f"BookerMarkdownTool version: {__version__}")
-    parser.set_defaults(func=lambda x: parser.print_help())
-    subparsers = parser.add_subparsers()
-    
-    
-    test_parser = subparsers.add_parser("test", help="testing model with YAML files")
-    test_parser.add_argument("en", help="en text")
-    test_parser.add_argument("-p", "--prompt", default=DFT_PROMPT, help="prompt for trans")
-    test_parser.add_argument("-P", "--proxy", help="proxy")
-    test_parser.add_argument("-m", "--model", default='gpt-3.5-turbo', help="model name")
-    test_parser.add_argument("-l", "--limit", type=int, default=4000, help="max token limit")
-    test_parser.add_argument("-k", "--key", default=os.environ.get('OPENAI_API_KEY', ''), help="OpenAI API key")
-    test_parser.add_argument("-r", "--retry", type=int, default=10, help="times of retry")
-    test_parser.add_argument("-H", "--host", help="api host")
-    test_parser.set_defaults(func=test_handle)
-    
-    args = parser.parse_args()
-    args.func(args)
-
-if __name__ == '__main__': main()
