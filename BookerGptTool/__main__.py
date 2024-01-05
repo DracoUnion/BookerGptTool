@@ -14,7 +14,7 @@ def main():
     parser.add_argument("-P", "--proxy", help="proxy")
     parser.add_argument("-m", "--model", default='gpt-3.5-turbo', help="model name")
     parser.add_argument("-k", "--key", default=openai_key, help="OpenAI API key")
-    parser.add_argument("-r", "--retry", type=int, default=10, help="times of retry")
+    parser.add_argument("-r", "--retry", type=int, default=1_000_000, help="times of retry")
     parser.add_argument("-H", "--host", default=openai_url, help="api host")
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
