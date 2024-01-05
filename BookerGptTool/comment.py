@@ -17,6 +17,19 @@ DFT_COMM_PROMPT = '''
 
 示例：
 
+代码：
+
+```
+def read_zip(fname):
+    bio = BytesIO(open(fname, 'rb').read())
+    zip = zipfile.ZipFile(bio, 'r')
+    fdict = {n:zip.read(n) for n in zip.namelist()}
+    zip.close()
+    return fdict
+```
+
+注释：
+
 ```
 # 根据 ZIP 文件名读取内容，返回其中文件名到数据的字典
 def read_zip(fname):
@@ -32,11 +45,15 @@ def read_zip(fname):
     return fdict
 ```
 
-需要注释的代码：
+以下是需要注释的代码。
+
+代码：
 
 ```
 {code}
 ```
+
+注释：
 '''
 
 def call_openai_retry(code, prompt, model_name, retry=10):
