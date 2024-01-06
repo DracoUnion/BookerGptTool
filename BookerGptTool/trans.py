@@ -9,6 +9,7 @@ import json
 import random
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+from .util import *
 
 DFT_TRANS_PROMPT = '请把以下文本按行翻译成中文，不要输出原文：\n\n{en}'
 
@@ -21,34 +22,8 @@ def shuffle_group(g):
 
 def openai_trans(en, prompt, model_name, retry=10):
     ques = prompt.replace('{en}', en)
-    call_openai_retry(ques, 
-
-def trans_openai_retry(en, prompt, model_name, retry=10):
-    for i in range(retry):
-        try:
-            
-            print(f'ques: {json.dumps(ques, ensure_ascii=False)}')
-            client = openai.OpenAI(
-                base_url=openai.host,
-                api_key=openai.api_key,
-                http_client=httpx.Client(
-                    proxies=openai.proxy,
-                    transport=httpx.HTTPTransport(local_address="0.0.0.0"),
-                )
-            )
-            ans = client.chat.completions.create(
-                messages=[{
-                    "role": "user",
-                    "content": ques,
-                }],
-                model=model_name,
-                temperature=0,
-            ).choices[0].message.content
-            print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
-            return ans
-        except Exception as ex:
-            print(f'OpenAI retry {i+1}: {str(ex)}')
-            if i == retry - 1: raise ex
+    ans = call_openai_retry(ques, model_name, retry)
+    return ans
     
 def group_totrans(totrans, limit):
     groups = [] # [{ids: [str], ens: [str]}]
@@ -88,7 +63,7 @@ def tr_trans(g, args, totrans_id_map, write_callback=None):
         try:
             shuffle_group(g)    
             en = '\n'.join(g['ens'])
-            ans = trans_openai_retry(en, args.prompt, args.model, args.retry)
+            ans = openai_trans(en, args.prompt, args.model, args.retry)
             zhs = [zh for zh in ans.split('\n') if zh]
             assert len(g['ids']) == len(zhs)
             break
@@ -160,5 +135,5 @@ def trans_handle(args):
     openai.api_key = args.key
     openai.proxy = args.proxy
     openai.host = args.host
-    ans = trans_openai_retry(args.en, args.prompt, args.model)
+    ans = openai_trans(args.en, args.prompt, args.model)
     
