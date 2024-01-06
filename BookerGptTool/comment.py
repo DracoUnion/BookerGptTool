@@ -60,7 +60,7 @@ def read_zip(fname):
 def openai_comment(code, prompt, model_name, retry=10):
     ques = prompt.replace('{code}', code)
     ans = call_openai_retry(ques, model_name, retry)
-    ans = re.sub(r'^```\w*$', '', ans)
+    ans = re.sub(r'^```\w*$', '', ans, flags=re.M)
     return ans
 
 def chunk_code(lines, limit=20):
