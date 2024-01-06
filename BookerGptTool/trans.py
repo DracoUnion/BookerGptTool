@@ -19,10 +19,14 @@ def shuffle_group(g):
     g['ids'] = [g['ids'][i] for i in idcs]
     g['ens'] = [g['ens'][i] for i in idcs]
 
+def openai_trans(en, prompt, model_name, retry=10):
+    ques = prompt.replace('{en}', en)
+    call_openai_retry(ques, 
+
 def trans_openai_retry(en, prompt, model_name, retry=10):
     for i in range(retry):
         try:
-            ques = prompt.replace('{en}', en)
+            
             print(f'ques: {json.dumps(ques, ensure_ascii=False)}')
             client = openai.OpenAI(
                 base_url=openai.host,

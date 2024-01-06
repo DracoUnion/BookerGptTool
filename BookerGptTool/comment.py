@@ -11,6 +11,7 @@ import copy
 import re
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+from .util import *
 
 DFT_COMM_PROMPT = '''
 假设你是一位资深的程序员，请你参照示例为给定代码的每个语句添加注释，解释它们的作用。
@@ -56,34 +57,11 @@ def read_zip(fname):
 注释：
 '''
 
-def call_openai_retry(code, prompt, model_name, retry=10):
-    for i in range(retry):
-        try:
-            ques = prompt.replace('{code}', code)
-            print(f'ques: {json.dumps(ques, ensure_ascii=False)}')
-            client = openai.OpenAI(
-                base_url=openai.host,
-                api_key=openai.api_key,
-                http_client=httpx.Client(
-                    proxies=openai.proxy,
-                    transport=httpx.HTTPTransport(local_address="0.0.0.0"),
-                )
-            )
-            ans = client.chat.completions.create(
-                messages=[{
-                    "role": "user",
-                    "content": ques,
-                }],
-                model=model_name,
-                temperature=0,
-            ).choices[0].message.content
-            ans = re.sub(r'\A```\w*\n', '', ans)
-            ans = re.sub(r'\n```\Z', '', ans)
-            print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
-            return ans
-        except Exception as ex:
-            print(f'OpenAI retry {i+1}: {str(ex)}')
-            if i == retry - 1: raise ex
+def openai_comment(code, prompt, model_name, retry=10):
+    ques = prompt.replace('{code}', code)
+    ans = call_openai_retry(ques, model_name, retry)
+    ans = re.sub(r'^```\w*$', '', ans)
+    return ans
 
 def chunk_code(lines, limit=20):
     if isinstance(lines, str):
@@ -130,7 +108,7 @@ def process_file(args):
     parts = []
     for b in blocks:
         code = '\n'.join(b)
-        part = call_openai_retry(code, args.prompt, args.model, args.retry)
+        part = openai_comment(code, args.prompt, args.model, args.retry)
         parts.append(part)
     comment = '```\n' + '\n'.join(parts) + '\n```'
     print(f'==={fname}===\n{comment}')
