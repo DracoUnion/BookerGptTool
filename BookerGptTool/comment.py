@@ -111,8 +111,7 @@ def process_file(args):
     blocks = chunk_code(code, args.limit)
     parts = []
     for b in blocks:
-        code = '\n'.join(b)
-        part = openai_comment(code, args.prompt, args.model, args.retry)
+        part = openai_comment(b, args.prompt, args.model, args.retry)
         parts.append(part)
     comment = '```\n' + '\n'.join(parts) + '\n```'
     print(f'==={fname}===\n{comment}')
