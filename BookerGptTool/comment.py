@@ -73,7 +73,8 @@ def openai_comment(code, prompt, model_name, retry=10):
 
 def chunk_code(lines, limit=20):
     if isinstance(lines, str):
-        lines = lines.split('\n')
+        # lines = lines.split('\n')
+        lines = re.split(r'^(?=\S)', lines, flags=re.M)
         
     lines = [l for l in lines if len(l) <= 200]
     blocks = []
