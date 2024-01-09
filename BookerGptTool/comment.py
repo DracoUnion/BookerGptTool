@@ -65,23 +65,37 @@ def read_zip(fname):
 注释：
 '''
 
+def get_ind_len(text):
+    return len(re.search(r'\A\x20*', text).group())
+
 def openai_comment(code, prompt, model_name, retry=10):
     ques = prompt.replace('{code}', code)
     ans = call_openai_retry(ques, model_name, retry)
     ans = re.sub(r'^```\w*$', '', ans, flags=re.M)
+    # 如果原始代码有缩进，但结果无缩进，则添加缩进
+    ind = get_ind_len(code)
+    if ind and not get_ind_len(ans):
+        ans = re.sub(r'^', '\x20' * ind, ans, flags=re.M)
     return ans
 
 def chunk_code(lines, limit=2000):
     if isinstance(lines, str):
-        lines = lines.split('\n')
-        # lines = re.split(r'^(?=\S)', lines, flags=re.M)
+        # lines = lines.split('\n')
+        lines = lines.replace('\t', 'x20' * 4)
+        lines = re.split(r'^(?=\S|\x20)', lines, flags=re.M)
         
-    lines = [l + '\n' for l in lines if len(l) <= limit]
+    lines = [l.replace('\t', 'x20' * 4) for l in lines]
+    lines = [l for l in lines if len(l) <= limit]
     blocks = ['']
     for l in lines:
-        if len(blocks[-1]) + len(l) > limit:
+        if get_ind_len(l) < get_ind_len(blocks[-1]):
+            # 如果当前块缩进更少，则不合并
+            blocks.append(l)
+        elif len(blocks[-1]) + len(l) > limit:
+            # 超出限制则不合并
             blocks.append(l)
         else:
+            # 否则合并
             blocks[-1] += l
     
     return blocks
