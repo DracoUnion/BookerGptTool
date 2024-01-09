@@ -19,6 +19,7 @@ DFT_COMM_PROMPT = '''
 注意事项：
 
 -   注释后的代码需要包含在代码块中，前后用三个反引号包围
+-   不要改变代码的任何缩进
 -   不要省略代码任何部分，每一行代码都需要注释
 -   不要总结代码的整个含义，也不要将注释写到代码块之外
 -   只输出代码块，不要输出其它东西
@@ -72,10 +73,10 @@ def openai_comment(code, prompt, model_name, retry=10):
 
 def chunk_code(lines, limit=4000):
     if isinstance(lines, str):
-        # lines = lines.split('\n')
-        lines = re.split(r'^(?=\S)', lines, flags=re.M)
+        lines = lines.split('\n')
+        # lines = re.split(r'^(?=\S)', lines, flags=re.M)
         
-    lines = [l for l in lines if len(l) <= limit]
+    lines = [l + '\n' for l in lines if len(l) <= limit]
     blocks = ['']
     for l in lines:
         if len(blocks) + len(l) > limit:
