@@ -79,7 +79,7 @@ def chunk_code(lines, limit=2000):
     lines = [l + '\n' for l in lines if len(l) <= limit]
     blocks = ['']
     for l in lines:
-        if len(blocks) + len(l) > limit:
+        if len(blocks[-1]) + len(l) > limit:
             blocks.append(l)
         else:
             blocks[-1] += l
