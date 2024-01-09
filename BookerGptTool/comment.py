@@ -71,7 +71,7 @@ def openai_comment(code, prompt, model_name, retry=10):
     ans = re.sub(r'^```\w*$', '', ans, flags=re.M)
     return ans
 
-def chunk_code(lines, limit=4000):
+def chunk_code(lines, limit=2000):
     if isinstance(lines, str):
         lines = lines.split('\n')
         # lines = re.split(r'^(?=\S)', lines, flags=re.M)
