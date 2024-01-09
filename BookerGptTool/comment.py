@@ -72,6 +72,7 @@ def openai_comment(code, prompt, model_name, retry=10):
     ques = prompt.replace('{code}', code)
     ans = call_openai_retry(ques, model_name, retry)
     ans = re.sub(r'^```\w*$', '', ans, flags=re.M)
+    ans = re.sub(r'\A\n+|\n+\Z', '', ans)
     # 如果原始代码有缩进，但结果无缩进，则添加缩进
     ind = get_ind_len(code)
     if ind and not get_ind_len(ans):
