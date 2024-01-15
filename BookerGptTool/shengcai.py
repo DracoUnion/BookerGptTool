@@ -33,11 +33,11 @@ def parse_shengcai(args):
     openai.api_key = args.key
     openai.proxy = args.proxy
     openai.host = args.host
-    print(args.fname))
+    print(args.fname)
     if not args.fname.endswith('.epub'):
         print('请提供 EPUB 文件')
         return
-    yaml_fname = args.fname[:5] + '.yaml'
+    yaml_fname = args.fname[:-5] + '.yaml'
     if path.isfile(yaml_fname):
         todo = yaml.safe_load(open(yaml_fname, encoding='utf8').read())
     else:
@@ -58,6 +58,8 @@ def parse_shengcai(args):
     for it in todo:
         if  it.get('result') or \
             not it.get('content'): 
+            continue
+        if len(it['content']) < args.min:
             continue
         ques = args.prompt.replace('{text}', it['content'][:args.limit])
         ans = call_openai_retry(ques, args.model, args.retry)
