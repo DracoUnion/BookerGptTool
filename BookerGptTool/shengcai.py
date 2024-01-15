@@ -33,6 +33,7 @@ def parse_shengcai(args):
     openai.api_key = args.key
     openai.proxy = args.proxy
     openai.host = args.host
+    print(args.fname))
     if not args.fname.endswith('.epub'):
         print('请提供 EPUB 文件')
         return
