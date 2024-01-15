@@ -50,7 +50,7 @@ def parse_shengcai(args):
                 'result': '',
             }
             for id_, name in opf['items'].items()
-        ]
+        ][1:]
         open(yaml_fname, 'w', encoding='utf8').write(
             yaml.safe_dump(todo, allow_unicode=True)
         )
