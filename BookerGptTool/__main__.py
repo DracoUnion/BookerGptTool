@@ -4,6 +4,7 @@ import os
 from . import __version__
 from .trans import *
 from .comment import *
+from .shengcai import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -44,7 +45,7 @@ def main():
     shengcai_parser.add_argument('-p', '--prompt', default=DFT_COMM_PROMPT, help='prompt for code comment')
     shengcai_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
     shengcai_parser.add_argument("-l", "--limit", type=int, default=500, help="max token limit")
-    shengcai_parser.set_defaults(func=comment_handle)
+    shengcai_parser.set_defaults(func=parse_shengcai)
 
     args = parser.parse_args()
     args.func(args)
