@@ -55,10 +55,10 @@ def parse_shengcai(args):
         )
 
     for it in todo:
-        if  it['result'] or \
+        if  it.get('result') or \
             not it.get('content'): 
             continue
-        ques = args.prompt.replace('{text}', it['content'])
+        ques = args.prompt.replace('{text}', it['content'][:args.limit])
         ans = call_openai_retry(ques, args.model, args.retry)
         it['result'] = ans
         open(yaml_fname, 'w', encoding='utf8').write(
