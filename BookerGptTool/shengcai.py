@@ -45,7 +45,7 @@ def parse_shengcai(args):
         todo = [
             {
                 'id': id_,
-                'content': get_content(fdict[name].decode('utf8')),
+                'content': get_content(fdict[name].decode('utf8', 'ignore')),
                 'result': '',
             }
             for id_, name in opf['items'].items()
