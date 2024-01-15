@@ -42,14 +42,14 @@ def parse_shengcai(args):
         todo = yaml.safe_load(open(yaml_fname, encoding='utf8').read())
     else:
         fdict = read_zip(args.fname)
-        opf, _ = read_opf_ncx(fdict)
+        _, ncx = read_opf_ncx(fdict)
         todo = [
             {
-                'id': id_,
-                'content': get_content(fdict[name].decode('utf8', 'ignore')),
+                'id': it['id'],
+                'content': get_content(fdict[it['src']].decode('utf8', 'ignore')),
                 'result': '',
             }
-            for id_, name in opf['items'].items()
+            for it in ncx['nav']
         ][1:]
         open(yaml_fname, 'w', encoding='utf8').write(
             yaml.safe_dump(todo, allow_unicode=True)
