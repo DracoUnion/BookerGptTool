@@ -39,6 +39,12 @@ def main():
     comm_parser.add_argument("-l", "--limit", type=int, default=2000, help="max token limit")
     comm_parser.set_defaults(func=comment_handle)
 
+    comm_parser = subparsers.add_parser("shengcai", help="parse shengcai fengxiangbiao")
+    comm_parser.add_argument('fname', help='epub file name')
+    comm_parser.add_argument('-p', '--prompt', default=DFT_COMM_PROMPT, help='prompt for code comment')
+    comm_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    comm_parser.set_defaults(func=comment_handle)
+
     args = parser.parse_args()
     args.func(args)
     
