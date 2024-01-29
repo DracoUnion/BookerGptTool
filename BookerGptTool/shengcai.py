@@ -39,7 +39,11 @@ DFT_SHENGCAI_PROMPT = '''
 
 def get_content(html):
     rt = pq(rm_xml_header(html))
-    return rt('body').text().strip().replace('\n', ' ')
+    el_title = rt('body h1').eq(0)
+    title = el_title.text().strip()
+    el_title.remove()
+    content = rt('body').text().strip().replace('\n', ' ')
+    return {'title': title, 'content': content}
 
 def parse_shengcai(args):
     openai.api_key = args.key
@@ -55,25 +59,29 @@ def parse_shengcai(args):
     else:
         fdict = read_zip(args.fname)
         _, ncx = read_opf_ncx(fdict)
-        todo = [
-            {
-                'id': it['id'],
-                'content': get_content(fdict[it['src']].decode('utf8', 'ignore')),
-                'result': '',
-            }
-            for it in ncx['nav']
-        ][1:]
+        todo = {
+            dict(
+                **get_content(fdict[it['src']].decode('utf8', 'ignore')),
+                id=it['id'],
+                result='',
+            )
+            for it in ncx['nav'][1:]
+        }
         open(yaml_fname, 'w', encoding='utf8').write(
             yaml.safe_dump(todo, allow_unicode=True)
         )
 
     for it in todo:
         if  it.get('result') or \
-            not it.get('content'): 
+            not it.get('content') or \
+            not it.get('title'): 
             continue
         if len(it['content']) < args.min:
             continue
-        ques = args.prompt.replace('{text}', it['content'][:args.limit])
+        ques = args.prompt.replace(
+            '{text}', 
+            (it['title'] + ' ' + it['content'])[:args.limit]
+        )
         ans = call_openai_retry(ques, args.model, args.retry)
         it['result'] = ans
         open(yaml_fname, 'w', encoding='utf8').write(
