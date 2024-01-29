@@ -88,3 +88,12 @@ def parse_shengcai(args):
             yaml.safe_dump(todo, allow_unicode=True)
         )
 
+    md = '\n\n'.join([
+        '## ' + it['title']  + '\n\n' + it['result']
+        for it in todo
+        if len(it['content']) >= args.min
+    ])
+
+    md = '# ' + args.fname[:-5] + 'GPT拆解\n\n' + md
+    md_fname = args.fname[:-5] + '.md'
+    open(md_fname)
