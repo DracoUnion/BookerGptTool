@@ -45,6 +45,7 @@ def main():
     shengcai_parser.add_argument('-p', '--prompt', default=DFT_SHENGCAI_PROMPT, help='prompt for code comment')
     shengcai_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
     shengcai_parser.add_argument("-l", "--limit", type=int, default=500, help="max token limit")
+    shengcai_parser.add_argument("-s", "--start", type=int, default=1, help="page to start")
     shengcai_parser.add_argument("--min", type=int, default=200, help="max token limit")
     shengcai_parser.set_defaults(func=parse_shengcai)
 

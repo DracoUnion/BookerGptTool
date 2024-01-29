@@ -65,7 +65,7 @@ def parse_shengcai(args):
                 id=it['id'],
                 result='',
             )
-            for it in ncx['nav'][1:]
+            for it in ncx['nav'][args.start:]
         ]
         open(yaml_fname, 'w', encoding='utf8').write(
             yaml.safe_dump(todo, allow_unicode=True)
