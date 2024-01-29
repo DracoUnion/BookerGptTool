@@ -94,6 +94,6 @@ def parse_shengcai(args):
         if len(it['content']) >= args.min
     ])
 
-    md = '# ' + args.fname[:-5].replace('懒人', '龙哥') + 'GPT拆解\n\n' + md
+    md = '# ' + args.fname[:-5].replace('懒人', '龙哥') + ' GPT拆解\n\n' + md
     md_fname = args.fname[:-5] + '.md'
     open(md_fname, 'w', encoding='utf8').write(md)
