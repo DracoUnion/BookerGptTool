@@ -96,4 +96,4 @@ def parse_shengcai(args):
 
     md = '# ' + args.fname[:-5] + 'GPT拆解\n\n' + md
     md_fname = args.fname[:-5] + '.md'
-    open(md_fname)
+    open(md_fname, 'w', encoding='utf8').write(md)
