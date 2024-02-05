@@ -49,12 +49,22 @@ def group_totrans(totrans, limit):
                 })
     return groups
 
+def is_mathml_block(text: str):
+    text = text.strip()
+    pref, suff = '<math ', '</math>'
+    return text.startswith(pref) and \
+           text.endswith(suff) and \
+           text[len(pref):].find(pref) == -1 and \
+           text[:-len(suff)].find(suff) == -1
+
 def preproc_totrans(totrans):
     for i, it in enumerate(totrans):
         if not it.get('id'):
             it['id'] = f'totrans-{i}'
         if it.get('en'):
             it['en'] = it['en'].replace('\n', '')
+            if is_mathml_block(it['en']):
+                it['zh'] = it['en']
         if it['type'] == 'TYPE_PRE':
             it['zh'] = it.get('en', '')
 
