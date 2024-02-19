@@ -11,7 +11,32 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from .util import *
 
-DFT_TRANS_PROMPT = '请把以下文本按行翻译成中文，不要输出原文：\n\n{en}'
+DFT_TRANS_PROMPT = '''
+假设你是一个高级文档工程师和翻译员，请参考下面的注意事项了解 Markdown 文档的格式，然后参考示例，将给定英文文本翻译成中文。
+
+## 注意事项
+
+-   粗体（**bold**）和斜体（*itatic*）需要翻译翻译内容并保留符号。
+-   内联代码（`code`）不需要翻译。
+-   链接（[link](https://example.org)）需要翻译其内容，但保留网址。
+-   原文可能有多行，不要漏掉任何一行，并且注意一定不要重复输出原文！！！
+-   译文的每一句一定要带上前缀（-   ），不然我没办法解析。
+
+## 示例
+
+原文：
+-   [Feynman's learning method](https://wiki.example.org/feynmans_learning_method) is inspired by **Richard Feynman**, the Nobel Prize winner in physics. 
+-   With Feynman's skills, you can understand the knowledge points in depth in just `20 min`, and it is memorable and *hard to forget*. 
+译文：
+-   [费曼学习法](https://wiki.example.org/feynmans_learning_method)的灵感源于诺贝尔物理奖获得者**理查德·费曼**。
+-   运用费曼技巧，你只需花上`20 min`就能深入理解知识点，而且记忆深刻，*难以遗忘*。
+
+## 以下是需要翻译的文本
+
+原文：
+{en}
+译文：
+'''
 
 def shuffle_group(g):
     count = len(g['ids'])
@@ -72,9 +97,12 @@ def tr_trans(g, args, totrans_id_map, write_callback=None):
     for i in range(args.retry):
         try:
             shuffle_group(g)    
-            en = '\n'.join(g['ens'])
+            en = '\n'.join('-   ' + en for en in g['ens'])
             ans = openai_trans(en, args.prompt, args.model, args.retry)
-            zhs = [zh for zh in ans.split('\n') if zh]
+            zhs = [
+                zh[4:] for zh in ans.split('\n') 
+                if zh.startswith('-   ')
+            ]
             assert len(g['ids']) == len(zhs)
             break
         except Exception as ex:
