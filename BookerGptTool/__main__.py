@@ -5,6 +5,7 @@ from . import __version__
 from .trans import *
 from .comment import *
 from .shengcai import *
+from .call import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -48,6 +49,10 @@ def main():
     shengcai_parser.add_argument("-s", "--start", type=int, default=2, help="page to start")
     shengcai_parser.add_argument("--min", type=int, default=200, help="max token limit")
     shengcai_parser.set_defaults(func=parse_shengcai)
+
+    call_parser = subparsers.add_parser("call", help="call chatgpt with custom question")
+    call_parser.add_argument("ques", help="question")
+    call_parser.set_defaults(func=call_handle)
 
     args = parser.parse_args()
     args.func(args)
