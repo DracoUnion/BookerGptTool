@@ -147,9 +147,7 @@ def write_callback(fname, totrans):
 
 def trans_yaml_handle(args):
     print(args)
-    openai.api_key = args.key
-    openai.proxy = args.proxy
-    openai.host = args.host
+    set_openai_props(args.key, args.proxy, args.host)
     fname = args.fname
     if path.isfile(fname):
         fnames = [fname]
@@ -170,8 +168,6 @@ def trans_yaml_handle(args):
     
 def trans_handle(args):
     print(args)
-    openai.api_key = args.key
-    openai.proxy = args.proxy
-    openai.host = args.host
+    set_openai_props(args.key, args.proxy, args.host)
     ans = openai_trans(args.en, args.prompt, args.model)
     

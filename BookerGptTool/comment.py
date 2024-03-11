@@ -148,9 +148,7 @@ def extname(name):
 
     
 def comment_handle(args):
-    openai.api_key = args.key
-    openai.proxy = args.proxy
-    openai.host = args.host
+    set_openai_props(args.key, args.proxy, args.host)
  
     if path.isdir(args.fname):
         process_dir(args)

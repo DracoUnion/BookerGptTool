@@ -38,3 +38,8 @@ def call_openai_retry(ques, model_name, retry=10):
         except Exception as ex:
             print(f'OpenAI retry {i+1}: {str(ex)}')
             if i == retry - 1: raise ex
+
+def set_openai_props(key=None, proxy=None, host=None):
+    openai.api_key = key
+    openai.proxy = proxy
+    openai.host = host

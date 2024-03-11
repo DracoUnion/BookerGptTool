@@ -46,9 +46,7 @@ def get_content(html):
     return {'title': title, 'content': content}
 
 def parse_shengcai(args):
-    openai.api_key = args.key
-    openai.proxy = args.proxy
-    openai.host = args.host
+    set_openai_props(args.key, args.proxy, args.host)
     print(args.fname)
     if not args.fname.endswith('.epub'):
         print('请提供 EPUB 文件')
