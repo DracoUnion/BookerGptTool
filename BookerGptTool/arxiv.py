@@ -48,7 +48,8 @@ def sum_arxiv(args):
     if not tex_fnames:
         print('找不到 TEX 文件')
         return
-    tex = tar.extractfile(tex_fnames[0]).read()[:args.limit]
+    tex = tar.extractfile(tex_fnames[0]) \
+             .read().decode('utf8')[:args.limit]
     ques = args.prompt.replace('{text}', tex)
     ans = call_openai_retry(ques, args.model, args.retry)
     open(f'{aid}.txt', 'w', encoding='utf8').write(ans)
