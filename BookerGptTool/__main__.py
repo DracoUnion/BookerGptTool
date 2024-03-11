@@ -6,6 +6,7 @@ from .trans import *
 from .comment import *
 from .shengcai import *
 from .call import *
+from .arxiv import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -53,6 +54,12 @@ def main():
     call_parser = subparsers.add_parser("call", help="call chatgpt with custom question")
     call_parser.add_argument("ques", help="question")
     call_parser.set_defaults(func=call_handle)
+
+    arxiv_parser = subparsers.add_parser("arxiv", help="summarize arxiv papers")
+    arxiv_parser.add_argument("arxiv", help="arxiv id")
+    arxiv_parser.add_argument("-l", "--limit", type=int, default=15000, help="limit")
+    arxiv_parser.add_argument("-p", "--prompt", default=DFT_ARXIV_PROMPT, help="prompt")
+    arxiv_parser.set_defaults(func=sum_arxiv)
 
     args = parser.parse_args()
     args.func(args)
