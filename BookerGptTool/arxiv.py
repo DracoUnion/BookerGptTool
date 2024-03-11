@@ -1,6 +1,6 @@
 from .util import *
 import requests
-import zipfile
+import tarfile
 from io import BytesIO
 
 dft_hdrs = {
@@ -40,15 +40,15 @@ def sum_arxiv(args):
     set_openai_props(args.key, args.proxy, args.host)
     url = f'https://arxiv.org/src/{aid}'
     data = requests.get(url, headers=dft_hdrs).content
-    zip = zipfile.ZipFile(BytesIO(data))
+    tar = tarfile.open(fileobj=BytesIO(data), mode='r:gz')
     tex_fnames = [
-        n for n in zip.namelist()
+        n for n in tar.getnames()
         if n.endswith('.tex')
     ]
     if not tex_fnames:
         print('找不到 TEX 文件')
         return
-    tex = zip.read(tex_fnames[0])[:args.limit]
+    tex = tar.extractfile(tex_fnames[0]).read()[:args.limit]
     ques = args.prompt.replace('{text}', tex)
     ans = call_openai_retry(ques, args.model, args.retry)
     open(f'{aid}.txt', 'w', encoding='utf8').write(ans)
