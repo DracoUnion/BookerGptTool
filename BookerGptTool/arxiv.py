@@ -3,6 +3,10 @@ import requests
 import zipfile
 from io import BytesIO
 
+dft_hdrs = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+}
+
 DFT_ARXIV_PROMPT = '''
 假设你是一个高级科研人员和人工智能专家，请按照给定大纲总结给定论文：
 
@@ -35,7 +39,7 @@ def sum_arxiv(args):
     aid = args.arxiv
     set_openai_props(args.key, args.proxy, args.host)
     url = f'https://arxiv.org/src/{aid}'
-    data = requests.get(url).content
+    data = requests.get(url, headers=dft_hdrs).content
     zip = zipfile.ZipFile(BytesIO(data))
     tex_fnames = [
         n for n in zip.namelist()
