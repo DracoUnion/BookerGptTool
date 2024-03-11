@@ -18,7 +18,7 @@ def call_openai_retry(ques, model_name, retry=10):
         try:
             print(f'ques: {json.dumps(ques, ensure_ascii=False)}')
             client = openai.OpenAI(
-                base_url=openai.host,
+                base_url=openai.base_url,
                 api_key=openai.api_key,
                 http_client=httpx.Client(
                     proxies=openai.proxy,
@@ -42,4 +42,4 @@ def call_openai_retry(ques, model_name, retry=10):
 def set_openai_props(key=None, proxy=None, host=None):
     openai.api_key = key
     openai.proxy = proxy
-    openai.host = host
+    openai.base_url = host
