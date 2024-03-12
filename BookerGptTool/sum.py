@@ -1,5 +1,7 @@
 from .util import *
 import re
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 
 DFT_SUM_PMT = '''
 假设你是一个高级编辑，遵循给定格式和注意事项，总结给定的段落。
@@ -47,6 +49,17 @@ def reform_paras(text, size=1500):
             paras[-1] += l
     return paras
 
+def tr_sum_text(it, args, write_func):
+    ques = args.prompt.replace('{text}', '-   ' + it['text'])
+    ans = call_openai_retry(ques, args.model, args.retry)
+    sums = re.findall(
+        r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$', 
+        ans, flags=re.M
+    )
+    it['summary'] = '\n'.join(sums)
+    write_func()
+
+
 def sum_text(args):
     set_openai_props(args.key, args.proxy, args.host)
     print(args)
@@ -65,18 +78,21 @@ def sum_text(args):
         open(yaml_fname, 'w', encoding='utf8') \
             .write(yaml.safe_dump(tosum, allow_unicode=True))
     
+    lock = Lock()
+    def write_func():
+        with lock:
+            open(yaml_fname, 'w', encoding='utf8') \
+                .write(yaml.safe_dump(tosum, allow_unicode=True))
+
+    pool = ThreadPoolExecutor(args.threads)
+    hdls = []
     for it in tosum:
         if not it.get('text') or it.get('summary'):
             continue
-        ques = args.prompt.replace('{text}', '-   ' + it['text'])
-        ans = call_openai_retry(ques, args.model, args.retry)
-        sums = re.findall(
-            r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$', 
-            ans, flags=re.M
-        )
-        it['summary'] = '\n'.join(sums)
-        open(yaml_fname, 'w', encoding='utf8') \
-            .write(yaml.safe_dump(tosum, allow_unicode=True))
+        h = pool.submit(tr_sum_text, it, args, write_func)
+        hdls.append(h)
+    for h in hdls: 
+        h.result()
     
     md_fname = args.fname[:-len(ext)-1] + '_sum.md'
     title ='【总结】' + path.basename(args.fname)
