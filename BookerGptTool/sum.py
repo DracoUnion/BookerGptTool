@@ -100,7 +100,7 @@ def sum_text(args):
         md_title, _ = get_md_title(cont)
         title = md_title or title
     cont = f'# {title}\n\n' + \
-           '\n\n'.join([
+           '\n'.join([
                it.get('summary', '') 
                for it in tosum
            ])
