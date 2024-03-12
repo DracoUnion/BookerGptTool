@@ -8,6 +8,7 @@ DFT_SUM_PMT = '''
 '''
 
 def sum_text(args):
+    set_openai_props(args.key, args.proxy, args.host)
     print(args)
     ext = extname(args.fname)
     if ext not in ['md', 'srt']:
