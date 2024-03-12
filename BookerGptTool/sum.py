@@ -105,7 +105,7 @@ def sum_text(args):
     if ext == 'md':
         cont = open(args.fname, encoding='utf8').read()
         md_title, _ = get_md_title(cont)
-        title = md_title or title
+        title = '【总结】' + md_title if md_title else title
     cont = f'# {title}\n\n' + \
            '\n'.join([
                it.get('summary', '') 
