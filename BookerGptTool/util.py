@@ -43,3 +43,15 @@ def set_openai_props(key=None, proxy=None, host=None):
     openai.api_key = key
     openai.proxy = proxy
     openai.base_url = host
+
+RE_TITLE = r'\A\s*^#+\x20+(.+?)$'
+
+def get_md_title(text):
+    m = re.search(RE_TITLE, text, flags=re.M)
+    if not m:
+        return None, (None, None)
+    return m.group(1).strip(), m.span(1)
+    
+def extname(fname):
+    m = re.search(r'\.(\w+)$', fname)
+    return m.group(1) if m else ''
