@@ -7,6 +7,7 @@ from .comment import *
 from .shengcai import *
 from .call import *
 from .arxiv import *
+from .sum import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -60,6 +61,12 @@ def main():
     arxiv_parser.add_argument("-l", "--limit", type=int, default=15000, help="limit")
     arxiv_parser.add_argument("-p", "--prompt", default=DFT_ARXIV_PROMPT, help="prompt")
     arxiv_parser.set_defaults(func=sum_arxiv)
+
+    sum_parser = subparsers.add_parser("sum", help="summarize md or srt")
+    sum_parser.add_argument("fname", help="fname")
+    sum_parser.add_argument("-l", "--limit", type=int, default=10000, help="limit")
+    sum_parser.add_argument("-p", "--prompt", default=DFT_SUM_PMT, help="prompt")
+    sum_parser.set_defaults(func=sum_text)
 
     args = parser.parse_args()
     args.func(args)
