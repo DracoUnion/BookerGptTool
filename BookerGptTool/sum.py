@@ -55,7 +55,7 @@ def sum_text(args):
        print('请提供 MD 或者 SRT 或者 TXT 文件')
        return
     cont = open(args.fname, encoding='utf8').read()
-    paras = reform_paras(cont, 500)
+    paras = reform_paras(cont, 1500)
     sums = ''
     for p in paras:
         # text = '\n'.join(['-   ' + p for p in paras])
