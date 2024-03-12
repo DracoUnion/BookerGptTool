@@ -37,7 +37,7 @@ def reform_paras(text, size=500):
     text = re.sub(r'```[\s\S]+?```', '', text)
     lines = [l.strip() for l in text.split('\n') if l.strip()]
     lines = sum([
-        re.split('(?<=。|，|：|！|？|；)') for l in lines
+        re.split('(?<=。|，|：|！|？|；)', l) for l in lines
     ], [])
     lines = [l for l in lines if l]
     paras = ['']
