@@ -103,6 +103,7 @@ def sum_text(args):
     
     title ='【总结】' + path.basename(args.fname)
     if ext == 'md':
+        cont = open(args.fname, encoding='utf8').read()
         md_title, _ = get_md_title(cont)
         title = md_title or title
     cont = f'# {title}\n\n' + \
