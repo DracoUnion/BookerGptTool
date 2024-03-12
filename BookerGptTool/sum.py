@@ -52,8 +52,8 @@ def sum_text(args):
     set_openai_props(args.key, args.proxy, args.host)
     print(args)
     ext = extname(args.fname)
-    if ext not in ['md', 'srt']:
-       print('请提供 MD 或者 SRT 文件')
+    if ext not in ['md', 'srt', 'txt']:
+       print('请提供 MD 或者 SRT 或者 TXT 文件')
        return
     cont = open(args.fname, encoding='utf8').read()
     paras = reform_paras(cont, 500)
