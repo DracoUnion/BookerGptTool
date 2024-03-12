@@ -56,19 +56,21 @@ def sum_text(args):
        return
     cont = open(args.fname, encoding='utf8').read()
     paras = reform_paras(cont, args.para_size)
-    sums = ''
+    res = ''
     for p in paras:
         # text = '\n'.join(['-   ' + p for p in paras])
         ques = args.prompt.replace('{text}', '-   ' + p)
         ans = call_openai_retry(ques, args.model, args.retry)
-        sum_ = re.findall(
+        sums = re.findall(
             r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$', 
             ans, flags=re.M
         )
-        sum_ = '\n'.join(sum_)
-        sums += sum_ + '\n'
-    ofname = re.sub(r'\.\w+$', '', args.fname) + '_sum.md'
+        sums = '\n'.join(sums)
+        res += sums + '\n'
+    ofname = args.fname[:-len(ext)-1] + '_sum.md'
+    title ='【总结】' + path.basename(args.fname)
     if ext == 'md':
-        title, _ = get_md_title(cont)
-        if title: sums = f'# {title}\n\n{sums}'
-    open(ofname, 'w', encoding='utf8').write(sums)
+        md_title, _ = get_md_title(cont)
+        title = md_title or title
+    res = f'# {title}\n\n{res}'
+    open(ofname, 'w', encoding='utf8').write(res)
