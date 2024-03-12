@@ -65,7 +65,7 @@ def sum_text(args):
             r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$', 
             ans, flags=re.M
         )
-        sum_ = '\n'.join(sums)
+        sum_ = '\n'.join(sum_)
         sums += sum_ + '\n'
     ofname = re.sub(r'\.\w+$', '', args.fname) + '_sum.md'
     if ext == 'md':
