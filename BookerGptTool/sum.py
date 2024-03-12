@@ -32,7 +32,7 @@ DFT_SUM_PMT = '''
 概要：
 '''
 
-def reform_paras(text, size=500):
+def reform_paras(text, size=1500):
     text = re.sub(r'```[\s\S]+?```', '', text)
     lines = [l.strip() for l in text.split('\n') if l.strip()]
     lines = sum([
@@ -55,7 +55,7 @@ def sum_text(args):
        print('请提供 MD 或者 SRT 或者 TXT 文件')
        return
     cont = open(args.fname, encoding='utf8').read()
-    paras = reform_paras(cont, 1500)
+    paras = reform_paras(cont, args.para_size)
     sums = ''
     for p in paras:
         # text = '\n'.join(['-   ' + p for p in paras])
