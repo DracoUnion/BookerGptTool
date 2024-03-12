@@ -54,23 +54,38 @@ def sum_text(args):
     if ext not in ['md', 'srt', 'txt']:
        print('请提供 MD 或者 SRT 或者 TXT 文件')
        return
-    cont = open(args.fname, encoding='utf8').read()
-    paras = reform_paras(cont, args.para_size)
-    res = ''
-    for p in paras:
-        # text = '\n'.join(['-   ' + p for p in paras])
-        ques = args.prompt.replace('{text}', '-   ' + p)
+    
+    yaml_fname = args.fname[:-len(ext)-1] + '.yaml'
+    if path.isfile(yaml_fname):
+        tosum = yaml.safe_load(open(yaml_fname, encoding='utf8').read())
+    else:
+        cont = open(args.fname, encoding='utf8').read()
+        paras = reform_paras(cont, args.para_size)
+        tosum = [{'text': p} for p in paras]
+        open(yaml_fname, 'w', encoding='utf8') \
+            .write(yaml.safe_dump(tosum, allow_unicode=True))
+    
+    for it in tosum:
+        if not it.get('text') or it.get('summary'):
+            continue
+        ques = args.prompt.replace('{text}', '-   ' + it['text'])
         ans = call_openai_retry(ques, args.model, args.retry)
         sums = re.findall(
             r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$', 
             ans, flags=re.M
         )
-        sums = '\n'.join(sums)
-        res += sums + '\n'
-    ofname = args.fname[:-len(ext)-1] + '_sum.md'
+        it['summary'] = '\n'.join(sums)
+        open(yaml_fname, 'w', encoding='utf8') \
+            .write(yaml.safe_dump(tosum, allow_unicode=True))
+    
+    md_fname = args.fname[:-len(ext)-1] + '_sum.md'
     title ='【总结】' + path.basename(args.fname)
     if ext == 'md':
         md_title, _ = get_md_title(cont)
         title = md_title or title
-    res = f'# {title}\n\n{res}'
-    open(ofname, 'w', encoding='utf8').write(res)
+    cont = f'# {title}\n\n' + \
+           '\n\n'.join([
+               it.get('summary', '') 
+               for it in tosum
+           ])
+    open(md_fname, 'w', encoding='utf8').write(cont)
