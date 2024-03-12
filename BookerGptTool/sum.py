@@ -56,14 +56,17 @@ def sum_text(args):
        return
     cont = open(args.fname, encoding='utf8').read()
     paras = reform_paras(cont, 500)
-    text = '\n'.join(['-   ' + p for p in paras])
-    ques = args.prompt.replace('{text}', text)
-    ans = call_openai_retry(ques, args.model, args.retry)
-    sums = re.findall(
-        r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$', 
-        ans, flags=re.M
-    )
-    sums = '\n'.join(sums)
+    sums = ''
+    for p in paras:
+        # text = '\n'.join(['-   ' + p for p in paras])
+        ques = args.prompt.replace('{text}', '-   ' + p)
+        ans = call_openai_retry(ques, args.model, args.retry)
+        sum_ = re.findall(
+            r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$', 
+            ans, flags=re.M
+        )
+        sum_ = '\n'.join(sums)
+        sums += sum_ + '\n'
     ofname = re.sub(r'\.\w+$', '', args.fname) + '_sum.md'
     if ext == 'md':
         title, _ = get_md_title(cont)
