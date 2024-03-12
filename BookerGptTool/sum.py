@@ -67,6 +67,13 @@ def sum_text(args):
     if ext not in ['md', 'srt', 'txt']:
        print('请提供 MD 或者 SRT 或者 TXT 文件')
        return
+    if ext.endswith('_sum.md'):
+        print('不能重复总结内容')
+        return
+    md_fname = args.fname[:-len(ext)-1] + '_sum.md'
+    if path.isfile(md_fname):
+        print('该文件已总结')
+        return
     
     yaml_fname = args.fname[:-len(ext)-1] + '.yaml'
     if path.isfile(yaml_fname):
@@ -94,7 +101,6 @@ def sum_text(args):
     for h in hdls: 
         h.result()
     
-    md_fname = args.fname[:-len(ext)-1] + '_sum.md'
     title ='【总结】' + path.basename(args.fname)
     if ext == 'md':
         md_title, _ = get_md_title(cont)
