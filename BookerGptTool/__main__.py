@@ -8,6 +8,7 @@ from .shengcai import *
 from .call import *
 from .arxiv import *
 from .sum import *
+from .infer import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -68,6 +69,14 @@ def main():
     sum_parser.add_argument("-s", "--para-size", type=int, default=1500, help="paragraph size")
     sum_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
     sum_parser.set_defaults(func=sum_text)
+
+    infer_parser = subparsers.add_parser("infer", help="free inference")
+    infer_parser.add_argument("fname", help="fname")
+    infer_parser.add_argument("-p", "--prompt", default="{question}", help="prompt")
+    infer_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    infer_parser.add_argument("--ques-col", default="question", help="question column name")
+    infer_parser.add_argument("--ans-col", default="answer", help="answer column name")
+    infer_parser.set_defaults(func=infer)
 
     args = parser.parse_args()
     args.func(args)
