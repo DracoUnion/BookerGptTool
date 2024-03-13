@@ -12,6 +12,8 @@ def tr_infer(dit, args, write_callback):
         traceback.print_exc()
 
 def infer(args):
+    set_openai_props(args.key, args.proxy, args.host)
+    print(args)
     ds = read_ds_file(args.fname)
 
     lock = Lock()
