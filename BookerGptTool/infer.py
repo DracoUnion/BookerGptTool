@@ -21,7 +21,7 @@ def infer(args):
         with lock:
             write_ds_file(args.fname, ds)
 
-    pool = ThreadPoolExecutor(args.thread)
+    pool = ThreadPoolExecutor(args.threads)
     hdls = []
     for dit in ds:
         if dit.get(args.ans_col):
