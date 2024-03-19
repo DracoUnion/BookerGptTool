@@ -150,6 +150,7 @@ def sum_arxiv(args):
         cate_ch_map[c] += ch + '\n'
     # 总结摘要
     res = f'# 【GPT总结】 {title}\n\n'
+    res += f'> 原文：<https://ar5iv.labs.arxiv.org/html/{args.arxiv}>\n\n'
     ques = ABS_PROMPT.replace('{text}', abs_)
     ans = call_openai_retry(ques, args.model, args.retry)
     res += f'## 概述\n\n{ans}\n\n'
