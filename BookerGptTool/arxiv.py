@@ -149,12 +149,13 @@ def sum_arxiv(args):
         if c not in cate_ch_map: continue
         cate_ch_map[c] += ch + '\n'
     # 总结摘要
-    res = f'#【GPT总结】 {title}\n\n'
+    res = f'# 【GPT总结】 {title}\n\n'
     ques = ABS_PROMPT.replace('{text}', abs_)
     ans = call_openai_retry(ques, args.model, args.retry)
     res += f'## 概述\n\n{ans}\n\n'
     # 总结各个段落
     for c, ch in cate_ch_map.items():
+        if not ch: continue
         pmt = cate_prompts[c][1]
         ques = pmt.replace('{text}', ch)
         ans = call_openai_retry(ques, args.model, args.retry)
