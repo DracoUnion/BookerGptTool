@@ -2,6 +2,7 @@ from .util import *
 import requests
 import tarfile
 from io import BytesIO
+from os import path
 
 dft_hdrs = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -116,18 +117,23 @@ def arxiv_id2text(aid):
     return tex
     
 def ext_chapters(tex):
+    title = re.findall(r'\\title\{(.+?)\}', tex)
+    if not title: raise ValueError('找不到标题')
     abs_ = re.findall(r'\\begin\{abstract\}([\s\S]+?)\\end\{abstract\}', tex)
     if not abs_: raise ValueError('找不到摘要')
     chs = re.findall(r'\\section([\s\S]+?)(?=\\section|\Z)', tex)
-    return abs_[0], chs
+    return title[0], abs_[0], chs
 
 def sum_arxiv(args):
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
+    ofname = f'{args.arxiv}_sum.txt'
+    if path.isfile(ofname):
+        raise FileExistsError(f'{args.arxiv} 已总结')
     # 从 Arxiv 下载 tex
     tex = arxiv_id2text(args.arxiv)
     # 提取摘要和段落
-    abs_, chs = ext_chapters(tex)
+    title, abs_, chs = ext_chapters(tex)
     # 调用 GPT 分类
     text = '\n'.join(['-   ' + ch.replace('\n', ' ')[:500] for ch in chs])
     ques = ARXIV_CLS_PROMPT.replace('{text}', text)
@@ -143,16 +149,16 @@ def sum_arxiv(args):
         if c not in cate_ch_map: continue
         cate_ch_map[c] += ch + '\n'
     # 总结摘要
-    res = ''
+    res = f'#【GPT总结】 {title}\n\n'
     ques = ABS_PROMPT.replace('{text}', abs_)
     ans = call_openai_retry(ques, args.model, args.retry)
-    res += f'# 概述\n\n{ans}\n\n'
+    res += f'## 概述\n\n{ans}\n\n'
     # 总结各个段落
     for c, ch in cate_ch_map.items():
         pmt = cate_prompts[c][1]
         ques = pmt.replace('{text}', ch)
         ans = call_openai_retry(ques, args.model, args.retry)
-        title = cate_prompts[c][0]
-        res += f'# {title}\n\n{ans}\n\n'
+        subtitle = cate_prompts[c][0]
+        res += f'## {subtitle}\n\n{ans}\n\n'
 
-    open(f'{args.arxiv}.txt', 'w', encoding='utf8').write(res)
+    open(ofname, 'w', encoding='utf8').write(res)
