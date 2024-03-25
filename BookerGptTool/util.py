@@ -14,7 +14,7 @@ from threading import Lock
 from typing import *
 
 
-def call_openai_retry(ques, model_name, retry=10):
+def call_chatgpt_retry(ques, model_name, retry=10):
     for i in range(retry):
         try:
             print(f'ques: {json.dumps(ques, ensure_ascii=False)}')

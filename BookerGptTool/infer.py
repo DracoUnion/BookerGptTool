@@ -5,7 +5,7 @@ def tr_infer(dit, args, write_callback):
     try:
         ques = combine_prompt_args(args.prompt, dit)
         dit[args.ques_col] = ques
-        ans = call_openai_retry(ques, args.model, args.retry)
+        ans = call_chatgpt_retry(ques, args.model, args.retry)
         dit[args.ans_col] = ans
         write_callback()
     except Exception:

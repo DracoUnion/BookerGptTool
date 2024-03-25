@@ -137,7 +137,7 @@ def sum_arxiv(args):
     # 调用 GPT 分类
     text = '\n'.join(['-   ' + ch.replace('\n', ' ')[:500] for ch in chs])
     ques = ARXIV_CLS_PROMPT.replace('{text}', text)
-    ans = call_openai_retry(ques, args.model, args.retry)
+    ans = call_chatgpt_retry(ques, args.model, args.retry)
     cates = re.findall(r'^\-   (.+?)$', ans, flags=re.M)
     assert len(chs) == len(cates)
     # 将相同分类的段落拼在一起
@@ -152,14 +152,14 @@ def sum_arxiv(args):
     res = f'# 【GPT总结】 {title}\n\n'
     res += f'> 原文：<https://ar5iv.labs.arxiv.org/html/{args.arxiv}>\n\n'
     ques = ABS_PROMPT.replace('{text}', abs_)
-    ans = call_openai_retry(ques, args.model, args.retry)
+    ans = call_chatgpt_retry(ques, args.model, args.retry)
     res += f'## 概述\n\n{ans}\n\n'
     # 总结各个段落
     for c, ch in cate_ch_map.items():
         if not ch: continue
         pmt = cate_prompts[c][1]
         ques = pmt.replace('{text}', ch)
-        ans = call_openai_retry(ques, args.model, args.retry)
+        ans = call_chatgpt_retry(ques, args.model, args.retry)
         subtitle = cate_prompts[c][0]
         res += f'## {subtitle}\n\n{ans}\n\n'
 
