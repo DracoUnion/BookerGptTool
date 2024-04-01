@@ -1,12 +1,16 @@
 from .util import *
 import requests
 import tarfile
+import numpy as np
 from io import BytesIO
 from os import path
+from sentence_transformers import SentenceTransformer
 
 dft_hdrs = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
 }
+
+CATES = ['背景', '相关工作', '方法', '实验', '总结']
 
 ARXIV_CLS_PROMPT = '''
 假设你是一个高级科研人员和人工智能专家，请将给定的论文段落分为【背景】、【相关工作】、【方法】、【实验】、【总结】之一。注意段落可能有多个，每个都需要分类，不要漏掉其中任何一个！
@@ -121,8 +125,33 @@ def ext_chapters(tex):
     if not title: raise ValueError('找不到标题')
     abs_ = re.findall(r'\\begin\{abstract\}([\s\S]+?)\\end\{abstract\}', tex)
     if not abs_: raise ValueError('找不到摘要')
-    chs = re.findall(r'\\section([\s\S]+?)(?=\\section|\Z)', tex)
+    chs = re.findall(r'\\section\{(.+?)\}([\s\S]+?)(?=\\section|\Z)', tex)
+    # chs = {title:cont for title, cont in chs}
     return title[0], abs_[0], chs
+
+def clsf_chs(chs, model_path):
+    m3e = SentenceTransformer(model_path)
+    title_embs = m3e.encode([title for title, _ in chs])
+    cate_embs = m3e.encode(CATES)
+    title_embs = norm_l2(title_embs)
+    cate_embs = norm_l2(cate_embs)
+    sim_mat = title_embs @ cate_embs.T
+    sim_idcs = np.argsort(sim_mat, -1)[:, :3]
+    sim_scs = np.sort(sim_mat, -1)[:, :3]
+
+    cate_ch_map = { 
+        c:'' for c in CATES
+    }
+    for title_idx, (title, cont) in enumerate(chs):
+        for cate_idx, sc in zip(sim_idcs[title_idx], sim_scs[title_idx]):
+            if sc < 0.8: continue
+            cate = CATES[cate_idx]
+            cate_ch_map[cate] += '{' + title + '}' + cont
+    return  cate_ch_map
+
+
+    
+    
 
 def sum_arxiv(args):
     print(args)
@@ -134,20 +163,8 @@ def sum_arxiv(args):
     tex = arxiv_id2text(args.arxiv)
     # 提取摘要和段落
     title, abs_, chs = ext_chapters(tex)
-    # 调用 GPT 分类
-    text = '\n'.join(['-   ' + ch.replace('\n', ' ')[:500] for ch in chs])
-    ques = ARXIV_CLS_PROMPT.replace('{text}', text)
-    ans = call_chatgpt_retry(ques, args.model, args.retry)
-    cates = re.findall(r'^\-   (.+?)$', ans, flags=re.M)
-    assert len(chs) == len(cates)
-    # 将相同分类的段落拼在一起
-    cate_ch_map = {
-        c:''
-        for c in ['背景', '相关工作', '方法', '实验', '总结']
-    }
-    for c, ch in zip(cates, chs):
-        if c not in cate_ch_map: continue
-        cate_ch_map[c] += ch + '\n'
+    # 调用嵌入向量分类
+    cate_ch_map = clsf_chs(chs, args.emb)
     # 总结摘要
     res = f'# 【GPT总结】 {title}\n\n'
     res += f'> 原文：<https://ar5iv.labs.arxiv.org/html/{args.arxiv}>\n\n'
