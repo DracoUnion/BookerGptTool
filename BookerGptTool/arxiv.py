@@ -130,6 +130,7 @@ def ext_chapters(tex):
     return title[0], abs_[0], chs
 
 def clsf_chs(chs, model_path):
+    print(chs)
     m3e = SentenceTransformer(model_path)
     title_embs = m3e.encode([title for title, _ in chs])
     cate_embs = m3e.encode(CATES)
