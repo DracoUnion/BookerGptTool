@@ -130,22 +130,21 @@ def ext_chapters(tex):
     return title[0], abs_[0], chs
 
 def clsf_chs(chs, model_path):
-    print(chs)
     m3e = SentenceTransformer(model_path)
     title_embs = m3e.encode([title for title, _ in chs])
     cate_embs = m3e.encode(CATES)
     title_embs = norm_l2(title_embs)
     cate_embs = norm_l2(cate_embs)
     sim_mat = title_embs @ cate_embs.T
-    sim_idcs = np.argsort(sim_mat, -1)[:, :3]
-    sim_scs = np.sort(sim_mat, -1)[:, :3]
+    sim_idcs = np.argsort(sim_mat, -1)[:, ::-1][:, :3]
+    sim_scs = np.sort(sim_mat, -1)[:, ::-1][:, :3]
 
     cate_ch_map = { 
         c:'' for c in CATES
     }
     for title_idx, (title, cont) in enumerate(chs):
         for cate_idx, sc in zip(sim_idcs[title_idx], sim_scs[title_idx]):
-            if sc < 0.8: continue
+            # if sc < 0.8: continue
             cate = CATES[cate_idx]
             cate_ch_map[cate] += '{' + title + '}' + cont
     return  cate_ch_map
