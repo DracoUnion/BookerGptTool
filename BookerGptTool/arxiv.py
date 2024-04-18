@@ -148,6 +148,7 @@ def clsf_chs(chs, model_path):
         for cate_idx, sc in zip(sim_idcs[title_idx], sim_scs[title_idx]):
             # if sc < 0.8: continue
             cate = CATES[cate_idx]
+            print(f'title: {title}, cate: {cate}, sim: {sc}')
             cate_ch_map[cate] += '{' + title + '}' + cont
     return  cate_ch_map
 
