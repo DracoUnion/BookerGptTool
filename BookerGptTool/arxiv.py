@@ -116,8 +116,10 @@ def arxiv_id2text(aid):
     ]
     if not tex_fnames:
         raise FileNotFoundError('找不到 TEX 文件')
-    tex = tar.extractfile(tex_fnames[0]) \
-             .read().decode('utf8')
+    tex = '\n'.join([
+        tar.extractfile(f).read().decode('utf8')
+        for f in tex_fnames
+    ])
     return tex
     
 def ext_chapters(tex):
