@@ -185,4 +185,5 @@ def sum_text(args):
                 it.get('summary', '') 
                 for it in tosum
             ])
+        md_fname = args.fname[:-len(ext)-1] + '_sum.md'
         open(md_fname, 'w', encoding='utf8').write(cont)
