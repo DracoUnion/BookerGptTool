@@ -167,7 +167,7 @@ def sum_text(args):
     for i, it in enumerate(tosum):
         if not it.get('text') or it.get('answers'):
             continue
-        st, ed = max(0, i - args.ctx), min(len(tosum - 1), i + args.ctx)
+        st, ed = max(0, i - args.ctx), min(len(tosum) - 1, i + args.ctx)
         ctx = ''.join([it['text'] for it in tosum[st:ed + 1]])
         h = pool.submit(tr_sum_text, it, ctx, args, write_func)
         hdls.append(h)
