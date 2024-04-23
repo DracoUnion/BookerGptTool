@@ -35,6 +35,66 @@ DFT_SUM_PMT = '''
 概要：
 '''
 
+DFT_QUES_PMT = """
+假设你是一个高级编辑，遵循给定格式和注意事项，根据给定概要提出五个问题。
+
+## 注意事项
+
+1.  保证概要中的每一条都在问题中涉及到。
+2.  不要省略问题前的格式（-   ），否则我无法解析。
+
+## 格式
+
+概要：
+-   {概要1}
+    1.  {子概要1}
+    2.  {子概要2}
+    3.  ...
+问题：
+-   {问题1}
+-   {问题2}
+-   {问题3}
+-   {问题4}
+-   {问题5}
+
+## 要处理的概要
+
+概要：
+{sum}
+问题：
+"""
+
+DFT_ANS_PMT = """
+假设你是一个高级编辑，遵循给定格式和注意事项，根据给定片段回答给定问题。
+
+
+## 注意事项
+
+1.  保证不要漏掉每个问题。
+2.  不要省略回答前的格式（-   ），否则我无法解析。
+
+## 格式
+
+片段：
+{片段}
+问题：
+-   {问题1}
+-   {问题2}
+-   ...
+回答：
+-   {回答1}
+-   {回答2}
+-   ...
+
+## 要处理的片段
+
+片段：
+{text}
+问题：
+{ques}
+回答：
+"""
+
 def reform_paras(text, size=1500):
     text = re.sub(r'```[\s\S]+?```', '', text)
     lines = [l.strip() for l in text.split('\n') if l.strip()]
@@ -50,17 +110,32 @@ def reform_paras(text, size=1500):
             paras[-1] += l
     return paras
 
-def tr_sum_text(it, args, write_func):
+def re_sum_text_safe(*args, **kw):
     try:
+        tr_sum_text(*args, **kw)
+    except:
+        traceback.print_exc()
+
+def tr_sum_text(it, args, write_func):
+    if 'summary' not in it:
         ques = DFT_SUM_PMT.replace('{text}', '-   ' + it['text'])
         ans = call_chatgpt_retry(ques, args.model, args.retry)
         RE_LIST = r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$'
         sums = re.findall(RE_LIST, ans, flags=re.M)
         it['summary'] = '\n'.join(sums)
-        write_func()
-    except Exception:
-        traceback.print_exc()
-
+    if 'questions' not in it:
+        ques = DFT_QUES_PMT.replace('{sum}', it['summary'])
+        ans = call_chatgpt_retry(ques, args.model, args.retry)
+        RE_LIST = r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$'
+        sum_queses = re.findall(RE_LIST, ans, flags=re.M)
+        it['questions'] = '\n'.join(sum_queses)
+    if 'answers' not in it:
+        ques = DFT_ANS_PMT.replace('{text}', it['text']).replace('{ques}', it['questions'])
+        ans = call_chatgpt_retry(ques, args.model, args.retry)
+        RE_LIST = r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$'
+        sum_anses = re.findall(RE_LIST, ans, flags=re.M)
+        it['answers'] = '\n'.join(sum_anses)
+    write_func()
 
 def sum_text(args):
     set_openai_props(args.key, args.proxy, args.host)
@@ -96,21 +171,22 @@ def sum_text(args):
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
     for it in tosum:
-        if not it.get('text') or it.get('summary'):
+        if not it.get('text') or it.get('answers'):
             continue
         h = pool.submit(tr_sum_text, it, args, write_func)
         hdls.append(h)
     for h in hdls: 
         h.result()
     
-    title ='【总结】' + path.basename(args.fname)
-    if ext == 'md':
-        cont = open(args.fname, encoding='utf8').read()
-        md_title, _ = get_md_title(cont)
-        title = '【总结】' + md_title if md_title else title
-    cont = f'# {title}\n\n' + \
-           '\n'.join([
-               it.get('summary', '') 
-               for it in tosum
-           ])
-    open(md_fname, 'w', encoding='utf8').write(cont)
+    if args.md:
+        title ='【总结】' + path.basename(args.fname)
+        if ext == 'md':
+            cont = open(args.fname, encoding='utf8').read()
+            md_title, _ = get_md_title(cont)
+            title = '【总结】' + md_title if md_title else title
+        cont = f'# {title}\n\n' + \
+            '\n'.join([
+                it.get('summary', '') 
+                for it in tosum
+            ])
+        open(md_fname, 'w', encoding='utf8').write(cont)
