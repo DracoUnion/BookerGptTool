@@ -52,12 +52,10 @@ def reform_paras(text, size=1500):
 
 def tr_sum_text(it, args, write_func):
     try:
-        ques = args.prompt.replace('{text}', '-   ' + it['text'])
+        ques = DFT_SUM_PMT.replace('{text}', '-   ' + it['text'])
         ans = call_chatgpt_retry(ques, args.model, args.retry)
-        sums = re.findall(
-            r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$', 
-            ans, flags=re.M
-        )
+        RE_LIST = r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$'
+        sums = re.findall(RE_LIST, ans, flags=re.M)
         it['summary'] = '\n'.join(sums)
         write_func()
     except Exception:
