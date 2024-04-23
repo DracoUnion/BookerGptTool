@@ -141,7 +141,7 @@ def sum_text(args):
     set_openai_props(args.key, args.proxy, args.host)
     print(args)
     ext = extname(args.fname)
-    if ext not in ['md', 'srt', 'txt']:
+    if ext not in ['md', 'srt', 'txt', 'yaml']:
        print('请提供 MD 或者 SRT 或者 TXT 文件')
        return
     if args.fname.endswith('_sum.md'):
