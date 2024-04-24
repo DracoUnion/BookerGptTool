@@ -95,11 +95,11 @@ DFT_ANS_PMT = """
 回答：
 """
 
-def reform_paras(text, size=1500):
+def reform_paras_mdcn(text, size=1500):
     text = re.sub(r'```[\s\S]+?```', '', text)
     lines = [l.strip() for l in text.split('\n') if l.strip()]
     lines = sum([
-        re.split('(?<=。|，|：|！|？|；)', l) for l in lines
+        re.split(r'(?<=[。，：！？；])', l) for l in lines
     ], [])
     lines = [l for l in lines if l]
     paras = ['']
@@ -110,7 +110,7 @@ def reform_paras(text, size=1500):
             paras[-1] += l
     return paras
 
-def re_sum_text_safe(*args, **kw):
+def tr_sum_text_safe(*args, **kw):
     try:
         tr_sum_text(*args, **kw)
     except:
@@ -151,7 +151,7 @@ def sum_text(args):
         tosum = yaml.safe_load(open(yaml_fname, encoding='utf8').read())
     else:
         cont = open(args.fname, encoding='utf8').read()
-        paras = reform_paras(cont, args.para_size)
+        paras = reform_paras_mdcn(cont, args.para_size)
         tosum = [{'text': p} for p in paras]
         open(yaml_fname, 'w', encoding='utf8') \
             .write(yaml.safe_dump(tosum, allow_unicode=True))
