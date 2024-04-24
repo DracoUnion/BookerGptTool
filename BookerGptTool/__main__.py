@@ -61,6 +61,7 @@ def main():
     arxiv_parser = subparsers.add_parser("arxiv", help="summarize arxiv papers")
     arxiv_parser.add_argument("arxiv", help="arxiv id")
     arxiv_parser.add_argument("-l", "--limit", type=int, default=3000, help="limit")
+    arxiv_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
     arxiv_parser.set_defaults(func=sum_arxiv)
 
     sum_parser = subparsers.add_parser("sum", help="summarize md or srt")
