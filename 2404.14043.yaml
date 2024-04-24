@@ -1,0 +1,1516 @@
+abs: '
+
+  % Retrieval-Augmented Generation (RAG) demonstrates great value in alleviating challenges
+  faced by Large Language Models (LLMs) including incorrect or outdated knowledge,
+  hallucination, etc. However, there are still several difficulties for RAG in understanding
+  complex and multi-hop query and retrieving relevant and noise-free documents. To
+  alleviate these challenges, we first experimentally verified the ability of LLMs
+  to extract information as well as to know the missing information. Based on the
+  above discovery, we propose a Missing Information Guided Retrieve-Extraction-Solving
+  paradigm (MIGRES), where we leverage the identification of missing information to
+  craft a targeted query that steers the ensuing knowledge retrieval. Besides, we
+  design a sentence-level re-ranking filtering approach to filter the irrelevant content
+  out from document, along with the information extraction capability of LLMs to extract
+  useful information from cleaned-up documents, which in turn to bolster the overall
+  efficacy of RAG. Extensive experiments conducted on multiple public datasets reveal
+  the superiority of the proposed MIGRES method, and analytical experiments demonstrate
+  the effectiveness of our proposed modules.
+
+  Retrieval-Augmented Generation (RAG) demonstrates great value in alleviating outdated
+  knowledge or hallucination by supplying LLMs with updated and relevant knowledge.
+  However, there are still several difficulties for RAG in understanding complex multi-hop
+  query and retrieving relevant documents, which require LLMs to perform reasoning
+  and retrieve step by step. Inspired by human''s reasoning process in which they
+  gradually search for the required information, it is natural to ask whether the
+  LLMs could notice the missing information in each reasoning step. In this work,
+  we first experimentally verified the ability of LLMs to extract information as well
+  as to know the missing. Based on the above discovery, we propose a Missing Information
+  Guided Retrieve-Extraction-Solving paradigm (MIGRES), where we leverage the identification
+  of missing information to generate a targeted query that steers the subsequent knowledge
+  retrieval. Besides, we design a sentence-level re-ranking filtering approach to
+  filter the irrelevant content out from document, along with the information extraction
+  capability of LLMs to extract useful information from cleaned-up documents, which
+  in turn to bolster the overall efficacy of RAG. Extensive experiments conducted
+  on multiple public datasets reveal the superiority of the proposed MIGRES method,
+  and analytical experiments demonstrate the effectiveness of our proposed modules.
+  Code and data are released in \href{https://github.com/AdelWang/MIGRES}{https://github.com/AdelWang/MIGRES}.
+
+  '
+paras:
+- summary: "-   Introduction:\n    1.  Large Language Models (LLMs) have shown impressive\
+    \ capabilities in NLP tasks but may fail to answer questions beyond their training\
+    \ data.\n    2.  Retrieval-Augmented Generation (RAG) augments LLMs with retrieval\
+    \ components to improve accuracy and reduce hallucination generation.\n    3.\
+    \  RAG faces challenges in accurate knowledge retrieval and complex user queries.\n\
+    -   Challenges in Retrieval-Augmented Generation:\n    1.  Query-related challenges\
+    \ include complex queries lacking key information for knowledge retrieval.\n \
+    \   2.  Multi-step retrieval processes and Chain-of-Thought (CoT) methods aim\
+    \ to address complex queries but may lead to hallucination generation.\n    3.\
+    \  Document-related challenges involve retrieving relevant knowledge while filtering\
+    \ out irrelevant noise content.\n-   Solutions for Retrieval-Augmented Generation:\n\
+    \    1.  Multi-step retrieval processes and CoT reasoning aim to tackle complex\
+    \ queries but require task-specific demonstrations for In-Context Learning.\n\
+    \    2.  The retrieve-then-rerank paradigm is used to filter out irrelevant noise\
+    \ content in retrieved documents.\n    3.  Creating summaries or snippets pertinent\
+    \ to the input query can streamline the process of refining retrieved content\
+    \ for better knowledge integration."
+  text: "Introduction:  % Large Language Models (LLMs) have recently shown impressive\
+    \ capabilities across a wide range of Natural Language Processing (NLP) tasks\
+    \ \\cite{ouyang2022training, touvron2023llama}. Nevertheless, LLMs only possess\
+    \ the knowledge present in their training data and may not remember these completely.\
+    \ As a result, given the questions that beyond the knowledge scope, LLMs may fail\
+    \ to answer or prone to generate hallucinations \\cite{bang2023multitask, huang2023survey}.\
+    \  % % \u4E3A\u4E86\u63D0\u5347\u5927\u6A21\u578B\u56DE\u590D\u7684\u51C6\u786E\
+    \u7387\uFF0C\u964D\u4F4E\u5E7B\u89C9\u751F\u6210\uFF0Caugmenting LMs with retrieval\
+    \ components that look up relevant knowledge from external data sources is a promising\
+    \ direction, which is known as Retrieval-Augmented Generation (RAG). RAG \u901A\
+    \u5E38\u4F7F\u7528retrieve-then-generate setup\uFF0C\u5373\u6839\u636E\u7528\u6237\
+    \u8F93\u5165\u7684query\u4ECE\u5916\u90E8\u8BED\u6599\u4E2D\u68C0\u7D22\u77E5\u8BC6\
+    \uFF0Cand generate responses conditioning on the retrieved documents. Despite\
+    \ its effectiveness, RAG still has several challenges: 1) \u68C0\u7D22\u77E5\u8BC6\
+    \u7684\u51C6\u786E\u7387\uFF0C\u4ECE\u5927\u91CF\u7684\u5916\u90E8\u77E5\u8BC6\
+    \u4E2D\u51C6\u786E\u68C0\u7D22\u4E0E\u8F93\u5165\u95EE\u9898\u76F8\u5173\u7684\
+    \u6587\u6863\u672C\u8EAB\u5C31\u6BD4\u8F83\u56F0\u96BE\uFF0C\u5E76\u4E14\u6709\
+    \u9650\u7684\u4E0A\u4E0B\u6587\u7A97\u53E3\u4EE5\u53CA\u5927\u6A21\u578B\u5BF9\
+    \u6587\u672C\u7684\u7406\u89E3\u80FD\u529B\u5F80\u5F80\u968F\u7740\u8F93\u5165\
+    \u6587\u672C\u957F\u5EA6\u7684\u589E\u52A0\u800C\u6709\u6240\u964D\u4F4E\uFF0C\
+    \u4F7F\u5F97\u4E00\u6B21\u6027\u63A5\u5165\u5927\u91CF\u7684\u68C0\u7D22\u77E5\
+    \u8BC6\u662Fnon trival\u7684\uFF0C\u8FD9\u5BFC\u81F4\u77E5\u8BC6\u7684\u8986\u76D6\
+    \u7387\u8FD1\u4E00\u6B65\u964D\u4F4E\u3002\u4E14\u76F8\u5173\u6587\u6863\u4E2D\
+    \u4ECD\u8FD8\u6709\u566A\u97F3\uFF0C\u5C3D\u7BA1top-ranked retrieved document\u542B\
+    \u6709\u5BF9\u89E3\u51B3\u7528\u6237\u8F93\u5165query\u6709\u5E2E\u52A9\u7684\u4FE1\
+    \u606F\uFF0C\u4F46\u5F80\u5F80\u4E5F\u53C2\u6742\u4E86\u8BB8\u591A\u65E0\u5173\
+    \u7684\u566A\u58F0\uFF0C\u5C06\u8FD9\u4E9B\u566A\u58F0\u4E00\u5E76\u4F5C\u4E3A\
+    \u589E\u5F3A\u8F93\u5165\u4F1A\u5BFC\u81F4\u8BA1\u7B97\u8D44\u6E90\u7684\u6D6A\
+    \u8D39\uFF0C\u4E14\u4F1A\u5BF9LLM\u7684\u751F\u6210\u5185\u5BB9\u4EA7\u751F\u5E72\
+    \u6270\uFF1B2\uFF09\u7528\u6237\u8F93\u5165\u7684query\u5F80\u5F80\u662F\u590D\
+    \u6742\u591A\u6837\u7684\uFF0C\u9700\u8981\u7684\u4FE1\u606F\u5E76\u4E0D\u4F1A\
+    \u663E\u5F0F\u5730\u51FA\u73B0\u5728query\u5F53\u4E2D\uFF0C\u4EC5\u6839\u636E\u6709\
+    \u9650\u7684\u95EE\u9898\u548C\u5DF2\u77E5\u4FE1\u606F\u53BB\u68C0\u7D22\u76F8\
+    \u5173\u77E5\u8BC6\u662F\u4E0D\u8DB3\u591F\u7684\u3002\u4E14\u5BF9\u4E8E\u5C0F\
+    \u578B\u7684\u68C0\u7D22\u5668\u800C\u8A00\uFF0C\u590D\u6742\u95EE\u9898\u4E5F\
+    \u4F1A\u964D\u4F4E\u68C0\u7D22\u7684\u51C6\u786E\u6027\u3002  % To improve the\
+    \ accuracy of responses and reduce hallucination generation, augmenting LLMs with\
+    \ retrieval components that look up relevant knowledge from external data sources\
+    \ is a promising direction \\cite{Khandelwal2020Generalization, izacard2022atlas},\
+    \ which is known as Retrieval-Augmented Generation (RAG). RAG usually adopts a\
+    \ retrieve-then-generate setup, i.e., it retrieves knowledge document from an\
+    \ external corpus based on the user input query, and generates responses conditioning\
+    \ on the retrieved documents.  % Despite the effectiveness, RAG still faces several\
+    \ challenges and we classify them into doc-related and query-related. For query\
+    \ side, the user input query might be complex and multi-hop (e.g., \\emph{What\
+    \ is the place of birth of the director of film Oh Billy, Behave?}), where the\
+    \ required information (\\emph{the name of the director of film Oh Billy, Behave})\
+    \ may not be explicitly stated in the query. The query lack key information may\
+    \ not be sufficient to retrieve relevant knowledge document \\cite{shao-etal-2023-enhancing}.\
+    \   % To improve the accuracy of responses and reduce hallucination generation,\
+    \ augmenting LLMs with retrieval components that look up relevant knowledge from\
+    \ external data sources is a promising direction \\cite{Khandelwal2020Generalization,\
+    \ izacard2022atlas}, which is known as Retrieval-Augmented Generation (RAG). RAG\
+    \ usually adopts a retrieve-then-generate setup, i.e., it retrieves knowledge\
+    \ document from an external corpus based on the user input query, and generates\
+    \ responses conditioning on the retrieved documents. To address this issues, earlier\
+    \ methods have suggested multi-step retrieval processes, where the output from\
+    \ one retrieval step is combined with the query for the next retrieval phase.\
+    \ While this has led to some gains in retrieval precision, the computational costs\
+    \ for retrieving are significantly high. In light of the remarkable inferential\
+    \ abilities exhibited by LLMs in recent years, researchers have introduced the\
+    \ concept of Chain-of-Thought (CoT), which aims to tackle complex multi-hop issues\
+    \ by either breaking them down into couples of simpler single-hop retrieval tasks\
+    \ or by generating explanations or multi-step thoughts concerning the query, which\
+    \ in turn aids the retrieval process. However, these methods are susceptible to\
+    \ hallucination generation, and they often require the integration of task-specific\
+    \ demonstrations for In-Context Learning to improve the quality of CoT reasoning\
+    \ or question decomposition.  % For document side, retrieving documents that are\
+    \ relevant to the input query from the extensive pool of knowledge is inherently\
+    \ challenging \\cite{gao2024retrievalaugmented, sun2024verifiable}. Besides, while\
+    \ the retrieved document may contain useful knowledge for addressing the input\
+    \ query, there often exist irrelevant noise content throughout the document. This\
+    \ noise not only wastes computational resources but also interferes with the generated\
+    \ content of the LLM when used as augmentation inputs \\cite{xu2024recomp}. The\
+    \ retrieve-then-rerank paradigm is a widely adopted method to improve the quality\
+    \ of retrieved content, in which the retrieved knowledge is again re-ranked to\
+    \ filter the hard negative contexts. To streamline the process of refining retrieved\
+    \ content and shortening the context for better knowledge integration, researchers\
+    \ suggest creating summaries or snippets pertinent \\cite{xu2024recomp, gao-etal-2023-enabling}\
+    \ to the input query to serve as knowledge augmentation.  % To alleviate the query\
+    \ side challenges, we first examine if LLMs could identify what information is\
+    \ missing in the query. Surprisingly, we discover that, even in zero-shot scenarios, "
+- summary: "-   LLMs can identify missing information well and prompt LLMs using missing\
+    \ information to formulate single-hop queries, improving multi-hop performance.\n\
+    \    1.  LLMs excel at extracting useful information from cleaned-up documents.\n\
+    \    2.  A sentence-level re-ranking filtering approach is introduced to filter\
+    \ out irrelevant content from documents.\n    3.  The Missing Information Guided\
+    \ Retrieve-Extraction-Solving paradigm (MIGRES) leverages missing information\
+    \ to enhance knowledge retrieval and extraction in RAG.\n-   LLMs possess impressive\
+    \ capabilities but may fail to answer beyond their knowledge scope, leading to\
+    \ hallucinations.\n    1.  Retrieval-Augmented Generation (RAG) improves response\
+    \ accuracy by retrieving query-related documents.\n    2.  RAG faces challenges\
+    \ in complex multi-hop queries and retrieving relevant documents.\n    3.  Chain-of-Thought\
+    \ (CoT) in RAG breaks down multi-hop tasks into single-hop tasks to improve reasoning\
+    \ quality."
+  text: 'LLMs can identify missing information well based solely on the initial input
+    query and the provided knowledge. Inspired by this, we further prompt LLMs using
+    the missing information to formulate a straightforward single-hop query. This
+    new single-hop query can guide the subsequent knowledge retrieval process, thus
+    improving the performance when dealing with complex multi-hop challenges. As for
+    the document side challenges, we perform a similar attempt and our experiments
+    indicate that LLMs are adept at extracting useful information from given cleaned-up
+    documents. Therefore, in order to filter the irrelevant content out from document,
+    we attempt to further break down the complete document into sentences and introduce
+    a sentence-level re-ranking filtering approach. This method calculates a similarity
+    score for each sentence within the retrieved documents relative to the query,
+    which allows for the re-ranking and subsequent filtering of the content. More
+    details of above experiments are discussed in Section 2.  % In summary, we experimentally
+    verified the ability of LLMs to extract information as well as to know the missing
+    information. Based on the above discovery, we propose a Missing Information Guided
+    Retrieve-Extraction-Solving paradigm (MIGRES), where we leverage the identification
+    of missing information to craft a targeted query that steers the ensuing knowledge
+    retrieval, and utilize the information extraction capability to refine the external
+    knowledge, which in turn to bolster the overall efficacy of RAG.  Large Language
+    Models (LLMs) have recently shown impressive capabilities across a wide range
+    of Natural Language Processing (NLP) tasks~\cite{ouyang2022training, touvron2023llama,
+    openai2023gpt4}. Nevertheless, LLMs only possess the knowledge present in their
+    pretraining stage and could not remember them completely, hence LLMs may fail
+    to answer or prone to generate hallucinations given the questions that beyond
+    their knowledge scope.~\cite{bang2023multitask, huang2023survey}.   Retrieval-Augmented
+    Generation (RAG) is a promising solution to improve the accuracy of responses~\cite{Khandelwal2020Generalization,
+    izacard2022atlas}, which adopts a retrieve-then-generate setup, i.e., it first
+    retrieves query-related documents from external corpus and then request LLMs generates
+    responses conditioning on the knowledge in these documents. Despite the effectiveness,
+    RAG still faces several challenges and we classify them into doc-related and query-related:   For
+    query side, the user input query might be complex and multi-hop (e.g., \emph{What
+    is the place of birth of the director of film Oh Billy, Behave?}), where the required
+    information (\emph{the name of the director of film Oh Billy, Behave}) may not
+    be explicitly stated in the query, making it difficult to retrieve relevant documents
+    \cite{shao-etal-2023-enhancing}. For document side, retrieving relevant documents
+    from the extensive candidates is inherently challenging \cite{gao2024retrievalaugmented,
+    sun2024verifiable}, and moreover, there often exist irrelevant noise content throughout
+    the complete document.  Chain-of-Thought (CoT)~\cite{wei2022chain} is introduced
+    in RAG to tackle complex multi-hop issues by breaking them down into couples of
+    single-hop tasks. However, traditional CoT-based methods are susceptible to hallucination
+    generation during the query decomposition and they often require the integration
+    of task-specific demonstrations to improve the reasoning quality. Inspired by
+    human''s reasoning process in which they gradually search for the required information,
+    it is natural to ask whether the LLMs could notice the missing information in
+    each reasoning step.   To answer this question, we first examined if LLMs could
+    identify what information is missing to answer the query conditioning on providing
+    partial knowledge as known part. Surprisingly, we discover that, even in zero-shot
+    scenarios, LLMs can precisely identify what knowledge points is missing with an
+    average accuracy of 95.6\% (More details of this experiments are discussed in
+    Section 2).  Motivated by this discovery, we propose a Missing Information Guided
+    Retrieve-Extraction-Solving paradigm (MIGRES). In query side, we further prompt
+    LLMs using the missing information to formulate straightforward single-hop queries.
+    These new single-hop queries can guide the subsequent knowledge retrieval process,
+    thus improving the performance when dealing with complex multi-hop challenges.   As
+    for the document side challenges, we perform a similar attempt, and our experiments
+    indicate that LLMs are adept at extracting useful information from denoised documents.
+    Therefore, in order to filter out the irrelevant content and provide LLMs with
+    denoised documents, we introduce a sentence-level re-ranking filtering strategy.
+    This method breaks down the retrieved documents into sentences and computes a
+    relevance score for each sentence, which allows for their re-ranking and filteration. '
+- summary: "-   Preliminary Experiments:\n    1.  LLMs are commonly used in RAG studies\
+    \ for document summarization and information extraction.\n    2.  Previous works\
+    \ decomposed complex queries into sub-questions using LLMs with promising results.\n\
+    \    3.  The study aims to investigate LLMs' ability to extract accurate knowledge\
+    \ and infer remaining information for query resolution.\n-   Settings:\n    1.\
+    \  Randomly sample instances for LLMs to generate QA pairs from original questions,\
+    \ evidence, and answers.\n    2.  Utilize BM25 to search relevant passages and\
+    \ merge them with dataset passages for information extraction.\n    3.  Prompt\
+    \ LLMs to extract useful information from passages and evaluate its usefulness.\n\
+    -   Missing Information Generation:\n    1.  Concatenate information from QA pairs\
+    \ and prompt LLMs to determine answerability and generate missing information.\n\
+    \    2.  Evaluate if generated missing information aligns with subsequent sub-questions.\n\
+    \    3.  Use precision and recall to evaluate information extraction with GPT-3.5-turbo\
+    \ under a zero-shot setting."
+  text: " Preliminary Experiments:  \\label{preliminary} % \u5728\u6700\u8FD1RAG\u7684\
+    \u7814\u7A76\u4E2D\uFF0CLLMs\u5E38\u88AB\u7528\u4F5C\u603B\u7ED3\u6587\u6863\u6216\
+    \u63D0\u53D6\u4FE1\u606F\u7684\u7EC4\u4EF6\u3002\\citet{gao-etal-2023-enabling}\u901A\
+    \u8FC7\u6DFB\u52A0citation\u7684\u65B9\u5F0F\u6765\u63D0\u9AD8\u751F\u6210\u5185\
+    \u5BB9\u7684faithfulness\u3002\u5728\u672C\u6587\u4E2D\uFF0C\u6211\u4EEC\u8FDB\
+    \u4E00\u6B65\u9A8C\u8BC1\u4E86LLMs\u662F\u5426\u80FD\u591F\u9AD8\u6548\u5730\u4ECE\
+    \u68C0\u7D22\u6587\u6863\u4E2D\u83B7\u53D6true positive refined knowledge\u3002\
+    \u6B64\u5916\u5728\u590D\u6742\u591A\u8DF3\u95EE\u9898\u4E0A\uFF0C\u5355\u6B21\
+    \u68C0\u7D22\u7684\u51C6\u786E\u7387\u8F83\u4F4E\u3002\u4E00\u4E9B\u5DE5\u4F5C\
+    \u901A\u8FC7\u5B50\u95EE\u9898\u5206\u89E3\u7684\u65B9\u5F0F\u6765\u89E3\u51B3\
+    \u590D\u6742\u591A\u8DF3\u95EE\u9898\uFF0C\u5E76\u53D6\u5F97\u4E86\u826F\u597D\
+    \u7684\u6548\u679C\uFF0C\u8868\u660E\u6A21\u578B\u5177\u6709\u4E00\u5B9A\u7684\
+    \u524D\u77BB\u6027\u3002\u6211\u4EEC\u5E0C\u671B\u63A2\u7A76\u6A21\u578B\u662F\
+    \u5426\u80FD\u591F\u6839\u636E\u5DF2\u77E5\u4FE1\u606F\u63A8\u65AD\u51FA\u89E3\
+    \u51B3query\u4ECD\u7136\u9700\u8981\u7684\u4FE1\u606F\uFF0C\u4EE5\u6B64\u6765\u6307\
+    \u5BFC\u540E\u7EED\u7684\u77E5\u8BC6\u68C0\u7D22\u3002\u6211\u4EEC\u57282wikimultihop\u548C\
+    musique\u4E0A\u8FDB\u884C\u4E86\u4EE5\u4E0B\u4E24\u4E2A\u5B9E\u9A8C\u3002\u8FD9\
+    \u4E24\u4E2A\u6570\u636E\u96C6\u63D0\u4F9B\u4E86evidence\u4F5C\u4E3A\u4E2D\u95F4\
+    \u76D1\u7763\u4FE1\u53F7\uFF0C\u5E76\u6807\u6CE8\u4E86evidence\u6240\u5BF9\u5E94\
+    \u7684\u6587\u6863\u3002 In recent studies on RAG, LLMs have been commonly used\
+    \ to summarize documents and extract information \\cite{gao-etal-2023-enabling,\
+    \ sun2024verifiable}. Previous works also addressed complex multi-hop queries\
+    \ by decomposing them into sub-questions using LLMs \\cite{self-ask, yao2023react,\
+    \ wang2023knowledgedriven}, yielding promising results and demonstrating the forward-looking\
+    \ ability of LLMs. In this section, we aim to (1) further investigate the ability\
+    \ of LLMs to effectively extract accurate knowledge from retrieved documents;\
+    \ and (2) explore whether the model can infer the remaining information needed\
+    \ to solve a query based on the known information. We conduct experiments on the\
+    \ 2WikiMultiHop \\cite{xanh2020_2wikimultihop} and the Musique \\cite{trivedi2021musique}\
+    \ datasets. These two datasets provide intermediate supervised signals as evidence\
+    \ and annotate the corresponding documents, which facilitate our investigation.\
+    \ \\subsection{Settings} % \u4FE1\u606F\u62BD\u53D6 \u6211\u4EEC\u968F\u673A\u62FC\
+    \u63A5\u4E865\u4E2Atarget passage, distractor passage\u4EE5\u53CA\u91C7\u7528\
+    BM25\u68C0\u7D22\u7684\u542B\u6709/\u4E0D\u542Bevidences\u4E2D\u5B50\u7B54\u6848\
+    \u7684\u5916\u90E8\u77E5\u8BC6\uFF0C\u5E76prompt\u5927\u6A21\u578B\u4ECE\u68C0\
+    \u7D22\u7684\u6587\u6863\u4E2D\u603B\u7ED3\u51FA\u5BF9\u56DE\u7B54\u95EE\u9898\
+    \u6709\u7528\u7684\u4FE1\u606F\uFF0C\u5E76cite\u51FA\u76F8\u5BF9\u5E94\u7684\u6587\
+    \u6863\u3002\u7136\u540E\u6211\u4EEC1.\u901A\u8FC7NLI\u6A21\u578B\u6765\u9A8C\u8BC1\
+    \u5BF9\u5E94\u7684\u6587\u6863\u662F\u5426\u80FD\u591F\u63A8\u7406\u51FA\u8BE5\
+    \u4FE1\u606F\uFF0C2.\u8C03\u7528LLMs\u5224\u65AD\u8BE5\u4FE1\u606F\u662F\u5426\
+    \u7684\u786E\u5BF9\u56DE\u7B54\u95EE\u9898\u6709\u6240\u5E2E\u52A9\u3002 \\textbf{Pre-process}\
+    \ We randomly sample 500 instances from the training set, then prompt LLMs to\
+    \ generate the intermediate QA pairs given the original question, evidence, and\
+    \ the final answer.  % Examples can be found in Table \\ref{prompt_decom}.  Examples\
+    \ can be found in Figure \\ref{prompt_decom}. % \\begin{figure} %     \\centering\
+    \ %     \\includegraphics[width=1.0\\linewidth]{figures/prelimary.drawio.pdf}\
+    \ %     \\caption{Prompts and cases for QA pairs decomposing.} %     \\label{prompt_decom}\
+    \ % \\end{figure}  \\noindent \\textbf{Information Extraction} We utilize BM25\
+    \ to search top 50 relevant passages from the external corpus, and merge them\
+    \ with the original passages provided in these two datasets. A passage is labeled\
+    \ positive if it contains the sub-answer in the evidence\\footnote{We utilize\
+    \ the evaluation code in \\citet{karpukhin2020dense}}. Then we randomly sample\
+    \ 5 passages and concatenate them with the original question as well as the decomposed\
+    \ sub-questions, and prompt the LLM to extract useful information from the passages\
+    \ and cite them accordingly \\cite{gao-etal-2023-enabling}.  % After extraction,\
+    \ we utilize an NLI model to evaluate whether the support passages entail the\
+    \ claim of useful information. Finally, LLMs examine the extracted information\
+    \ to verify its usefulness.  % \u6211\u4EEC\u968F\u673A\u62FC\u63A5\u90E8\u5206\
+    \u6216\u5168\u90E8QA-pairs\u4E2D\u7684\u4FE1\u606F\uFF0C\u5E76prompt \u5927\u6A21\
+    \u578B\u6765\u5224\u65AD\u662F\u5426\u80FD\u591F\u57FA\u4E8E\u8FD9\u4E9B\u4FE1\
+    \u606F\u56DE\u7B54\u95EE\u9898\uFF0C\u5E76\u751F\u6210\u76F8\u5BF9\u5E94\u7684\
+    \u7F3A\u5931\u4FE1\u606F\u3002\u6700\u540E\u6211\u4EEC\u901A\u8FC7LLMs\u8BC4\u4F30\
+    \u8FD9\u4E9B\u7F3A\u5931\u4FE1\u606F\u662F\u5426\u5BF9\u5E94\u4E86\u540E\u7EED\
+    \u7684\u5B50\u95EE\u9898\u3002 \\noindent \\textbf{Missing Information Generation}\
+    \ We randomly concatenate all or partial information in the QA pairs obtained\
+    \ in the pre-process step, then prompt the LLM to determine whether the question\
+    \ can be answered, and generate the missing information accordingly. We then evaluate\
+    \ if the generated missing information aligns with subsequent sub-questions. \
+    \ % \\noindent \\textbf{Evaluation setting} We use precision and recall to evaluate\
+    \ the information extraction.  We utilize gpt-3.5-turbo as the backend LLM. All\
+    \ experiments are conducted under a zero-shot setting. All prompts and cases can\
+    \ be found in Appendix \\ref{appendix_prompt_prelimary}.  % \u6211\u4EEC\u91C7\
+    \u7528gpt-3.5-turbo\uFF0C\u5E76\u4ECE\u4E24\u4E2A\u6570\u636E\u96C6\u4E2D\u968F\
+    \u673A\u91C7\u6837500\u4E2A\u6837\u672C\u8FDB\u884C\u5B9E\u9A8C\u3002\u5BF9\u4E8E\
+    \u7F3A\u5931\u4FE1\u606F\u751F\u6210\uFF0C250\u4E2A\u62FC\u63A5\u4E86\u6240\u6709\
+    QA-pairs\u4E2D\u7684\u4FE1\u606F\uFF0C250\u4E2A\u62FC\u63A5\u90E8\u5206\u4FE1\u606F\
+    \u6216\u4E0D\u62FC\u63A5\u4EFB\u4F55\u4FE1\u606F\u3002  \\subsection{Results}\
+    \ The experimental results are shown in Table \\ref{ie_res} and Table \\ref{mg_res}.\
+    \  % Essentially, the model is adept at pinpointing the information deficit and\
+    \ formulating the requisite missing information to steer the ensuing process of\
+    \ knowledge acquisition. ChatGPT demonstrated commendable performance in the area\
+    \ of information extraction, achieving precision scores of 89.3 on WikiHop and\
+    \ 91.8 on Musique, along with a 72.0 and 76.1 recall scores.  % However, the accuracy\
+    \ of information entailment assessed by the NLI model was sub-optimal, indicating\
+    \ that some of the useful information extracted was not logically inferred from\
+    \ the corresponding passage. \\begin{table}[t]     \\centering     \\scalebox{0.85}{\
+    \     \\begin{tabular}{c|cc|cc|c}     \\toprule     \\textbf{Dataset} & \\textbf{Prec.}\
+    \ & \\textbf{Rec.} & \\textbf{Prec.$^\\dag$} & \\textbf{Rec.$^\\dag$} & \\textbf{Useful}\
+    \ \\\\      \\hline      Wikihop & 89.3 & 72.0 & 94.8 & 72.0 & 96.6 \\\\     \
+    \ Musique & 91.8 & 76.1 & 94.6 & 74.2 & 94.3 \\\\      \\bottomrule     \\end{tabular}}\
+    \     \\caption{Experimental results on information extraction. \\textbf{Entail}\
+    \ and \\textbf{Useful} are scored with binary classification accuracy. "
+- summary: "-   MIGRES framework leverages missing information to guide knowledge\
+    \ retrieval and solve factoid questions effectively.\n    1.  LLM achieves high\
+    \ accuracy in judgment when sufficient knowledge is available for answering questions.\n\
+    \    2.  LLM also performs well in generating missing information that aligns\
+    \ with subsequent sub-questions.\n    3.  MIGRES framework consists of Main, Retrieval,\
+    \ and Leaf modules for question answering and knowledge retrieval."
+  text: "\\textbf{Prec.$^\\dag$} and Rec.$^\\dag$ denote the precision and recall\
+    \ after entailment judgement.}     \\label{ie_res}      \\scalebox{0.85}{    \
+    \ \\begin{tabular}{c|cc|cc}     \\toprule     {} & \\multicolumn{2}{c|}{\\textbf{All}}\
+    \ & \\multicolumn{2}{c}{\\textbf{Partial}} \\\\     {\\textbf{Dataset}} & \\textbf{Acc}\
+    \ & \\textbf{Match} & \\textbf{Acc} & \\textbf{Match} \\\\      \\hline      Wikihop\
+    \ & 91.2 & - & 98.4 & 98.0 \\\\      Musique & 86.8 & - & 92.8 & 96.8 \\\\   \
+    \   \\bottomrule     \\end{tabular}}     \\caption{Experimental results on missing\
+    \ information generation. \\textbf{All} signifies the integration of all the information\
+    \ in decomposed QA pairs, whereas \\textbf{Partial} concatenates partial or no\
+    \ information. \\textbf{Match} denotes the accuracy that the missing information\
+    \ aligns with the subsequent decomposed sub-questions.}     \\label{mg_res} \\\
+    end{table}  \\begin{figure*}[t]     \\centering     \\includegraphics[width=0.9\\\
+    linewidth]{figures/main.pdf}     \\caption{The overall framework of MIGRES.} \
+    \    \\label{method} \\end{figure*}  % Upon examining a selection of cases, we\
+    \ noticed that the extraction focusing on the same subject matter was prone to\
+    \ errors when evaluated by LLM. For instance, in response to the question \"Who\
+    \ is the director of I Could Never Be Your Woman?\" accompanied by the misleading\
+    \ statement \"Four Sons is a 1940 film directed by Archie Mayo,\" LLMs mistakenly\
+    \ generated the erroneous information that \"I Could Never Be Your Woman was directed\
+    \ by Archie Mayo.\". To reduce such hallucination, we adopt an NLI to determine\
+    \ whether the information extracted is entailed by the cited passages, and filter\
+    \ out that is labeled as \"not entail\", referred to as Prec. $^\\dag$ and Rec.\
+    \ $^\\dag$. As can be seen from Table \\ref{ie_res}, such filtering demonstrate\
+    \ a promising improvement in precision, and nearly no degradation in recall. %\
+    \ Moreover, when the concatenated passages are all irrelevant, the model may generate\
+    \ information from its own knowledge and erroneously attribute it to an unrelated\
+    \ passage. Despite this inaccuracy, such information might still contribute to\
+    \ answering the question effectively, which explains the higher scores in the\
+    \ \\textbf{Useful}.  % We further refined our analysis by filtering out information\
+    \ labeled as \"not entail\" by the NLI and recalculated the precision scores,\
+    \ referred to as \"Prec.\u2020.\"   % \u5BF9\u4E8E\u7F3A\u5931\u4FE1\u606F\u751F\
+    \u6210\uFF0C\u5F53\u62FC\u63A5\u7684\u77E5\u8BC6\u8DB3\u4EE5\u56DE\u7B54\u95EE\
+    \u9898\u65F6\uFF0C\u6A21\u578B\u5206\u522B\u8FBE\u5230\u4E8691.2\u548C86.8\u5206\
+    \u7684\u5224\u65AD\u51C6\u786E\u7387\u3002\u800C\u5F53\u77E5\u8BC6\u4E0D\u8DB3\
+    \u591F\u65F6\uFF0C\u6A21\u578B\u5224\u65AD\u7684\u51C6\u786E\u7387\u8FBE\u5230\
+    \u4E86100%, \u4E14\u751F\u6210\u7684missing information \u4E5F\u80FD\u591F\u5BF9\
+    \u5E94\u540E\u7EED\u7684decomposed sub-question\u3002\u8BF4\u660E\u6A21\u578B\u80FD\
+    \u591F\u5224\u65AD\u51FA\u56DE\u7B54\u95EE\u9898\u4ECD\u7136\u9700\u8981\u7684\
+    \u4FE1\u606F\uFF0C\u5E76\u751F\u6210\u76F8\u5E94\u7684missing information \u7528\
+    \u4E8E\u6307\u5BFC\u540E\u7EED\u7684\u77E5\u8BC6\u68C0\u7D22\u3002 As for missing\
+    \ information generation, when all necessary information is provided, the LLM\
+    \ achieves an accuracy of 91.2\\% and 86.8\\%, where it outputs a precise answer.\
+    \ % In the context of generating missing information, the model attains judgment\
+    \ accuracies of 91.2\\% and 86.8\\% when the concatenated knowledge is adequate\
+    \ for responding to the question.  In scenarios where the available knowledge\
+    \ is incomplete, the LLM demonstrates a notable accuracy of 95.6\\% on average,\
+    \ and can generate missing information that aligns with the subsequent decomposed\
+    \ sub-questions. % We evaluate whether the missing information aligns with the\
+    \ subsequent decomposed sub-questions.  This highlights the model's proficiency\
+    \ in identifying what additional information is necessary to resolve the question\
+    \ and in generating the missing information that can be used to guide the subsequent\
+    \ knowledge retrieval.  Methodology:  Inspired by the discovery in Section \\\
+    ref{preliminary}, we propose MIGRES, a Missing Information Guided Retrieve-Extraction-Solving\
+    \ paradigm that leverages the identification of missing information to guide the\
+    \ subsequent knowledge retrieval, and utilizes the extracted concise useful information\
+    \ for solving factoid question-answering tasks. In this section, we present in\
+    \ detail the framework of our proposed method.  \\subsection{Overview} \\label{overall\
+    \ framework} As shown in Figure \\ref{method}, MIGRES contains the following flowline\
+    \ modules: \\begin{itemize}     \\item \\textbf{Main module}, which takes the\
+    \ query and useful information extracted from the retrieved contexts as input\
+    \ to determines whether the question can be answered. It will return the final\
+    \ answer with an explanation or the missing information depending on its determination.\
+    \     \\item \\textbf{Retrieval module}, which is consists of a Query Generator,\
+    \ a Retriever and a Knowledge Filter. Given the original query, previously asked\
+    \ queries, useful information extracted, and the missing information output by\
+    \ \\textbf{Main module}, the Query Generator will first generate simpler and diverse\
+    \ new queries to facilitate the subsequent retrieval. Then the Retriever obtains\
+    \ relevant external knowledge in response to these queries, which undergo filteration\
+    \ through Knowledge Filter to remove noise at the level of passages and sentences.\
+    \     \\item \\textbf{Leaf module}, "
+- summary: "-   MIGRES\u7CFB\u7EDF\u5305\u62EC\u77E5\u8BC6\u68C0\u7D22\u3001\u4FE1\
+    \u606F\u63D0\u53D6\u548C\u4E3B\u6A21\u5757\uFF0C\u901A\u8FC7\u8FED\u4EE3\u8FC7\
+    \u7A0B\u751F\u6210\u95EE\u9898\u7B54\u6848\u3002\n    1.  MIGRES\u7CFB\u7EDF\u9996\
+    \u5148\u901A\u8FC7\u68C0\u7D22\u5668\u83B7\u53D6\u76F8\u5173\u77E5\u8BC6\u6BB5\
+    \u843D\uFF0C\u7136\u540E\u901A\u8FC7\u4FE1\u606F\u63D0\u53D6\u6A21\u5757\u63D0\
+    \u70BC\u6709\u7528\u4FE1\u606F\u3002\n    2.  \u4E3B\u6A21\u5757\u4F7F\u7528LLM\u5224\
+    \u65AD\u662F\u5426\u6709\u8DB3\u591F\u4FE1\u606F\u56DE\u7B54\u95EE\u9898\uFF0C\
+    \u82E5\u4E0D\u8DB3\u5219\u751F\u6210\u65B0\u67E5\u8BE2\u8FDB\u884C\u77E5\u8BC6\
+    \u68C0\u7D22\u3002\n    3.  \u67E5\u8BE2\u6A21\u5757\u5229\u7528LLM\u751F\u6210\
+    \u67E5\u8BE2\uFF0C\u518D\u901A\u8FC7\u91CD\u65B0\u6392\u540D\u6A21\u578B\u8FC7\
+    \u6EE4\u65E0\u7528\u4FE1\u606F\u548C\u566A\u58F0\u3002"
+  text: "which reads the retrieved external knowledge to extract useful information\
+    \ with citation of support passages. Considering that the extracted information\
+    \ might include hallucinations, we incorporate a subsequent evaluation step to\
+    \ ascertain if the cited passages indeed entail the information extracted through\
+    \ an NLI model.     \\item \\textbf{Memory module}, which is used to record the\
+    \ historical retrieved passages and the generated queries. \\end{itemize} %% MIGRES\
+    \ \u4ECE main module \u5F00\u59CB\uFF0C\u6211\u4EEC\u5C06\u8FC7\u6EE4\u540E\u7684\
+    \ top-k \u4E2A\u68C0\u7D22\u6587\u6863\u4F5C\u4E3A\u7B2C\u4E00\u6B21\u8C03\u7528\
+    LLMs\u7684\u5DF2\u77E5\u4FE1\u606F\u3002\u540E\u7EEDMain module \u7684\u8C03\u7528\
+    \u4E2D\uFF0C\u6211\u4EEC\u4EC5\u5C06refined\u540E\u7684useful information\u4F5C\
+    \u4E3ALLMs\u7684\u77E5\u8BC6\u589E\u5F3A\u3002\u6211\u4EEC\u53D1\u73B0\u5728\u96F6\
+    \u955C\u5934\u573A\u666F\u4E0B\uFF0C\u5F53\u62FC\u63A5\u7684\u4FE1\u606F\u65E0\
+    \u6CD5\u63A8\u5BFC\u51FA\u6B63\u786E\u7B54\u6848\u65F6\uFF0C\u5C3D\u7BA1\u52A0\
+    \u4E0A\u4E86\u4EC5\u6839\u636E\u8FD9\u4E9B\u77E5\u8BC6\u56DE\u7B54\u95EE\u9898\
+    \u7684\u6307\u4EE4\uFF0CLLMs\u4ECD\u6709\u53EF\u80FD\u6839\u636E\u81EA\u8EAB\u7684\
+    \u77E5\u8BC6\u63A8\u65AD\u51FA\u7B54\u6848\u3002To address this problem, \u6211\
+    \u4EEC\u6307\u4EE4LLMs\u540C\u65F6\u8F93\u51FA\u4E00\u4E2A1-5\u5206\u7684\u7F6E\
+    \u4FE1\u5EA6\u5206\u6570\uFF0C\u5F53\u8BE5\u5206\u6570\u5C0F\u4E8E4\u65F6\uFF0C\
+    \u6211\u4EEC\u5C06\u751F\u6210\u7684explanation\u4F5C\u4E3Amissing information\u53C2\
+    \u4E0E\u540E\u7EED\u7684\u6B65\u9AA4\u3002case\u5982\\ref{}\u6240\u793A\u3002\
+    \  Upon receiving a question input, MIGRES begins with knowledge retrieval, initially\
+    \ employing a Retriever to obtain pertinent passages from external knowledge,\
+    \ followed by the Leaf Module for the useful information distillation. The distilled\
+    \ information, together with the original question, is then fed into the Main\
+    \ Module, which will assess if the current information suffices to answer the\
+    \ question and provides a response accordingly. Should the available information\
+    \ prove insufficient, the Main Module identifies the missing information, which\
+    \ then serve to generate new queries for subsequent knowledge retrieval. This\
+    \ process is iteratively repeated until either a definitive answer is given or\
+    \ a predetermined max iteration steps $\\mathcal{T}$ is reached. Prompts and cases\
+    \ for each Module can be found in Table \\ref{migres_case}.  \\subsection{Detailed\
+    \ introduction of each Module} \\noindent \\textbf{Main Module}  % The Main Module\
+    \ is comprised solely of a LLM tasked with producing either a final answer with\
+    \ an explanation or identifying what information is lacking, relying exclusively\
+    \ on the known information and the original question input. However, we observe\
+    \ that under the zero-shot setting, if the known information is insufficient to\
+    \ conclude an answer, LLM might still provide a specific answer based on their\
+    \ parametric knowledge. To tackle this issue, we instruct the LLM to simultaneously\
+    \ generate a confidence score on a scale from 1 to 5. If the score is below a\
+    \ threshold $\\mathcal{C}$, we incorporate the explanation generated by the LLM\
+    \ as the missing information for the following steps. The missing information\
+    \ is then fed into the Retrieval Module for new queries generation and subsequent\
+    \ knowledge retrieval. The Main Module is comprised of an LLM tasked with determing\
+    \ whether the input query can be solved based solely on the known information.\
+    \ If the information is sufficient to conclude an answer, the LLM will generate\
+    \ a concise answer with an explanation. Otherwise, it will output \"unanswerable\"\
+    \ and identify what information is lacking. The missing information is then fed\
+    \ into the Retrieval Module for new queries generation and subsequent knowledge\
+    \ retrieval. % \u5728Query Module \u4E2D\uFF0C\u6211\u4EEC\u8C03\u7528LLMs\u751F\
+    \u62103\u4E2A\u8BE2\u95EEmissing information\u7684queries\uFF0C\u5206\u522B\u7528\
+    \u4E8E\u540E\u7EED\u7684\u77E5\u8BC6\u68C0\u7D22\uFF0C\u5E76\u5C06\u751F\u6210\
+    \u7684query\u4E0E\u68C0\u7D22\u7684\u77E5\u8BC6\u4F5C\u4E3Aleaf module\u7684\u8F93\
+    \u5165\u7528\u4E8E\u62BD\u53D6\u6709\u7528\u4FE1\u606F\u3002Inspired by previous\
+    \ work % \\cite{gao-etal-2023-enabling, sun2024verifiable}, we prompt the LLMs\
+    \ to jointly output the index of passages that support the information extracted\uFF0C\
+    \u56E0\u4E3A\u6211\u4EEC\u53D1\u73B0\u8FD9\u6837\u80FD\u591F\u7F13\u89E3\u5E7B\
+    \u89C9\u751F\u6210\u95EE\u9898\u5E76\u8FC7\u6EE4\u6389\u65E0\u6839\u636E\u7684\
+    \u751F\u6210\u5185\u5BB9\u3002\u5F53\u68C0\u7D22\u7684\u77E5\u8BC6\u4E2D\u4E0D\
+    \u5305\u542B\u4EFB\u4F55\u6709\u7528\u4FE1\u606F\u65F6\uFF0CLLMs\u7684\u8F93\u51FA\
+    \u7ED3\u679C\u53EF\u4EE5\u4E3A\u7A7A\u3002  % In the Retrieval Module, we prompt\
+    \ the LLMs to formulate 3 different queries that are used to retrieve knowledge\
+    \ for the missing information. Then the queries and the knowledge obtained are\
+    \ fed to the Leaf module for extracting useful information.  % Inspired by previous\
+    \ work \\cite{gao-etal-2023-enabling, sun2024verifiable}, we prompt the LLMs to\
+    \ simultaneously provide the indices of the passages that corroborate the extracted\
+    \ information, which we find helpful in reducing the hallucination and eliminate\
+    \ baseless generated content. If the retrieved knowledge does not provide useful\
+    \ information, the output from the LLMs can be empty.  \\noindent \\textbf{Retrieval\
+    \ Module} Within the Retrieval Module, we instruct a LLM, which serves as the\
+    \ Query Generator, to formulate no more than three new distinct queries based\
+    \ on the missing information, and utilize them to retrieve external knowledge.\
+    \ A re-rank model is then utilized to calculate a relevance score between external\
+    \ knowledge and queries, and passages with relevance lower than a threshold $\\\
+    theta$ are directly filtered out. However, the remained passages might 1) contain\
+    \ sentence-level noise, as only a small portion of knowledge within the retrieved\
+    \ passages is useful in most cases; and 2) be empty, which implies that external\
+    \ knowledge may not encompass information pertinent to the queries. We thus propose\
+    \ the following two strategies to address these two issues: \\begin{itemize} \
+    \    \\item \\textbf{Sentence-Level Re-rank and Filtering} We utilize NLTK to\
+    \ segment the passage into individual sentences, and compute a relevance score\
+    \ for each sentence using the same Re-rank model. "
+- summary: "-   The noisy sentences with relevance lower than $\\theta$ are filtered\
+    \ out.\n    1.  Filtering out sentences with low relevance to improve knowledge\
+    \ quality.\n    2.  Retaining the original passage if its relevance surpasses\
+    \ that of individual sentences.\n    3.  Utilizing LLM knowledge prompting to\
+    \ generate relevant information when needed.\n-   LLM Knowledge prompting enhances\
+    \ iteration efficiency and knowledge utilization.\n    1.  Prompting LLM to generate\
+    \ information in response to queries.\n    2.  Using Leaf Module to distill useful\
+    \ information from queries and knowledge.\n    3.  Employing Memory Module to\
+    \ track queries and knowledge for diversity and filtering.\n-   Sentence-level\
+    \ re-rank and filtering for knowledge augmentation.\n    1.  Employing re-rank\
+    \ model to filter out low-scoring documents.\n    2.  Implementing sentence-level\
+    \ filtering to remove noisy sentences.\n    3.  Retaining original document if\
+    \ highest similarity score is below overall similarity."
+  text: "The noisy sentences with relevance lower than $\\theta$ are then filtered\
+    \ out. Should the relevance of the entire passage surpass that of all the individual\
+    \ sentences, we opt to preserve the original passage as the ultimate knowledge.\
+    \     \\item \\textbf{LLM Knowledge prompting} While it's possible that an ineffective\
+    \ query could result in subpar retrieval or relevance, to improve the iteration\
+    \ efficiency of MIGRES when pertinent external knowledge is lacking, and to fully\
+    \ utilize the LLM's parametric knowledge, we prompt the LLM to generate relevant\
+    \ information in response to the input queries when no remaining passage is available,\
+    \ treating it as the ultimate knowledge. \\end{itemize}   \\noindent \\textbf{Leaf\
+    \ Module} Subsequently, both the queries and the acquired knowledge are fed into\
+    \ the Leaf Module to obtain distilled useful information. Inspired by previous\
+    \ work \\cite{gao-etal-2023-enabling, sun2024verifiable}, we also instruct the\
+    \ LLM to concurrently cite the indices of the passages that substantiate the extracted\
+    \ information. This practice proves beneficial in diminishing instances of hallucination\
+    \ and eradicating unfounded generated content. To further avoid obtaining hallucinated\
+    \ information, we utilize an NLI model to determine whether the cited passages\
+    \ indeed entail the distilled information, and filter out that is not entailed.\
+    \    % \u6B64\u5916\uFF0C\u6211\u4EEC\u53D1\u73B0\u5F53\u6CA1\u6709\u65B0\u7684\
+    \u4FE1\u606F\u88AB\u63D0\u53D6\u65F6\uFF0Cquery module\u4F1A\u751F\u6210\u4E0E\
+    \u5148\u524D\u4E00\u6837\u7684\u95EE\u9898\u3002\u540C\u65F6\uFF0C\u68C0\u7D22\
+    \u7684\u77E5\u8BC6\u4E2D\u4F1A\u5305\u542B\u4E00\u4E9Bhard negatives, \u8FD9\u4E9B\
+    \u4E0A\u4E0B\u6587\u4E0Equery\u6709\u7740\u8F83\u9AD8\u7684\u76F8\u4F3C\u5EA6\u5206\
+    \u6570\u5374\u4E0D\u542B\u6709\u5BF9\u56DE\u7B54\u95EE\u9898\u6709\u5E2E\u52A9\
+    \u7684\u4FE1\u606F\uFF0C\u91CD\u590D\u62FC\u63A5\u8FD9\u4E9B\u77E5\u8BC6\u4E0D\
+    \u4F1A\u5BF9\u89E3\u51B3\u95EE\u9898\u6709\u4EFB\u4F55\u5E2E\u52A9\u3002\u4E3A\
+    \u6B64\uFF0C\u6211\u4EEC\u63D0\u51FA\u901A\u8FC7Memory module\u5206\u522B\u8BB0\
+    \u5F55\u751F\u6210\u8FC7\u7684queries\u4EE5\u53CA\u62FC\u63A5\u8FC7\u7684\u77E5\
+    \u8BC6\u6587\u6BB5\uFF0C\u4ECE\u800C\u63D0\u5347\u751F\u6210\u95EE\u9898\u7684\
+    \u591A\u6837\u6027\u5E76\u8FC7\u6EE4hard negatives. \\noindent \\textbf{Memory\
+    \ Module} We observe that when the Leaf Module fails to recall useful information,\
+    \ the Query Generator tends to produce queries identical to previous ones. Additionally,\
+    \ the retrieved knowledge may include hard negative passages that scored high\
+    \ in relevance to the query yet fail to provide useful information, continually\
+    \ incorporating such knowledge does not contribute to resolving the question.\
+    \ To address the above issues, we propose to utilize a Memory Module to track\
+    \ the queries generated and the external knowledge retrieved, and thus improve\
+    \ the diversity of new queries and filter out the hard negative knowledge.  %\
+    \ This module aims to enhance the variety of questions generated and to exclude\
+    \ the hard negatives from the retrieval process. We find it helpful filtering\
+    \ hard negative external knowledge and improve the diversity of generated queries\\\
+    footnote{The generated (asked) queries will be concatenated as the input to the\
+    \ Query Generator, which is instructed to avoid generating identical new queries.}.\
+    \  % The MIGRES process ends either when the LLMs conclude an answer or when a\
+    \ maximum iteration step is reached.   % \\subsection{Knowledge Augmentation}\
+    \ % % \u4E0A\u4E00\u7AE0\u8282\u4E2D\u6211\u4EEC\u8BE6\u7EC6\u4ECB\u7ECD\u4E86\
+    MIGRES\u5404\u4E2A\u7EC4\u4EF6\u7684\u4F5C\u7528\u4EE5\u53CA\u5B9E\u73B0\u7EC6\
+    \u8282\uFF0C\u5728\u8FD9\u4E00\u5B50\u7AE0\u8282\u4E2D\uFF0C\u6211\u4EEC\u5C06\
+    \u4ECB\u7ECD\u5982\u4F55\u83B7\u53D6\u589E\u5F3A\u7684\u77E5\u8BC6\u3002 % \\\
+    noindent \\textbf{Sentence-level re-rank and filtering}  % Given an input query,\
+    \ we first use a retrieval system that retrieves a large list of hits that are\
+    \ potentially relevant to the query. The retrieval system can be either sparse\
+    \ (e.g., BM25) or dense (e.g., DPR).  % %\u7136\u540E\u6211\u4EEC\u4F7F\u7528\u4E00\
+    \u4E2Are-rank \u6A21\u578B\u6765\u4E3A\u6BCF\u4E2A\u68C0\u7D22\u6587\u6863\u8BA1\
+    \u7B97\u4E00\u4E2A\u76F8\u4F3C\u5EA6\u5206\u6570\uFF0C\u5E76\u8FC7\u6EE4\u6389\
+    \u5206\u6570\u5C0F\u4E8E\u4E0E\u4E4Bdelta \u7684\u77E5\u8BC6\u3002\u7531\u4E8E\
+    \u5269\u4E0B\u7684\u76F8\u5173\u4E0A\u4E0B\u6587\u4E2D\u4ECD\u6709\u53EF\u80FD\
+    \u542B\u6709\u566A\u58F0\u53E5\u5B50\uFF0C\u6211\u4EEC\u91C7\u7528\u53E5\u5B50\
+    \u7EA7\u522B\u7684\u8FC7\u6EE4\u7B56\u7565\u3002\u6211\u4EEC\u9996\u5148\u7528\
+    nltk\u5C06\u6240\u6709\u7684\u4E0A\u4E0B\u6587\u5206\u6210\u5355\u72EC\u7684\u53E5\
+    \u5B50\uFF0C\u518D\u5206\u522B\u8BA1\u7B97\u53E5\u5B50\u4E0E\u8F93\u5165query\u7684\
+    \u76F8\u4F3C\u5EA6\uFF0C\u5E76\u540C\u6837\u8FC7\u6EE4\u6389re-rank\u6A21\u578B\
+    \u8BA1\u7B97\u7684\u76F8\u4F3C\u5EA6\u5206\u6570\u4F4E\u4E8E\u9608\u503Cdelta\u7684\
+    \u53E5\u5B50\u3002\u82E5\u53E5\u5B50\u4E2D\u6700\u5927\u7684\u76F8\u4F3C\u5EA6\
+    \u5206\u6570\u5C0F\u4E8E\u6574\u4F53\u7684\u76F8\u4F3C\u5EA6\uFF0C\u6211\u4EEC\
+    \u4FDD\u7559\u5206\u53E5\u524D\u7684\u4E0A\u4E0B\u6587\u4F5C\u4E3A\u6700\u7EC8\
+    \u7684\u77E5\u8BC6\u3002 % Subsequently, we employ a re-rank model to calculate\
+    \ a similarity score for each retrieved document, filtering out those with scores\
+    \ below a specified threshold $\\delta$. As the remaining relevant contexts may\
+    \ still contain noisy sentences, we implement a sentence-level filtering approach.\
+    \ We first segment all documents into sentences using NLTK\\footnote{\\href{https://www.nltk.org/}{https://www.nltk.org/}},\
+    \ and then filter out sentences with similarity scores below $\\delta$. If the\
+    \ highest similarity score within the segmented sentences is lower than the overall\
+    \ similarity, we retain the original document as the final knowledge for augmentation.\
+    \  % \\noindent \\textbf{Model Knowledge Prompting}  % Despite being hallucinatory,\
+    \ LLMs are still capable of generating valuable information relevant to the input\
+    \ query, as the generated content can improve both the retrieval accuracy \\cite{mao-etal-2021-generation}\
+    \ and downstream question-answering performance \\cite{yu2023generate}. Additionally,\
+    \ filtering out low-relevant documents might result in empty augmenting knowledge.\
+    \ To this end, we prompt LLMs to generate relevant information to the input query\
+    \ when no knowledge retrieved has a relevance score exceeding the pre-defined\
+    \ threshold $\\delta$.  % All instructions of MIGRES for prompting LLMs can be\
+    \ found in \\ref{}.  % The advancement of powerful embedding models has significantly\
+    \ improved the retrieval of knowledge in response to user queries \\cite{bge_embedding,\
+    \ li2023angleoptimized}.  Experiment: "
+- summary: "-   \u8BE5\u8868\u683C\u6BD4\u8F83\u4E86MIGRES\u548C\u57FA\u7EBF\u5728\
+    \u5F00\u653E\u9886\u57DF\u95EE\u7B54\u548C\u5E38\u8BC6\u95EE\u7B54\u4EFB\u52A1\
+    \u4E0A\u7684\u8868\u73B0\u3002\n    1.  MIGRES\u5728\u96F6\u6837\u672C\u60C5\u51B5\
+    \u4E0B\u8868\u73B0\u6700\u4F73\uFF0C\u5177\u6709\u6700\u9AD8\u7684EM\u548C\u51C6\
+    \u786E\u7387\u3002\n    2.  \u5728\u96F6\u6837\u672C\u60C5\u51B5\u4E0B\uFF0CRERANK\u548C\
+    VANILLA+sentRerank\u4E5F\u8868\u73B0\u4E0D\u9519\u3002\n    3.  \u5728\u5C11\u6837\
+    \u672C\u60C5\u51B5\u4E0B\uFF0CVTG\u548CITER-RETGEN\u7684\u8868\u73B0\u76F8\u5BF9\
+    \u8F83\u597D\u3002"
+  text: '  % \begin{table*}[ht] %     \centering %     \scalebox{0.8}{ %         \begin{tabular}{ccccccccccccc}
+    %             \toprule %             \textbf{Datasets} & \multicolumn{5}{c}{\textbf{NQ}}
+    & \multicolumn{5}{c}{\textbf{WebQ}} & \multicolumn{2}{c}{\textbf{StrategyQA}}
+    \\ %             \hline %             {} & \multicolumn{2}{c}{\textbf{Correct}}
+    & \multicolumn{3}{c}{\textbf{Citation}} & \multicolumn{2}{c}{\textbf{Correct}}
+    & \multicolumn{3}{c}{\textbf{Citation}} & \multicolumn{2}{c}{\textbf{Correct}}
+    \\ %             \cline{2-13} %             \textbf{Metrices} & \textbf{EM} &
+    \textbf{Acc$^\dag$} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{EM}
+    & \textbf{Acc$^\dag$} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{EM}
+    & \textbf{Acc$^\dag$} \\ %             \hline %             \rowcolor{lightgray}\multicolumn{13}{c}{Zero-shot}
+    \\ %             \hline %             {VANILLA} & 32.5 & 68.5 & 63.5 & 54.1 &
+    58.4 & 19.0 & 61.5 & 54.0 & 45.7 & 49.4 & 67.2 & 67.2 \\ %             {$_{+ sentRerank}$}
+    & 37.5 & 70.5 & 64.2 & 54.6 & 59.0 & 20.0 & 62.0 & 56.5 & 46.2 & 50.8 & 69.0 &
+    69.0  \\ %             {SUMM} & 28.5 & 70.0 & - & - & - & 15.0 & 62.0 & - & -
+    & - & 67.2 & 67.2 \\ %             {SNIPPET} & 32.0 & 70.5 & - & - & - & 15.0
+    & 61.5 & - & - & - & 66.8 & 66.8  \\ %             {RERANK} & 33.5 & 71.0 & 66.5
+    & 55.8 & 60.7 & 18.0 & 66.0 & 58.2 & \textbf{49.6} & \textbf{53.6} & 69.0 & 69.0  \\
+    %             \hline %             {MIGRES} & \textbf{38.5} & \textbf{74.0} &
+    \textbf{66.9} & \textbf{57.6} & \textbf{61.9} & \textbf{20.5} & \textbf{69.5}
+    & \textbf{58.5} & 48.3 & 52.9 & \textbf{72.0} & \textbf{72.0} \\ %             \hline
+    %             \rowcolor{lightgray} \multicolumn{13}{c}{Few-shot} \\ %             \hline
+    %            VTG & 63.0 & - & 86.6 & 91.9 & 89.1 & 68.0 & - & 88.7 & 93.0 & 90.8
+    & - & - \\ %             ITER-RETGEN & - & - & - & - & - & - & - & - & - & - &
+    74.1 & 74.1  \\ %             \bottomrule %         \end{tabular}} %         \caption{Comparisons
+    between MIGRES and baselines on Open-domain QA and Commonsense QA task. - represents
+    that the results are unavailable. The best values are highlighted in bold.} %         \label{odqa_res}
+    % \end{table*}  % \begin{table*} %     % \centering %     % \scalebox{0.8}{ %     %     \begin{tabular}{ccccccccccccc}
+    %     %         \toprule %     %         \textbf{Datasets} & \multicolumn{5}{c}{\textbf{NQ}}
+    & \multicolumn{5}{c}{\textbf{WebQ}} & \multicolumn{2}{c}{\textbf{StrategyQA}}
+    \\ %     %         \hline %     %         {} & \multicolumn{2}{c}{\textbf{Correct}}
+    & \multicolumn{3}{c}{\textbf{Citation}} & \multicolumn{2}{c}{\textbf{Correct}}
+    & \multicolumn{3}{c}{\textbf{Citation}} & \multicolumn{2}{c}{\textbf{Correct}}
+    \\ %     %         \cline{2-13} %     %         \textbf{Metrices} & \textbf{EM}
+    & \textbf{Acc$^\dag$} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{EM}
+    & \textbf{Acc$^\dag$} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{EM}
+    & \textbf{Acc$^\dag$} \\ %     %         \hline %     %         \rowcolor{lightgray}\multicolumn{13}{c}{Zero-shot}
+    \\ %     %         \hline %     %         {VANILLA} & 32.5 & 68.5 & 63.5 & 54.1
+    & 58.4 & 19.0 & 61.5 & 54.0 & 45.7 & 49.4 & 67.2 & 67.2 \\ %     %         {$_{+
+    sentRerank}$} & 37.5 & 70.5 & 64.2 & 54.6 & 59.0 & 20.0 & 62.0 & 56.5 & 46.2 &
+    50.8 & 69.0 & 69.0  \\ %     %         {SUMM} & 28.5 & 70.0 & - & - & - & 15.0
+    & 62.0 & - & - & - & 67.2 & 67.2 \\ %     %         {SNIPPET} & 32.0 & 70.5 &
+    - & - & - & 15.0 & 61.5 & - & - & - & 66.8 & 66.8  \\ %     %         {RERANK}
+    & 33.5 & 71.0 & 66.5 & 55.8 & 60.7 & 18.0 & 66.0 & 58.2 & \textbf{49.6} & \textbf{53.6}
+    & 69.0 & 69.0  \\ %     %         \hline %     %         {MIGRES} & \textbf{38.5}
+    & \textbf{74.0} & \textbf{66.9} & \textbf{57.6} & \textbf{61.9} & \textbf{20.5}
+    & \textbf{69.5} & \textbf{58.5} & 48.3 & 52.9 & \textbf{72.0} & \textbf{72.0}
+    \\ %     %         \hline %     %         \rowcolor{lightgray} \multicolumn{13}{c}{Few-shot}
+    \\ %     %         \hline %     %        VTG & 63.0 & - & 86.6 & 91.9 & 89.1 &
+    68.0 & - & 88.7 & 93.0 & 90.8 & - & - \\ %     %         ITER-RETGEN & - & - &
+    - & - & - & - & - & - & - & - & 74.1 & 74.1  \\ %     %         \bottomrule %     %     \end{tabular}}
+    %     %     \caption{Comparisons between MIGRES and baselines on Open-domain QA
+    and Commonsense QA task. - represents that the results are unavailable. '
+- summary: "-   \u672C\u7814\u7A76\u5728\u96F6\u5C04\u51FB\u8BBE\u7F6E\u4E0B\u5BF9\
+    \u4E94\u4E2A\u6570\u636E\u96C6\u8FDB\u884C\u5B9E\u9A8C\uFF0C\u6DB5\u76D6\u591A\
+    \u8DF3\u95EE\u9898\u56DE\u7B54\u3001\u5F00\u653E\u57DF\u95EE\u9898\u56DE\u7B54\
+    \u548C\u5E38\u8BC6\u63A8\u7406\u7B49\u4EFB\u52A1\u3002\n    1.  \u5B9E\u9A8C\u4F7F\
+    \u7528\u4E86gpt-3.5-1106\u4F5C\u4E3A\u540E\u7AEFLLM\uFF0C\u5E76\u5206\u522B\u4F7F\
+    \u7528BM25\u3001BGE-reranker-base\u548CT5-xxl-nli\u4F5C\u4E3A\u68C0\u7D22\u5668\
+    \u3001\u91CD\u6392\u6A21\u578B\u548CNLI\u6A21\u578B\u3002\n    2.  \u8BC4\u4F30\
+    \u7ED3\u679C\u901A\u8FC7\u4E0E\u53C2\u8003\u7B54\u6848\u8FDB\u884C\u7CBE\u786E\
+    \u5339\u914D\uFF08EM\uFF09\u8FDB\u884C\uFF0C\u540C\u65F6\u4F7F\u7528gpt-3.5-1106\u8FDB\
+    \u884C\u66F4\u53EF\u9760\u7684\u6A21\u578B\u8F93\u51FA\u6B63\u786E\u6027\u8BC4\
+    \u4F30\u3002\n    3.  \u8BC4\u4F30\u6307\u6807Acc$^{\\dag}$\u7528\u4E8E\u8861\u91CF\
+    \u6A21\u578B\u8F93\u51FA\u7684\u6B63\u786E\u6027\uFF0C\u5B9E\u9A8C\u7ED3\u679C\
+    \u8868\u660EMIGRES\u5728\u591A\u8DF3\u95EE\u9898\u56DE\u7B54\u4EFB\u52A1\u4E2D\
+    \u8868\u73B0\u6700\u4F73\u3002"
+  text: 'The best values are highlighted in bold.} %     %     \label{odqa_res} %     \centering
+    %     \scalebox{0.75}{ %         \begin{tabular}{cccccccccccccccc} %             \toprule
+    %             \textbf{Datasets} & \multicolumn{5}{c}{\textbf{Wikihop}} & \multicolumn{5}{c}{\textbf{HotpotQA}}
+    & \multicolumn{5}{c}{\textbf{Musique}} \\ %             \hline %             {}
+    & \multicolumn{2}{c}{\textbf{Correct}} & \multicolumn{3}{c}{\textbf{Citation}}
+    & \multicolumn{2}{c}{\textbf{Correct}} & \multicolumn{3}{c}{\textbf{Citation}}
+    & \multicolumn{2}{c}{\textbf{Correct}} & \multicolumn{3}{c}{\textbf{Citation}}
+    \\ %             \cline{2-16} %             \textbf{Metrices} & \textbf{EM} &
+    \textbf{Acc$^\dag$} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{EM}
+    & \textbf{Acc$^\dag$} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} & \textbf{EM}
+    & \textbf{Acc$^\dag$} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} \\ %             \hline
+    %             \rowcolor{lightgray} \multicolumn{16}{c}{Zero-shot} \\ %             \hline
+    %             {VANILLA} & 22.5 & 45.5 & 76.5 & 34.6 & 47.7 & 25.5 & 60.5 & 58.5
+    & 58.5 & 58.5 & 8.5 & 26.0 & 59.5 & 36.2 & 52.9 \\ %             {$_{+ sentRerank}$}
+    & 24.5 & 48.5 & 76.0 & 35.2 & 48.1 & 20.0 & 62.0 & 59.5 & 59.5 & 59.5 & 9.5 &
+    27.5 & 59.5 & 36.1 & 45.0 \\ %             {SUMM} & 13.5 & 52.5 & 46.5 & 21.5
+    & 29.4 & 23.5 & 56.0 & 47.5 & 47.5 & 47.5 & 8.0 & 29.5 & 36.5 & 22.6 & 27.9 \\
+    %             {SNIPPET} & 14.0 & 55.5 & 65.0 & 27.8 & 39.0 & 27.5 & 61.5 & 51.5
+    & 51.5 & 51.5 & 8.5 & 27.5 & 43.5 & 26.7 & 33.1 \\ %             {RERANK} & 26.5
+    & 56.0 & 66.0 & 29.4 & 40.7 & 28.0 & 63.0 & 55.5 & 55.5 & 55.5 & 10.5 & 30.0 &
+    47.0 & 33.7 & 39.3 \\ %             \hline %             {MIGRES} & \textbf{33.5}
+    & \textbf{64.5} & \textbf{91.0} & \textbf{55.9} & \textbf{69.2} & \textbf{29.5}
+    & \textbf{68.5} & \textbf{72.5} & \textbf{72.5} & \textbf{72.5} & 18.5 & 39.5
+    & \textbf{77.0} & \textbf{48.0} & \textbf{59.1} \\ %             \hline %             \rowcolor{lightgray}
+    \multicolumn{16}{c}{Few-shot} \\ %             \hline %            VTG & 41.5
+    & - & 63.9 & 57.6 & 60.6 & - & - & - & - & - & - & - & - & - & - \\ %             ITER-RETGEN
+    & 35.5 & 59.4 & - & - & - & 45.8 & 73.4 & 75.7 & 75.7 & 75.7 & 26.1 & 41.0 & -
+    & - & -  \\  %             \bottomrule %         \end{tabular}} %     \caption{Comparisons
+    between MIGRES and baselines on Multi-hop question answering. - represents that
+    the results are unavailable. The best values are highlighted in bold.} %     \label{main_res1}
+    % \end{table*}  \subsection{Experiment setup} We conduct experiments on five datasets
+    across three diverse knowledge-intensive tasks under a zero-shot setting: (1)
+    \textbf{Multi-hop question answering}, including 2WikiMultihopQA (Wikihop) \cite{xanh2020_2wikimultihop},
+    HotpotQA \cite{yang-etal-2018-hotpotqa} and Musique \cite{trivedi2021musique};
+    (2) \textbf{Open-domain question answering}, we use Natural Question \cite{kwiatkowski-etal-2019-natural}
+    and TriviaQA \cite{joshi-etal-2017-triviaqa}; (3) \textbf{Commonsense reasoning},
+    which includes StrategyQA \cite{geva2021strategyqa}.   We utilize gpt-3.5-1106
+    \footnote{\href{https://openai.com/}{https://openai.com}} as our backend LLM within
+    all modules, and utilize BM25 with $k1=0.9$ and $b=0.4$ as the Retriever, the
+    BGE-reranker-base \cite{bge_embedding} as the Re-rank model, and T5-xxl-nli \cite{honovich-etal-2022-true-evaluating}\footnote{Downloaded
+    from \href{https://huggingface.co/google/t5_xxl_true_nli_mixture}{t5\_xxl\_true\_nli\_mixture}}
+    as the NLI model, respectively. Following previous work \cite{sun2024verifiable},
+    we conduct evaluations on all 229 questions from StrategyQA and randomly sub-sample
+    200 questions from all other datasets for saving the cost of running experiments.
+    We compare the final answer output by LLMs with the reference answer using exact
+    match (EM) after normalization. As most experiments are conducted under a zero-shot
+    setting, we also evaluate the correctness of model outputs using gpt-3.5-1106
+    for more robust evaluation, which is proved to be reliable in \citet{shao-etal-2023-enhancing}.
+    We denote the resulting metric as Acc$^{\dag}$, the prompt is shown in Table \ref{other_prompt}.  %
+    Since all experiments are conducted under the zero-shot setting, the final answer
+    may be a statement rather than a concise answer span. For instance, LLMs will
+    conclude "Bhanwarey was released more recently than Harlem Nights" as the answer
+    to the question "Which film was released more recently, Bhanwarey or Harlem Nights?",
+    while the ground truth answer is "Bhanwarey". For more robust evaluation, we follow
+    \citet{shao-etal-2023-enhancing} and also evaluate the correctness of model output
+    using ChatGPT, the resulting metric denoted as Acc$^{\dag}$.  % We utilize BM25
+    with k1=0.9 and b=0.4 as our knowledge retriever. '
+- summary: "-   \u672C\u7814\u7A76\u4F7F\u7528\u4E86\u7A00\u758F\u68C0\u7D22\u548C\
+    BGE\u6A21\u578B\u7684\u57FA\u7840\u7248\u672C\u8FDB\u884C\u7A20\u5BC6\u68C0\u7D22\
+    \uFF0C\u8FDB\u4E00\u6B65\u4F7F\u7528BGE-reranker-base\u8BC4\u4F30\u76F8\u5173\u6027\
+    \u5F97\u5206\u3002\u4E3A\u4E86\u786E\u4FDD\u68C0\u7D22\u5230\u76F8\u5173\u77E5\
+    \u8BC6\uFF0C\u8FD8\u4E3A\u6BCF\u4E2A\u6570\u636E\u96C6\u521B\u5EFA\u4E86\u4E00\
+    \u4E2Aoracle\u7248\u672C\u3002\u4F7F\u7528\u4E862017\u5E7412\u6708\u7684Wikipedia\
+    \ dump\u8FDB\u884CHotpotQA\uFF0C2018\u5E7412\u6708\u7684dump\u8FDB\u884CWikihop\u548C\
+    ODQA\uFF0C\u4EE5\u53CA2021\u5E7412\u6708\u7684dump\u8FDB\u884CMusique\u548CStrategyQA\u3002\
+    \n    1.  \u4F7F\u7528\u4E86\u4E0D\u540C\u7684Wikipedia dump\u8FDB\u884C\u4E0D\
+    \u540C\u4EFB\u52A1\u7684\u6570\u636E\u96C6\u3002\n    2.  \u4E3A\u4E86\u4FDD\u8BC1\
+    \u68C0\u7D22\u5230\u76F8\u5173\u77E5\u8BC6\uFF0C\u4E3A\u6BCF\u4E2A\u6570\u636E\
+    \u96C6\u521B\u5EFA\u4E86\u4E00\u4E2Aoracle\u7248\u672C\u3002\n    3.  \u7ED3\u679C\
+    \u4F7F\u7528oracle dump\u6807\u8BB0\u4E3AMIGRES$^{\\dag}$\u3002\n-   \u5728Multi-hop\
+    \ QA\u3001Open-domain QA\u548CCommonsense QA\u4EFB\u52A1\u4E0A\uFF0C\u6BD4\u8F83\
+    \u4E86MIGRES\u548C\u57FA\u7EBF\u6A21\u578B\u7684\u7ED3\u679C\u3002MIGRES$^{\\\
+    dag}$\u662F\u4F7F\u7528oracle\u77E5\u8BC6\u6C60\u7684\u7ED3\u679C\u3002Few-shot\u7684\
+    \u7ED3\u679C\u6765\u81EA\u539F\u59CB\u8BBA\u6587\uFF0C\u5176\u4E2D\u201C-\u201D\
+    \u8868\u793A\u7ED3\u679C\u4E0D\u53EF\u7528\u3002\n    1.  \u6BD4\u8F83\u4E86MIGRES\u548C\
+    \u57FA\u7EBF\u6A21\u578B\u5728\u4E0D\u540C\u4EFB\u52A1\u4E0A\u7684\u8868\u73B0\
+    \u3002\n    2.  Few-shot\u7684\u7ED3\u679C\u6765\u81EA\u539F\u59CB\u8BBA\u6587\
+    \u3002\n    3.  MIGRES$^{\\dag}$\u662F\u4F7F\u7528oracle\u77E5\u8BC6\u6C60\u7684\
+    \u7ED3\u679C\u3002"
+  text: '% for sparse retrieval and the base version of the BGE model\footnote{\href{https://huggingface.co/BAAI/bge-base-en-v1.5}{bge-base-en-v1.5}}
+    \cite{bge_embedding} for dense retrieval.  % The relevance score is further evaluated
+    using the BGE-reranker-base\footnote{\href{https://huggingface.co/BAAI/bge-reranker-base}{bge-reranker-base}}.   We
+    use the December 2017 Wikipedia dump \cite{izacard2022atlas} for HotpotQA, the
+    December 2018 dump \cite{karpukhin2020dense} for Wikihop and ODQA, and the December
+    2021 Wikipedia dump \cite{izacard2022atlas} for Musique and StrategyQA. To guarantee
+    the retrieval of pertinent knowledge, we also create an oracle version for each
+    dump, in which we augment all contexts in the original development sets of Multi-hop
+    QA and Commonsense QA (including distractors) into the retrieval corpus. The results
+    using oracle dump are denoted as MIGRES$^{\dag}$. All datasets, prompts and hyper-parameters
+    are summarized in Table \ref{hyper-setting}.    \begin{table*}[ht]     \centering     \scalebox{0.85}{         \begin{tabular}{lcccccccccccc}             \toprule             \textbf{Datasets}
+    & \multicolumn{2}{c}{\textbf{Wikihop}} & \multicolumn{2}{c}{\textbf{Hotpot}} &
+    \multicolumn{2}{c}{\textbf{Musique}} & \multicolumn{2}{c}{\textbf{NQ}} & \multicolumn{2}{c}{\textbf{TriviaQ}}
+    & \multicolumn{2}{c}{\textbf{StrategyQA}} \\             \hline             \textbf{Metrics}
+    & \textbf{EM} & \textbf{Acc$^\dag$} & \textbf{EM} & \textbf{Acc$^\dag$}& \textbf{EM}
+    & \textbf{Acc$^\dag$} & \textbf{EM} & \textbf{Acc$^\dag$} & \textbf{EM} & \textbf{Acc$^\dag$}
+    & \textbf{EM} & \textbf{Acc$^\dag$} \\             \hline             \rowcolor{lightgray}\multicolumn{13}{c}{Zero-shot}
+    \\             \hline             {VANILLA} & 24.5 & 45.5 & 27.5 & 60.5 & 10.5
+    & 26.0 & 33.5 & 72.5  & 57.5 & 87.5 & 62.9 & 62.9 \\             {VANILLA-s} &
+    26.5 & 48.5  & 28.0 & 62.0 & 11.5 & 27.5 & 34.5 & 75.5 & 59.0 & 88.0 & 65.5 &
+    65.5  \\             {SUMM} & 25.5 & 52.0  & 25.5 & 56.0 & 10.0 & 29.5 & 32.5
+    & 72.5 & 56.5 & 84.5 & 62.9 & 62.9 \\             {SNIPPET} & 26.0 & 50.5  & 29.5
+    & 61.5 & 10.5 & 27.5 & 33.0 & 69.0 & 57.5 & 87.5 & 62.0 & 62.0  \\             {RERANK}
+    & 28.5 & 56.0 & 30.0 & 63.0 & 12.5 & 30.0 & 36.5 & 77.0 & 59.0 & 89.5 & 65.9 &
+    65.9  \\             \hline             {MIGRES} & 33.6 & 58.5 & 38.0 & 66.6 &
+    18.6 & 32.8 & 43.0 & \textbf{80.0} & \textbf{61.0} & 91.0 & \textbf{73.4} & \textbf{73.4}
+    \\             {MIGRES$^\dag$} & \textbf{40.1} & \textbf{65.9}  & \textbf{38.6}
+    & \textbf{67.2} & \textbf{19.4} & \textbf{33.2} & \textbf{43.5} & 79.0 & 60.5
+    & \textbf{91.0} & 72.1 & 72.1 \\             \hline             \rowcolor{lightgray}
+    \multicolumn{13}{c}{Few-shot} \\             \hline             ITRG & 29.8 &
+    -  & 33.4 & - & - & - & 33.8 & -  & \textbf{77.8} & - & - & - \\             VTG
+    & 41.5 & -  & - & - & - & - & \textbf{63.0} & -  & - & - & - & - \\             ReAct
+    & 28.0 & 45.9 & 24.9 & 61.1 & 23.4 & 37.9 & - & - & - & - & 66.9 & 66.9  \\             Self-Ask
+    & 37.3 & 55.9 & 36.8 & 64.8 & \textbf{27.6} & \textbf{42.9} & - & - & - & - &
+    70.2 & 70.2  \\             ITER-RETGEN & 34.9 & 58.1 & 44.1 & 71.2 & 26.4 & 41.0
+    & - & - & - & - & 73.0 & 73.0  \\             \hline             {MIGRES$^*$}
+    & 47.6 & 61.2 & 46.8 & 68.6 & 19.6 & 34.0 & 47.0 & 78.0 & 63.0 & 91.5 & \textbf{74.2}
+    & \textbf{74.2} \\             {MIGRES$^{*\dag}$} & \textbf{54.0} & \textbf{71.0}  &
+    \textbf{49.4} & \textbf{72.4} & 20.8 & 34.6 & 48.0 & \textbf{80.0} & 62.5 & \textbf{92.0}
+    & 72.9 & 72.9 \\             \bottomrule         \end{tabular}}         \caption{Comparison
+    between MIGRES and baselines on Multi-hop QA, Open-domain QA and Commonsense QA
+    task. Acc$^{\dag}$ is the accuracy of model outputs evaluated with gpt-3.5-1106.
+    MIGRES$^{\dag}$ is the results using the oracle knowledge pool. The results of
+    "Few-shot" are extracted from the original paper, "-" represents that the results
+    are unavailable. '
+- summary: "-   \u8BE5\u8868\u683C\u5C55\u793A\u4E86\u4E0D\u540C\u65B9\u6CD5\u5728\
+    \u4E0D\u540C\u6570\u636E\u96C6\u4E0A\u7684\u6548\u7387\u6BD4\u8F83\uFF0C\u5305\
+    \u62ECAPI\u8C03\u7528\u6B21\u6570\u3001\u8FED\u4EE3\u6B65\u6570\u548C\u6BCF\u6B21\
+    \u8FED\u4EE3\u4E2D\u7684\u6BB5\u843D\u6570\u3002\n    1.  ReAct\u548CSelf-Ask\u5728\
+    \u591A\u4E2A\u6570\u636E\u96C6\u4E0A\u8868\u73B0\u51FA\u8272\uFF0CMIGRES\u5728\
+    \u67D0\u4E9B\u6570\u636E\u96C6\u4E0A\u4E5F\u6709\u4E0D\u9519\u7684\u8868\u73B0\
+    \u3002\n    2.  \u5728\u6240\u6709\u6570\u636E\u96C6\u4E0A\uFF0C\u603B\u6BB5\u843D\
+    \u6570\u5747\u5C11\u4E8E5\uFF0C\u663E\u793A\u4E86MIGRES\u7684\u9AD8\u6548\u6027\
+    \u3002\n    3.  \u4E0D\u540C\u65B9\u6CD5\u5728\u4E0D\u540C\u6570\u636E\u96C6\u4E0A\
+    \u7684\u8868\u73B0\u5DEE\u5F02\u8F83\u5927\uFF0C\u9700\u8981\u6839\u636E\u5177\
+    \u4F53\u60C5\u51B5\u9009\u62E9\u5408\u9002\u7684\u65B9\u6CD5\u3002\n-   \u672C\
+    \u8282\u4ECB\u7ECD\u4E86\u7528\u4E8E\u6BD4\u8F83\u7684\u57FA\u7EBF\u65B9\u6CD5\
+    \uFF0C\u5305\u62ECIn-Context Learning prompting\u3001Vanilla prompting\u3001ALCE\u3001\
+    ITRG\u3001VTG\u7B49\u591A\u79CD\u65B9\u6CD5\u3002\n    1.  ALCE\u5305\u62ECVANILLA\u3001\
+    SUMM/SNIPPET\u548CRERANK\u7B49\u4E0D\u540C\u7B56\u7565\uFF0C\u7528\u4E8E\u751F\
+    \u6210\u56DE\u7B54\u6216\u63D0\u53D6\u5173\u952E\u4FE1\u606F\u3002\n    2.  ITRG\u548C\
+    VTG\u5206\u522B\u91C7\u7528\u4E0D\u540C\u7684\u68C0\u7D22\u548C\u751F\u6210\u7B56\
+    \u7565\uFF0C\u7528\u4E8E\u8FED\u4EE3\u5730\u68C0\u7D22\u548C\u751F\u6210\u77E5\
+    \u8BC6\u3002\n    3.  ReAct\u548CSelf-Ask\u5206\u522B\u5305\u542B\u4E0D\u540C\u7684\
+    \u63A8\u7406\u548C\u95EE\u9898\u5206\u89E3\u6B65\u9AA4\uFF0C\u7528\u4E8E\u751F\
+    \u6210\u7B54\u6848\u6216\u751F\u6210\u95EE\u9898\u7684\u7B54\u6848\u3002\n-  \
+    \ ITER-RETGEN\u7ED3\u5408\u4E86\u68C0\u7D22\u589E\u5F3A\u751F\u6210\u548C\u751F\
+    \u6210\u589E\u5F3A\u68C0\u7D22\u7684\u7B56\u7565\uFF0C\u7528\u4E8E\u8FED\u4EE3\
+    \u5730\u751F\u6210\u65B0\u53E5\u5B50\u4F5C\u4E3A\u539F\u59CB\u67E5\u8BE2\u7684\
+    \u6269\u5C55\u3002\n    1.  \u5927\u591A\u6570\u57FA\u7EBF\u65B9\u6CD5\u90FD\u662F\
+    \u5728\u5C11\u91CF\u6570\u636E\u4E0B\u8FDB\u884C\u8BC4\u4F30\u7684\uFF0C\u9700\
+    \u8981\u6839\u636E\u5177\u4F53\u60C5\u51B5\u9009\u62E9\u9002\u5408\u7684\u65B9\
+    \u6CD5\u3002\n    2.  \u4E0D\u540C\u65B9\u6CD5\u5728\u96F6\u6837\u672C\u8BBE\u7F6E\
+    \u4E0B\u8FDB\u884C\u8BC4\u4F30\uFF0C\u4F7F\u7528Re-rank\u6A21\u578B\u91CD\u65B0\
+    \u6392\u540D\u68C0\u7D22\u5230\u7684\u77E5\u8BC6\u3002\n    3.  \u4E0D\u540C\u65B9\
+    \u6CD5\u5728\u77E5\u8BC6\u68C0\u7D22\u548C\u751F\u6210\u65B9\u9762\u6709\u4E0D\
+    \u540C\u7684\u7B56\u7565\u548C\u6548\u679C\uFF0C\u9700\u8981\u6839\u636E\u5177\
+    \u4F53\u9700\u6C42\u9009\u62E9\u5408\u9002\u7684\u65B9\u6CD5\u3002"
+  text: 'The best values are highlighted in \textbf{bold}.}         \label{main_res}
+    \end{table*}   \begin{table*}[ht]     \centering     \scalebox{0.8}{         \begin{tabular}{cccccccccc}             \toprule             {\textbf{Method}}
+    & \multicolumn{3}{c}{\textbf{Wikihop}} & \multicolumn{3}{c}{\textbf{Hotpot}} &
+    \multicolumn{3}{c}{\textbf{Musique}} \\             \hline             {} & \textbf{\#
+    API} & \textbf{\# Iter} & \textbf{\# Passages} & \textbf{\# API} & \textbf{\#
+    Iter} & \textbf{\# Passages}& \textbf{\# API} & \textbf{\# Iter} & \textbf{\#
+    Passages} \\             \hline             ReAct & 3.0 & 3.0 & 15.0 & 2.9 & 2.9
+    & 14.4 & 2.9 & 2.9 & 14.3 \\             Self-Ask & 3.2 & 3.2 & 15.9 & 3.0 & 3.0
+    & 14.8 & 3.2 & 3.2 & 16.0 \\             ITER\_RETGEN & 2.0 & 2.0 & 5.0 & 2.0
+    & 2.0 & 5.0 & 2.0 & 2.0 & 5.0 \\             MIGRES & 8.4 & 2.5 & 1.3 & 9.5 &
+    2.7 & 3.1 & 6.4 & 1.9 & 2.3 \\             MIGRES$^{*}$ & 8.1 & 2.4 & 1.4 & 11.9
+    & 3.4 & 1.8 & 5.8 & 1.8 & 2.6 \\             \hline             {} & \multicolumn{3}{c}{\textbf{NQ}}
+    & \multicolumn{3}{c}{\textbf{TriviaQ}} & \multicolumn{3}{c}{\textbf{StrategyQA}}
+    \\             \hline             {} & \textbf{\# API} & \textbf{\# Iter} & \textbf{\#
+    Passages}& \textbf{\# API} & \textbf{\# Iter} & \textbf{\# Passages}& \textbf{\#
+    API} & \textbf{\# Iter} & \textbf{\# Passages} \\             \hline             ReAct
+    & - & - & - & - & - & - & 2.9 & 2.9 & 14.3 \\             Self-Ask & - & - & -
+    & - & - & - & 3.2 & 3.2 & 16.0 \\             ITER\_RETGEN & - & - & - & - & -
+    & - & 2.0 & 2.0 & 5.0 \\             MIGRES & 3.5 & 1.3 & 1.3 & 3.4 & 1.1 & 1.3
+    & 4.0 & 1.3 & 1.3 \\             MIGRES$^{*}$ & 4.9 & 1.3 & 1.4 & 4.0 & 1.3 &
+    1.4 & 4.7 & 1.5 & 1.4 \\             \bottomrule         \end{tabular}}         \caption{Efficiency
+    of MIGRES. \textbf{\# API}, \textbf{\# Iter} and \textbf{\# Passages} represent
+    the average API calls, iteration steps and number of passages within each iteration.
+    It can be seen that the total number of passages is less than 5 across all datasets.}         \label{efficiency}
+    \end{table*}   \subsection{Baselines} We consider the following baselines for
+    comparison.  % \noindent \textbf{In-Context Learning prompting} prompts the LLMs
+    to directly generate the final answer with top-4 ranked samples from the training
+    set as demonstrations. We concatenate no external knowledge and utilize BGE-base
+    for selecting demonstration examples that have the highest similarity to the input
+    query.  % \noindent \textbf{Vanilla prompting} prompts the LLMs to output the
+    answer conditioning on the concatenated knowledge. We evaluate with knowledge
+    before and after sentence-level filtering strategy.  \noindent \textbf{ALCE} \cite{gao-etal-2023-enabling},
+    which includes (1) \textit{VANILLA}, where top-k ranked documents are concatenated
+    as knowledge augmentation for prompting LLMs to generate responses. We also evaluate
+    the effectiveness of incorporating sentence-level filtering, denoted as \textit{VANILLA-s}
+    (2) \textit{SUMM / SNIPPET}, where the LLM is required to synthesize relevant
+    information or extract snippets from the top-k ranked documents. This condensed
+    text is then integrated into the prompt for generating the response. (3) \textit{RERANK}
+    This method prompts the LLM to generate four distinct responses and then choose
+    the answer with the highest citation recall as the final output. We evaluate all
+    these methods under a \textbf{zero-shot} setting, and utilize the Re-rank model
+    to re-rank the retrieved knowledge.  \noindent \textbf{ITRG} \cite{feng2023retrievalgeneration},
+    which is a pipeline that utilize both generation augmented retrieval and retrieval
+    augmented generation, and iteratively retrieve knowledge based on the previous
+    generated content.  \noindent \textbf{VTG} \cite{sun2024verifiable}, which is
+    similar to ALCE while they utilize a verifier to evaluate whether the retrieved
+    knowledge entails the generated sentence. If not, they prompt LLMs to generate
+    new queries for searching more evidence that supports the current sentence and
+    drop any unsupported sentence.  \noindent \textbf{ReAct} \cite{yao2023react} includes
+    reasoning, action and observation steps, where the action can be either generating
+    a query for searching information or conclude an answer, and the observation is
+    to concatenate the retrieved knowledge.  \noindent \textbf{Self-Ask} \cite{self-ask}
+    includes question decomposition and answer searching steps. The LLM gives the
+    final answer until no more follow-up questions are generated. \citet{yoran2023answering}
+    and \citet{shao-etal-2023-enhancing} further prepend newly retrieved knowledge
+    to the original question for sub-answers generation.   \noindent \textbf{ITER-RETGEN}
+    \cite{shao-etal-2023-enhancing} combines retrieval augmented generation with generation
+    augmented retrieval that iteratively generates new sentences as extensions to
+    the original query for next step retrieval.  As most baselines are under a few-shot
+    setting, '
+- summary: "-   \u5728\u8FDB\u884C2-shot ICL\u65F6\uFF0C\u6211\u4EEC\u901A\u8FC7\u5C06\
+    \u6F14\u793A\u793A\u4F8B\u8FDE\u63A5\u8D77\u6765\u8FDB\u884C\u5B9E\u9A8C\u3002\
+    \u6211\u4EEC\u4ECEWikihop\u3001NQ\u548CStrategyQA\u7684\u8BAD\u7EC3\u96C6\u4E2D\
+    \u968F\u673A\u9009\u62E9\u7279\u5B9A\u793A\u4F8B\uFF0C\u5E76\u5728\u8BC4\u4F30\
+    \u8FC7\u7A0B\u4E2D\u56FA\u5B9A\u5B83\u4EEC\u3002\u76F8\u540C\u7684\u6F14\u793A\
+    \u793A\u4F8B\u5206\u522B\u7528\u4E8E\u591A\u8DF3QA\u3001ODQA\u548C\u5E38\u8BC6\
+    QA\u3002\u6211\u4EEC\u7684\u5C11\u6837\u672C\u5B66\u4E60\u65B9\u6CD5\u88AB\u6807\
+    \u8BB0\u4E3AMIGRES$^{*}$\uFF0C\u9ED8\u8BA4\u8BBE\u7F6E\u4E3A\u96F6\u6837\u672C\
+    \u3002\n    1.  \u8BBE\u8BA1\u6F14\u793A\u4EE5\u8FDB\u884C\u5C11\u6837\u672C\u5B66\
+    \u4E60\u3002\n    2.  MIGRES\u5728\u96F6\u6837\u672C\u8BBE\u7F6E\u4E0B\u4F18\u4E8E\
+    \u6240\u6709\u65B9\u6CD5\u3002\n    3.  MIGRES\u5728Musique\u4E0A\u8868\u73B0\u4E0D\
+    \u4F73\uFF0C\u53EF\u80FD\u662F\u56E0\u4E3A\u8BE5\u6570\u636E\u96C6\u4E2D\u7684\
+    \u95EE\u9898\u66F4\u52A0\u6A21\u7CCA\u548C\u542B\u7CCA\u4E0D\u6E05\u3002\n-  \
+    \ \u5728\u4E3B\u8981\u7ED3\u679C\u4E2D\uFF0CMIGRES\u5728\u96F6\u6837\u672C\u8BBE\
+    \u7F6E\u4E0B\u4F18\u4E8E\u6240\u6709\u65B9\u6CD5\uFF0C\u5728Wikihop\u3001HotpotQA\u548C\
+    StrategyQA\u4E0A\u751A\u81F3\u4E0E\u5C11\u6837\u672C\u57FA\u7EBF\u76F8\u6BD4\u53D6\
+    \u5F97\u4E86\u7ADE\u4E89\u6027\u6216\u66F4\u597D\u7684\u7ED3\u679C\uFF0C\u8BC1\
+    \u660E\u4E86\u6211\u4EEC\u63D0\u51FA\u7684\u65B9\u6CD5\u7684\u6709\u6548\u6027\
+    \u3002\n    1.  MIGRES\u5728Wikihop\u548CHotpotQA\u6570\u636E\u96C6\u4E0A\u7684\
+    EM\u5206\u6570\u6709\u663E\u7740\u63D0\u9AD8\u3002\n    2.  \u5C11\u6837\u672C\
+    \u5B66\u4E60\u6709\u52A9\u4E8E\u6A21\u578B\u907F\u514D\u751F\u6210\u4E0D\u5FC5\
+    \u8981\u7684\u63CF\u8FF0\u3002\n    3.  \u901A\u8FC7\u8FC7\u6EE4\u4E0D\u76F8\u5173\
+    \u77E5\u8BC6\uFF0C\u6211\u4EEC\u5927\u5927\u51CF\u5C11\u4E86\u5916\u90E8\u77E5\
+    \u8BC6\u7684\u6807\u8BB0\u6D88\u8017\u3002\n-   \u5728\u8868\u73B0\u4F18\u8D8A\
+    \u6216\u7ADE\u4E89\u6027\u7684\u540C\u65F6\uFF0C\u6211\u4EEC\u901A\u8FC7\u8FC7\
+    \u6EE4\u4E0D\u76F8\u5173\u77E5\u8BC6\u5927\u5927\u51CF\u5C11\u4E86\u5916\u90E8\
+    \u77E5\u8BC6\u7684\u6807\u8BB0\u6D88\u8017\u3002\n    1.  \u6DFB\u52A0\u6F14\u793A\
+    \u53EF\u4EE5\u5F15\u5BFCLLM\u751F\u6210\u66F4\u6709\u9488\u5BF9\u6027\u7684\u65B0\
+    \u67E5\u8BE2\u3002\n    2.  MIGRES\u5728Musique\u4E0A\u8868\u73B0\u4E0D\u4F73\uFF0C\
+    \u96BE\u4EE5\u4ECE\u68C0\u7D22\u8BED\u6599\u5E93\u4E2D\u53EC\u56DE\u76F8\u5173\
+    \u77E5\u8BC6\u3002\n    3.  \u5C11\u6837\u672C\u5B66\u4E60\u6709\u6548\u5730\u5E2E\
+    \u52A9\u6A21\u578B\u907F\u514D\u751F\u6210\u4E0D\u5FC5\u8981\u7684\u63CF\u8FF0\
+    \u3002"
+  text: 'we also conduct experiments concatenating demonstrations to perform a 2-shot
+    ICL. We design specific examples randomly sampled from the training set of Wikihop,
+    NQ and StrategyQA for each modules and fix then during evaluation. The same demonstrations
+    are shared in multi-hop QA, ODQA and Commonsense QA, respectively. Our method
+    with few-shot learning is denoted as MIGRES$^{*}$, and if not specified, the default
+    setting for MIGRES is zero-shot.  \begin{table*}[t]     \centering     \scalebox{0.8}{     \begin{tabular}{c|ccccccccc}         \toprule         \textbf{Dataset}
+    & \multicolumn{3}{c}{\textbf{Wikihop}} & \multicolumn{3}{c}{\textbf{Musique}}
+    & \multicolumn{3}{c}{\textbf{NQ}} \\         \hline         \textbf{Metrics} &
+    \textbf{EM} & \textbf{Acc$^\dag$} & \textbf{\# Tokens} & \textbf{EM} & \textbf{Acc$^\dag$}
+    & \textbf{\# Tokens} & \textbf{EM} & \textbf{Acc$^\dag$} & \textbf{\# Tokens}
+    \\         \hline         MIGRES & 33.6 & 58.5 & 733 & 18.0 & 31.5 & 1224 & 43.0
+    & 80.0 & 333 \\         {$_{w/o \ Sentence \ Filtering}$} & 33.0 & 58.0 & 877
+    & 19.0 & 33.6 & 1697 & 43.5 & 76.5 & 404 \\         {$_{w \ SUMM}$} & 26.0 & 54.2
+    & 1249 & 12.0 & 30.0 & 1898 & 40.0 & 73.5 & 522 \\         {$_{w \ SNIPPET}$}
+    & 26.6 & 52.2 & 1095 & 12.5 & 29.5 & 1775 & 42.5 & 74.0 & 454 \\     \bottomrule     \end{tabular}}     \caption{Comparison
+    of MIGRES different knowledge compression/filtering method. \textbf{\# Tokens}
+    denotes the average tokens consumption of external knowledge for each instance
+    in the Leaf Module. For \textit{SUMM} and \textit{SNIPPET}, we also count the
+    token consumption calling API for summarization and snippet extraction.}     \label{comparison_compress_res}
+    \end{table*}   \begin{table*}[t]     \centering     \scalebox{0.85}{     \begin{tabular}{c|ccccccccc}         \toprule         \textbf{Dataset}
+    & \multicolumn{3}{c}{\textbf{Wikihop}} & \multicolumn{3}{c}{\textbf{Musique}}
+    & \multicolumn{3}{c}{\textbf{NQ}} \\         \hline         \textbf{Metrics} &
+    \textbf{EM} & \textbf{Acc$^\dag$} & \textbf{\# Avg. Iter} & \textbf{EM} & \textbf{Acc$^\dag$}
+    & \textbf{\# Avg. Iter} & \textbf{EM} & \textbf{Acc$^\dag$} & \textbf{\# Avg.
+    Iter} \\         \hline         GPT-3.5-1106 & 34.8 & 54.4 & 2.53 & 16.8 & 31.6
+    & 2.96 & 42.5 & 73.5 & 1.28 \\         {$_{w/o \ GPT \ knowledge}$} & 32.0 & 53.8
+    & 2.96 & 15.6 & 30.0 & 2.95 & 41.5 & 72.5 & 1.51 \\         \hline         GPT-4-0613
+    & 50.0 & 68.0 & 2.76 & 22.4 & 39.8 & 2.85 & 44.5 & 77.5 & 1.31 \\         {$_{w/o
+    \ GPT \ knowledge}$} & 46.6 & 63.8 & 3.03 & 21.4 & 41.8 & 2.80 & 45.0 & 75.5 &
+    1.50 \\     \bottomrule     \end{tabular}}     \caption{Comparison of MIGRES with/without
+    prompting LLM to generate relevant information when no documents retrieved have
+    a relevance score higher than $\delta$ (to avoid that some questions consistently
+    fail to retrieve highly relevant documents, we set $\delta = 1.0$). \textbf{\#
+    Avg. Iter} denotes the mean iteration steps during inference.}     \label{res_knowledge}
+    \end{table*}  \subsection{Main results} As shown in Table \ref{main_res}, MIGRES
+    outperforms all methods in ALCE under the zero-shot setting, and even achieves
+    competitive or better results on Wikihop, HotpotQA and StrategyQA compared with
+    few-shot baselines, demonstrating the effectiveness of our proposed method. The
+    performance of MIGRES can be further improved when augmenting oracle knowledge,
+    indicating that instances of incorrect responses from the LLM are sometimes a
+    result of the absence of relevant knowledge in the external retrieval corpus.  We
+    also design demonstrations to conduct few-shot learning. It can be seen from Table
+    \ref{main_res} that the performance generally improves, as we find that adding
+    demonstrations can steer LLM to generate more targeted new queries, and reduce
+    the hallucinated knowledge generated. The EM scores on the Wikihop and HotpotQA
+    datasets, which feature more standardized answers, saw notable improvement. This
+    implies that few-shot learning effectively aids the model in avoiding the creation
+    of unnecessary descriptions and in delivering more standardized responses.  MIGRES
+    performs poor on Musique, we think it''s because that questions in this dataset
+    are more obscure and ambiguous, making it difficult for the Retriever to recall
+    relevant knowledge from retrieval corpus. For example, Natalie Wood and Mara Wilson
+    both played Susan Walker in Miracle on 34th Street, but MIGRES fails to recall
+    the knowledge about Natalie Wood and only output Mara Wilson as the player, while
+    the only label provided for this instance is Natalie Wood, resulting an incorrect
+    response for the question \emph{Who is the sibling of the actress who played Susan
+    Walker in Miracle on 34th street?}.  It''s worth noting that, with irrelevant
+    knowledge filtering, we greatly reduce the token consumption of external knowledge,
+    while keeping superior or competitive performance compared with baselines. As
+    shown in Table \ref{efficiency}, '
+- summary: "-   Despite additional API calls required in various modules, MIGRES reduces\
+    \ the total number of passages to less than 5, improving performance and reducing\
+    \ token cost.\n    1.  Sentence-level filtering enhances performance across datasets.\n\
+    \    2.  Prompting GPT knowledge improves iteration efficiency.\n    3.  Utilizing\
+    \ internal knowledge of LLM enhances knowledge retrieval accuracy.\n-   MIGRES\
+    \ with knowledge prompting achieves better results on Wikihop and NQ, showing\
+    \ that the LLM can provide valuable information related to input queries.\n  \
+    \  1.  Average iteration steps for MIGRES are only marginally reduced.\n    2.\
+    \  Generated knowledge offers valuable information to address input queries.\n\
+    \    3.  Accuracy of generated knowledge is promising on Wikihop and Musique datasets.\n\
+    -   Evaluation of the accuracy of the generated knowledge shows promising results\
+    \ on Wikihop and Musique datasets, offering valuable information to address input\
+    \ queries.\n    1.  Low accuracy on the NQ dataset may stem from less standardized\
+    \ answers.\n    2.  GPT's ability to refuse answering in case of uncertainty or\
+    \ lack of knowledge.\n    3.  Generated knowledge provides valuable information\
+    \ to address input queries."
+  text: "despite additional API calls are required in Main Module, Retrieval Module\
+    \ and gpt knowledge prompting, we reduce the total number of passages, which is\
+    \ much more costly, to less than 5.   \\subsection{Benefit of Sentence-Level Filtering}\
+    \ We adopt a sentence-level filtering to further reduce the noise in the retrieved\
+    \ passages. As can be ssen from Table \\ref{main_res}, VANILLA-s consistently\
+    \ improves the performance across all datasets compared with VANILLA, and reduces\
+    \ the token cost of external knowledge. Incorporating sentence-level filtering\
+    \ also outperforms SUMM and SNIPPET on various datasets without additional calls\
+    \ of LLM, but its performance is less effective on Wikihop and Musique. This could\
+    \ be attributed to the fact that VANILLA retains only the top 5 passages re-ranked,\
+    \ while content deemed irrelevant is not kept in the SUMM and SNIPPET. With 7.9\
+    \ and 8.4 average calls of LLM for knowledge compression to get 5 relevant refined\
+    \ passages, they are able to capture more information, thereby improve the performance,\
+    \ especially in multi-hop QA scenarios. A comparison of these three compression\
+    \ methods can be found in Table \\ref{compress_res}.  To further investigate the\
+    \ token efficiency, we evaluate MIGRES useing different compression methods on\
+    \ Wikihop, Musique and NQ, the results are shown in Table \\ref{comparison_compress_res}.\
+    \ We can see that employing sentence-level filtering slightly outperforms the\
+    \ others, with less token consumption and no extra calls for LLM.   \\subsection{Benefit\
+    \ of Prompting GPT knowledge} The Retrieval Module may sometimes fail to deliver\
+    \ valid pertinent knowledge, either due to the imprecision of the Retriever or\
+    \ the Re-rank model, or because the corresponding external knowledge is absent.\
+    \ Additionally, the LLM possesses a wealth of world knowledge that enables it\
+    \ to generate valuable information given the query. To fully leverage the internal\
+    \ knowledge of LLM and to improve the iteration efficiency of MIGRES, we prompt\
+    \ the LLM to generate query-related information when the Retrieval Module returns\
+    \ no knowledge.   \\begin{table}[h]     \\centering     \\scalebox{0.9}{     \\\
+    begin{tabular}{c|ccc}     \\toprule     % \\textbf{Dataset} & \\multicolumn{3}{c}{\\\
+    textbf{Wikihop}} & \\multicolumn{3}{c}{\\textbf{Musique}} & \\multicolumn{3}{c}{\\\
+    textbf{NQ}} \\\\     \\textbf{Dataset} & \\textbf{Wikihop} & \\textbf{Musique}\
+    \ & \\textbf{NQ} \\\\     \\hline     % {} &  &  & \\\\     gpt-3.5-1106 & 45.5\
+    \ & 54.6 & 24.7 \\\\     gpt-4-0613  & 87.7 & 77.5 & 32.0 \\\\     \\hline   \
+    \  \\end{tabular}}     \\caption{Accuracy of the generated knowledge.}     \\\
+    label{acc_knowledge} \\end{table}  To investigate the effectiveness of utilizing\
+    \ the internal knowledge of LLM, we conduct experiments without knowledge prompting,\
+    \ where MIGRES attempts to retrieve relevant knowledge at the next iteration steps\
+    \ by generating more simper and diverse queries in the absence of knowledge returned\
+    \ by Retrieval Module. The results are shown in Table \\ref{res_knowledge}. We\
+    \ can see that MIGRES with knowledge prompting achieves better results on Wikihop\
+    \ and NQ, showing that the LLM can indeed provide valuable information related\
+    \ to the input queries. The average iteration steps for MIGRES is only marginally\
+    \ reduced, this is because of the gpt's ability to refuse answering by responding\
+    \ \"I don't know\" in case of uncertainty or lack of knowledge.   We also evaluate\
+    \ the accuracy of the generated knowledge by checking if it contains the sub-answer\
+    \ with EM metric, the results are shown in Table \\ref{acc_knowledge}. We can\
+    \ see that the generated knowledge gets a promising accuracy on Wikihop and Musique,\
+    \ thereby offering valuable information to address the input query. The low accuracy\
+    \ observed on the NQ cound stem from its answers being less standardized, resulting\
+    \ in reduced EM scores. For instance, gpt will generate \\emph{French immigrants\
+    \ settled in various regions across Texas} for the question \\emph{where did the\
+    \ french immigrants settle in texas}, while the ground truth answer is \\emph{present\
+    \ - day southeastern Texas}.  % \\subsection{Boardline analysis} % We conduct\
+    \ experiments to investigate the performance of MIGRES by varying filter score\
+    \ $\\delta$ and max iteration steps $\\mathcal{T}$. Please refer to Appendix \\\
+    ref{} for more details.  Related Works:     % \u5728Retrieval Augmented Generation\u4E2D\
+    \uFF0C\u5982\u4F55\u4F18\u5316user original queries\u8BE5\u6280\u672F\u6240\u9700\
+    \u8981\u7684\u91CD\u8981\u4F18\u5316\u65B9\u5411\\cite{gao2023retrieval}\u3002\
+    \u65E9\u671F\u7684\u5DE5\u4F5C\u5C1D\u8BD5\u4F7F\u7528rule-based method\u6216\u8005\
+    supervised model\u6765\u5206\u89E3\u590D\u6742\u591A\u8DF3\u95EE\u9898\\cite{min2019multi,\
+    \ sun2020sparqa, Khot2021TextMN}\uFF0C\u6216\u8005\u901A\u8FC7Generation Augmented\
+    \ Retrieval\u7684\u5F62\u5F0F\u62D3\u5C55query\u672C\u8EAB\\cite{Shwartz2020UnsupervisedCQ,\
+    \ liu-etal-2022-generated}\u3002\u8FD9\u4E9B\u4F18\u5316query\u7684\u65B9\u6CD5\
+    \u5E76\u4E0D\u80FD\u771F\u6B63\u63A2\u6D4B\u5230Language Model\u7F3A\u5931\u7684\
+    \u77E5\u8BC6\uFF0C\u5E76\u4E14\u65B0\u4EA7\u751F\u7684\u95EE\u9898\u8FC7\u4E8E\
+    \u673A\u68B0\u3002 % \u968F\u7740LLM\u6240\u6D8C\u73B0\u51FA\u63A8\u7406\u80FD\
+    \u529B\u88AB\u53D1\u73B0\\cite{Wei2022EmergentAO}\uFF0C\u4EE5CoT\\cite{Wei2022ChainOT}\u4E3A\
+    \u4EE3\u8868\u7684\u4E00\u7CFB\u5217\u7814\u7A76\u63A2\u7D22\u5229\u7528LLM\u6765\
+    \u81EA\u52A8\u5BFB\u627E\u6240\u9700\u8981\u67E5\u8BE2\u7684\u4FE1\u606F\u3002\
+    \u8FD9\u5176\u4E2D\u5305\u62EC\u9759\u6001\u67E5\u8BE2\uFF0C\u5373\u5C06\u95EE\
+    \u9898\u5206\u89E3\u4E3A\u591A\u4E2A\u5B50\u95EE\u9898\u540E\u4E00\u5E76\u67E5\
+    \u8BE2\\cite{zhou2022least, zhao2023verify}, \u4F46\u662F\u6A21\u578B\u7F3A\u5931\
+    \u7684\u4FE1\u606F\u5176\u5B9E\u662F\u96BE\u4EE5\u4E00\u6B21\u6027\u5168\u90E8\
+    \u7ED9\u51FA\u7684\u3002\u56E0\u6B64\u66F4\u591A\u7684\u5219\u662Fon-the-fly\u7684\
+    \u5F62\u5F0F\\cite{shao2023enhancing, self-ask, yao2023react, "
+- summary: "-   \u6211\u4EEC\u7684\u65B9\u6CD5\u63D0\u51FA\u4E86MIGRES\uFF0C\u5229\
+    \u7528\u7F3A\u5931\u4FE1\u606F\u5F15\u5BFC\u65B0\u67E5\u8BE2\u751F\u6210\u548C\
+    \u77E5\u8BC6\u68C0\u7D22\uFF0C\u4FC3\u8FDB\u89E3\u51B3\u77E5\u8BC6\u5BC6\u96C6\
+    \u578B\u95EE\u9898\u7684RAG\u8FC7\u7A0B\u3002\n    1.  LLMs\u5B9E\u9A8C\u9A8C\u8BC1\
+    \u4E86\u63D0\u53D6\u4FE1\u606F\u548C\u4E86\u89E3\u7F3A\u5931\u4FE1\u606F\u7684\
+    \u80FD\u529B\u3002\n    2.  MIGRES\u5229\u7528\u7F3A\u5931\u4FE1\u606F\u5F15\u5BFC\
+    \u65B0\u67E5\u8BE2\u751F\u6210\u548C\u77E5\u8BC6\u68C0\u7D22\u3002\n    3.  \u5B9E\
+    \u9A8C\u7ED3\u679C\u8868\u660E\u6211\u4EEC\u7684\u65B9\u6CD5\u6548\u679C\u663E\
+    \u8457\uFF0C\u4E0E\u6700\u5148\u8FDB\u57FA\u7EBF\u76F8\u6BD4\u5177\u6709\u66F4\
+    \u5C11\u7684\u5916\u90E8\u77E5\u8BC6\u4EE4\u724C\u6D88\u8017\u3002"
+  text: "kim2023tree}\uFF0C\u52A8\u6001\u4E0E\u5916\u754C\u4EA4\u4E92\u3002\u4F46\u662F\
+    \\cite{shao2023enhancing}\u4EC5\u4EC5\u5C06retrieve\u548Cgenerate\u51FA\u6765\u7684\
+    \u6587\u6BB5\u62FC\u5728\u539F\u95EE\u9898\u4E0A\uFF0C\u6BCF\u6B21\u8FED\u4EE3\
+    \u65F6\u6CA1\u6709\u663E\u5F0F\u5730\u6307\u51FA\u6A21\u578B\u7F3A\u4E4F\u7684\
+    \u77E5\u8BC6\uFF1B\\cite{self-ask, yao2023react}\u5219\u7F3A\u5C11verification\u7684\
+    \u6B65\u9AA4\uFF0C\u5BB9\u6613\u88AB\u68C0\u7D22\u51FA\u7684\u65E0\u7528\u4FE1\
+    \u606F\u8BEF\u5BFC\uFF1B\\cite{kim2023tree}\u4EE5\u6811\u5F62\u7ED3\u6784\u66F4\
+    \u7EC6\u81F4\u5730\u5206\u89E3\u539F\u95EE\u9898\uFF0C\u4F46\u662F\u5177\u6709\
+    \u8F83\u9AD8\u7684\u65F6\u95F4cost\u3002 % \u548C\u4E0A\u8FF0\u65B9\u6CD5\u76F8\
+    \u6BD4\uFF0C\u6211\u4EEC\u7684\u65B9\u6CD5\u663E\u793A\u5730\u63D0\u793A\u6A21\
+    \u578B\u5BFB\u627E\u6240\u7F3A\u5931\u7684\u4FE1\u606F\uFF0C\u5E76\u4E14\u751F\
+    \u6210\u7B80\u5355\u7684\u5355\u8DF3\u95EE\u9898\u4EE5\u4FBF\u4E8E\u66F4\u9AD8\
+    \u6548\u7684\u68C0\u7D22\u3002  \\noindent \\textbf{Query optimisation in RAG}\
+    \ The optimization of user original queries is a critical area of focus \\cite{gao2023retrieval}\
+    \ in RAG. Initial approaches have attempted to decompose multi-hop questions using\
+    \ rule-based methods and supervised models \\cite{min2019multi, sun2020sparqa,\
+    \ Khot2021TextMN}, or expand the query itself through Generation Augmented Retrieval\\\
+    cite{Shwartz2020UnsupervisedCQ, liu-etal-2022-generated}. However, these strategies\
+    \ often fail to pinpoint the gaps in the knowledge of language models % , and\
+    \ the resulting queries may appear unnatural.  With the discovery of the reasoning\
+    \ capabilities inherent in LLMs \\cite{Wei2022EmergentAO}, a series of studies\
+    \ represented by CoT \\cite{Wei2022ChainOT} explored the use of the LLM to reform\
+    \ the query. These include static decomposition, where the original problem is\
+    \ dissected into sub-problems simultaneously \\cite{zhou2022least, zhao2023verify},\
+    \ but these methods lack flexibility. Therefore, more dynamic approaches have\
+    \ also been developed \\cite{shao2023enhancing, feng2023retrievalgeneration, self-ask,\
+    \ yao2023react, kim2023tree}, which interact with external information sources\
+    \ in real-time. However, \\citet{shao2023enhancing, feng2023retrievalgeneration}\
+    \ simply concatenate retrieved and generated content without clearly identifying\
+    \ the knowledge gaps in each iteration, \\citet{self-ask, yao2023react} lacks\
+    \ the step of verification, and is easily misled by the retrieved useless information.\
+    \ \\citet{kim2023tree} employ a tree structure for more detailed problem decomposition,\
+    \ which can be time-consuming. In contrast to the above methods, our approach\
+    \ prompts the language model to find the missing information and generates simple\
+    \ one-hop problems for more efficient retrieval, with less time costs.  % \\cite{gao-etal-2023-enabling,\
+    \ chen2023walking} \u6CA1\u6709\u68C0\u9A8C\u68C0\u7D22\u6587\u672C\u4E0E\u539F\
+    \u95EE\u9898\u6216\u5B50\u95EE\u9898\u4E4B\u95F4\u7684\u4E00\u81F4\u6027, \\cite{xu2024recomp,\
+    \  sun2024verifiable}\u5219\u4EC5\u4EC5\u505C\u7559\u5728Coarse-grained rerank\u3002\
+    \u6211\u4EEC\u7684\u65B9\u6CD5\u5728\u8FD9\u4E24\u65B9\u9762\u90FD\u6709\u6240\
+    \u6539\u8FDB\uFF0C\u4ECEsentence-level\u8FDB\u884Cfine-grained filtering\uFF0C\
+    \u5E76\u4E14\u5BF9top\u6587\u672C\u4E0E\u95EE\u9898\u8054\u5408\u8FDB\u884Cverification\u3002\
+    \ \\noindent \\textbf{Retrieve-then-rerank framework}  % For document side,  Retrieving\
+    \ documents that are relevant to the input query from the extensive pool of knowledge\
+    \ is inherently challenging \\cite{gao2024retrievalaugmented, sun2024verifiable},\
+    \ especially % , while the retrieved document may contain useful knowledge for\
+    \ addressing the input query when there exist irrelevant noise content throughout\
+    \ the context \\cite{chen2024benchmarking, yoran2023making}. This noise not only\
+    \ wastes computational resources but also interferes with the generated content\
+    \ \\cite{xu2024recomp}. Therefore, the retrieve-then-rerank paradigm is widely\
+    \ adopted to improve the quality of context by re-ranking retrieved knowledge\
+    \ to filter out the hard negative passages \\cite{ma2023zero}. To streamline this\
+    \ process and condense the context, researchers suggest creating summaries or\
+    \ snippets pertinent \\cite{gao-etal-2023-enabling, chen2023walking, xu2024recomp,\
+    \  sun2024verifiable} to serve as knowledge augmentation. Nevertheless, \\cite{gao-etal-2023-enabling,\
+    \ chen2023walking} do not assess the consistency between the retrieved text and\
+    \ the question, \\cite{xu2024recomp, sun2024verifiable} are limited to coarse-grained\
+    \ reranking. Our approach enhances both aspects, by performing fine-grained filtering\
+    \ at the sentence level and by verifying the entailment between the top-ranked\
+    \ texts and the problem.  Conclusion:  In this paper, we first experimentally\
+    \ verified the ability of LLMs to extract information as well as to know the missing\
+    \ information. Based on the discovery, we propose MIGRES, which leverages the\
+    \ missing information to steer new queries generation and subsequent knowledge\
+    \ retrieval, and thus facilitates the process of RAG for solving knowledge-intensive\
+    \ questions. Experimental results demonstrate the effectiveness of our propose\
+    \ method, which achieves superior or competitive performances compared with state-of-the-art\
+    \ baselines with generally less token consumption on external knowledge.    %\
+    \ Entries for the entire Anthology, followed by custom entries  \\clearpage Prompt\
+    \ for QA pairs Decomposing:  % \\begin{figure}[ht] %     \\centering %     \\\
+    includegraphics[width=1.0\\linewidth]{figures/prelimary.drawio.pdf} %     \\caption{Prompt\
+    \ for QA pairs Decomposing.} %     \\label{prompt_decom} % \\end{figure}  \\begin{longtable}[ht]{p{16cm}}\
+    \     \\toprule     \\textbf{\\large \\# Useful information extraction} \\\\ \
+    \    \\\\     Given the following question with its final answer and evidence,\
+    \ please generate the sub-questions corresponding to the evidence to complete\
+    \ the question decomposition. \\\\     \\\\     \\textbf{\\large \\# Wikihop}\
+    \ \\\\     Question: Which film was released more recently, "
+- summary: "-   The comparison between \"Fatal Lady\" and \"Every Blessed Day\" reveals\
+    \ the latter was published in 2012, while the former in 1936.\n    1.  \"Fatal\
+    \ Lady\" was released in 1936.\n    2.  \"Every Blessed Day\" was released in\
+    \ 2012.\n    3.  The governor's term in Alabama, where \"Selma, Lord, Selma\"\
+    \ takes place, is four years.\n-   The useful information extraction task involves\
+    \ identifying Swapan Saha as the director of the 2008 film \"Golmaal.\"\n    1.\
+    \  Swapan Saha is the director of \"Golmaal\" (2008 Film).\n    2.  The support\
+    \ passage for this information is Passage 3.\n    3.  The provided information\
+    \ is deemed useful for answering the question.\n-   The missing information generation\
+    \ task involves determining the latitude defining the border of the continent\
+    \ where Smokinya Cove is located.\n    1.  The answer is deemed unanswerable due\
+    \ to missing information on the latitude.\n    2.  The missing information pertains\
+    \ to the latitude of the border where Smokinya Cove is situated.\n    3.  The\
+    \ candidate question aligned with this missing information is about Antarctica's\
+    \ border latitude."
+  text: "Fatal Lady or Every Blessed Day? \\\\     Final answer: Every Blessed Day\
+    \ \\\\      Evidence: {[['Fatal Lady', 'publication date', '1936'], ['Every BlessedDay',\
+    \ 'publication date', '2012']]} \\\\     \\\\     Sub-question 1: When was Fatal\
+    \ Lady released? \\\\     Sub-answer 1: Fatal Lady was released in 1936 \\\\ \
+    \    Sub-question 2: When was Every Blessed Day released? \\\\     Sub-answer\
+    \ 2: Every Blessed Day was released in 2012 \\\\     \\\\     \\textbf{\\large\
+    \ \\# Musique} \\\\     Question: How long is a governor's term in the state where\
+    \ Selma, Lord, Selma takes place? \\\\     Final answer: Four years \\\\     Evidence:\
+    \ {[\\{\"question\": 'Which place is Selma, Lord, Selma in?', \"answer\": 'Alabama'\\\
+    }, \\{\"question\": \"how long is a governor's term in \\#1\", \"answer: 'Four\
+    \ years'\\}]} \\\\     Sub-question 1: Which place is Selma, Lord, Selma in? \\\
+    \\     Sub-answer 1: The place Selma, Lord, Selma is located in is Alabama. \\\
+    \\     Sub-question 2: how long is a governor's term in Alabama \\\\     Sub-answer\
+    \ 2: The governor's term in Alabama is four years. \\\\     \\bottomrule     %\\\
+    end{tabular}     \\caption{Prompts and cases for QA pairs decomposing.}     \\\
+    label{prompt_decom} \\end{longtable}   Prompts and cases in preliminary experiment:\
+    \  \\label{appendix_prompt_prelimary}  \\begin{longtable}[ht]{p{16cm}}     \\\
+    toprule     \\textbf{\\large \\# Useful information extraction} \\\\     \\\\\
+    \ Given the following question and passages, please distillate useful information\
+    \ from the Passages to address the Question effectively and list the support passage\
+    \ index for each distilled information. Your response should be under the format\
+    \ \\{\"useful\\_information\": [\\{\"info\": statement of useful information,\
+    \ \"support\\_passages\": [indexes of support passages]\\}]\\}. The provided passages\
+    \ might be irrelevant and contain no useful information. Not provided information\
+    \ should not appear in your response. Please generate a dict format response.\
+    \ \\\\ \\\\ Question: Who is the director of Golmaal (2008 Film)? \\\\ \\\\ Passage\
+    \ 0: (Title: Les Oreilles) Les Oreilles is a 2008 film. \\\\ Passage 1: (Title:\
+    \ Henry Moore (cricketer)) Henry Walter Moore( 1849 \u2013 20 August 1916) was\
+    \ an English- born first-class cricketer who spent most of his life in New Zealand.\
+    \ \\\\ Passage 2: (Title: Arugba) Arugba is a 2008 film. \\\\ Passage 3: (Title:\
+    \ Swapan Saha) Swapan Saha( born 10 January 1930 in Ajmer, Rajasthan, India) is\
+    \ an Indian Bengali film director, producer, story writer and score composer.\
+    \ \\\\ Passage 4: (Title: Terence Macartney-Filgate) Terence Macartney-Filgate\
+    \ (born August 6, 1924 in England, United Kingdom) is a British-Canadian film\
+    \ director who has directed, written, produced or shot more than 100 films in\
+    \ a career spanning more than 50 years. \\\\ \\\\ Your response:  \\{\"useful\\\
+    _information\": [\\{\"info\": \"Swapan Saha is the director of Golmaal (2008 Film)\"\
+    , \"support\\_passages\": [3]\\}]\\} \\\\ \\\\ \\# \\textbf{\\large{Verification\
+    \ of usefulness}} \\\\ \\\\ Determine whether the provided information is useful\
+    \ for answering the question. Please answer \"yes\" or \"no\". \\\\ Information:\
+    \ Swapan Saha is the director of Golmaal \\\\ Question: Who is the director of\
+    \ Golmaal (2008 Film)? \\\\ \\\\ Yes. \\\\     \\bottomrule     %\\end{tabular}\
+    \     \\caption{Prompts and cases for useful information extraction.}     \\label{useful\
+    \ prompt} \\end{longtable}  \\begin{longtable}[ht]{p{16cm}}     %\\centering %#\\\
+    begin{tabular}{p{16cm}}     \\toprule     \\textbf{\\large \\# Missing information\
+    \ generation} \\\\     \\\\ Answer the question based on the provided information.\
+    \ If the question can not be answered, the answer should be \"unanswerable\" and\
+    \ you should give a summary of the missing information. Otherwise, provide your\
+    \ answer to the question. Your response should be under the format \\{\"answer\"\
+    : your answer, \"missing\\_information\": the summary of the missing information\\\
+    }. \\\\ \\\\ Question: What latitude is defined as being the border of the continent\
+    \ where Smokinya Cove is located? \\\\ \\\\ Information: Barcelona beat Manchester\
+    \ United to win the 2008-09 Champions League title. \\\\ \\\\ Your response: \\\
+    {\"answer\": \"unanswerable\", \"missing\\_information\": \"The latitude of the\
+    \ border where Smokinya Cove is located.\"\\} \\\\ \\\\ \\# \\textbf{\\large{Verification\
+    \ of missing information}} \\\\ \\\\ Given the missing information and the candidate\
+    \ questions. List the index of questions aligned with the missing information,\
+    \ then provide your explanation. \\\\ \\\\ Missing information: The latitude of\
+    \ the border where Smokinya Cove is located. \\\\ \\\\ Candidate questions: \\\
+    \\ (\\# Sub-questions pre-generated, as illustrated in Figure \\ref{prompt_decom}.)\
+    \ \\\\ \\\\ 1. What latitude is defined as being Antarctica 's border?\\\\ \\\\\
+    \ Index: [1] \\\\ Explanation: The missing information relates to the latitude\
+    \ of the border where Smokinya Cove is located. The candidate question 1 directly\
+    \ asks about the latitude defining Antarctica's border, which aligns with the\
+    \ missing information. Therefore, "
+- summary: "-   MIGRES\u7684\u77E5\u8BC6\u63D0\u793A\u548C\u6A21\u578B\u8F93\u51FA\
+    \u6B63\u786E\u6027\u8BC4\u4F30\u7684\u63D0\u793A\n    1.  \u751F\u6210\u7ED9\u5B9A\
+    \u95EE\u9898\u7684\u76F8\u5173\u4FE1\u606F\n    2.  \u8BC4\u4F30\u6A21\u578B\u8F93\
+    \u51FA\u662F\u5426\u6B63\u786E\n    3.  \u5217\u51FAMIGRES\u7684\u8D85\u53C2\u6570\
+    \u8BBE\u7F6E\n-   MIGRES\u7684\u8D85\u53C2\u6570\u8BBE\u7F6E\n    1.  \u5217\u51FA\
+    \u4E0D\u540C\u6570\u636E\u96C6\u7684\u8D85\u53C2\u6570\u8BBE\u7F6E\n    2.  \u9884\
+    \u5148\u786E\u5B9A\u76F8\u5173\u6027\u9608\u503C$\\delta$\n    3.  \u8C03\u6574\
+    $\\delta$\u4EE5\u786E\u4FDD80%\u4EE5\u4E0A\u95EE\u9898\u627E\u5230\u81F3\u5C11\
+    \u4E00\u4E2A\u76F8\u5173\u6027\u9AD8\u4E8E\u8BE5\u9608\u503C\u7684\u5916\u90E8\
+    \u6BB5\u843D\n-   \u4E0D\u540C\u77E5\u8BC6\u538B\u7F29\u65B9\u6CD5\u7684\u6BD4\
+    \u8F83\n    1.  \u5BF9\u6BD4\u4E0D\u540C\u538B\u7F29\u65B9\u6CD5\n    2.  \u63D0\
+    \u4F9B\u5173\u4E8E\u7535\u5F71\u300ASchool on Fire\u300B\u7684\u76F8\u5173\u4FE1\
+    \u606F\n    3.  \u8FC7\u6EE4\u53E5\u5B50\u7EA7\u522B\u7684\u4FE1\u606F"
+  text: 'the index for the aligned question is [1].\\     \bottomrule     %\end{tabular}     \caption{Prompts
+    and cases for missing information generation.}     \label{missing prompt} \end{longtable}   Prompt
+    for GPT knowledge prompting and answer evaluation:  \begin{longtable}[ht]{p{16cm}}     %\centering
+    %#\begin{tabular}{p{16cm}}     \toprule     \textbf{\large \# Prompt for knowledge
+    prompting} \\     Generation relevant information to the given question. \\     Question:
+    \{QUESTION\} \\     Information: \\     \\     \textbf{\large \# Prompt for Evaluating
+    the Correctness of a Model Output} \\     In the following task, you are given
+    a Question, a model Prediction for the Question, and a Ground-truth Answer to
+    the Question. You should decide whether the model Prediction implies the Ground-truth
+    Answer. \\     \\     Question \\     \{question\} \\     Prediction \\     \{model
+    output\} \\     Ground-truth Answer \\     \{answer\} \\     Does the Prediction
+    imply the Ground-truth Answer? Output Yes or No: \\     \bottomrule     %\end{tabular}     \caption{Prompts
+    for GPT knowledge prompting and for evaluating the correctness of a model output.}     \label{other_prompt}
+    \end{longtable}  Hyper-parameter settings for MIGRES:  We list the hyper-parameter
+    settings of MIGRES in Table \ref{hyper-setting}. \begin{table*}[h]     \centering     \scalebox{1.0}{     \begin{tabular}{c|ccc}     \toprule     \textbf{Dataset}
+    & \textbf{Multi-hop QA} & \textbf{ODQA} & \textbf{Commonsense QA}\\     \hline     Max
+    Iteration Steps $\mathcal{T}$ & 5 & 3 & 5 \\     Relevance Threshold $\delta$
+    & 3.0 & 5.0 & 0.0 \\     Max Num of Passages Concatenated $k$ & 5 & 5 & 5 \\     Nums
+    of Passages Retrieved for each Query & 50 & 50 & 50 \\          \bottomrule     \end{tabular}}     \caption{Hyper-parameter
+    settings for MIGRES. We predetermine the relevance threshold $\delta$ utilizing
+    the training set, where we conduct knowledge retrieval with the original questions
+    on a sub-sampled set, and compute relevance scores of the retrieved passages.
+    We adjust $\delta$ so that more than 80\% of the questions find at least one external
+    passage with a relevance higher than this threshold.}     \label{hyper-setting}
+    \end{table*}   Comparison of different knowledge compression method:  \begin{longtable}[ht]{p{16cm}}     %\centering
+    %#\begin{tabular}{p{16cm}}     \toprule     \textbf{\large \# Comparison with
+    different compression method} \\     \\ <Question> Which film has the director
+    who died later, What Will You Do When You Catch Me? or School On Fire? \\ \\ <Retrieved
+    passage> (Title: School on Fire) School on Fire School on Fire is a 1988 Hong
+    Kong action film directed by Ringo Lam. The film involves a young schoolgirl Chu
+    Yuen Fong (Fennie Yuen) who becomes caught in a tragic stranglehold of triad activity
+    after she testifies over a triad beating. When this news reaches the triad leader
+    Brother Smart (Roy Cheung), Yuen Fong must pay him protection money for what she
+    has done as events begin to escalate. The film involves a young schoolgirl Chu
+    Yuen Fong (Fennie Yuen) who becomes caught in a tragic stranglehold of triad activity
+    after she testifies over a \\ \\ \textbf{ \# SUMM} \\ School on Fire" is a 1988
+    Hong Kong action film directed by Ringo Lam. It follows Chu Yuen Fong, who gets
+    involved in triad activity after testifying against them. The director, Ringo
+    Lam, died later. It''s irrelevant to the question about "What Will You Do When
+    You Catch Me? \\ \\ \textbf{ \# SNIPPET} \\ Irrelevant. \\ \\ \textbf{ \# Sentence-level
+    Filtering} \\ School on Fire School on Fire is a 1988 Hong Kong action film directed
+    by Ringo Lam.\\     \bottomrule     %\end{tabular}     \caption{Prompts and cases
+    for missing information generation.}     \label{compress_res} \end{longtable}  Prompts
+    and cases for MIGRES:   \begin{longtable}[ht]{p{16cm}}     %\centering %#\begin{tabular}{p{16cm}}     \toprule     \textbf{\large
+    Cases of MIGRES} \\     \\ \textbf{\large \# Case 1} \\ <Original Question> \\
+    Do both films Levity (Film) and I Come With The Rain have the directors that share
+    the same nationality? \\ <Labels> \\ {\{"answer": "No", "evidences": [["Levity
+    (film)", "director", "Ed Solomon"], ["I Come with the Rain", "director", "Tran
+    Anh Hung"], ["Ed Solomon", "country of citizenship", "American"], ["Tran Anh Hung",
+    "country of citizenship", "French"], ["Tran Anh Hung", "country of citizenship",
+    "Vietnamese"]]\}} \\ \\ \textbf{\large \# Iteration 1} \\ \textbf{<Retrieval Module>}
+    \\ {[Retrieval]} Passage 0: (Title: I Come with the Rain) I Come with the Rain
+    I Come with the Rain is a 2009 neo-noir atmospheric thriller written and directed
+    by Vietnamese-born French director Tran Anh Hung, ..., The film score is written
+    \\ \\ \textbf{<Leaf Module>} \\ Leaf Instruction: Given the following Question
+    and Passages, please distillate useful information from the Passages to address
+    the Question effectively and list the support passage index for each distilled
+    information. '
+- summary: "-   \u6C47\u603B\u683C\u5F0F\u8981\u6C42\u4E3A{\"useful\\_information\"\
+    : [{\"info\": statement of distilled useful information combining the question,\
+    \ \"support\\_passages\": [indexes of support passages]}]}\uFF0C\u672A\u63D0\u4F9B\
+    \u4FE1\u606F\u4E0D\u5E94\u51FA\u73B0\u5728\u56DE\u7B54\u4E2D\u3002\n    1.  \u56DE\
+    \u7B54\u5E94\u57FA\u4E8E\u63D0\u4F9B\u7684\u4FE1\u606F\uFF0C\u4E0D\u8DB3\u4EE5\
+    \u56DE\u7B54\u65F6\u5E94\u4E3A\"\u65E0\u6CD5\u56DE\u7B54\"\uFF0C\u5E76\u63D0\u4F9B\
+    \u89E3\u91CA\u548C\u7F3A\u5931\u4FE1\u606F\u6458\u8981\u3002\n    2.  \u4FE1\u606F\
+    \u63D0\u4F9B\u4E86\u5BFC\u6F14Tran Anh Hung\u7684\u56FD\u7C4D\uFF0C\u4F46\u672A\
+    \u63D0\u4F9B\u7535\u5F71\"Levity\"\u7684\u5BFC\u6F14\u56FD\u7C4D\u3002\n    3.\
+    \  \u901A\u8FC7\u67E5\u8BE2\u5BFC\u6F14Ed Solomon\u7684\u56FD\u7C4D\uFF0C\u53EF\
+    \u4EE5\u89E3\u51B3\u5173\u4E8E\"Levity\"\u5BFC\u6F14\u56FD\u7C4D\u7684\u7F3A\u5931\
+    \u4FE1\u606F\u3002\n-   \u7535\u5F71\"Levity\"\u7531Ed Solomon\u6267\u5BFC\u3002\
+    \n    1.  \u901A\u8FC7\u67E5\u8BE2\u5F97\u77E5\uFF0C\u7535\u5F71\"Levity\"\u7684\
+    \u5BFC\u6F14\u662FEd Solomon\u3002\n    2.  \u672A\u77E5\u7535\u5F71\"Levity\"\
+    \u5BFC\u6F14\u7684\u56FD\u7C4D\uFF0C\u65E0\u6CD5\u786E\u5B9A\u4E24\u90E8\u7535\
+    \u5F71\u5BFC\u6F14\u662F\u5426\u540C\u56FD\u7C4D\u3002\n    3.  \u7F3A\u5931\u4FE1\
+    \u606F\u4E3A\u7535\u5F71\"Levity\"\u5BFC\u6F14\u7684\u56FD\u7C4D\u3002\n-   Ed\
+    \ Solomon\u662F\u7F8E\u56FD\u7535\u5F71\u5236\u7247\u4EBA\u3002\n    1.  \u67E5\
+    \u8BE2\u786E\u8BA4Ed Solomon\u7684\u56FD\u7C4D\u4E3A\u7F8E\u56FD\u3002\n    2.\
+    \  \u786E\u8BA4\u4E86\"Levity\"\u5BFC\u6F14Ed Solomon\u7684\u56FD\u7C4D\u3002\n\
+    \    3.  \u901A\u8FC7\u786E\u8BA4\u5BFC\u6F14\u56FD\u7C4D\uFF0C\u89E3\u51B3\u4E86\
+    \u5173\u4E8E\"Levity\"\u5BFC\u6F14\u56FD\u7C4D\u7684\u7F3A\u5931\u4FE1\u606F\u3002"
+  text: 'Your response should be under the format \{"useful\_information": [\{"info":
+    statement of distilled useful information combining the question, "support\_passages":
+    [indexes of support passages]\}]\}. Not provided information should not appear
+    in your response. Please generate a dict format response. \\ {[Passage 0]} \\
+    {Question: [Original Question] Your response:}\\ {\{"useful\_information": [\{"info":
+    "I Come with the Rain is directed by Vietnamese-born French director Tran Anh
+    Hung.", "support\_passages": [0]\}]\}} \\ \\ \textbf{<Memory Module>} \\ Known
+    Info: I Come with the Rain is directed by Vietnamese-born French director Tran
+    Anh Hung. \\ Retrieved Passage: [Passage 0] \\ Historical Questions: Do both films
+    Levity (Film) and I Come With The Rain have the directors that share the same
+    nationality? \\ \\ \textbf{<Main Module>} \\ Main Instruction: Answer the Question
+    based solely on the provided Information. If the Information is insufficient to
+    answer the Question, the answer should be "unanswerable", and you should provide
+    your explanation and a summary of missing information. Otherwise, write an accurate
+    and concise answer to the Question with a confidence score varying from 1 (not
+    confident) to 5 (very confident) then explain. Your response should be under the
+    format {"answer": {"text": your answer, "confidence": confidence score}, "explanation":
+    your explanation, "missing\_information": the summary of missing information}.
+    Please generate a dict format response. \\ Information: [Known Info] \\ Question:
+    [Original Question] Your response: \\ \{"answer": \{"text": "unanswerable", "confidence":
+    1\}, "explanation": "The information provided only specifies the nationality of
+    Tran Anh Hung, the director of "I Come With The Rain." There is no information
+    provided about the nationality of the director of the film "Levity." Without knowing
+    the nationality of the director of "Levity," it is impossible to determine if
+    both films have directors who share the same nationality.", "missing\_information":
+    "The nationality of the director of the film "Levity.""\} \\ \\ \textbf{\large
+    \# Iteration 2} \\ \textbf{<Retrieval Module>} \\ Query Instruction: Based on
+    the Original Question, Historical Questions, Known Information and Missing Information,
+    write no more than 3 queries that ask for Missing Information to solve the Original
+    Question. If the missing information is multi-hop, decompose it into several simple
+    and single-hop queries. The new queries should not contain redundant information
+    and should differ from the Original Question and Historical Questions. \\ {[Original
+    Question]} \\ {[Historical Questions]} \\ {[Known Info]} \\ Missing Information:
+    The nationality of the director of the film "Levity. New queries: \\ What is the
+    nationality of the director of the film "Levity"? \\ Who directed the film "Levity"?
+    \\ Can you provide the nationality of the director of the film "Levity"? \\ \\
+    {[Retrieval]} Passage 1: (Title: Levity (film)) Levity (film) Levity is a 2003
+    drama film directed by Ed Solomon starring Billy Bob Thornton, ..., After spending
+    his time staring at a clipping of Abner Easley, the boy he killed, he returns
+    to the city he used to live in to find redemption. He ends up living \\ \\ \textbf{<Leaf
+    Module>} \\ {[Leaf Instruction]} \\ {[Passage 1]} \\ {Question: Who directed the
+    film "Levity"?} Your response: \\ {\{"useful\_information": [\{"info": "The film
+    "Levity" was directed by Ed Solomon.", "support\_passages": [1]\}]\}} \\ \\ \textbf{<Memory
+    Module>} \\ Known Info: I Come with the Rain is directed by Vietnamese-born French
+    director Tran Anh Hung. The film "Levity" was directed by Ed Solomon.\\ Retrieved
+    Passage: [Passage 0, Passage 1] \\ Historical Questions: Do both films Levity
+    (Film) and I Come With The Rain have the directors that share the same nationality?
+    What is the nationality of the director of the film "Levity"? Who directed the
+    film "Levity"? Can you provide the nationality of the director of the film "Levity"?\\
+    \\ \textbf{<Main Module>} \\ {[Main Instruction]} \\ Information: [Known Info]
+    \\ Question: [Original Question] Your response: \\ \{"answer": \{"text": "unanswerable",
+    "confidence": 1\}, "explanation": "Without knowing the nationality of the director
+    of ''Levity,'' it''s impossible to determine whether the directors of both films
+    share the same nationality.", "missing\_information": "The nationality of the
+    director of the film "Levity.""\} \\ \\ \textbf{\large \# Iteration 3} \\ \textbf{<Retrieval
+    Module>} \\ {[Query Instruction]} \\ {[Original Question]} \\ {[Historical Questions]}
+    \\ {[Known Info]} \\ Missing Information: The nationality of the director of the
+    film "Levity". New queries: \\ What is the nationality of Ed Solomon, the director
+    of the film "Levity"? \\ Can you confirm the nationality of Ed Solomon, the director
+    of the film "Levity"? \\ \\ {[Retrieval]} Passage 2: (Title: Ed Solomon) Edward
+    James Solomon (born September 15, 1960) is an American filmmaker. '
+- summary: "-   {\u6982\u89811}\n    1.  Ed Solomon\u662F\u7F8E\u56FD\u7535\u5F71\u5236\
+    \u7247\u4EBA\u3002\n    2.  \u7535\u5F71\"Levity\"\u7684\u5BFC\u6F14\u662FEd Solomon\u3002\
+    \n    3.  Ed Solomon\u7684\u56FD\u7C4D\u662F\u7F8E\u56FD\u3002\n-   {\u6982\u8981\
+    2}\n    1.  \u7535\u5F71\"I Come With The Rain\"\u7684\u5BFC\u6F14\u662F\u8D8A\
+    \u5357\u51FA\u751F\u7684\u6CD5\u56FD\u5BFC\u6F14Tran Anh Hung\u3002\n    2.  \"\
+    Levity\"\u548C\"I Come With The Rain\"\u7684\u5BFC\u6F14\u56FD\u7C4D\u4E0D\u540C\
+    \u3002\n    3.  \"Levity\"\u7684\u5BFC\u6F14\u662FEd Solomon\uFF0C\u662F\u7F8E\
+    \u56FD\u4EBA\u3002\n-   {\u6982\u89813}\n    1.  \"My Cousin From Warsaw\"\u662F\
+    1931\u5E74\u7531Carl Boese\u6267\u5BFC\u7684\u5FB7\u56FD\u559C\u5267\u7535\u5F71\
+    \u3002\n    2.  \"My Cousin From Warsaw\"\u4E5F\u662F\u7531Carmine Gallone\u6267\
+    \u5BFC\u76841931\u5E74\u6CD5\u56FD-\u5FB7\u56FD\u559C\u5267\u7535\u5F71\u3002\n\
+    \    3.  \u65E0\u6CD5\u6839\u636E\u63D0\u4F9B\u7684\u4FE1\u606F\u786E\u5B9A\"\
+    Payment On Demand\"\u548C\"My Cousin From Warsaw\"\u7684\u5BFC\u6F14\u8C01\u5148\
+    \u53BB\u4E16\u3002"
+  text: "\\\\ \\\\ \\textbf{<Leaf Module>} \\\\ {[Leaf Instruction]} \\\\ {[Passage\
+    \ 2]} \\\\ {Question: What is the nationality of Ed Solomon, the director of the\
+    \ film \"Levity\"?} Your response: \\\\ {\\{\"useful\\_information\": [\\{\"info\"\
+    : \"Ed Solomon is an American filmmaker\", \"support\\_passages\": [2]\\}]\\}}\
+    \ \\\\ \\\\ \\textbf{<Memory Module>} \\\\ Known Info: I Come with the Rain is\
+    \ directed by Vietnamese-born French director Tran Anh Hung. The film \"Levity\"\
+    \ was directed by Ed Solomon. Ed Solomon is an American filmmaker\\\\ Retrieved\
+    \ Passage: [Passage 0, Passage 1, Passage 2] \\\\ Historical Questions: Do both\
+    \ films Levity (Film) and I Come With The Rain have the directors that share the\
+    \ same nationality? What is the nationality of the director of the film \"Levity\"\
+    ? Who directed the film \"Levity\"? Can you provide the nationality of the director\
+    \ of the film \"Levity\"? What is the nationality of Ed Solomon, the director\
+    \ of the film \"Levity\"? Can you confirm the nationality of Ed Solomon, the director\
+    \ of the film \"Levity\"?\\\\ \\\\ \\textbf{<Main Module>} \\\\ {[Main Instruction]}\
+    \ \\\\ Information: [Known Info] \\\\ Question: [Original Question] Your response:\
+    \ \\\\ \\{\"answer\": \\{\"text\": \"No\", \"confidence\": 5\\}, \"explanation\"\
+    : \"The director of 'Levity', Ed Solomen, is American, while the director of 'I\
+    \ Come With The Rain', Tran Anh Hung, is Vietnamese-born. Therefore, the directors\
+    \ of these films have different nationalities.\", \"missing\\_information\": \"\
+    \"\\} \\\\  \\\\ \\textbf{\\large \\# Case 2} \\\\ <Orignal Question> \\\\ Which\
+    \ film has the director died earlier, Payment On Demand or My Cousin From Warsaw?\
+    \ \\\\ <Label> \\\\ {\\{\"answer\": \"My Cousin From Warsaw\", \"evidences\":\
+    \ [[\"Payment on Demand\", \"director\", \"Curtis Bernhardt\"], [\"My Cousin from\
+    \ Warsaw\", \"director\", \"Carl Boese\"], [\"Curtis Bernhardt\", \"date of death\"\
+    , \"22 February 1981\"], [\"Carl Boese\", \"date of death\", \"6 July 1958\"]]\\\
+    }} \\\\ \\\\ \\textbf{\\large \\# Iteration 1} \\\\ \\textbf{<Retrieval Module>}\
+    \ \\\\ {[Retrieval]} Passage 0: My Cousin from Warsaw is a 1931 German comedy\
+    \ film directed by Carl Boese and starring Liane Haid, Tala Birell and Fritz Schulz.\
+    \ A separate French- language version\" Ma cousine de Varsovie\" was also made,\
+    \ directed by Carmine Gallone. \\\\ Passage 1: My Cousin from Warsaw is a 1931\
+    \ French- German comedy film directed by Carmine Gallone and starring Elvire Popesco,\
+    \ Andr\xE9 Roanne and Madeleine Lambert. \\\\ \\\\ \\textbf{<Leaf Module>} \\\\\
+    \ {[Leaf Instruction]} \\\\ {[Passage 0, Passage 1]} \\\\ {Question: Which film\
+    \ has the director died earlier, Payment On Demand or My Cousin From Warsaw?}\
+    \ Your response: \\\\ {\\{\"useful\\_information\": [\\{\"info\": \"My Cousin\
+    \ from Warsaw is a 1931 German comedy film directed by Carl Boese\", \"support\\\
+    _passages\": [0]\\}]\\}, \\{\"info\": \"My Cousin from Warsaw is a 1931 French-German\
+    \ comedy film directed by Carmine Gallone\", \"support\\_passages\": [1]\\}]\\\
+    }} \\\\ \\\\ \\textbf{<Memory Module>} \\\\ Known Info: My Cousin from Warsaw\
+    \ is a 1931 German comedy film directed by Carl Boese; My Cousin from Warsaw is\
+    \ a 1931 French-German comedy film directed by Carmine Gallone\\\\ Retrieved Passage:\
+    \ [Passage 0, Passage 1] \\\\ Historical Questions: Which film has the director\
+    \ died earlier, Payment On Demand or My Cousin From Warsaw?\\\\ \\\\ \\textbf{<Main\
+    \ Module>} \\\\ {[Main Instruction]} \\\\ Information: [Known Info] \\\\ Question:\
+    \ [Original Question] Your response: \\\\ \\{\"answer\": \\{\"text\": \"unanswerable\"\
+    , \"confidence\": 1\\}, \"explanation\": \"The given information does not provide\
+    \ details about the directors of either film and their respective dates of death,\
+    \ making it impossible to determine which director died earlier based on the provided\
+    \ information.\", \"missing\\_information\": \"The death dates of the directors\
+    \ of 'Payment On Demand' and 'My Cousin From Warsaw' are required.\"\\} \\\\ \\\
+    \\ \\textbf{\\large \\# Iteration 2} \\\\ \\textbf{<Retrieval Module>} \\\\ {[Query\
+    \ Instruction]} \\\\ {[Original Question]} \\\\ {[Historical Questions]} \\\\\
+    \ {[Known Info]} \\\\ Missing Information: The death dates of the directors of\
+    \ 'Payment On Demand' and 'My Cousin From Warsaw' are required. New queries: \\\
+    \\ What is the death date of the director of \"Payment On Demand\"? \\\\ When\
+    \ did the director of \"Payment on Demand\" died? \\\\ When did the director of\
+    \ My Cousin From Warsaw die? \\\\ \\\\ {[GPT knowledge prompting]} The director\
+    \ of the film \"Payment On Demand\" was Curtis Bernhardt. He was born on April\
+    \ 15, 1899, in Worms, Germany, and died on February 22, 1981, in Pacific Palisades,\
+    \ California, United States. \\\\ \\\\ \\textbf{<Leaf Module>} \\\\ {[Leaf Instruction]}\
+    \ \\\\ {[GPT knowledge]} \\\\ {Question: What is the death date of the director\
+    \ of \"Payment On Demand\"?} Your response: \\\\ {\\{\"useful\\_information\"\
+    : [\\{\"info\": \"The director of the film 'Payment On Demand,' Curtis Bernhardt,\
+    \ died on February 22, 1981\", \"support\\_passages\": [GPT knowledge]\\}]\\}}\
+    \ \\\\ \\\\ \\textbf{<Memory Module>} \\\\ Known Info: My Cousin from Warsaw is\
+    \ a 1931 German comedy film directed by Carl Boese; My Cousin from Warsaw is a\
+    \ 1931 French-German comedy film directed by Carmine Gallone; "
+- summary: "-   The director of the film 'Payment On Demand,' Curtis Bernhardt, died\
+    \ on February 22, 1981\n    1.  Curtis Bernhardt, director of 'Payment On Demand,'\
+    \ died on February 22, 1981.\n    2.  Historical questions about the death dates\
+    \ of directors of different films.\n    3.  Retrieval and memory modules used\
+    \ to find information on directors' death dates."
+  text: "The director of the film 'Payment On Demand,' Curtis Bernhardt, died on February\
+    \ 22, 1981\\\\ Retrieved Passage: [Passage 0, Passage 1, GPT knowledge] \\\\ Historical\
+    \ Questions: Which film has the director died earlier, Payment On Demand or My\
+    \ Cousin From Warsaw? What is the death date of the director of \"Payment On Demand\"\
+    ? When did the director of \"Payment on Demand\" died? When did the director of\
+    \ My Cousin From Warsaw die? \\\\ \\\\ \\textbf{<Main Module>} \\\\ {[Main Instruction]}\
+    \ \\\\ Information: [Known Info] \\\\ Question: [Original Question] Your response:\
+    \ \\\\ \\{\"answer\": \\{\"text\": \"unanswerable\", \"confidence\": 1\\}, \"\
+    explanation\": \"The provided information does not contain the death date of the\
+    \ director of My Cousin from Warsaw. Hence, it is impossible to determine which\
+    \ film's director died earlier based on the given information.\", \"missing\\\
+    _information\": \"The death date of the director of My Cousin from Warsaw.\"\\\
+    } \\\\ \\\\ \\textbf{\\large \\# Iteration 3} \\\\ \\textbf{<Retrieval Module>}\
+    \ \\\\ {[Query Instruction]} \\\\ {[Original Question]} \\\\ {[Historical Questions]}\
+    \ \\\\ {[Known Info]} \\\\ Missing Information: The death date of the director\
+    \ of My Cousin from Warsaw. New queries: \\\\ When did the director of \"My Cousin\
+    \ From Warsaw\" (directed by Carl Boese) die?\\\\ When did the director of \"\
+    My Cousin From Warsaw\" (directed by Carmine Gallone) die? \\\\ \\\\ {[Retrieval]}\
+    \ Passage 2: Carmine Gallone( 10 September 1885 \u2013 4 April 1973) was an early\
+    \ acclaimed Italian film director, screenwriter, and film producer. \\\\ Passage\
+    \ 3: Carl Boese( 26 August 1887 \u2013 6 July 1958) was a German film director,\
+    \ screenwriter and producer. He directed 158 films between 1917 and 1957. \\\\\
+    \ \\\\ \\textbf{<Leaf Module>} \\\\ {[Leaf Instruction]} \\\\ {[Passage 2, Passage\
+    \ 3]} \\\\ {Question: When did the director of \"My Cousin From Warsaw\" (directed\
+    \ by Carl Boese) die? When did the director of \"My Cousin From Warsaw\" (directed\
+    \ by Carmine Gallone) die?} Your response: \\\\ {\\{\"useful\\_information\":\
+    \ [\\{\"info\": \"Carl Boese died on July 6, 1958\", \"support\\_passages\": [3]\\\
+    }]\\}, \\{\"info\": \"Carmine Gallone died on April 4, 1973\", \"support\\_passages\"\
+    : [2]\\}]\\}} \\\\ \\\\ \\textbf{<Memory Module>} \\\\ Known Info: My Cousin from\
+    \ Warsaw is a 1931 German comedy film directed by Carl Boese; My Cousin from Warsaw\
+    \ is a 1931 French-German comedy film directed by Carmine Gallone; The director\
+    \ of the film 'Payment On Demand,' Curtis Bernhardt, died on February 22, 1981;\
+    \ Carl Boese died on July 6, 1958; Carmine Gallone died on April 4, 1973\\\\ Retrieved\
+    \ Passage: [Passage 0, Passage 1, GPT knowledge, Passage 2, Passage 3] \\\\ Historical\
+    \ Questions: Which film has the director died earlier, Payment On Demand or My\
+    \ Cousin From Warsaw? What is the death date of the director of \"Payment On Demand\"\
+    ? When did the director of \"Payment on Demand\" died? When did the director of\
+    \ My Cousin From Warsaw die? When did the director of \"My Cousin From Warsaw\"\
+    \ (directed by Carl Boese) die? When did the director of \"My Cousin From Warsaw\"\
+    \ (directed by Carmine Gallone) die?\\\\ \\\\ \\textbf{<Main Module>} \\\\ {[Main\
+    \ Instruction]} \\\\ Information: [Known Info] \\\\ Question: [Original Question]\
+    \ Your response: \\\\ \\{\"answer\": \\{\"text\": \"My Cousin from Warsaw\", \"\
+    confidence\": 5\\}, \"explanation\": \"Based on the provided information, Carl\
+    \ Boese, the director of 'My Cousin from Warsaw,' died on July 6, 1958. Carmine\
+    \ Gallone, the director of 'My Cousin from Warsaw,' died on April 4, 1973. Therefore,\
+    \ the director of 'My Cousin from Warsaw' died earlier than the director of 'Payment\
+    \ On Demand.\", \"missing\\_information\": \"\"\\} \\\\ \\\\     \\bottomrule\
+    \     %\\end{tabular}     \\caption{Case of MIGRES. We utilize the same instruction\
+    \ for Multi-hop QA and ODQA. StrategyQA, however, is a categorization task which\
+    \ requires the model to output \"yes\" or \"no\" answer. Therefore, the instruction\
+    \ of StrategyQA is slightly different in the Main Module, where we add \"your\
+    \ task is to reason from the Information whether the answer to the Question is\
+    \ \"yes\" or \"no\"\" to make the model response as expected. We omit the full\
+    \ text for saving space.}     \\label{migres_case} \\end{longtable}   \\end{document} "
+title: 'LLMs Know What They Need: Leveraging a Missing Information Guided Framework
+  to Empower Retrieval-Augmented Generation'
