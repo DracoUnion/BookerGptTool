@@ -190,15 +190,16 @@ def sum_arxiv(args):
         hdls.append(hdl)
     for h in hdls: h.result()
 
-    summary = '\n'.join([p['summary'] for p in tosum['paras']])
-    summary = f'-   标题：{title}\n-   摘要：{abs_}\n{summary}'
-    ques = ARXIV_QA_PROMPT.replace('{sum}', summary) \
-            .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
-    ans = call_chatgpt_retry(ques. args.model, args.retry)
-    sum_anses = re.findall(r'^\-\x20{3}(.+?)$', ans, re.M)
-    assert len(sum_queses) == len(sum_anses)
-    tosum['qas'] = [{'question': q, 'answer': a} for q, a in zip(sum_queses, sum_anses)]
-    write_callback()
+    if 'qas' not in tosum:
+        summary = '\n'.join([p['summary'] for p in tosum['paras']])
+        summary = f'-   标题：{title}\n-   摘要：{abs_}\n{summary}'
+        ques = ARXIV_QA_PROMPT.replace('{sum}', summary) \
+                .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
+        ans = call_chatgpt_retry(ques. args.model, args.retry)
+        sum_anses = re.findall(r'^\-\x20{3}(.+?)$', ans, re.M)
+        assert len(sum_queses) == len(sum_anses)
+        tosum['qas'] = [{'question': q, 'answer': a} for q, a in zip(sum_queses, sum_anses)]
+        write_callback()
 
     # 总结摘要
     res = f'# 【GPT总结】 {title}\n\n'
