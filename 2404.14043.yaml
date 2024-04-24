@@ -37,23 +37,46 @@ abs: '
 
   '
 paras:
-- summary: "-   Introduction:\n    1.  Large Language Models (LLMs) have shown impressive\
-    \ capabilities in NLP tasks but may fail to answer questions beyond their training\
-    \ data.\n    2.  Retrieval-Augmented Generation (RAG) augments LLMs with retrieval\
-    \ components to improve accuracy and reduce hallucination generation.\n    3.\
-    \  RAG faces challenges in accurate knowledge retrieval and complex user queries.\n\
-    -   Challenges in Retrieval-Augmented Generation:\n    1.  Query-related challenges\
-    \ include complex queries lacking key information for knowledge retrieval.\n \
-    \   2.  Multi-step retrieval processes and Chain-of-Thought (CoT) methods aim\
-    \ to address complex queries but may lead to hallucination generation.\n    3.\
-    \  Document-related challenges involve retrieving relevant knowledge while filtering\
-    \ out irrelevant noise content.\n-   Solutions for Retrieval-Augmented Generation:\n\
-    \    1.  Multi-step retrieval processes and CoT reasoning aim to tackle complex\
-    \ queries but require task-specific demonstrations for In-Context Learning.\n\
-    \    2.  The retrieve-then-rerank paradigm is used to filter out irrelevant noise\
-    \ content in retrieved documents.\n    3.  Creating summaries or snippets pertinent\
-    \ to the input query can streamline the process of refining retrieved content\
-    \ for better knowledge integration."
+- summary: "-   \u7B80\u4ECB\uFF1A\u5927\u578B\u8BED\u8A00\u6A21\u578B\uFF08LLMs\uFF09\
+    \u5728\u81EA\u7136\u8BED\u8A00\u5904\u7406\uFF08NLP\uFF09\u4EFB\u52A1\u4E2D\u8868\
+    \u73B0\u51FA\u8272\uFF0C\u4F46\u4EC5\u5177\u6709\u8BAD\u7EC3\u6570\u636E\u4E2D\
+    \u7684\u77E5\u8BC6\uFF0C\u53EF\u80FD\u65E0\u6CD5\u5B8C\u5168\u8BB0\u4F4F\u3002\
+    \u4E3A\u4E86\u63D0\u9AD8\u56DE\u590D\u51C6\u786E\u6027\u548C\u51CF\u5C11\u5E7B\
+    \u89C9\u751F\u6210\uFF0C\u5C06LLMs\u4E0E\u68C0\u7D22\u7EC4\u4EF6\u7ED3\u5408\uFF0C\
+    \u4ECE\u5916\u90E8\u6570\u636E\u6E90\u68C0\u7D22\u76F8\u5173\u77E5\u8BC6\uFF0C\
+    \u8FD9\u5C31\u662F\u68C0\u7D22\u589E\u5F3A\u751F\u6210\uFF08RAG\uFF09\u3002\n\
+    \    1.  RAG\u91C7\u7528\u68C0\u7D22-\u751F\u6210\u8BBE\u7F6E\uFF0C\u4ECE\u5916\
+    \u90E8\u8BED\u6599\u5E93\u4E2D\u68C0\u7D22\u77E5\u8BC6\u6587\u6863\uFF0C\u5E76\
+    \u6839\u636E\u68C0\u7D22\u5230\u7684\u6587\u6863\u751F\u6210\u54CD\u5E94\u3002\
+    \n    2.  RAG\u9762\u4E34\u7684\u6311\u6218\u5305\u62EC\u68C0\u7D22\u77E5\u8BC6\
+    \u7684\u51C6\u786E\u6027\u548C\u7528\u6237\u8F93\u5165\u67E5\u8BE2\u7684\u590D\
+    \u6742\u6027\u3002\n    3.  \u4E3A\u4E86\u89E3\u51B3\u8FD9\u4E9B\u95EE\u9898\uFF0C\
+    \u7814\u7A76\u4EBA\u5458\u63D0\u51FA\u4E86CoT\u6982\u5FF5\uFF0C\u65E8\u5728\u901A\
+    \u8FC7\u7B80\u5316\u591A\u8DF3\u95EE\u9898\u6216\u751F\u6210\u5173\u4E8E\u67E5\
+    \u8BE2\u7684\u89E3\u91CA\u6216\u591A\u6B65\u601D\u8003\u6765\u89E3\u51B3\u590D\
+    \u6742\u7684\u591A\u8DF3\u95EE\u9898\u3002\n-   \u7528\u6237\u67E5\u8BE2\u6311\
+    \u6218\uFF1A\u7528\u6237\u8F93\u5165\u7684\u67E5\u8BE2\u53EF\u80FD\u590D\u6742\
+    \u4E14\u591A\u8DF3\uFF0C\u7F3A\u4E4F\u5173\u952E\u4FE1\u606F\uFF0C\u4E0D\u8DB3\
+    \u4EE5\u68C0\u7D22\u76F8\u5173\u77E5\u8BC6\u6587\u6863\u3002\n    1.  \u5148\u524D\
+    \u7684\u65B9\u6CD5\u5EFA\u8BAE\u591A\u6B65\u68C0\u7D22\u8FC7\u7A0B\uFF0C\u4F46\
+    \u68C0\u7D22\u6210\u672C\u663E\u8457\u9AD8\u3002\n    2.  \u7814\u7A76\u4EBA\u5458\
+    \u5F15\u5165CoT\u6982\u5FF5\uFF0C\u65E8\u5728\u901A\u8FC7\u7B80\u5316\u591A\u8DF3\
+    \u95EE\u9898\u6216\u751F\u6210\u5173\u4E8E\u67E5\u8BE2\u7684\u89E3\u91CA\u6765\
+    \u89E3\u51B3\u590D\u6742\u7684\u591A\u8DF3\u95EE\u9898\u3002\n    3.  \u8FD9\u4E9B\
+    \u65B9\u6CD5\u5BB9\u6613\u4EA7\u751F\u5E7B\u89C9\uFF0C\u5E76\u901A\u5E38\u9700\
+    \u8981\u96C6\u6210\u4EFB\u52A1\u7279\u5B9A\u6F14\u793A\u4EE5\u6539\u5584CoT\u63A8\
+    \u7406\u6216\u95EE\u9898\u5206\u89E3\u7684\u8D28\u91CF\u3002\n-   \u6587\u6863\
+    \u68C0\u7D22\u6311\u6218\uFF1A\u4ECE\u5E7F\u6CDB\u7684\u77E5\u8BC6\u5E93\u4E2D\
+    \u68C0\u7D22\u4E0E\u8F93\u5165\u67E5\u8BE2\u76F8\u5173\u7684\u6587\u6863\u672C\
+    \u8EAB\u5177\u6709\u6311\u6218\u6027\u3002\n    1.  \u68C0\u7D22\u5230\u7684\u6587\
+    \u6863\u53EF\u80FD\u5305\u542B\u6709\u7528\u7684\u77E5\u8BC6\uFF0C\u4F46\u901A\
+    \u5E38\u5B58\u5728\u65E0\u5173\u566A\u97F3\u5185\u5BB9\u3002\n    2.  \u91CD\u65B0\
+    \u6392\u540D\u68C0\u7D22\u77E5\u8BC6\u4EE5\u8FC7\u6EE4\u786C\u8D1F\u9762\u4E0A\
+    \u4E0B\u6587\u662F\u6539\u5584\u68C0\u7D22\u5185\u5BB9\u8D28\u91CF\u7684\u65B9\
+    \u6CD5\u3002\n    3.  \u4E3A\u4E86\u66F4\u597D\u5730\u6574\u5408\u77E5\u8BC6\uFF0C\
+    \u7814\u7A76\u4EBA\u5458\u5EFA\u8BAE\u521B\u5EFA\u4E0E\u8F93\u5165\u67E5\u8BE2\
+    \u76F8\u5173\u7684\u6458\u8981\u6216\u7247\u6BB5\u4F5C\u4E3A\u77E5\u8BC6\u589E\
+    \u5F3A\u3002"
   text: "Introduction:  % Large Language Models (LLMs) have recently shown impressive\
     \ capabilities across a wide range of Natural Language Processing (NLP) tasks\
     \ \\cite{ouyang2022training, touvron2023llama}. Nevertheless, LLMs only possess\
@@ -136,19 +159,34 @@ paras:
     \ to the input query to serve as knowledge augmentation.  % To alleviate the query\
     \ side challenges, we first examine if LLMs could identify what information is\
     \ missing in the query. Surprisingly, we discover that, even in zero-shot scenarios, "
-- summary: "-   LLMs can identify missing information well and prompt LLMs using missing\
-    \ information to formulate single-hop queries, improving multi-hop performance.\n\
-    \    1.  LLMs excel at extracting useful information from cleaned-up documents.\n\
-    \    2.  A sentence-level re-ranking filtering approach is introduced to filter\
-    \ out irrelevant content from documents.\n    3.  The Missing Information Guided\
-    \ Retrieve-Extraction-Solving paradigm (MIGRES) leverages missing information\
-    \ to enhance knowledge retrieval and extraction in RAG.\n-   LLMs possess impressive\
-    \ capabilities but may fail to answer beyond their knowledge scope, leading to\
-    \ hallucinations.\n    1.  Retrieval-Augmented Generation (RAG) improves response\
-    \ accuracy by retrieving query-related documents.\n    2.  RAG faces challenges\
-    \ in complex multi-hop queries and retrieving relevant documents.\n    3.  Chain-of-Thought\
-    \ (CoT) in RAG breaks down multi-hop tasks into single-hop tasks to improve reasoning\
-    \ quality."
+- summary: "-   LLMs\u80FD\u591F\u51C6\u786E\u8BC6\u522B\u7F3A\u5931\u7684\u4FE1\u606F\
+    \uFF0C\u5E76\u6839\u636E\u521D\u59CB\u8F93\u5165\u67E5\u8BE2\u548C\u63D0\u4F9B\
+    \u7684\u77E5\u8BC6\u5236\u5B9A\u7B80\u5355\u7684\u5355\u8DF3\u67E5\u8BE2\u3002\
+    \u8FD9\u79CD\u65B0\u7684\u5355\u8DF3\u67E5\u8BE2\u53EF\u4EE5\u5F15\u5BFC\u540E\
+    \u7EED\u7684\u77E5\u8BC6\u68C0\u7D22\u8FC7\u7A0B\uFF0C\u4ECE\u800C\u63D0\u9AD8\
+    \u5904\u7406\u590D\u6742\u591A\u8DF3\u6311\u6218\u65F6\u7684\u6027\u80FD\u3002\
+    \n    1.  LLMs\u5728\u96F6-shot\u60C5\u51B5\u4E0B\u80FD\u591F\u51C6\u786E\u8BC6\
+    \u522B\u7F3A\u5931\u7684\u77E5\u8BC6\u70B9\uFF0C\u5E73\u5747\u51C6\u786E\u7387\
+    \u4E3A95.6%\u3002\n    2.  \u57FA\u4E8E\u4EE5\u4E0A\u53D1\u73B0\uFF0C\u63D0\u51FA\
+    \u4E86Missing Information Guided Retrieve-Extraction-Solving\uFF08MIGRES\uFF09\
+    \u8303\u5F0F\uFF0C\u5229\u7528\u7F3A\u5931\u4FE1\u606F\u6765\u5236\u5B9A\u76EE\
+    \u6807\u67E5\u8BE2\uFF0C\u4ECE\u800C\u5F15\u5BFC\u77E5\u8BC6\u68C0\u7D22\uFF0C\
+    \u63D0\u9AD8RAG\u7684\u6574\u4F53\u6548\u80FD\u3002\n    3.  \u4E3A\u4E86\u8FC7\
+    \u6EE4\u6389\u6587\u6863\u4E2D\u7684\u65E0\u5173\u5185\u5BB9\uFF0C\u6211\u4EEC\
+    \u63D0\u51FA\u4E86\u53E5\u5B50\u7EA7\u91CD\u65B0\u6392\u5E8F\u8FC7\u6EE4\u7B56\
+    \u7565\uFF0C\u4EE5\u63D0\u4F9B\u7ECF\u8FC7\u53BB\u566A\u7684\u6587\u6863\u7ED9\
+    LLMs\uFF0C\u4ECE\u800C\u6539\u5584\u6587\u6863\u65B9\u9762\u7684\u6311\u6218\u3002\
+    \n-   LLMs\u5728\u5904\u7406\u590D\u6742\u591A\u8DF3\u6311\u6218\u65F6\uFF0C\u53EF\
+    \u4EE5\u901A\u8FC7\u5F15\u5BFC\u7F3A\u5931\u4FE1\u606F\u6765\u5236\u5B9A\u76F4\
+    \u63A5\u7684\u5355\u8DF3\u67E5\u8BE2\u3002\u6211\u4EEC\u7684\u5B9E\u9A8C\u8868\
+    \u660E\uFF0CLLMs\u64C5\u957F\u4ECE\u7ED9\u5B9A\u7684\u53BB\u566A\u6587\u6863\u4E2D\
+    \u63D0\u53D6\u6709\u7528\u4FE1\u606F\u3002\n    1.  \u65B0\u7684\u5355\u8DF3\u67E5\
+    \u8BE2\u53EF\u4EE5\u5F15\u5BFC\u540E\u7EED\u7684\u77E5\u8BC6\u68C0\u7D22\u8FC7\
+    \u7A0B\uFF0C\u4ECE\u800C\u63D0\u9AD8\u6027\u80FD\u3002\n    2.  \u53E5\u5B50\u7EA7\
+    \u91CD\u65B0\u6392\u5E8F\u8FC7\u6EE4\u7B56\u7565\u53EF\u7528\u4E8E\u8FC7\u6EE4\
+    \u6587\u6863\u4E2D\u7684\u65E0\u5173\u5185\u5BB9\u3002\n    3.  MIGRES\u8303\u5F0F\
+    \u5229\u7528\u7F3A\u5931\u4FE1\u606F\u6765\u63D0\u9AD8RAG\u7684\u6574\u4F53\u6548\
+    \u80FD\u3002"
   text: 'LLMs can identify missing information well based solely on the initial input
     query and the provided knowledge. Inspired by this, we further prompt LLMs using
     the missing information to formulate a straightforward single-hop query. This
@@ -209,20 +247,37 @@ paras:
     denoised documents, we introduce a sentence-level re-ranking filtering strategy.
     This method breaks down the retrieved documents into sentences and computes a
     relevance score for each sentence, which allows for their re-ranking and filteration. '
-- summary: "-   Preliminary Experiments:\n    1.  LLMs are commonly used in RAG studies\
-    \ for document summarization and information extraction.\n    2.  Previous works\
-    \ decomposed complex queries into sub-questions using LLMs with promising results.\n\
-    \    3.  The study aims to investigate LLMs' ability to extract accurate knowledge\
-    \ and infer remaining information for query resolution.\n-   Settings:\n    1.\
-    \  Randomly sample instances for LLMs to generate QA pairs from original questions,\
-    \ evidence, and answers.\n    2.  Utilize BM25 to search relevant passages and\
-    \ merge them with dataset passages for information extraction.\n    3.  Prompt\
-    \ LLMs to extract useful information from passages and evaluate its usefulness.\n\
-    -   Missing Information Generation:\n    1.  Concatenate information from QA pairs\
-    \ and prompt LLMs to determine answerability and generate missing information.\n\
-    \    2.  Evaluate if generated missing information aligns with subsequent sub-questions.\n\
-    \    3.  Use precision and recall to evaluate information extraction with GPT-3.5-turbo\
-    \ under a zero-shot setting."
+- summary: "-   \u5728\u6700\u8FD1\u7684\u7814\u7A76\u4E2D\uFF0CLLMs\u88AB\u5E7F\u6CDB\
+    \u7528\u4E8E\u603B\u7ED3\u6587\u6863\u548C\u63D0\u53D6\u4FE1\u606F\uFF0C\u4EE5\
+    \u53CA\u89E3\u51B3\u590D\u6742\u591A\u8DF3\u95EE\u9898\u3002\u6211\u4EEC\u8FDB\
+    \u4E00\u6B65\u9A8C\u8BC1\u4E86LLMs\u4ECE\u68C0\u7D22\u6587\u6863\u4E2D\u63D0\u53D6\
+    \u51C6\u786E\u77E5\u8BC6\u7684\u80FD\u529B\uFF0C\u5E76\u63A2\u7D22\u6A21\u578B\
+    \u662F\u5426\u80FD\u63A8\u65AD\u89E3\u51B3\u67E5\u8BE2\u6240\u9700\u7684\u5269\
+    \u4F59\u4FE1\u606F\u3002\u6211\u4EEC\u57282WikiMultiHop\u548CMusique\u6570\u636E\
+    \u96C6\u4E0A\u8FDB\u884C\u4E86\u5B9E\u9A8C\u3002\n    1.  LLMs\u88AB\u7528\u4E8E\
+    \u603B\u7ED3\u6587\u6863\u548C\u63D0\u53D6\u4FE1\u606F\u3002\n    2.  \u9A8C\u8BC1\
+    LLMs\u4ECE\u68C0\u7D22\u6587\u6863\u4E2D\u63D0\u53D6\u51C6\u786E\u77E5\u8BC6\u7684\
+    \u80FD\u529B\u3002\n    3.  \u63A2\u7D22\u6A21\u578B\u662F\u5426\u80FD\u63A8\u65AD\
+    \u89E3\u51B3\u67E5\u8BE2\u6240\u9700\u7684\u5269\u4F59\u4FE1\u606F\u3002\n-  \
+    \ \u6211\u4EEC\u901A\u8FC7\u968F\u673A\u62FC\u63A5\u6587\u672C\u548C\u4F7F\u7528\
+    BM25\u68C0\u7D22\u6765\u63D0\u53D6\u4FE1\u606F\uFF0C\u7136\u540E\u901A\u8FC7NLI\u6A21\
+    \u578B\u9A8C\u8BC1\u4FE1\u606F\u662F\u5426\u6709\u7528\u3002\u6700\u540E\uFF0C\
+    LLMs\u8BC4\u4F30\u63D0\u53D6\u7684\u4FE1\u606F\u7684\u6709\u7528\u6027\u3002\n\
+    \    1.  \u968F\u673A\u62FC\u63A5\u6587\u672C\u548C\u4F7F\u7528BM25\u68C0\u7D22\
+    \u6765\u63D0\u53D6\u4FE1\u606F\u3002\n    2.  \u901A\u8FC7NLI\u6A21\u578B\u9A8C\
+    \u8BC1\u4FE1\u606F\u662F\u5426\u6709\u7528\u3002\n    3.  LLMs\u8BC4\u4F30\u63D0\
+    \u53D6\u7684\u4FE1\u606F\u7684\u6709\u7528\u6027\u3002\n-   \u5B9E\u9A8C\u7ED3\
+    \u679C\u8868\u660E\uFF0C\u6A21\u578B\u80FD\u591F\u51C6\u786E\u627E\u51FA\u4FE1\
+    \u606F\u7F3A\u5931\u5E76\u751F\u6210\u5FC5\u8981\u7684\u7F3A\u5931\u4FE1\u606F\
+    \uFF0C\u4EE5\u5F15\u5BFC\u77E5\u8BC6\u83B7\u53D6\u8FC7\u7A0B\u3002ChatGPT\u5728\
+    \u4FE1\u606F\u63D0\u53D6\u65B9\u9762\u8868\u73B0\u51FA\u8272\uFF0C\u5728WikiHop\u548C\
+    Musique\u4E0A\u5206\u522B\u8FBE\u523089.3\u548C91.8\u7684\u7CBE\u5EA6\u5206\u6570\
+    \uFF0C\u4EE5\u53CA72.0\u548C76.1\u7684\u53EC\u56DE\u7387\u3002\n    1.  \u6A21\
+    \u578B\u80FD\u591F\u51C6\u786E\u627E\u51FA\u4FE1\u606F\u7F3A\u5931\u5E76\u751F\
+    \u6210\u5FC5\u8981\u7684\u7F3A\u5931\u4FE1\u606F\u3002\n    2.  ChatGPT\u5728\u4FE1\
+    \u606F\u63D0\u53D6\u65B9\u9762\u8868\u73B0\u51FA\u8272\u3002\n    3.  \u5728WikiHop\u548C\
+    Musique\u4E0A\u5206\u522B\u8FBE\u523089.3\u548C91.8\u7684\u7CBE\u5EA6\u5206\u6570\
+    \uFF0C\u4EE5\u53CA72.0\u548C76.1\u7684\u53EC\u56DE\u7387\u3002"
   text: " Preliminary Experiments:  \\label{preliminary} % \u5728\u6700\u8FD1RAG\u7684\
     \u7814\u7A76\u4E2D\uFF0CLLMs\u5E38\u88AB\u7528\u4F5C\u603B\u7ED3\u6587\u6863\u6216\
     \u63D0\u53D6\u4FE1\u606F\u7684\u7EC4\u4EF6\u3002\\citet{gao-etal-2023-enabling}\u901A\
@@ -315,12 +370,29 @@ paras:
     \ Musique & 91.8 & 76.1 & 94.6 & 74.2 & 94.3 \\\\      \\bottomrule     \\end{tabular}}\
     \     \\caption{Experimental results on information extraction. \\textbf{Entail}\
     \ and \\textbf{Useful} are scored with binary classification accuracy. "
-- summary: "-   MIGRES framework leverages missing information to guide knowledge\
-    \ retrieval and solve factoid questions effectively.\n    1.  LLM achieves high\
-    \ accuracy in judgment when sufficient knowledge is available for answering questions.\n\
-    \    2.  LLM also performs well in generating missing information that aligns\
-    \ with subsequent sub-questions.\n    3.  MIGRES framework consists of Main, Retrieval,\
-    \ and Leaf modules for question answering and knowledge retrieval."
+- summary: "-   \u5B9E\u9A8C\u7ED3\u679C\u8868\u660E\uFF0C\u5728\u7F3A\u5931\u4FE1\
+    \u606F\u751F\u6210\u65B9\u9762\uFF0C\u5F53\u63D0\u4F9B\u4E86\u8DB3\u591F\u7684\
+    \u77E5\u8BC6\u65F6\uFF0C\u6A21\u578B\u7684\u51C6\u786E\u7387\u5206\u522B\u4E3A\
+    91.2%\u548C86.8%\u3002\n    1.  \u5728\u77E5\u8BC6\u4E0D\u5B8C\u6574\u7684\u60C5\
+    \u51B5\u4E0B\uFF0C\u6A21\u578B\u5E73\u5747\u51C6\u786E\u7387\u8FBE\u523095.6%\uFF0C\
+    \u80FD\u591F\u751F\u6210\u4E0E\u540E\u7EED\u5206\u89E3\u5B50\u95EE\u9898\u76F8\
+    \u7B26\u7684\u7F3A\u5931\u4FE1\u606F\u3002\n    2.  \u6A21\u578B\u80FD\u591F\u5224\
+    \u65AD\u51FA\u56DE\u7B54\u95EE\u9898\u6240\u9700\u7684\u989D\u5916\u4FE1\u606F\
+    \uFF0C\u5E76\u751F\u6210\u7F3A\u5931\u4FE1\u606F\u4EE5\u6307\u5BFC\u540E\u7EED\
+    \u77E5\u8BC6\u68C0\u7D22\u3002\n-   MIGRES\u662F\u4E00\u4E2A\u7F3A\u5931\u4FE1\
+    \u606F\u5F15\u5BFC\u7684\u68C0\u7D22-\u63D0\u53D6-\u89E3\u51B3\u8303\u5F0F\uFF0C\
+    \u5229\u7528\u7F3A\u5931\u4FE1\u606F\u7684\u8BC6\u522B\u6765\u6307\u5BFC\u540E\
+    \u7EED\u77E5\u8BC6\u68C0\u7D22\uFF0C\u5E76\u5229\u7528\u63D0\u53D6\u7684\u7B80\
+    \u6D01\u6709\u7528\u4FE1\u606F\u6765\u89E3\u51B3\u4E8B\u5B9E\u578B\u95EE\u7B54\
+    \u4EFB\u52A1\u3002\n    1.  MIGRES\u5305\u542B\u4E3B\u6A21\u5757\u3001\u68C0\u7D22\
+    \u6A21\u5757\u548C\u53F6\u5B50\u6A21\u5757\uFF0C\u4E3B\u8981\u7528\u4E8E\u786E\
+    \u5B9A\u95EE\u9898\u662F\u5426\u53EF\u56DE\u7B54\u3001\u68C0\u7D22\u76F8\u5173\
+    \u77E5\u8BC6\u548C\u8FC7\u6EE4\u566A\u97F3\u3002\n    2.  \u68C0\u7D22\u6A21\u5757\
+    \u5305\u62EC\u67E5\u8BE2\u751F\u6210\u5668\u3001\u68C0\u7D22\u5668\u548C\u77E5\
+    \u8BC6\u8FC7\u6EE4\u5668\uFF0C\u7528\u4E8E\u751F\u6210\u65B0\u67E5\u8BE2\u3001\
+    \u83B7\u53D6\u76F8\u5173\u77E5\u8BC6\u548C\u53BB\u9664\u566A\u97F3\u3002\n   \
+    \ 3.  \u53F6\u5B50\u6A21\u5757\u7528\u4E8E\u63D0\u53D6\u6709\u7528\u4FE1\u606F\
+    \u5E76\u751F\u6210\u6700\u7EC8\u7B54\u6848\u6216\u7F3A\u5931\u4FE1\u606F\u3002"
   text: "\\textbf{Prec.$^\\dag$} and Rec.$^\\dag$ denote the precision and recall\
     \ after entailment judgement.}     \\label{ie_res}      \\scalebox{0.85}{    \
     \ \\begin{tabular}{c|cc|cc}     \\toprule     {} & \\multicolumn{2}{c|}{\\textbf{All}}\
@@ -392,16 +464,48 @@ paras:
     \ through Knowledge Filter to remove noise at the level of passages and sentences.\
     \     \\item \\textbf{Leaf module}, "
 - summary: "-   MIGRES\u7CFB\u7EDF\u5305\u62EC\u77E5\u8BC6\u68C0\u7D22\u3001\u4FE1\
-    \u606F\u63D0\u53D6\u548C\u4E3B\u6A21\u5757\uFF0C\u901A\u8FC7\u8FED\u4EE3\u8FC7\
-    \u7A0B\u751F\u6210\u95EE\u9898\u7B54\u6848\u3002\n    1.  MIGRES\u7CFB\u7EDF\u9996\
-    \u5148\u901A\u8FC7\u68C0\u7D22\u5668\u83B7\u53D6\u76F8\u5173\u77E5\u8BC6\u6BB5\
-    \u843D\uFF0C\u7136\u540E\u901A\u8FC7\u4FE1\u606F\u63D0\u53D6\u6A21\u5757\u63D0\
-    \u70BC\u6709\u7528\u4FE1\u606F\u3002\n    2.  \u4E3B\u6A21\u5757\u4F7F\u7528LLM\u5224\
-    \u65AD\u662F\u5426\u6709\u8DB3\u591F\u4FE1\u606F\u56DE\u7B54\u95EE\u9898\uFF0C\
-    \u82E5\u4E0D\u8DB3\u5219\u751F\u6210\u65B0\u67E5\u8BE2\u8FDB\u884C\u77E5\u8BC6\
-    \u68C0\u7D22\u3002\n    3.  \u67E5\u8BE2\u6A21\u5757\u5229\u7528LLM\u751F\u6210\
-    \u67E5\u8BE2\uFF0C\u518D\u901A\u8FC7\u91CD\u65B0\u6392\u540D\u6A21\u578B\u8FC7\
-    \u6EE4\u65E0\u7528\u4FE1\u606F\u548C\u566A\u58F0\u3002"
+    \u606F\u63D0\u53D6\u548C\u4E3B\u6A21\u5757\u3002\u4E3B\u6A21\u5757\u7531LLM\u7EC4\
+    \u6210\uFF0C\u6839\u636E\u5DF2\u77E5\u4FE1\u606F\u548C\u95EE\u9898\u5224\u65AD\
+    \u662F\u5426\u80FD\u56DE\u7B54\u95EE\u9898\uFF0C\u82E5\u4E0D\u80FD\uFF0C\u5219\
+    \u751F\u6210\u7F3A\u5931\u4FE1\u606F\u67E5\u8BE2\u3002LLM\u540C\u65F6\u8F93\u51FA\
+    \u7F6E\u4FE1\u5EA6\u5206\u6570\uFF0C\u4F4E\u4E8E\u9608\u503C\u65F6\u751F\u6210\
+    \u89E3\u91CA\u4F5C\u4E3A\u7F3A\u5931\u4FE1\u606F\u3002\n    1.  MIGRES\u7CFB\u7EDF\
+    \u5305\u62EC\u77E5\u8BC6\u68C0\u7D22\u3001\u4FE1\u606F\u63D0\u53D6\u548C\u4E3B\
+    \u6A21\u5757\u3002\n    2.  \u4E3B\u6A21\u5757\u7531LLM\u7EC4\u6210\uFF0C\u6839\
+    \u636E\u5DF2\u77E5\u4FE1\u606F\u548C\u95EE\u9898\u5224\u65AD\u662F\u5426\u80FD\
+    \u56DE\u7B54\u95EE\u9898\uFF0C\u82E5\u4E0D\u80FD\uFF0C\u5219\u751F\u6210\u7F3A\
+    \u5931\u4FE1\u606F\u67E5\u8BE2\u3002\n    3.  LLM\u540C\u65F6\u8F93\u51FA\u7F6E\
+    \u4FE1\u5EA6\u5206\u6570\uFF0C\u4F4E\u4E8E\u9608\u503C\u65F6\u751F\u6210\u89E3\
+    \u91CA\u4F5C\u4E3A\u7F3A\u5931\u4FE1\u606F\u3002\n-   \u67E5\u8BE2\u6A21\u5757\
+    \u4E2D\uFF0CLLM\u751F\u62103\u4E2A\u67E5\u8BE2\u7528\u4E8E\u68C0\u7D22\u7F3A\u5931\
+    \u4FE1\u606F\uFF0C\u518D\u5C06\u67E5\u8BE2\u548C\u77E5\u8BC6\u4F20\u9012\u7ED9\
+    \u4FE1\u606F\u63D0\u53D6\u6A21\u5757\u3002LLM\u540C\u65F6\u63D0\u4F9B\u652F\u6301\
+    \u63D0\u53D6\u4FE1\u606F\u7684\u6BB5\u843D\u7D22\u5F15\uFF0C\u6709\u52A9\u4E8E\
+    \u51CF\u5C11\u5E7B\u89C9\u548C\u8FC7\u6EE4\u65E0\u6839\u636E\u5185\u5BB9\u3002\
+    \n    1.  LLM\u751F\u62103\u4E2A\u67E5\u8BE2\u7528\u4E8E\u68C0\u7D22\u7F3A\u5931\
+    \u4FE1\u606F\uFF0C\u518D\u5C06\u67E5\u8BE2\u548C\u77E5\u8BC6\u4F20\u9012\u7ED9\
+    \u4FE1\u606F\u63D0\u53D6\u6A21\u5757\u3002\n    2.  LLM\u540C\u65F6\u63D0\u4F9B\
+    \u652F\u6301\u63D0\u53D6\u4FE1\u606F\u7684\u6BB5\u843D\u7D22\u5F15\uFF0C\u6709\
+    \u52A9\u4E8E\u51CF\u5C11\u5E7B\u89C9\u548C\u8FC7\u6EE4\u65E0\u6839\u636E\u5185\
+    \u5BB9\u3002\n    3.  \u5982\u679C\u68C0\u7D22\u7684\u77E5\u8BC6\u4E0D\u63D0\u4F9B\
+    \u6709\u7528\u4FE1\u606F\uFF0CLLM\u7684\u8F93\u51FA\u7ED3\u679C\u53EF\u4EE5\u4E3A\
+    \u7A7A\u3002\n-   \u5728\u68C0\u7D22\u6A21\u5757\u4E2D\uFF0CLLM\u4F5C\u4E3A\u67E5\
+    \u8BE2\u751F\u6210\u5668\uFF0C\u6839\u636E\u7F3A\u5931\u4FE1\u606F\u5236\u5B9A\
+    \u4E0D\u8D85\u8FC7\u4E09\u4E2A\u4E0D\u540C\u7684\u67E5\u8BE2\uFF0C\u7528\u4E8E\
+    \u68C0\u7D22\u5916\u90E8\u77E5\u8BC6\u3002\u5229\u7528\u91CD\u65B0\u6392\u540D\
+    \u6A21\u578B\u8BA1\u7B97\u5916\u90E8\u77E5\u8BC6\u548C\u67E5\u8BE2\u4E4B\u95F4\
+    \u7684\u76F8\u5173\u6027\u5206\u6570\uFF0C\u4F4E\u4E8E\u9608\u503C\u7684\u76F8\
+    \u5173\u6027\u76F4\u63A5\u88AB\u8FC7\u6EE4\u6389\u3002\u63D0\u51FA\u4E24\u79CD\
+    \u7B56\u7565\u89E3\u51B3\u53E5\u5B50\u7EA7\u91CD\u65B0\u6392\u540D\u548C\u8FC7\
+    \u6EE4\u95EE\u9898\u3002\n    1.  LLM\u4F5C\u4E3A\u67E5\u8BE2\u751F\u6210\u5668\
+    \uFF0C\u6839\u636E\u7F3A\u5931\u4FE1\u606F\u5236\u5B9A\u4E0D\u8D85\u8FC7\u4E09\
+    \u4E2A\u4E0D\u540C\u7684\u67E5\u8BE2\uFF0C\u7528\u4E8E\u68C0\u7D22\u5916\u90E8\
+    \u77E5\u8BC6\u3002\n    2.  \u5229\u7528\u91CD\u65B0\u6392\u540D\u6A21\u578B\u8BA1\
+    \u7B97\u5916\u90E8\u77E5\u8BC6\u548C\u67E5\u8BE2\u4E4B\u95F4\u7684\u76F8\u5173\
+    \u6027\u5206\u6570\uFF0C\u4F4E\u4E8E\u9608\u503C\u7684\u76F8\u5173\u6027\u76F4\
+    \u63A5\u88AB\u8FC7\u6EE4\u6389\u3002\n    3.  \u63D0\u51FA\u4E24\u79CD\u7B56\u7565\
+    \u89E3\u51B3\u53E5\u5B50\u7EA7\u91CD\u65B0\u6392\u540D\u548C\u8FC7\u6EE4\u95EE\
+    \u9898\u3002"
   text: "which reads the retrieved external knowledge to extract useful information\
     \ with citation of support passages. Considering that the extracted information\
     \ might include hallucinations, we incorporate a subsequent evaluation step to\
@@ -483,19 +587,43 @@ paras:
     \    \\item \\textbf{Sentence-Level Re-rank and Filtering} We utilize NLTK to\
     \ segment the passage into individual sentences, and compute a relevance score\
     \ for each sentence using the same Re-rank model. "
-- summary: "-   The noisy sentences with relevance lower than $\\theta$ are filtered\
-    \ out.\n    1.  Filtering out sentences with low relevance to improve knowledge\
-    \ quality.\n    2.  Retaining the original passage if its relevance surpasses\
-    \ that of individual sentences.\n    3.  Utilizing LLM knowledge prompting to\
-    \ generate relevant information when needed.\n-   LLM Knowledge prompting enhances\
-    \ iteration efficiency and knowledge utilization.\n    1.  Prompting LLM to generate\
-    \ information in response to queries.\n    2.  Using Leaf Module to distill useful\
-    \ information from queries and knowledge.\n    3.  Employing Memory Module to\
-    \ track queries and knowledge for diversity and filtering.\n-   Sentence-level\
-    \ re-rank and filtering for knowledge augmentation.\n    1.  Employing re-rank\
-    \ model to filter out low-scoring documents.\n    2.  Implementing sentence-level\
-    \ filtering to remove noisy sentences.\n    3.  Retaining original document if\
-    \ highest similarity score is below overall similarity."
+- summary: "-   \u901A\u8FC7\u8FC7\u6EE4\u6389\u76F8\u5173\u6027\u4F4E\u4E8E$\\theta$\u7684\
+    \u5608\u6742\u53E5\u5B50\uFF0C\u4FDD\u7559\u6574\u4E2A\u6BB5\u843D\u7684\u76F8\
+    \u5173\u6027\u8D85\u8FC7\u6240\u6709\u5355\u4E2A\u53E5\u5B50\u7684\u60C5\u51B5\
+    \u4E0B\uFF0C\u5C06\u539F\u59CB\u6BB5\u843D\u4F5C\u4E3A\u6700\u7EC8\u77E5\u8BC6\
+    \u3002\n    1.  \u901A\u8FC7LLM\u77E5\u8BC6\u63D0\u793A\uFF0C\u5F53\u6CA1\u6709\
+    \u5269\u4F59\u6BB5\u843D\u53EF\u7528\u65F6\uFF0C\u63D0\u793ALLM\u751F\u6210\u76F8\
+    \u5173\u4FE1\u606F\u4EE5\u63D0\u9AD8MIGRES\u7684\u8FED\u4EE3\u6548\u7387\u3002\
+    \n    2.  \u4F7F\u7528Leaf Module\u63D0\u53D6\u6709\u7528\u4FE1\u606F\uFF0C\u5E76\
+    \u6307\u5BFCLLM\u540C\u65F6\u5F15\u7528\u652F\u6301\u63D0\u53D6\u4FE1\u606F\u7684\
+    \u6BB5\u843D\u7D22\u5F15\uFF0C\u6709\u52A9\u4E8E\u51CF\u5C11\u865A\u6784\u548C\
+    \u6D88\u9664\u65E0\u6839\u636E\u7684\u751F\u6210\u5185\u5BB9\u3002\n    3.  \u5229\
+    \u7528NLI\u6A21\u578B\u786E\u5B9A\u5F15\u7528\u7684\u6BB5\u843D\u662F\u5426\u5305\
+    \u542B\u63D0\u53D6\u7684\u4FE1\u606F\uFF0C\u5E76\u8FC7\u6EE4\u6389\u4E0D\u5305\
+    \u542B\u7684\u4FE1\u606F\uFF0C\u907F\u514D\u83B7\u53D6\u865A\u6784\u4FE1\u606F\
+    \u3002\n-   \u901A\u8FC7Memory Module\u8DDF\u8E2A\u751F\u6210\u7684\u67E5\u8BE2\
+    \u548C\u68C0\u7D22\u5230\u7684\u5916\u90E8\u77E5\u8BC6\uFF0C\u63D0\u9AD8\u65B0\
+    \u67E5\u8BE2\u7684\u591A\u6837\u6027\u5E76\u8FC7\u6EE4\u6389\u786C\u8D1F\u9762\
+    \u77E5\u8BC6\u3002\n    1.  Memory Module\u65E8\u5728\u589E\u5F3A\u751F\u6210\u7684\
+    \u95EE\u9898\u7684\u591A\u6837\u6027\u5E76\u6392\u9664\u68C0\u7D22\u8FC7\u7A0B\
+    \u4E2D\u7684\u786C\u8D1F\u9762\u3002\n    2.  \u6709\u52A9\u4E8E\u8FC7\u6EE4\u786C\
+    \u8D1F\u9762\u5916\u90E8\u77E5\u8BC6\u5E76\u63D0\u9AD8\u751F\u6210\u67E5\u8BE2\
+    \u7684\u591A\u6837\u6027\u3002\n    3.  \u5F53LLM\u5F97\u51FA\u7B54\u6848\u6216\
+    \u8FBE\u5230\u6700\u5927\u8FED\u4EE3\u6B65\u9AA4\u65F6\uFF0CMIGRES\u8FC7\u7A0B\
+    \u7ED3\u675F\u3002\n-   \u901A\u8FC7\u91CD\u65B0\u6392\u540D\u548C\u8FC7\u6EE4\
+    \u53E5\u5B50\u7EA7\u522B\uFF0C\u4F7F\u7528\u91CD\u65B0\u6392\u540D\u6A21\u578B\
+    \u8BA1\u7B97\u6BCF\u4E2A\u68C0\u7D22\u6587\u6863\u7684\u76F8\u4F3C\u5EA6\u5206\
+    \u6570\uFF0C\u5E76\u8FC7\u6EE4\u6389\u4F4E\u4E8E\u6307\u5B9A\u9608\u503C$\\delta$\u7684\
+    \u6587\u6863\u3002\n    1.  \u4F7F\u7528\u53E5\u5B50\u7EA7\u522B\u7684\u8FC7\u6EE4\
+    \u7B56\u7565\uFF0C\u5C06\u6240\u6709\u6587\u6863\u5206\u6210\u53E5\u5B50\uFF0C\
+    \u8FC7\u6EE4\u6389\u4E0E\u8F93\u5165\u67E5\u8BE2\u76F8\u4F3C\u5EA6\u4F4E\u4E8E\
+    $\\delta$\u7684\u53E5\u5B50\u3002\n    2.  \u5982\u679C\u5206\u6BB5\u53E5\u5B50\
+    \u4E2D\u6700\u9AD8\u76F8\u4F3C\u5EA6\u5206\u6570\u4F4E\u4E8E\u6574\u4F53\u76F8\
+    \u4F3C\u5EA6\uFF0C\u5219\u4FDD\u7559\u539F\u59CB\u6587\u6863\u4F5C\u4E3A\u589E\
+    \u5F3A\u77E5\u8BC6\u3002\n    3.  \u5F53\u6CA1\u6709\u68C0\u7D22\u5230\u5177\u6709\
+    \u8D85\u8FC7\u9884\u5B9A\u4E49\u9608\u503C$\\delta$\u7684\u76F8\u5173\u6027\u5206\
+    \u6570\u7684\u77E5\u8BC6\u65F6\uFF0C\u63D0\u793ALLM\u751F\u6210\u76F8\u5173\u4FE1\
+    \u606F\u4EE5\u54CD\u5E94\u8F93\u5165\u67E5\u8BE2\u3002"
   text: "The noisy sentences with relevance lower than $\\theta$ are then filtered\
     \ out. Should the relevance of the entire passage surpass that of all the individual\
     \ sentences, we opt to preserve the original passage as the ultimate knowledge.\
@@ -580,14 +708,13 @@ paras:
     \ found in \\ref{}.  % The advancement of powerful embedding models has significantly\
     \ improved the retrieval of knowledge in response to user queries \\cite{bge_embedding,\
     \ li2023angleoptimized}.  Experiment: "
-- summary: "-   \u8BE5\u8868\u683C\u6BD4\u8F83\u4E86MIGRES\u548C\u57FA\u7EBF\u5728\
-    \u5F00\u653E\u9886\u57DF\u95EE\u7B54\u548C\u5E38\u8BC6\u95EE\u7B54\u4EFB\u52A1\
-    \u4E0A\u7684\u8868\u73B0\u3002\n    1.  MIGRES\u5728\u96F6\u6837\u672C\u60C5\u51B5\
-    \u4E0B\u8868\u73B0\u6700\u4F73\uFF0C\u5177\u6709\u6700\u9AD8\u7684EM\u548C\u51C6\
-    \u786E\u7387\u3002\n    2.  \u5728\u96F6\u6837\u672C\u60C5\u51B5\u4E0B\uFF0CRERANK\u548C\
-    VANILLA+sentRerank\u4E5F\u8868\u73B0\u4E0D\u9519\u3002\n    3.  \u5728\u5C11\u6837\
-    \u672C\u60C5\u51B5\u4E0B\uFF0CVTG\u548CITER-RETGEN\u7684\u8868\u73B0\u76F8\u5BF9\
-    \u8F83\u597D\u3002"
+- summary: "-   \u5728Open-domain QA\u548CCommonsense QA\u4EFB\u52A1\u4E2D\uFF0CMIGRES\u4E0E\
+    \u57FA\u7EBF\u65B9\u6CD5\u8FDB\u884C\u4E86\u6BD4\u8F83\u3002\n    1.  MIGRES\u5728\
+    Zero-shot\u60C5\u51B5\u4E0B\u8868\u73B0\u6700\u4F73\uFF0CEM\u548CAcc$^\\dag$\u5206\
+    \u522B\u8FBE\u523038.5\u548C74.0\u3002\n    2.  \u5728Few-shot\u60C5\u51B5\u4E0B\
+    \uFF0CVTG\u8868\u73B0\u51FA\u8272\uFF0C\u8FBE\u523063.0\u7684EM\u548C89.1\u7684\
+    F1\u503C\u3002\n    3.  ITER-RETGEN\u5728Few-shot\u60C5\u51B5\u4E0B\u8868\u73B0\
+    \u4E0D\u4F73\uFF0C\u4EC5\u8FBE\u523074.1\u7684EM\u548CAcc$^\\dag$\u3002"
   text: '  % \begin{table*}[ht] %     \centering %     \scalebox{0.8}{ %         \begin{tabular}{ccccccccccccc}
     %             \toprule %             \textbf{Datasets} & \multicolumn{5}{c}{\textbf{NQ}}
     & \multicolumn{5}{c}{\textbf{WebQ}} & \multicolumn{2}{c}{\textbf{StrategyQA}}
@@ -640,20 +767,19 @@ paras:
     - & - & - & - & - & - & - & - & 74.1 & 74.1  \\ %     %         \bottomrule %     %     \end{tabular}}
     %     %     \caption{Comparisons between MIGRES and baselines on Open-domain QA
     and Commonsense QA task. - represents that the results are unavailable. '
-- summary: "-   \u672C\u7814\u7A76\u5728\u96F6\u5C04\u51FB\u8BBE\u7F6E\u4E0B\u5BF9\
-    \u4E94\u4E2A\u6570\u636E\u96C6\u8FDB\u884C\u5B9E\u9A8C\uFF0C\u6DB5\u76D6\u591A\
-    \u8DF3\u95EE\u9898\u56DE\u7B54\u3001\u5F00\u653E\u57DF\u95EE\u9898\u56DE\u7B54\
-    \u548C\u5E38\u8BC6\u63A8\u7406\u7B49\u4EFB\u52A1\u3002\n    1.  \u5B9E\u9A8C\u4F7F\
-    \u7528\u4E86gpt-3.5-1106\u4F5C\u4E3A\u540E\u7AEFLLM\uFF0C\u5E76\u5206\u522B\u4F7F\
-    \u7528BM25\u3001BGE-reranker-base\u548CT5-xxl-nli\u4F5C\u4E3A\u68C0\u7D22\u5668\
-    \u3001\u91CD\u6392\u6A21\u578B\u548CNLI\u6A21\u578B\u3002\n    2.  \u8BC4\u4F30\
-    \u7ED3\u679C\u901A\u8FC7\u4E0E\u53C2\u8003\u7B54\u6848\u8FDB\u884C\u7CBE\u786E\
-    \u5339\u914D\uFF08EM\uFF09\u8FDB\u884C\uFF0C\u540C\u65F6\u4F7F\u7528gpt-3.5-1106\u8FDB\
-    \u884C\u66F4\u53EF\u9760\u7684\u6A21\u578B\u8F93\u51FA\u6B63\u786E\u6027\u8BC4\
-    \u4F30\u3002\n    3.  \u8BC4\u4F30\u6307\u6807Acc$^{\\dag}$\u7528\u4E8E\u8861\u91CF\
-    \u6A21\u578B\u8F93\u51FA\u7684\u6B63\u786E\u6027\uFF0C\u5B9E\u9A8C\u7ED3\u679C\
-    \u8868\u660EMIGRES\u5728\u591A\u8DF3\u95EE\u9898\u56DE\u7B54\u4EFB\u52A1\u4E2D\
-    \u8868\u73B0\u6700\u4F73\u3002"
+- summary: "-   \u5B9E\u9A8C\u8BBE\u7F6E\n    1.  \u5728\u4E94\u4E2A\u6570\u636E\u96C6\
+    \u4E0A\u8FDB\u884C\u5B9E\u9A8C\uFF0C\u6DB5\u76D6\u4E09\u79CD\u4E0D\u540C\u7684\
+    \u77E5\u8BC6\u5BC6\u96C6\u578B\u4EFB\u52A1\n    2.  \u4F7F\u7528gpt-3.5-1106\u4F5C\
+    \u4E3A\u540E\u7AEFLLM\uFF0CBM25\u4F5C\u4E3A\u68C0\u7D22\u5668\uFF0CBGE-reranker-base\u4F5C\
+    \u4E3ARe-rank\u6A21\u578B\uFF0CT5-xxl-nli\u4F5C\u4E3ANLI\u6A21\u578B\n    3. \
+    \ \u901A\u8FC7\u7CBE\u786E\u5339\u914D\uFF08EM\uFF09\u548CAcc$^{\\dag}$\u8BC4\u4F30\
+    \u6A21\u578B\u8F93\u51FA\u7684\u6B63\u786E\u6027\n-   \u96F6\u6837\u672C\u8BBE\
+    \u7F6E\u4E0B\u7684\u591A\u8DF3\u95EE\u9898\u56DE\u7B54\n    1.  \u5305\u62ECWikiMultihopQA\u3001\
+    HotpotQA\u548CMusique\u7B49\u6570\u636E\u96C6\n    2.  \u4F7F\u7528gpt-3.5-1106\u8FDB\
+    \u884C\u8BC4\u4F30\uFF0C\u7ED3\u679C\u8868\u660EMIGRES\u5728\u591A\u8DF3\u95EE\
+    \u9898\u56DE\u7B54\u4E0A\u8868\u73B0\u6700\u4F73\n    3.  \u5BF9StrategyQA\u7B49\
+    \u6570\u636E\u96C6\u8FDB\u884C\u8BC4\u4F30\uFF0C\u7ED3\u679C\u663E\u793AMIGRES\u5728\
+    \u5C11\u6837\u672C\u8BBE\u7F6E\u4E0B\u8868\u73B0\u4F18\u5F02"
   text: 'The best values are highlighted in bold.} %     %     \label{odqa_res} %     \centering
     %     \scalebox{0.75}{ %         \begin{tabular}{cccccccccccccccc} %             \toprule
     %             \textbf{Datasets} & \multicolumn{5}{c}{\textbf{Wikihop}} & \multicolumn{5}{c}{\textbf{HotpotQA}}
@@ -711,28 +837,27 @@ paras:
     \citet{shao-etal-2023-enhancing} and also evaluate the correctness of model output
     using ChatGPT, the resulting metric denoted as Acc$^{\dag}$.  % We utilize BM25
     with k1=0.9 and b=0.4 as our knowledge retriever. '
-- summary: "-   \u672C\u7814\u7A76\u4F7F\u7528\u4E86\u7A00\u758F\u68C0\u7D22\u548C\
-    BGE\u6A21\u578B\u7684\u57FA\u7840\u7248\u672C\u8FDB\u884C\u7A20\u5BC6\u68C0\u7D22\
-    \uFF0C\u8FDB\u4E00\u6B65\u4F7F\u7528BGE-reranker-base\u8BC4\u4F30\u76F8\u5173\u6027\
-    \u5F97\u5206\u3002\u4E3A\u4E86\u786E\u4FDD\u68C0\u7D22\u5230\u76F8\u5173\u77E5\
-    \u8BC6\uFF0C\u8FD8\u4E3A\u6BCF\u4E2A\u6570\u636E\u96C6\u521B\u5EFA\u4E86\u4E00\
-    \u4E2Aoracle\u7248\u672C\u3002\u4F7F\u7528\u4E862017\u5E7412\u6708\u7684Wikipedia\
-    \ dump\u8FDB\u884CHotpotQA\uFF0C2018\u5E7412\u6708\u7684dump\u8FDB\u884CWikihop\u548C\
-    ODQA\uFF0C\u4EE5\u53CA2021\u5E7412\u6708\u7684dump\u8FDB\u884CMusique\u548CStrategyQA\u3002\
-    \n    1.  \u4F7F\u7528\u4E86\u4E0D\u540C\u7684Wikipedia dump\u8FDB\u884C\u4E0D\
-    \u540C\u4EFB\u52A1\u7684\u6570\u636E\u96C6\u3002\n    2.  \u4E3A\u4E86\u4FDD\u8BC1\
-    \u68C0\u7D22\u5230\u76F8\u5173\u77E5\u8BC6\uFF0C\u4E3A\u6BCF\u4E2A\u6570\u636E\
-    \u96C6\u521B\u5EFA\u4E86\u4E00\u4E2Aoracle\u7248\u672C\u3002\n    3.  \u7ED3\u679C\
-    \u4F7F\u7528oracle dump\u6807\u8BB0\u4E3AMIGRES$^{\\dag}$\u3002\n-   \u5728Multi-hop\
-    \ QA\u3001Open-domain QA\u548CCommonsense QA\u4EFB\u52A1\u4E0A\uFF0C\u6BD4\u8F83\
-    \u4E86MIGRES\u548C\u57FA\u7EBF\u6A21\u578B\u7684\u7ED3\u679C\u3002MIGRES$^{\\\
-    dag}$\u662F\u4F7F\u7528oracle\u77E5\u8BC6\u6C60\u7684\u7ED3\u679C\u3002Few-shot\u7684\
-    \u7ED3\u679C\u6765\u81EA\u539F\u59CB\u8BBA\u6587\uFF0C\u5176\u4E2D\u201C-\u201D\
-    \u8868\u793A\u7ED3\u679C\u4E0D\u53EF\u7528\u3002\n    1.  \u6BD4\u8F83\u4E86MIGRES\u548C\
+- summary: "-   \u4F7F\u7528\u7A00\u758F\u68C0\u7D22\u548CBGE\u6A21\u578B\u7684\u57FA\
+    \u7840\u7248\u672C\u8FDB\u884C\u7A20\u5BC6\u68C0\u7D22\u3002\u4F7F\u7528\u4E0D\
+    \u540C\u65F6\u95F4\u70B9\u7684\u7EF4\u57FA\u767E\u79D1\u8F6C\u50A8\u6570\u636E\
+    \u96C6\u8FDB\u884C\u8BC4\u4F30\uFF0C\u540C\u65F6\u521B\u5EFA\u6BCF\u4E2A\u6570\
+    \u636E\u96C6\u7684oracle\u7248\u672C\u3002\u7ED3\u679C\u8868\u660EMIGRES\u5728\
+    \u591A\u8DF3QA\u3001\u5F00\u653E\u9886\u57DFQA\u548C\u5E38\u8BC6QA\u4EFB\u52A1\
+    \u4E0A\u8868\u73B0\u4F18\u5F02\u3002\n    1.  \u4F7F\u7528\u4E0D\u540C\u6570\u636E\
+    \u96C6\u8FDB\u884C\u8BC4\u4F30\u548C\u521B\u5EFAoracle\u7248\u672C\u3002\n   \
+    \ 2.  MIGRES\u5728\u591A\u8DF3QA\u3001\u5F00\u653E\u9886\u57DFQA\u548C\u5E38\u8BC6\
+    QA\u4EFB\u52A1\u4E0A\u8868\u73B0\u663E\u8457\u3002\n    3.  \u7ED3\u679C\u8868\
+    \u660EMIGRES\u5728\u5404\u9879\u6307\u6807\u4E0A\u5747\u4F18\u4E8E\u57FA\u7EBF\
+    \u6A21\u578B\u3002\n-   \u5728\u591A\u8DF3QA\u3001\u5F00\u653E\u9886\u57DFQA\u548C\
+    \u5E38\u8BC6QA\u4EFB\u52A1\u4E0A\u6BD4\u8F83MIGRES\u548C\u57FA\u7EBF\u6A21\u578B\
+    \u3002\u4F7F\u7528gpt-3.5-1106\u8BC4\u4F30\u6A21\u578B\u8F93\u51FA\u7684\u51C6\
+    \u786E\u6027\uFF0C\u540C\u65F6\u4F7F\u7528oracle\u77E5\u8BC6\u6C60\u8FDB\u884C\
+    \u8BC4\u4F30\u3002Few-shot\u7ED3\u679C\u6765\u81EA\u539F\u59CB\u8BBA\u6587\uFF0C\
+    \u90E8\u5206\u7ED3\u679C\u4E0D\u53EF\u7528\u3002\n    1.  \u6BD4\u8F83MIGRES\u548C\
     \u57FA\u7EBF\u6A21\u578B\u5728\u4E0D\u540C\u4EFB\u52A1\u4E0A\u7684\u8868\u73B0\
-    \u3002\n    2.  Few-shot\u7684\u7ED3\u679C\u6765\u81EA\u539F\u59CB\u8BBA\u6587\
-    \u3002\n    3.  MIGRES$^{\\dag}$\u662F\u4F7F\u7528oracle\u77E5\u8BC6\u6C60\u7684\
-    \u7ED3\u679C\u3002"
+    \u3002\n    2.  \u4F7F\u7528gpt-3.5-1106\u8BC4\u4F30\u6A21\u578B\u8F93\u51FA\u7684\
+    \u51C6\u786E\u6027\u3002\n    3.  Few-shot\u7ED3\u679C\u6765\u81EA\u539F\u59CB\
+    \u8BBA\u6587\uFF0C\u90E8\u5206\u7ED3\u679C\u4E0D\u53EF\u7528\u3002"
   text: '% for sparse retrieval and the base version of the BGE model\footnote{\href{https://huggingface.co/BAAI/bge-base-en-v1.5}{bge-base-en-v1.5}}
     \cite{bge_embedding} for dense retrieval.  % The relevance score is further evaluated
     using the BGE-reranker-base\footnote{\href{https://huggingface.co/BAAI/bge-reranker-base}{bge-reranker-base}}.   We
@@ -778,39 +903,13 @@ paras:
     MIGRES$^{\dag}$ is the results using the oracle knowledge pool. The results of
     "Few-shot" are extracted from the original paper, "-" represents that the results
     are unavailable. '
-- summary: "-   \u8BE5\u8868\u683C\u5C55\u793A\u4E86\u4E0D\u540C\u65B9\u6CD5\u5728\
-    \u4E0D\u540C\u6570\u636E\u96C6\u4E0A\u7684\u6548\u7387\u6BD4\u8F83\uFF0C\u5305\
-    \u62ECAPI\u8C03\u7528\u6B21\u6570\u3001\u8FED\u4EE3\u6B65\u6570\u548C\u6BCF\u6B21\
-    \u8FED\u4EE3\u4E2D\u7684\u6BB5\u843D\u6570\u3002\n    1.  ReAct\u548CSelf-Ask\u5728\
-    \u591A\u4E2A\u6570\u636E\u96C6\u4E0A\u8868\u73B0\u51FA\u8272\uFF0CMIGRES\u5728\
-    \u67D0\u4E9B\u6570\u636E\u96C6\u4E0A\u4E5F\u6709\u4E0D\u9519\u7684\u8868\u73B0\
-    \u3002\n    2.  \u5728\u6240\u6709\u6570\u636E\u96C6\u4E0A\uFF0C\u603B\u6BB5\u843D\
-    \u6570\u5747\u5C11\u4E8E5\uFF0C\u663E\u793A\u4E86MIGRES\u7684\u9AD8\u6548\u6027\
-    \u3002\n    3.  \u4E0D\u540C\u65B9\u6CD5\u5728\u4E0D\u540C\u6570\u636E\u96C6\u4E0A\
-    \u7684\u8868\u73B0\u5DEE\u5F02\u8F83\u5927\uFF0C\u9700\u8981\u6839\u636E\u5177\
-    \u4F53\u60C5\u51B5\u9009\u62E9\u5408\u9002\u7684\u65B9\u6CD5\u3002\n-   \u672C\
-    \u8282\u4ECB\u7ECD\u4E86\u7528\u4E8E\u6BD4\u8F83\u7684\u57FA\u7EBF\u65B9\u6CD5\
-    \uFF0C\u5305\u62ECIn-Context Learning prompting\u3001Vanilla prompting\u3001ALCE\u3001\
-    ITRG\u3001VTG\u7B49\u591A\u79CD\u65B9\u6CD5\u3002\n    1.  ALCE\u5305\u62ECVANILLA\u3001\
-    SUMM/SNIPPET\u548CRERANK\u7B49\u4E0D\u540C\u7B56\u7565\uFF0C\u7528\u4E8E\u751F\
-    \u6210\u56DE\u7B54\u6216\u63D0\u53D6\u5173\u952E\u4FE1\u606F\u3002\n    2.  ITRG\u548C\
-    VTG\u5206\u522B\u91C7\u7528\u4E0D\u540C\u7684\u68C0\u7D22\u548C\u751F\u6210\u7B56\
-    \u7565\uFF0C\u7528\u4E8E\u8FED\u4EE3\u5730\u68C0\u7D22\u548C\u751F\u6210\u77E5\
-    \u8BC6\u3002\n    3.  ReAct\u548CSelf-Ask\u5206\u522B\u5305\u542B\u4E0D\u540C\u7684\
-    \u63A8\u7406\u548C\u95EE\u9898\u5206\u89E3\u6B65\u9AA4\uFF0C\u7528\u4E8E\u751F\
-    \u6210\u7B54\u6848\u6216\u751F\u6210\u95EE\u9898\u7684\u7B54\u6848\u3002\n-  \
-    \ ITER-RETGEN\u7ED3\u5408\u4E86\u68C0\u7D22\u589E\u5F3A\u751F\u6210\u548C\u751F\
-    \u6210\u589E\u5F3A\u68C0\u7D22\u7684\u7B56\u7565\uFF0C\u7528\u4E8E\u8FED\u4EE3\
-    \u5730\u751F\u6210\u65B0\u53E5\u5B50\u4F5C\u4E3A\u539F\u59CB\u67E5\u8BE2\u7684\
-    \u6269\u5C55\u3002\n    1.  \u5927\u591A\u6570\u57FA\u7EBF\u65B9\u6CD5\u90FD\u662F\
-    \u5728\u5C11\u91CF\u6570\u636E\u4E0B\u8FDB\u884C\u8BC4\u4F30\u7684\uFF0C\u9700\
-    \u8981\u6839\u636E\u5177\u4F53\u60C5\u51B5\u9009\u62E9\u9002\u5408\u7684\u65B9\
-    \u6CD5\u3002\n    2.  \u4E0D\u540C\u65B9\u6CD5\u5728\u96F6\u6837\u672C\u8BBE\u7F6E\
-    \u4E0B\u8FDB\u884C\u8BC4\u4F30\uFF0C\u4F7F\u7528Re-rank\u6A21\u578B\u91CD\u65B0\
-    \u6392\u540D\u68C0\u7D22\u5230\u7684\u77E5\u8BC6\u3002\n    3.  \u4E0D\u540C\u65B9\
-    \u6CD5\u5728\u77E5\u8BC6\u68C0\u7D22\u548C\u751F\u6210\u65B9\u9762\u6709\u4E0D\
-    \u540C\u7684\u7B56\u7565\u548C\u6548\u679C\uFF0C\u9700\u8981\u6839\u636E\u5177\
-    \u4F53\u9700\u6C42\u9009\u62E9\u5408\u9002\u7684\u65B9\u6CD5\u3002"
+- summary: "-   \u8868\u683C\u4E2D\u7A81\u51FA\u663E\u793A\u4E86\u6700\u4F73\u6570\
+    \u503C\u3002\n    1.  MIGRES\u5728\u6548\u7387\u65B9\u9762\u8868\u73B0\u51FA\u8272\
+    \uFF0C\u5E73\u5747API\u8C03\u7528\u6B21\u6570\u5C11\u4E8E5\u3002\n    2.  \u4E0D\
+    \u540C\u65B9\u6CD5\u5728\u4E0D\u540C\u6570\u636E\u96C6\u4E0A\u7684\u8868\u73B0\
+    \u6709\u6240\u4E0D\u540C\u3002\n    3.  \u6027\u80FD\u6BD4\u8F83\u57FA\u7EBF\u5305\
+    \u62EC\u591A\u79CD\u65B9\u6CD5\uFF0C\u5982ReAct\u3001Self-Ask\u3001ITER\\_RETGEN\u7B49\
+    \u3002"
   text: 'The best values are highlighted in \textbf{bold}.}         \label{main_res}
     \end{table*}   \begin{table*}[ht]     \centering     \scalebox{0.8}{         \begin{tabular}{cccccccccc}             \toprule             {\textbf{Method}}
     & \multicolumn{3}{c}{\textbf{Wikihop}} & \multicolumn{3}{c}{\textbf{Hotpot}} &
@@ -871,39 +970,34 @@ paras:
     augmented retrieval that iteratively generates new sentences as extensions to
     the original query for next step retrieval.  As most baselines are under a few-shot
     setting, '
-- summary: "-   \u5728\u8FDB\u884C2-shot ICL\u65F6\uFF0C\u6211\u4EEC\u901A\u8FC7\u5C06\
-    \u6F14\u793A\u793A\u4F8B\u8FDE\u63A5\u8D77\u6765\u8FDB\u884C\u5B9E\u9A8C\u3002\
-    \u6211\u4EEC\u4ECEWikihop\u3001NQ\u548CStrategyQA\u7684\u8BAD\u7EC3\u96C6\u4E2D\
-    \u968F\u673A\u9009\u62E9\u7279\u5B9A\u793A\u4F8B\uFF0C\u5E76\u5728\u8BC4\u4F30\
-    \u8FC7\u7A0B\u4E2D\u56FA\u5B9A\u5B83\u4EEC\u3002\u76F8\u540C\u7684\u6F14\u793A\
-    \u793A\u4F8B\u5206\u522B\u7528\u4E8E\u591A\u8DF3QA\u3001ODQA\u548C\u5E38\u8BC6\
-    QA\u3002\u6211\u4EEC\u7684\u5C11\u6837\u672C\u5B66\u4E60\u65B9\u6CD5\u88AB\u6807\
-    \u8BB0\u4E3AMIGRES$^{*}$\uFF0C\u9ED8\u8BA4\u8BBE\u7F6E\u4E3A\u96F6\u6837\u672C\
-    \u3002\n    1.  \u8BBE\u8BA1\u6F14\u793A\u4EE5\u8FDB\u884C\u5C11\u6837\u672C\u5B66\
-    \u4E60\u3002\n    2.  MIGRES\u5728\u96F6\u6837\u672C\u8BBE\u7F6E\u4E0B\u4F18\u4E8E\
-    \u6240\u6709\u65B9\u6CD5\u3002\n    3.  MIGRES\u5728Musique\u4E0A\u8868\u73B0\u4E0D\
-    \u4F73\uFF0C\u53EF\u80FD\u662F\u56E0\u4E3A\u8BE5\u6570\u636E\u96C6\u4E2D\u7684\
-    \u95EE\u9898\u66F4\u52A0\u6A21\u7CCA\u548C\u542B\u7CCA\u4E0D\u6E05\u3002\n-  \
-    \ \u5728\u4E3B\u8981\u7ED3\u679C\u4E2D\uFF0CMIGRES\u5728\u96F6\u6837\u672C\u8BBE\
-    \u7F6E\u4E0B\u4F18\u4E8E\u6240\u6709\u65B9\u6CD5\uFF0C\u5728Wikihop\u3001HotpotQA\u548C\
-    StrategyQA\u4E0A\u751A\u81F3\u4E0E\u5C11\u6837\u672C\u57FA\u7EBF\u76F8\u6BD4\u53D6\
-    \u5F97\u4E86\u7ADE\u4E89\u6027\u6216\u66F4\u597D\u7684\u7ED3\u679C\uFF0C\u8BC1\
-    \u660E\u4E86\u6211\u4EEC\u63D0\u51FA\u7684\u65B9\u6CD5\u7684\u6709\u6548\u6027\
-    \u3002\n    1.  MIGRES\u5728Wikihop\u548CHotpotQA\u6570\u636E\u96C6\u4E0A\u7684\
-    EM\u5206\u6570\u6709\u663E\u7740\u63D0\u9AD8\u3002\n    2.  \u5C11\u6837\u672C\
-    \u5B66\u4E60\u6709\u52A9\u4E8E\u6A21\u578B\u907F\u514D\u751F\u6210\u4E0D\u5FC5\
-    \u8981\u7684\u63CF\u8FF0\u3002\n    3.  \u901A\u8FC7\u8FC7\u6EE4\u4E0D\u76F8\u5173\
-    \u77E5\u8BC6\uFF0C\u6211\u4EEC\u5927\u5927\u51CF\u5C11\u4E86\u5916\u90E8\u77E5\
-    \u8BC6\u7684\u6807\u8BB0\u6D88\u8017\u3002\n-   \u5728\u8868\u73B0\u4F18\u8D8A\
-    \u6216\u7ADE\u4E89\u6027\u7684\u540C\u65F6\uFF0C\u6211\u4EEC\u901A\u8FC7\u8FC7\
-    \u6EE4\u4E0D\u76F8\u5173\u77E5\u8BC6\u5927\u5927\u51CF\u5C11\u4E86\u5916\u90E8\
-    \u77E5\u8BC6\u7684\u6807\u8BB0\u6D88\u8017\u3002\n    1.  \u6DFB\u52A0\u6F14\u793A\
-    \u53EF\u4EE5\u5F15\u5BFCLLM\u751F\u6210\u66F4\u6709\u9488\u5BF9\u6027\u7684\u65B0\
-    \u67E5\u8BE2\u3002\n    2.  MIGRES\u5728Musique\u4E0A\u8868\u73B0\u4E0D\u4F73\uFF0C\
-    \u96BE\u4EE5\u4ECE\u68C0\u7D22\u8BED\u6599\u5E93\u4E2D\u53EC\u56DE\u76F8\u5173\
-    \u77E5\u8BC6\u3002\n    3.  \u5C11\u6837\u672C\u5B66\u4E60\u6709\u6548\u5730\u5E2E\
-    \u52A9\u6A21\u578B\u907F\u514D\u751F\u6210\u4E0D\u5FC5\u8981\u7684\u63CF\u8FF0\
-    \u3002"
+- summary: "-   \u6211\u4EEC\u8FDB\u884C\u4E86\u5B9E\u9A8C\uFF0C\u5C06\u6F14\u793A\
+    \u6587\u7A3F\u8FDE\u63A5\u8D77\u6765\u6267\u884C2-shot ICL\u3002\u6211\u4EEC\u4E3A\
+    \u6BCF\u4E2A\u6A21\u5757\u8BBE\u8BA1\u4E86\u4ECEWikihop\u3001NQ\u548CStrategyQA\u7684\
+    \u8BAD\u7EC3\u96C6\u4E2D\u968F\u673A\u62BD\u6837\u7684\u5177\u4F53\u793A\u4F8B\
+    \uFF0C\u5E76\u5728\u8BC4\u4F30\u8FC7\u7A0B\u4E2D\u56FA\u5B9A\u5B83\u4EEC\u3002\
+    \u76F8\u540C\u7684\u6F14\u793A\u6587\u7A3F\u5206\u522B\u5728\u591A\u8DF3QA\u3001\
+    ODQA\u548C\u5E38\u8BC6QA\u4E2D\u5171\u4EAB\u3002\u6211\u4EEC\u7684\u5C11\u6837\
+    \u672C\u5B66\u4E60\u65B9\u6CD5\u88AB\u6807\u8BB0\u4E3AMIGRES$^{*}$\uFF0C\u9ED8\
+    \u8BA4\u8BBE\u7F6E\u4E3A\u96F6\u6837\u672C\u3002\n    1.  \u8FDB\u884C\u4E86MIGRES\u4E0D\
+    \u540C\u77E5\u8BC6\u538B\u7F29/\u8FC7\u6EE4\u65B9\u6CD5\u7684\u6BD4\u8F83\u3002\
+    \n    2.  \u6DFB\u52A0\u6F14\u793A\u4EE5\u8FDB\u884C\u5C11\u6837\u672C\u5B66\u4E60\
+    \uFF0C\u63D0\u9AD8\u6A21\u578B\u6027\u80FD\u3002\n    3.  \u5728Musique\u6570\u636E\
+    \u96C6\u4E0A\u8868\u73B0\u4E0D\u4F73\uFF0C\u53EF\u80FD\u662F\u56E0\u4E3A\u95EE\
+    \u9898\u66F4\u52A0\u6A21\u7CCA\u548C\u542B\u7CCA\u4E0D\u6E05\u3002\n-   MIGRES\u5728\
+    \u96F6\u6837\u672C\u8BBE\u7F6E\u4E0B\u4F18\u4E8E\u6240\u6709\u65B9\u6CD5\uFF0C\
+    \u5728Wikihop\u3001HotpotQA\u548CStrategyQA\u4E0A\u751A\u81F3\u4E0E\u5C11\u6837\
+    \u672C\u57FA\u7EBF\u76F8\u6BD4\u53D6\u5F97\u4E86\u7ADE\u4E89\u6027\u6216\u66F4\
+    \u597D\u7684\u7ED3\u679C\uFF0C\u8BC1\u660E\u4E86\u6211\u4EEC\u63D0\u51FA\u7684\
+    \u65B9\u6CD5\u7684\u6709\u6548\u6027\u3002\n    1.  \u6DFB\u52A0\u6F14\u793A\u53EF\
+    \u4EE5\u6539\u5584\u6A21\u578B\u6027\u80FD\uFF0C\u5F15\u5BFCLLM\u751F\u6210\u66F4\
+    \u6709\u9488\u5BF9\u6027\u7684\u65B0\u67E5\u8BE2\u3002\n    2.  \u5728Wikihop\u548C\
+    HotpotQA\u6570\u636E\u96C6\u4E0A\uFF0CEM\u5206\u6570\u6709\u663E\u8457\u63D0\u9AD8\
+    \uFF0C\u8868\u660E\u5C11\u6837\u672C\u5B66\u4E60\u6709\u52A9\u4E8E\u6A21\u578B\
+    \u907F\u514D\u751F\u6210\u4E0D\u5FC5\u8981\u7684\u63CF\u8FF0\u3002\n    3.  \u901A\
+    \u8FC7\u8FC7\u6EE4\u65E0\u5173\u77E5\u8BC6\uFF0C\u6211\u4EEC\u5927\u5927\u51CF\
+    \u5C11\u4E86\u5916\u90E8\u77E5\u8BC6\u7684\u6807\u8BB0\u6D88\u8017\uFF0C\u540C\
+    \u65F6\u4FDD\u6301\u4E86\u4E0E\u57FA\u7EBF\u76F8\u6BD4\u7684\u4F18\u8D8A\u6027\
+    \u6216\u7ADE\u4E89\u6027\u8868\u73B0\u3002"
   text: 'we also conduct experiments concatenating demonstrations to perform a 2-shot
     ICL. We design specific examples randomly sampled from the training set of Wikihop,
     NQ and StrategyQA for each modules and fix then during evaluation. The same demonstrations
@@ -963,22 +1057,29 @@ paras:
     knowledge filtering, we greatly reduce the token consumption of external knowledge,
     while keeping superior or competitive performance compared with baselines. As
     shown in Table \ref{efficiency}, '
-- summary: "-   Despite additional API calls required in various modules, MIGRES reduces\
-    \ the total number of passages to less than 5, improving performance and reducing\
-    \ token cost.\n    1.  Sentence-level filtering enhances performance across datasets.\n\
-    \    2.  Prompting GPT knowledge improves iteration efficiency.\n    3.  Utilizing\
-    \ internal knowledge of LLM enhances knowledge retrieval accuracy.\n-   MIGRES\
-    \ with knowledge prompting achieves better results on Wikihop and NQ, showing\
-    \ that the LLM can provide valuable information related to input queries.\n  \
-    \  1.  Average iteration steps for MIGRES are only marginally reduced.\n    2.\
-    \  Generated knowledge offers valuable information to address input queries.\n\
-    \    3.  Accuracy of generated knowledge is promising on Wikihop and Musique datasets.\n\
-    -   Evaluation of the accuracy of the generated knowledge shows promising results\
-    \ on Wikihop and Musique datasets, offering valuable information to address input\
-    \ queries.\n    1.  Low accuracy on the NQ dataset may stem from less standardized\
-    \ answers.\n    2.  GPT's ability to refuse answering in case of uncertainty or\
-    \ lack of knowledge.\n    3.  Generated knowledge provides valuable information\
-    \ to address input queries."
+- summary: "-   \u5C3D\u7BA1\u5728\u4E3B\u6A21\u5757\u3001\u68C0\u7D22\u6A21\u5757\
+    \u548Cgpt\u77E5\u8BC6\u63D0\u793A\u4E2D\u9700\u8981\u989D\u5916\u7684API\u8C03\
+    \u7528\uFF0C\u4F46\u6211\u4EEC\u5C06\u603B\u6570\u5C11\u4E8E5\u7684\u6BB5\u843D\
+    \u6570\u91CF\u51CF\u5C11\u4E86\uFF0C\u8FD9\u6BD4\u6210\u672C\u66F4\u9AD8\u3002\
+    \u91C7\u7528\u53E5\u7EA7\u8FC7\u6EE4\u8FDB\u4E00\u6B65\u51CF\u5C11\u4E86\u68C0\
+    \u7D22\u6BB5\u843D\u4E2D\u7684\u566A\u97F3\u3002\n    1.  VANILLA-s\u5728\u5404\
+    \u6570\u636E\u96C6\u4E0A\u7684\u6027\u80FD\u5747\u4F18\u4E8EVANILLA\uFF0C\u51CF\
+    \u5C11\u4E86\u5916\u90E8\u77E5\u8BC6\u7684\u4EE4\u724C\u6210\u672C\u3002\n   \
+    \ 2.  \u53E5\u7EA7\u8FC7\u6EE4\u4E5F\u5728\u5404\u6570\u636E\u96C6\u4E0A\u4F18\
+    \u4E8ESUMM\u548CSNIPPET\uFF0C\u4F46\u5728Wikihop\u548CMusique\u4E0A\u7684\u8868\
+    \u73B0\u4E0D\u4F73\u3002\n    3.  \u901A\u8FC7\u53E5\u7EA7\u8FC7\u6EE4\u7565\u4F18\
+    \u4E8E\u5176\u4ED6\u65B9\u6CD5\uFF0C\u4EE4\u724C\u6D88\u8017\u66F4\u5C11\u4E14\
+    \u65E0\u9700\u989D\u5916\u8C03\u7528LLM\u3002\n-   \u5229\u7528GPT\u77E5\u8BC6\
+    \u63D0\u793A\u7684\u597D\u5904\n    1.  \u5F53\u68C0\u7D22\u6A21\u5757\u672A\u8FD4\
+    \u56DE\u77E5\u8BC6\u65F6\uFF0C\u6211\u4EEC\u63D0\u793ALLM\u751F\u6210\u4E0E\u67E5\
+    \u8BE2\u76F8\u5173\u7684\u4FE1\u606F\uFF0C\u4EE5\u5145\u5206\u5229\u7528LLM\u7684\
+    \u5185\u90E8\u77E5\u8BC6\u3002\n    2.  \u5728Wikihop\u548CNQ\u4E0A\uFF0C\u5177\
+    \u6709\u77E5\u8BC6\u63D0\u793A\u7684MIGRES\u53D6\u5F97\u66F4\u597D\u7684\u7ED3\
+    \u679C\uFF0C\u663E\u793ALLM\u786E\u5B9E\u80FD\u63D0\u4F9B\u4E0E\u8F93\u5165\u67E5\
+    \u8BE2\u76F8\u5173\u7684\u6709\u4EF7\u503C\u4FE1\u606F\u3002\n    3.  \u751F\u6210\
+    \u7684\u77E5\u8BC6\u5728Wikihop\u548CMusique\u4E0A\u7684\u51C6\u786E\u6027\u8F83\
+    \u9AD8\uFF0C\u4E3A\u89E3\u51B3\u8F93\u5165\u67E5\u8BE2\u63D0\u4F9B\u4E86\u6709\
+    \u4EF7\u503C\u4FE1\u606F\u3002"
   text: "despite additional API calls are required in Main Module, Retrieval Module\
     \ and gpt knowledge prompting, we reduce the total number of passages, which is\
     \ much more costly, to less than 5.   \\subsection{Benefit of Sentence-Level Filtering}\
@@ -1053,16 +1154,34 @@ paras:
     \u7684\u4FE1\u606F\u5176\u5B9E\u662F\u96BE\u4EE5\u4E00\u6B21\u6027\u5168\u90E8\
     \u7ED9\u51FA\u7684\u3002\u56E0\u6B64\u66F4\u591A\u7684\u5219\u662Fon-the-fly\u7684\
     \u5F62\u5F0F\\cite{shao2023enhancing, self-ask, yao2023react, "
-- summary: "-   \u6211\u4EEC\u7684\u65B9\u6CD5\u63D0\u51FA\u4E86MIGRES\uFF0C\u5229\
-    \u7528\u7F3A\u5931\u4FE1\u606F\u5F15\u5BFC\u65B0\u67E5\u8BE2\u751F\u6210\u548C\
-    \u77E5\u8BC6\u68C0\u7D22\uFF0C\u4FC3\u8FDB\u89E3\u51B3\u77E5\u8BC6\u5BC6\u96C6\
-    \u578B\u95EE\u9898\u7684RAG\u8FC7\u7A0B\u3002\n    1.  LLMs\u5B9E\u9A8C\u9A8C\u8BC1\
-    \u4E86\u63D0\u53D6\u4FE1\u606F\u548C\u4E86\u89E3\u7F3A\u5931\u4FE1\u606F\u7684\
-    \u80FD\u529B\u3002\n    2.  MIGRES\u5229\u7528\u7F3A\u5931\u4FE1\u606F\u5F15\u5BFC\
-    \u65B0\u67E5\u8BE2\u751F\u6210\u548C\u77E5\u8BC6\u68C0\u7D22\u3002\n    3.  \u5B9E\
-    \u9A8C\u7ED3\u679C\u8868\u660E\u6211\u4EEC\u7684\u65B9\u6CD5\u6548\u679C\u663E\
-    \u8457\uFF0C\u4E0E\u6700\u5148\u8FDB\u57FA\u7EBF\u76F8\u6BD4\u5177\u6709\u66F4\
-    \u5C11\u7684\u5916\u90E8\u77E5\u8BC6\u4EE4\u724C\u6D88\u8017\u3002"
+- summary: "-   \u5BF9\u4E8ERAG\u4E2D\u7684\u67E5\u8BE2\u4F18\u5316\uFF0C\u5148\u524D\
+    \u7684\u65B9\u6CD5\u5B58\u5728\u7740\u4E00\u4E9B\u95EE\u9898\uFF0C\u5982\u65E0\
+    \u6CD5\u51C6\u786E\u6307\u51FA\u8BED\u8A00\u6A21\u578B\u7684\u77E5\u8BC6\u7F3A\
+    \u5931\uFF0C\u6216\u8005\u67E5\u8BE2\u7ED3\u679C\u4E0D\u81EA\u7136\u3002CoT\u7B49\
+    \u7814\u7A76\u63A2\u7D22\u4E86LLM\u7684\u63A8\u7406\u80FD\u529B\uFF0C\u63D0\u51FA\
+    \u4E86\u9759\u6001\u548C\u52A8\u6001\u7684\u67E5\u8BE2\u91CD\u6784\u65B9\u6CD5\
+    \u3002\u7136\u800C\uFF0C\u8FD9\u4E9B\u65B9\u6CD5\u7F3A\u4E4F\u7075\u6D3B\u6027\
+    \uFF0C\u6211\u4EEC\u7684\u65B9\u6CD5\u5219\u901A\u8FC7\u751F\u6210\u7B80\u5355\
+    \u7684\u5355\u8DF3\u95EE\u9898\u6765\u63D0\u9AD8\u68C0\u7D22\u6548\u7387\u3002\
+    \n    1.  \u5148\u524D\u7684\u65B9\u6CD5\u672A\u80FD\u660E\u786E\u6307\u51FA\u6A21\
+    \u578B\u77E5\u8BC6\u7F3A\u5931\u7684\u95EE\u9898\u3002\n    2.  \u90E8\u5206\u65B9\
+    \u6CD5\u7F3A\u4E4F\u9A8C\u8BC1\u6B65\u9AA4\uFF0C\u5BB9\u6613\u53D7\u5230\u65E0\
+    \u7528\u4FE1\u606F\u7684\u8BEF\u5BFC\u3002\n    3.  \u6211\u4EEC\u7684\u65B9\u6CD5\
+    \u901A\u8FC7\u751F\u6210\u7B80\u5355\u95EE\u9898\u6765\u63D0\u9AD8\u68C0\u7D22\
+    \u6548\u7387\uFF0C\u51CF\u5C11\u65F6\u95F4\u6210\u672C\u3002\n-   \u5728\u6587\
+    \u6863\u68C0\u7D22\u65B9\u9762\uFF0C\u4ECE\u5927\u91CF\u77E5\u8BC6\u4E2D\u68C0\
+    \u7D22\u4E0E\u8F93\u5165\u67E5\u8BE2\u76F8\u5173\u7684\u6587\u6863\u662F\u5177\
+    \u6709\u6311\u6218\u6027\u7684\u3002\u4E3A\u4E86\u63D0\u9AD8\u6587\u672C\u8D28\
+    \u91CF\uFF0C\u5E7F\u6CDB\u91C7\u7528\u68C0\u7D22-\u91CD\u6392\u8303\u5F0F\u3002\
+    \u6211\u4EEC\u7684\u65B9\u6CD5\u5728\u53E5\u5B50\u7EA7\u522B\u8FDB\u884C\u7EC6\
+    \u7C92\u5EA6\u8FC7\u6EE4\uFF0C\u5E76\u9A8C\u8BC1\u6392\u540D\u9760\u524D\u7684\
+    \u6587\u672C\u4E0E\u95EE\u9898\u4E4B\u95F4\u7684\u8574\u6DB5\u5173\u7CFB\u3002\
+    \n    1.  \u5148\u524D\u7684\u65B9\u6CD5\u672A\u8BC4\u4F30\u68C0\u7D22\u6587\u672C\
+    \u4E0E\u95EE\u9898\u4E4B\u95F4\u7684\u4E00\u81F4\u6027\u3002\n    2.  \u4E00\u4E9B\
+    \u65B9\u6CD5\u4EC5\u9650\u4E8E\u7C97\u7C92\u5EA6\u7684\u91CD\u6392\u3002\n   \
+    \ 3.  \u6211\u4EEC\u7684\u65B9\u6CD5\u901A\u8FC7\u53E5\u5B50\u7EA7\u8FC7\u6EE4\
+    \u548C\u9A8C\u8BC1\u6587\u672C\u4E0E\u95EE\u9898\u4E4B\u95F4\u7684\u8574\u6DB5\
+    \u5173\u7CFB\u6765\u63D0\u9AD8\u6587\u672C\u8D28\u91CF\u3002"
   text: "kim2023tree}\uFF0C\u52A8\u6001\u4E0E\u5916\u754C\u4EA4\u4E92\u3002\u4F46\u662F\
     \\cite{shao2023enhancing}\u4EC5\u4EC5\u5C06retrieve\u548Cgenerate\u51FA\u6765\u7684\
     \u6587\u6BB5\u62FC\u5728\u539F\u95EE\u9898\u4E0A\uFF0C\u6BCF\u6B21\u8FED\u4EE3\
@@ -1138,21 +1257,15 @@ paras:
     \ please generate the sub-questions corresponding to the evidence to complete\
     \ the question decomposition. \\\\     \\\\     \\textbf{\\large \\# Wikihop}\
     \ \\\\     Question: Which film was released more recently, "
-- summary: "-   The comparison between \"Fatal Lady\" and \"Every Blessed Day\" reveals\
-    \ the latter was published in 2012, while the former in 1936.\n    1.  \"Fatal\
-    \ Lady\" was released in 1936.\n    2.  \"Every Blessed Day\" was released in\
-    \ 2012.\n    3.  The governor's term in Alabama, where \"Selma, Lord, Selma\"\
-    \ takes place, is four years.\n-   The useful information extraction task involves\
-    \ identifying Swapan Saha as the director of the 2008 film \"Golmaal.\"\n    1.\
-    \  Swapan Saha is the director of \"Golmaal\" (2008 Film).\n    2.  The support\
-    \ passage for this information is Passage 3.\n    3.  The provided information\
-    \ is deemed useful for answering the question.\n-   The missing information generation\
-    \ task involves determining the latitude defining the border of the continent\
-    \ where Smokinya Cove is located.\n    1.  The answer is deemed unanswerable due\
-    \ to missing information on the latitude.\n    2.  The missing information pertains\
-    \ to the latitude of the border where Smokinya Cove is situated.\n    3.  The\
-    \ candidate question aligned with this missing information is about Antarctica's\
-    \ border latitude."
+- summary: "-   \u300AFatal Lady\u300B\u8FD8\u662F\u300AEvery Blessed Day\u300B\uFF1F\
+    \u6700\u7EC8\u7B54\u6848\u662F\u300AEvery Blessed Day\u300B\u3002\n    1.  \u300A\
+    Fatal Lady\u300B\u4E8E1936\u5E74\u53D1\u5E03\u3002\n    2.  \u300AEvery Blessed\
+    \ Day\u300B\u4E8E2012\u5E74\u53D1\u5E03\u3002\n    3.  \u300ASelma, Lord, Selma\u300B\
+    \u53D1\u751F\u7684\u5DDE\u957F\u4EFB\u671F\u4E3A\u56DB\u5E74\u3002\n-   \u63D0\
+    \u53D6\u6709\u7528\u4FE1\u606F\n    1.  Swapan Saha\u662F\u300AGolmaal\u300B\uFF08\
+    2008\u5E74\u7535\u5F71\uFF09\u7684\u5BFC\u6F14\u3002\n-   \u751F\u6210\u7F3A\u5931\
+    \u4FE1\u606F\n    1.  \u65E0\u6CD5\u56DE\u7B54\uFF0C\u7F3A\u5931\u4FE1\u606F\u4E3A\
+    Smokinya Cove\u6240\u5728\u5927\u9646\u8FB9\u754C\u7684\u7EAC\u5EA6\u3002"
   text: "Fatal Lady or Every Blessed Day? \\\\     Final answer: Every Blessed Day\
     \ \\\\      Evidence: {[['Fatal Lady', 'publication date', '1936'], ['Every BlessedDay',\
     \ 'publication date', '2012']]} \\\\     \\\\     Sub-question 1: When was Fatal\
@@ -1219,18 +1332,21 @@ paras:
     \ asks about the latitude defining Antarctica's border, which aligns with the\
     \ missing information. Therefore, "
 - summary: "-   MIGRES\u7684\u77E5\u8BC6\u63D0\u793A\u548C\u6A21\u578B\u8F93\u51FA\
-    \u6B63\u786E\u6027\u8BC4\u4F30\u7684\u63D0\u793A\n    1.  \u751F\u6210\u7ED9\u5B9A\
-    \u95EE\u9898\u7684\u76F8\u5173\u4FE1\u606F\n    2.  \u8BC4\u4F30\u6A21\u578B\u8F93\
-    \u51FA\u662F\u5426\u6B63\u786E\n    3.  \u5217\u51FAMIGRES\u7684\u8D85\u53C2\u6570\
-    \u8BBE\u7F6E\n-   MIGRES\u7684\u8D85\u53C2\u6570\u8BBE\u7F6E\n    1.  \u5217\u51FA\
-    \u4E0D\u540C\u6570\u636E\u96C6\u7684\u8D85\u53C2\u6570\u8BBE\u7F6E\n    2.  \u9884\
-    \u5148\u786E\u5B9A\u76F8\u5173\u6027\u9608\u503C$\\delta$\n    3.  \u8C03\u6574\
-    $\\delta$\u4EE5\u786E\u4FDD80%\u4EE5\u4E0A\u95EE\u9898\u627E\u5230\u81F3\u5C11\
-    \u4E00\u4E2A\u76F8\u5173\u6027\u9AD8\u4E8E\u8BE5\u9608\u503C\u7684\u5916\u90E8\
-    \u6BB5\u843D\n-   \u4E0D\u540C\u77E5\u8BC6\u538B\u7F29\u65B9\u6CD5\u7684\u6BD4\
-    \u8F83\n    1.  \u5BF9\u6BD4\u4E0D\u540C\u538B\u7F29\u65B9\u6CD5\n    2.  \u63D0\
-    \u4F9B\u5173\u4E8E\u7535\u5F71\u300ASchool on Fire\u300B\u7684\u76F8\u5173\u4FE1\
-    \u606F\n    3.  \u8FC7\u6EE4\u53E5\u5B50\u7EA7\u522B\u7684\u4FE1\u606F"
+    \u8BC4\u4F30\u63D0\u793A\n    1.  \u751F\u6210\u7ED9\u5B9A\u95EE\u9898\u7684\u76F8\
+    \u5173\u4FE1\u606F\n    2.  \u8BC4\u4F30\u6A21\u578B\u8F93\u51FA\u662F\u5426\u6B63\
+    \u786E\n    3.  \u5217\u51FAMIGRES\u7684\u8D85\u53C2\u6570\u8BBE\u7F6E\n-   MIGRES\u7684\
+    \u8D85\u53C2\u6570\u8BBE\u7F6E\n    1.  \u5217\u51FA\u4E0D\u540C\u6570\u636E\u96C6\
+    \u7684\u8D85\u53C2\u6570\u8BBE\u7F6E\n    2.  \u9884\u5148\u786E\u5B9A\u76F8\u5173\
+    \u6027\u9608\u503C$\\delta$\n    3.  \u8C03\u6574$\\delta$\u4EE5\u786E\u4FDD\u81F3\
+    \u5C1180%\u7684\u95EE\u9898\u627E\u5230\u76F8\u5173\u6027\u9AD8\u4E8E\u8BE5\u9608\
+    \u503C\u7684\u5916\u90E8\u6BB5\u843D\n-   \u4E0D\u540C\u77E5\u8BC6\u538B\u7F29\
+    \u65B9\u6CD5\u7684\u6BD4\u8F83\n    1.  \u5BF9\u6BD4\u4E0D\u540C\u538B\u7F29\u65B9\
+    \u6CD5\n    2.  \u63D0\u4F9B\u5173\u4E8E\u7535\u5F71\u300ASchool on Fire\u300B\
+    \u7684\u4FE1\u606F\n    3.  \u5BF9\u6BD4\u4E0D\u540C\u538B\u7F29\u65B9\u6CD5\u7684\
+    \u7ED3\u679C\n-   MIGRES\u7684\u6848\u4F8B\u548C\u63D0\u793A\n    1.  \u5C55\u793A\
+    MIGRES\u7684\u6848\u4F8B\n    2.  \u63D0\u4F9B\u6848\u4F8B1\u7684\u539F\u59CB\u95EE\
+    \u9898\u548C\u6807\u7B7E\n    3.  \u5C55\u793A\u8FED\u4EE31\u7684\u68C0\u7D22\u6A21\
+    \u5757\u548C\u53F6\u5B50\u6A21\u5757"
   text: 'the index for the aligned question is [1].\\     \bottomrule     %\end{tabular}     \caption{Prompts
     and cases for missing information generation.}     \label{missing prompt} \end{longtable}   Prompt
     for GPT knowledge prompting and answer evaluation:  \begin{longtable}[ht]{p{16cm}}     %\centering
@@ -1289,28 +1405,29 @@ paras:
     and Passages, please distillate useful information from the Passages to address
     the Question effectively and list the support passage index for each distilled
     information. '
-- summary: "-   \u6C47\u603B\u683C\u5F0F\u8981\u6C42\u4E3A{\"useful\\_information\"\
-    : [{\"info\": statement of distilled useful information combining the question,\
-    \ \"support\\_passages\": [indexes of support passages]}]}\uFF0C\u672A\u63D0\u4F9B\
-    \u4FE1\u606F\u4E0D\u5E94\u51FA\u73B0\u5728\u56DE\u7B54\u4E2D\u3002\n    1.  \u56DE\
-    \u7B54\u5E94\u57FA\u4E8E\u63D0\u4F9B\u7684\u4FE1\u606F\uFF0C\u4E0D\u8DB3\u4EE5\
-    \u56DE\u7B54\u65F6\u5E94\u4E3A\"\u65E0\u6CD5\u56DE\u7B54\"\uFF0C\u5E76\u63D0\u4F9B\
-    \u89E3\u91CA\u548C\u7F3A\u5931\u4FE1\u606F\u6458\u8981\u3002\n    2.  \u4FE1\u606F\
-    \u63D0\u4F9B\u4E86\u5BFC\u6F14Tran Anh Hung\u7684\u56FD\u7C4D\uFF0C\u4F46\u672A\
-    \u63D0\u4F9B\u7535\u5F71\"Levity\"\u7684\u5BFC\u6F14\u56FD\u7C4D\u3002\n    3.\
-    \  \u901A\u8FC7\u67E5\u8BE2\u5BFC\u6F14Ed Solomon\u7684\u56FD\u7C4D\uFF0C\u53EF\
-    \u4EE5\u89E3\u51B3\u5173\u4E8E\"Levity\"\u5BFC\u6F14\u56FD\u7C4D\u7684\u7F3A\u5931\
-    \u4FE1\u606F\u3002\n-   \u7535\u5F71\"Levity\"\u7531Ed Solomon\u6267\u5BFC\u3002\
-    \n    1.  \u901A\u8FC7\u67E5\u8BE2\u5F97\u77E5\uFF0C\u7535\u5F71\"Levity\"\u7684\
-    \u5BFC\u6F14\u662FEd Solomon\u3002\n    2.  \u672A\u77E5\u7535\u5F71\"Levity\"\
-    \u5BFC\u6F14\u7684\u56FD\u7C4D\uFF0C\u65E0\u6CD5\u786E\u5B9A\u4E24\u90E8\u7535\
-    \u5F71\u5BFC\u6F14\u662F\u5426\u540C\u56FD\u7C4D\u3002\n    3.  \u7F3A\u5931\u4FE1\
-    \u606F\u4E3A\u7535\u5F71\"Levity\"\u5BFC\u6F14\u7684\u56FD\u7C4D\u3002\n-   Ed\
-    \ Solomon\u662F\u7F8E\u56FD\u7535\u5F71\u5236\u7247\u4EBA\u3002\n    1.  \u67E5\
-    \u8BE2\u786E\u8BA4Ed Solomon\u7684\u56FD\u7C4D\u4E3A\u7F8E\u56FD\u3002\n    2.\
-    \  \u786E\u8BA4\u4E86\"Levity\"\u5BFC\u6F14Ed Solomon\u7684\u56FD\u7C4D\u3002\n\
-    \    3.  \u901A\u8FC7\u786E\u8BA4\u5BFC\u6F14\u56FD\u7C4D\uFF0C\u89E3\u51B3\u4E86\
-    \u5173\u4E8E\"Levity\"\u5BFC\u6F14\u56FD\u7C4D\u7684\u7F3A\u5931\u4FE1\u606F\u3002"
+- summary: "-   \u6C47\u603B\u683C\u5F0F\u4E3A\\{\"useful\\_information\": [\\{\"\
+    info\": statement of distilled useful information combining the question, \"support\\\
+    _passages\": [indexes of support passages]\\}]\\}\uFF0C\u672A\u63D0\u4F9B\u4FE1\
+    \u606F\u4E0D\u5E94\u51FA\u73B0\u5728\u56DE\u7B54\u4E2D\u3002\u751F\u6210\u5B57\
+    \u5178\u683C\u5F0F\u56DE\u5E94\u3002\\\\ {[Passage 0]} \\\\ {Question: [Original\
+    \ Question] Your response:}\\\\ {\\{\"useful\\_information\": [\\{\"info\": \"\
+    I Come with the Rain is directed by Vietnamese-born French director Tran Anh Hung.\"\
+    , \"support\\_passages\": [0]\\}]\\}}\n    1.  \u56DE\u5E94\u5E94\u5305\u542B\u63D0\
+    \u4F9B\u7684\u4FE1\u606F\uFF0C\u672A\u63D0\u4F9B\u4FE1\u606F\u5E94\u5217\u4E3A\
+    \u7F3A\u5931\u4FE1\u606F\u3002\n    2.  \u56DE\u5E94\u683C\u5F0F\u4E3A\u5B57\u5178\
+    \uFF0C\u5305\u542B\u56DE\u7B54\u3001\u7F6E\u4FE1\u5EA6\u548C\u89E3\u91CA\u3002\
+    \n    3.  \u7F3A\u5931\u4FE1\u606F\u603B\u7ED3\u4E3A\"Levity\"\u5BFC\u6F14\u7684\
+    \u56FD\u7C4D\u3002\n-   \u901A\u8FC7\u67E5\u8BE2\u7F3A\u5931\u4FE1\u606F\u89E3\
+    \u51B3\u539F\u95EE\u9898\uFF0C\u63D0\u51FA\u4E0D\u8D85\u8FC73\u4E2A\u95EE\u9898\
+    \u3002\u65B0\u67E5\u8BE2\u4E0D\u5E94\u5305\u542B\u5197\u4F59\u4FE1\u606F\uFF0C\
+    \u5E94\u4E0E\u539F\u95EE\u9898\u548C\u5386\u53F2\u95EE\u9898\u4E0D\u540C\u3002\
+    \n    1.  \u65B0\u67E5\u8BE2\u5305\u62EC\"Levity\"\u5BFC\u6F14\u7684\u56FD\u7C4D\
+    \u3002\n    2.  \u67E5\u8BE2\u5305\u62EC\u5BFC\u6F14\"Levity\"\u7684\u4FE1\u606F\
+    \u3002\n    3.  \u8BE2\u95EE\"Levity\"\u5BFC\u6F14\u7684\u56FD\u7C4D\u3002\n-\
+    \   \u901A\u8FC7\u67E5\u8BE2\u786E\u8BA4\"Levity\"\u5BFC\u6F14Ed Solomon\u7684\
+    \u56FD\u7C4D\u3002\n    1.  Ed Solomon\u662F\u7F8E\u56FD\u7535\u5F71\u5236\u7247\
+    \u4EBA\u3002\n    2.  \u786E\u8BA4Ed Solomon\u7684\u56FD\u7C4D\u3002\n    3. \
+    \ \u786E\u8BA4\"Levity\"\u5BFC\u6F14Ed Solomon\u7684\u56FD\u7C4D\u3002"
   text: 'Your response should be under the format \{"useful\_information": [\{"info":
     statement of distilled useful information combining the question, "support\_passages":
     [indexes of support passages]\}]\}. Not provided information should not appear
@@ -1372,20 +1489,34 @@ paras:
     of the film "Levity"? \\ Can you confirm the nationality of Ed Solomon, the director
     of the film "Levity"? \\ \\ {[Retrieval]} Passage 2: (Title: Ed Solomon) Edward
     James Solomon (born September 15, 1960) is an American filmmaker. '
-- summary: "-   {\u6982\u89811}\n    1.  Ed Solomon\u662F\u7F8E\u56FD\u7535\u5F71\u5236\
-    \u7247\u4EBA\u3002\n    2.  \u7535\u5F71\"Levity\"\u7684\u5BFC\u6F14\u662FEd Solomon\u3002\
-    \n    3.  Ed Solomon\u7684\u56FD\u7C4D\u662F\u7F8E\u56FD\u3002\n-   {\u6982\u8981\
-    2}\n    1.  \u7535\u5F71\"I Come With The Rain\"\u7684\u5BFC\u6F14\u662F\u8D8A\
-    \u5357\u51FA\u751F\u7684\u6CD5\u56FD\u5BFC\u6F14Tran Anh Hung\u3002\n    2.  \"\
-    Levity\"\u548C\"I Come With The Rain\"\u7684\u5BFC\u6F14\u56FD\u7C4D\u4E0D\u540C\
-    \u3002\n    3.  \"Levity\"\u7684\u5BFC\u6F14\u662FEd Solomon\uFF0C\u662F\u7F8E\
-    \u56FD\u4EBA\u3002\n-   {\u6982\u89813}\n    1.  \"My Cousin From Warsaw\"\u662F\
-    1931\u5E74\u7531Carl Boese\u6267\u5BFC\u7684\u5FB7\u56FD\u559C\u5267\u7535\u5F71\
-    \u3002\n    2.  \"My Cousin From Warsaw\"\u4E5F\u662F\u7531Carmine Gallone\u6267\
-    \u5BFC\u76841931\u5E74\u6CD5\u56FD-\u5FB7\u56FD\u559C\u5267\u7535\u5F71\u3002\n\
-    \    3.  \u65E0\u6CD5\u6839\u636E\u63D0\u4F9B\u7684\u4FE1\u606F\u786E\u5B9A\"\
-    Payment On Demand\"\u548C\"My Cousin From Warsaw\"\u7684\u5BFC\u6F14\u8C01\u5148\
-    \u53BB\u4E16\u3002"
+- summary: "-   {Leaf Module}\n    1.  Ed Solomon\u662F\u7F8E\u56FD\u7535\u5F71\u5236\
+    \u7247\u4EBA\n    2.  \u7535\u5F71\"Levity\"\u7684\u5BFC\u6F14\u662FEd Solomon\n\
+    \    3.  \u7535\u5F71\"Levity\"\u7684\u5BFC\u6F14\u662FEd Solomon\uFF0C\u4ED6\u662F\
+    \u7F8E\u56FD\u4EBA\n-   {Memory Module}\n    1.  \u7535\u5F71\"I Come with the\
+    \ Rain\"\u7531\u8D8A\u5357\u51FA\u751F\u7684\u6CD5\u56FD\u5BFC\u6F14Tran Anh Hung\u6267\
+    \u5BFC\n    2.  \u7535\u5F71\"Levity\"\u7531Ed Solomon\u6267\u5BFC\uFF0C\u4ED6\
+    \u662F\u7F8E\u56FD\u7535\u5F71\u5236\u7247\u4EBA\n    3.  \u7535\u5F71\"Levity\"\
+    \u7684\u5BFC\u6F14\u662FEd Solomon\uFF0C\u4ED6\u662F\u7F8E\u56FD\u4EBA\n-   {Main\
+    \ Module}\n    1.  \"Levity\"\u548C\"I Come With The Rain\"\u7684\u5BFC\u6F14\u5177\
+    \u6709\u4E0D\u540C\u56FD\u7C4D\n    2.  \"Levity\"\u7684\u5BFC\u6F14\u662FEd Solomon\uFF0C\
+    \u662F\u7F8E\u56FD\u4EBA\n    3.  \"Levity\"\u7684\u5BFC\u6F14\u662FEd Solomon\uFF0C\
+    \u800C\"I Come With The Rain\"\u7684\u5BFC\u6F14\u662FTran Anh Hung\uFF0C\u4E24\
+    \u8005\u56FD\u7C4D\u4E0D\u540C\n-   {Retrieval Module}\n    1.  \"My Cousin From\
+    \ Warsaw\"\u662F1931\u5E74\u7531Carl Boese\u6267\u5BFC\u7684\u5FB7\u56FD\u559C\
+    \u5267\u7535\u5F71\n    2.  \"My Cousin From Warsaw\"\u662F1931\u5E74\u7531Carmine\
+    \ Gallone\u6267\u5BFC\u7684\u6CD5\u56FD-\u5FB7\u56FD\u559C\u5267\u7535\u5F71\n\
+    \    3.  \"Payment On Demand\"\u548C\"My Cousin From Warsaw\"\u7684\u5BFC\u6F14\
+    \u6B7B\u4EA1\u65E5\u671F\u65E0\u6CD5\u786E\u5B9A\n-   {Memory Module}\n    1.\
+    \  \"My Cousin From Warsaw\"\u662F1931\u5E74\u7531Carl Boese\u6267\u5BFC\u7684\
+    \u5FB7\u56FD\u559C\u5267\u7535\u5F71\n    2.  \"My Cousin From Warsaw\"\u662F\
+    1931\u5E74\u7531Carmine Gallone\u6267\u5BFC\u7684\u6CD5\u56FD-\u5FB7\u56FD\u559C\
+    \u5267\u7535\u5F71\n    3.  \"Payment On Demand\"\u548C\"My Cousin From Warsaw\"\
+    \u7684\u5BFC\u6F14\u6B7B\u4EA1\u65E5\u671F\u65E0\u6CD5\u786E\u5B9A\n-   {Main\
+    \ Module}\n    1.  \"Payment On Demand\"\u548C\"My Cousin From Warsaw\"\u7684\u5BFC\
+    \u6F14\u6B7B\u4EA1\u65E5\u671F\u65E0\u6CD5\u786E\u5B9A\n    2.  \u63D0\u4F9B\u7684\
+    \u4FE1\u606F\u65E0\u6CD5\u786E\u5B9A\u54EA\u4F4D\u5BFC\u6F14\u5148\u53BB\u4E16\
+    \n    3.  \u9700\u8981\u5BFC\u6F14\u7684\u6B7B\u4EA1\u65E5\u671F\u624D\u80FD\u56DE\
+    \u7B54\u95EE\u9898"
   text: "\\\\ \\\\ \\textbf{<Leaf Module>} \\\\ {[Leaf Instruction]} \\\\ {[Passage\
     \ 2]} \\\\ {Question: What is the nationality of Ed Solomon, the director of the\
     \ film \"Levity\"?} Your response: \\\\ {\\{\"useful\\_information\": [\\{\"info\"\
@@ -1453,11 +1584,16 @@ paras:
     \ \\\\ \\\\ \\textbf{<Memory Module>} \\\\ Known Info: My Cousin from Warsaw is\
     \ a 1931 German comedy film directed by Carl Boese; My Cousin from Warsaw is a\
     \ 1931 French-German comedy film directed by Carmine Gallone; "
-- summary: "-   The director of the film 'Payment On Demand,' Curtis Bernhardt, died\
-    \ on February 22, 1981\n    1.  Curtis Bernhardt, director of 'Payment On Demand,'\
-    \ died on February 22, 1981.\n    2.  Historical questions about the death dates\
-    \ of directors of different films.\n    3.  Retrieval and memory modules used\
-    \ to find information on directors' death dates."
+- summary: "-   \u7535\u5F71\u300APayment On Demand\u300B\u7684\u5BFC\u6F14Curtis\
+    \ Bernhardt\u4E8E1981\u5E742\u670822\u65E5\u53BB\u4E16\n    1.  Curtis Bernhardt\u5BFC\
+    \u6F14\u53BB\u4E16\u65E5\u671F\u4E3A1981\u5E742\u670822\u65E5\n    2.  \u300A\
+    Payment On Demand\u300B\u7684\u5BFC\u6F14\u53BB\u4E16\u4E8E1981\u5E742\u670822\u65E5\
+    \n    3.  \u300APayment On Demand\u300B\u7684\u5BFC\u6F14\u6BD4\u300AMy Cousin\
+    \ From Warsaw\u300B\u7684\u5BFC\u6F14\u65E9\u53BB\u4E16\n-   Carmine Gallone\u4E8E\
+    1973\u5E744\u67084\u65E5\u53BB\u4E16\uFF0CCarl Boese\u4E8E1958\u5E747\u67086\u65E5\
+    \u53BB\u4E16\n    1.  Carmine Gallone\u53BB\u4E16\u65E5\u671F\u4E3A1973\u5E74\
+    4\u67084\u65E5\n    2.  Carl Boese\u53BB\u4E16\u65E5\u671F\u4E3A1958\u5E747\u6708\
+    6\u65E5\n    3.  Carl Boese\u6BD4Carmine Gallone\u665A\u53BB\u4E16"
   text: "The director of the film 'Payment On Demand,' Curtis Bernhardt, died on February\
     \ 22, 1981\\\\ Retrieved Passage: [Passage 0, Passage 1, GPT knowledge] \\\\ Historical\
     \ Questions: Which film has the director died earlier, Payment On Demand or My\
