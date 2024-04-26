@@ -191,8 +191,9 @@ def sum_arxiv(args):
         hdls.append(hdl)
     for h in hdls: h.result()
 
+
+    title, abs_ = tosum['title'], tosum['abs']
     if 'qas' not in tosum:
-        title, abs_ = tosum['title'], tosum['abs']
         summary = '\n'.join([p['summary'] for p in tosum['paras']])
         summary = f'-   标题：{title}\n-   摘要：{abs_}\n{summary}'
         ques = ARXIV_QA_PROMPT.replace('{sum}', summary) \
