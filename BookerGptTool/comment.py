@@ -69,11 +69,8 @@ def get_ind_len(text):
     return len(re.search(r'\A\x20*', text).group())
 
 def openai_comment(code, prompt, model_name, retry=10):
-    # 改变指令符号的形式，避免模型出错
-    code = re.sub(r'<\|([\w\-\.]+)\|>', r'</\1/>', code)
     ques = prompt.replace('{code}', code)
     ans = call_chatgpt_retry(ques, model_name, retry)
-    ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
     ans = re.sub(r'^```\w*$', '', ans, flags=re.M)
     ans = re.sub(r'\A\n+|\n+\Z', '', ans)
     # 如果原始代码有缩进，但结果无缩进，则添加缩进

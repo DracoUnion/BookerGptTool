@@ -15,6 +15,8 @@ from typing import *
 
 
 def call_chatgpt_retry(ques, model_name, retry=10):
+    # 改变指令符号的形式，避免模型出错
+    ques = re.sub(r'<\|([\w\-\.]+)\|>', r'</\1/>', ques)
     for i in range(retry):
         try:
             print(f'ques: {json.dumps(ques, ensure_ascii=False)}')
@@ -35,6 +37,7 @@ def call_chatgpt_retry(ques, model_name, retry=10):
                 temperature=0,
             ).choices[0].message.content
             print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
+            ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
             return ans
         except Exception as ex:
             print(f'OpenAI retry {i+1}: {str(ex)}')
