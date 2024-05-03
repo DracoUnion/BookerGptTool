@@ -82,6 +82,7 @@ sum_queses = [
     '该方法在每个【数据集】、【任务类型】和【评价指标】上，实现了什么性能，与现有方法对比如何？（请列出具体数值！！！）',
     '这篇文章还存在什么问题，其后续工作中有哪些改进路径？',
 ]
+sum_ques_set = set(sum_queses)
 
 def arxiv_id2text(aid):
     url = f'https://arxiv.org/src/{aid}'
@@ -200,6 +201,7 @@ def sum_arxiv(args):
                 .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
         ans = call_chatgpt_retry(ques, args.model, args.retry)
         sum_anses = re.findall(r'^\-\x20{3}(.+?)$', ans, re.M)
+        sum_anses = [a for a in sum_anses if a not in sum_ques_set]
         assert len(sum_queses) == len(sum_anses)
         tosum['qas'] = [{'question': q, 'answer': a} for q, a in zip(sum_queses, sum_anses)]
         write_callback()
