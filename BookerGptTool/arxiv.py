@@ -205,7 +205,7 @@ def sum_arxiv(args):
         ques = ARXIV_QA_PROMPT.replace('{sum}', summary) \
                 .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
         ans = call_chatgpt_retry(ques, args.model, args.retry)
-        RE_ONE_ANS = r'^\-\x20{3}([\s\S]+?)(?=^\-\x20{3}|\Z)'
+        RE_ONE_ANS = r'^\-\x20{3}[\s\S]+?(?=^\-\x20{3}|\Z)'
         sum_anses = re.findall(RE_ONE_ANS, ans, re.M)
         sum_anses = [
             a for a in sum_anses 
