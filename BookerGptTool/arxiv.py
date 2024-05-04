@@ -207,7 +207,10 @@ def sum_arxiv(args):
         ans = call_chatgpt_retry(ques, args.model, args.retry)
         RE_ONE_ANS = r'^\-\x20{3}(.+?)(?=^\-\x20{3}|\Z)'
         sum_anses = re.findall(RE_ONE_ANS, ans, re.M)
-        sum_anses = [a for a in sum_anses if a not in sum_ques_set]
+        sum_anses = [
+            a for a in sum_anses 
+            if a[4:].strip() not in sum_ques_set
+        ]
         assert len(sum_queses) == len(sum_anses)
         tosum['qas'] = [{'question': q, 'answer': a} for q, a in zip(sum_queses, sum_anses)]
         write_callback()
