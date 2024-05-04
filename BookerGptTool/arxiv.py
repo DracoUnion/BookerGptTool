@@ -204,14 +204,19 @@ def sum_arxiv(args):
         summary = f'-   标题：{title}\n-   摘要：{abs_}\n{summary}'
         ques = ARXIV_QA_PROMPT.replace('{sum}', summary) \
                 .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
-        ans = call_chatgpt_retry(ques, args.model, args.retry)
-        RE_ONE_ANS = r'^\-\x20{3}[\s\S]+?(?=^\-\x20{3}|\Z)'
-        sum_anses = re.findall(RE_ONE_ANS, ans, re.M)
-        sum_anses = [
-            a for a in sum_anses 
-            if a[4:].strip() not in sum_ques_set
-        ]
-        assert len(sum_queses) == len(sum_anses)
+        for i in range(args.retry):
+            ans = call_chatgpt_retry(ques, args.model, args.retry)
+            RE_ONE_ANS = r'^\-\x20{3}[\s\S]+?(?=^\-\x20{3}|\Z)'
+            sum_anses = re.findall(RE_ONE_ANS, ans, re.M)
+            sum_anses = [
+                a for a in sum_anses 
+                if a[4:].strip() not in sum_ques_set
+            ]
+            if len(sum_queses) == len(sum_anses):
+                break
+            print(f'ques-ans match retry: {i+1}')
+            if i == args.retry - 1:
+                raise AssertionError('ques-ans no match')
         tosum['qas'] = [{'question': q, 'answer': a} for q, a in zip(sum_queses, sum_anses)]
         write_callback()
 

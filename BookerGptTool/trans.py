@@ -95,19 +95,18 @@ def preproc_totrans(totrans):
 
 def tr_trans(g, args, totrans_id_map, write_callback=None):
     for i in range(args.retry):
-        try:
-            shuffle_group(g)    
-            en = '\n'.join('-   ' + en for en in g['ens'])
-            ans = openai_trans(en, args.prompt, args.model, args.retry)
-            zhs = [
-                zh[4:] for zh in ans.split('\n') 
-                if zh.startswith('-   ')
-            ]
-            assert len(g['ids']) == len(zhs)
+        shuffle_group(g)    
+        en = '\n'.join('-   ' + en for en in g['ens'])
+        ans = openai_trans(en, args.prompt, args.model, args.retry)
+        zhs = [
+            zh[4:] for zh in ans.split('\n') 
+            if zh.startswith('-   ')
+        ]
+        if len(g['ids']) == len(zhs):
             break
-        except Exception as ex:
-            print(f'en-zh match retry {i+1}')
-            if i == args.retry - 1: raise ex
+        print(f'en-zh match retry {i+1}')
+        if i == args.retry - 1: 
+            raise AssertionError('en-zh no match')
     for id, zh in zip(g['ids'], zhs):
         totrans_id_map.get(id, {})['zh'] = zh
     # 及时保存已翻译文本
