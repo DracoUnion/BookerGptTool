@@ -64,7 +64,11 @@ ARXIV_QA_PROMPT = '''
 {概要}
 回答：
 -   {回答1}
+    -   {子回答1}
+    -   {子回答2}
+    -   ...
 -   {回答2}
+    -   ...
 -   ...
 
 ## 以下是需要处理的内容
@@ -201,7 +205,8 @@ def sum_arxiv(args):
         ques = ARXIV_QA_PROMPT.replace('{sum}', summary) \
                 .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
         ans = call_chatgpt_retry(ques, args.model, args.retry)
-        sum_anses = re.findall(r'^\-\x20{3}(.+?)$', ans, re.M)
+        RE_ONE_ANS = r'^\-\x20{3}(.+?)(?=^\-\x20{3}|\Z)'
+        sum_anses = re.findall(RE_ONE_ANS, ans, re.M)
         sum_anses = [a for a in sum_anses if a not in sum_ques_set]
         assert len(sum_queses) == len(sum_anses)
         tosum['qas'] = [{'question': q, 'answer': a} for q, a in zip(sum_queses, sum_anses)]
