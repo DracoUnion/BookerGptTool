@@ -179,7 +179,7 @@ def sum_arxiv(args):
         paras = reform_paras_texen(''.join(f'{title}: {body}' for title, body in chs))
         tosum = {
             'title': title,
-            'abs': abs_[:1000],
+            'abs': abs_[:1500],
             'paras': [{'text': p} for p in paras]
         }
     
