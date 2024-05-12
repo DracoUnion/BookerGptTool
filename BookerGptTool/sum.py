@@ -139,6 +139,8 @@ def tr_sum_text(it, ctx, args, write_func):
 def sum_text(args):
     set_openai_props(args.key, args.proxy, args.host)
     print(args)
+    if args.model == 'gpt-3.5-turbo':
+        args.model += '-16k'
     ext = extname(args.fname)
     if ext not in ['md', 'srt', 'txt', 'yaml']:
        print('请提供 MD 或者 SRT 或者 TXT 文件')

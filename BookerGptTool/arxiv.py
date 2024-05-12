@@ -166,6 +166,8 @@ def reform_paras_texen(text, size=5000):
 
 def sum_arxiv(args):
     print(args)
+    if args.model == 'gpt-3.5-turbo':
+        args.model += '-16k'
     set_openai_props(args.key, args.proxy, args.host)
     
     yaml_fname = args.arxiv + '.yaml'
