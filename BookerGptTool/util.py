@@ -35,7 +35,7 @@ def call_chatgpt_retry(ques, model_name, retry=10):
                 }],
                 model=model_name,
                 temperature=0,
-            ).choices[0].message.content
+            ).choices[0].message.content.strip()
             # 还原指令格式
             ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
             # 调整列表格式
