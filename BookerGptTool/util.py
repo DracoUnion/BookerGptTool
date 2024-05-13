@@ -36,12 +36,12 @@ def call_chatgpt_retry(ques, model_name, retry=10):
                 model=model_name,
                 temperature=0,
             ).choices[0].message.content
-            print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
             # 还原指令格式
             ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
             # 调整列表格式
             ans = re.sub(r'^(\x20*)[\+\-\*]\x20+', r'\1-   ', ans, flags=re.M)
             ans = re.sub(r'^(\x20*)(\d+\.)\x20+', r'\1\2  ', ans, flags=re.M)
+            print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
             return ans
         except Exception as ex:
             print(f'OpenAI retry {i+1}: {str(ex)}')
