@@ -13,11 +13,12 @@ from .infer import *
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
     openai_url = os.environ.get('OPENAI_BASE_URL')
+    openai_model = os.environ.get('OPENAI_CHAT_MODEL', 'gpt-3.5-turbo')
 
     parser = argparse.ArgumentParser(prog="BookerGptTool", formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-v", "--version", action="version", version=f"PYBP version: {__version__}")
     parser.add_argument("-P", "--proxy", help="proxy")
-    parser.add_argument("-m", "--model", default='gpt-3.5-turbo', help="model name")
+    parser.add_argument("-m", "--model", default=openai_model, help="model name")
     parser.add_argument("-k", "--key", default=openai_key, help="OpenAI API key")
     parser.add_argument("-r", "--retry", type=int, default=1_000_000, help="times of retry")
     parser.add_argument("-H", "--host", default=openai_url, help="api host")
