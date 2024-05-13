@@ -98,10 +98,7 @@ def tr_trans(g, args, totrans_id_map, write_callback=None):
         shuffle_group(g)    
         en = '\n'.join('-   ' + en for en in g['ens'])
         ans = openai_trans(en, args.prompt, args.model, args.retry)
-        zhs = [
-            zh[4:] for zh in ans.split('\n') 
-            if zh.startswith('-   ')
-        ]
+        zhs = re.findall(r'^\-\x20{3}(.+?)$', ans, flags=re.M)
         if len(g['ids']) == len(zhs):
             break
         print(f'en-zh match retry {i+1}')
