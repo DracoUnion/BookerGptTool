@@ -124,6 +124,7 @@ def tr_sum_text(it, args, write_func):
     RE_LIST = r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$'
     ques = ARXIV_SUM_PMT.replace('{text}', '-   ' + it['text'])
     ans = call_chatgpt_retry(ques, args.model, args.retry)
+    ans = fix_lists(ans)
     sums = re.findall(RE_LIST, ans, flags=re.M)
     it['summary'] = '\n'.join(sums)
     write_func()

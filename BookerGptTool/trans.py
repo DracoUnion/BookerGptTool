@@ -48,6 +48,7 @@ def shuffle_group(g):
 def openai_trans(en, prompt, model_name, retry=10):
     ques = prompt.replace('{en}', en)
     ans = call_chatgpt_retry(ques, model_name, retry)
+    ans = fix_lists(ans)
     return ans
     
 def group_totrans(totrans, limit):

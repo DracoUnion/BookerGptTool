@@ -14,7 +14,13 @@ from threading import Lock
 from typing import *
 
 
-def call_chatgpt_retry(ques, model_name, retry=10):
+def fix_lists(ans):
+    # 调整列表格式
+    ans = re.sub(r'^(\x20*)[\+\-\*]\x20+', r'\1-   ', ans, flags=re.M)
+    ans = re.sub(r'^(\x20*)(\d+\.)\x20+', r'\1\2  ', ans, flags=re.M)
+    return ans
+
+def call_chatgpt_retry(ques, model_name, temp=0, retry=10):
     # 改变指令符号的形式，避免模型出错
     ques = re.sub(r'<\|([\w\-\.]+)\|>', r'</\1/>', ques)
     for i in range(retry):
@@ -34,13 +40,10 @@ def call_chatgpt_retry(ques, model_name, retry=10):
                     "content": ques,
                 }],
                 model=model_name,
-                temperature=0,
+                temperature=temp,
             ).choices[0].message.content.strip()
             # 还原指令格式
             ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
-            # 调整列表格式
-            ans = re.sub(r'^(\x20*)[\+\-\*]\x20+', r'\1-   ', ans, flags=re.M)
-            ans = re.sub(r'^(\x20*)(\d+\.)\x20+', r'\1\2  ', ans, flags=re.M)
             print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
             return ans
         except Exception as ex:
