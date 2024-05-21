@@ -121,19 +121,19 @@ def tr_sum_text(it, ctx, args, write_func):
     RE_LIST = r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$'
     if 'summary' not in it:
         ques = DFT_SUM_PMT.replace('{text}', '-   ' + it['text'])
-        ans = call_chatgpt_retry(ques, args.model, args.retry)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
         ans = fix_lists(ans)
         sums = re.findall(RE_LIST, ans, flags=re.M)
         it['summary'] = '\n'.join(sums)
     if 'questions' not in it:
         ques = DFT_QUES_PMT.replace('{sum}', it['summary'])
-        ans = call_chatgpt_retry(ques, args.model, args.retry)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
         ans = fix_lists(ans)
         sum_queses = re.findall(RE_LIST, ans, flags=re.M)
         it['questions'] = '\n'.join(sum_queses)
     if 'answers' not in it:
         ques = DFT_ANS_PMT.replace('{text}', ctx).replace('{ques}', it['questions'])
-        ans = call_chatgpt_retry(ques, args.model, args.retry)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
         ans = fix_lists(ans)
         sum_anses = re.findall(RE_LIST, ans, flags=re.M)
         it['answers'] = '\n'.join(sum_anses)

@@ -45,9 +45,9 @@ def shuffle_group(g):
     g['ids'] = [g['ids'][i] for i in idcs]
     g['ens'] = [g['ens'][i] for i in idcs]
 
-def openai_trans(en, prompt, model_name, retry=10):
+def openai_trans(en, prompt, model_name, temp=0, retry=10):
     ques = prompt.replace('{en}', en)
-    ans = call_chatgpt_retry(ques, model_name, retry)
+    ans = call_chatgpt_retry(ques, model_name, temp, retry)
     ans = fix_lists(ans)
     return ans
     
@@ -98,7 +98,7 @@ def tr_trans(g, args, totrans_id_map, write_callback=None):
     for i in range(args.retry):
         shuffle_group(g)    
         en = '\n'.join('-   ' + en for en in g['ens'])
-        ans = openai_trans(en, args.prompt, args.model, args.retry)
+        ans = openai_trans(en, args.prompt, args.model, args.temp, args.retry)
         zhs = re.findall(r'^\-\x20{3}(.+?)$', ans, flags=re.M)
         if len(g['ids']) == len(zhs):
             break
@@ -166,5 +166,5 @@ def trans_yaml_handle(args):
 def trans_handle(args):
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
-    ans = openai_trans(args.en, args.prompt, args.model)
+    ans = openai_trans(args.en, args.prompt, args.temp, args.model)
     

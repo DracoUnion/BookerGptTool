@@ -68,9 +68,9 @@ def read_zip(fname):
 def get_ind_len(text):
     return len(re.search(r'\A\x20*', text).group())
 
-def openai_comment(code, prompt, model_name, retry=10):
+def openai_comment(code, prompt, model_name, temp=0, retry=10):
     ques = prompt.replace('{code}', code)
-    ans = call_chatgpt_retry(ques, model_name, retry)
+    ans = call_chatgpt_retry(ques, model_name, temp, retry)
     ans = re.sub(r'^```\w*$', '', ans, flags=re.M)
     ans = re.sub(r'\A\n+|\n+\Z', '', ans)
     # 如果原始代码有缩进，但结果无缩进，则添加缩进
@@ -134,7 +134,7 @@ def process_file(args):
     blocks = chunk_code(code, args.limit)
     parts = []
     for b in blocks:
-        part = openai_comment(b, args.prompt, args.model, args.retry)
+        part = openai_comment(b, args.prompt, args.model, args.temp, args.retry)
         parts.append(part)
     comment = '```\n' + '\n'.join(parts) + '\n```'
     print(f'==={fname}===\n{comment}')
