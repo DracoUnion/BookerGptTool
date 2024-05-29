@@ -7,6 +7,7 @@ def tr_infer(dit, args, write_callback):
         ques = combine_prompt_args(args.prompt, dit)
         dit[args.ques_col] = ques
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
+        ans = fix_lists(ans)
         dit[args.ans_col] = ans
         write_callback()
     except Exception:
