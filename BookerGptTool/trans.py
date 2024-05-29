@@ -87,6 +87,10 @@ def preproc_totrans(totrans):
     for i, it in enumerate(totrans):
         if not it.get('id'):
             it['id'] = f'totrans-{i}'
+        if not it.get('type'):
+            it['type'] = 'TYPE_NORMAL'
+        if not it.get('prefs'):
+            it['prefs'] = []
         if it.get('en'):
             it['en'] = it['en'].replace('\n', '')
             if is_mathml_block(it['en']):
