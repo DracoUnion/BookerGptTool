@@ -44,6 +44,21 @@ DFT_STYLE_PROMPT = '''
 排版后：
 '''
 
+def preproc_totrans(totrans):
+    for i, it in enumerate(totrans):
+        if not it.get('id'):
+            it['id'] = f'totrans-{i}'
+        if not it.get('type'):
+            it['type'] = 'TYPE_NORMAL'
+        if not it.get('prefs'):
+            it['prefs'] = []
+        if it.get('en'):
+            it['en'] = it['en'].replace('\n', '')
+            # if is_mathml_block(it['en']):
+            #     it['zh'] = it['en']
+        if it['type'] == 'TYPE_PRE':
+            it['zh'] = it.get('en', '')
+
 def shuffle_group(g):
     count = len(g['ids'])
     idcs = list(range(count))
@@ -103,7 +118,7 @@ def tr_stylish_safe(*args, **kw):
 
 def stylish_one(totrans, args, write_callback=None):
     # totrans: [{id?: str, en?: str, zh?: str, type: str, ...}]
-    # preproc_totrans(totrans)
+    preproc_totrans(totrans)
     groups = group_tostylish(totrans, args.limit)
     totrans_id_map = {it['id']:it for it in totrans}
     
