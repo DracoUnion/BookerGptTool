@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from .util import *
 
-DFT_TRANS_PROMPT = '''
+DFT_STYLE_PROMPT = '''
 假设你是一个高级文档工程师，请参考下面的注意事项了解 Markdown 文档的格式，然后参考示例，将给定英文或中文文本排版。
 
 ## 注意事项
