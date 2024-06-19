@@ -161,6 +161,8 @@ def trans_yaml_handle(args):
         print(f)
         totrans = yaml.safe_load(open(f, encoding='utf8').read())
         hdls += trans_one(totrans, args, pool, lambda: write_callback(f, totrans))
+        if len(hdls) >= args.threads:
+            for h in hdls: h.result()
     for h in hdls: h.result()
         
     
