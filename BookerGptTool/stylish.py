@@ -9,6 +9,7 @@ import json
 import random
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+import functools
 from .util import *
 
 DFT_STYLE_PROMPT = '''
@@ -155,7 +156,10 @@ def stylish_yaml_handle(args):
     for f in fnames:
         print(f)
         totrans = yaml.safe_load(open(f, encoding='utf8').read())
-        hdls += stylish_one(totrans, args, pool, lambda: write_callback(f, totrans))
+        hdls += stylish_one(
+            totrans, args, pool, 
+            functools.partial(write_callback, f, totrans),
+        )
         if len(hdls) >= args.threads:
             for h in hdls: h.result()
     for h in hdls: h.result()
