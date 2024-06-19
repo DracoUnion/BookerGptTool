@@ -152,6 +152,7 @@ def trans_yaml_handle(args):
     fnames = [f for f in fnames if extname(f) == 'yaml']
     if not fnames:
         print('请提供 YAML 文件')
+        return
         
     
     pool = ThreadPoolExecutor(args.threads)
@@ -159,7 +160,7 @@ def trans_yaml_handle(args):
     for f in fnames:
         print(f)
         totrans = yaml.safe_load(open(f, encoding='utf8').read())
-        hdls += trans_one(totrans, args, lambda: write_callback(f, totrans))
+        hdls += trans_one(totrans, args, pool, lambda: write_callback(f, totrans))
     for h in hdls: h.result()
         
     

@@ -116,13 +116,12 @@ def tr_stylish_safe(*args, **kw):
     except:
         traceback.print_exc()
 
-def stylish_one(totrans, args, write_callback=None):
+def stylish_one(totrans, args, pool, write_callback=None):
     # totrans: [{id?: str, en?: str, zh?: str, type: str, ...}]
     preproc_totrans(totrans)
     groups = group_tostylish(totrans, args.limit)
     totrans_id_map = {it['id']:it for it in totrans}
     
-    pool = ThreadPoolExecutor(args.threads)
     hdls = []
     for g in groups:
         h = pool.submit(
@@ -131,8 +130,7 @@ def stylish_one(totrans, args, write_callback=None):
             write_callback,
         )
         hdls.append(h)
-    for h in hdls: h.result()
-    return totrans
+    return hdls
 
 file_lock = Lock()
 
@@ -144,19 +142,18 @@ def write_callback(fname, totrans):
 def stylish_yaml_handle(args):
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
-    fname = args.fname
-    if path.isfile(fname):
-        fnames = [fname]
-    elif path.isdir(fname):
-        fnames = [
-            path.join(fname, f) 
-            for f in os.listdir(fname) 
-            if f.endswith('.yaml')
-        ]
-    else:
-        raise Exception('请提供 YAML 文件或其目录')
+    fnames = [args.fname] if path.isfile(args.fname) \
+             else [path.join(args.fname, f) for f in os.listdir(args.fname)]
+    fnames = [f for f in fnames if extname(f) == 'yaml']
+    if not fnames:
+        print('请提供 YAML 文件')
+        return
         
+        
+    pool = ThreadPoolExecutor(args.threads)
+    hdls = []
     for f in fnames:
         print(f)
         totrans = yaml.safe_load(open(f, encoding='utf8').read())
-        stylish_one(totrans, args, lambda: write_callback(f, totrans))
+        hdls += stylish_one(totrans, args, pool, lambda: write_callback(f, totrans))
+    for h in hdls: h.result()
