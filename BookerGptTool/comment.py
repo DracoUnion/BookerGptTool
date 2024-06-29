@@ -122,7 +122,12 @@ def process_file_safe(args):
 def process_file(args):
     fname = args.fname
     ext = extname(fname)
-    if ext not in ['c', 'h', 'cpp', 'cxx', 'java', 'cs', 'php', 'go', 'js', 'ts', 'py']:
+    if ext not in [
+        'c', 'h', 'cpp', 'cxx', 'hpp',
+        'java', 'cs', 'php', 'go', 
+        'js', 'ts', 'jsx', 'tsx', 'vue',
+        'py', 'pyx', 'pyi', 'pxd',
+    ]:
         print(f'{fname} 代码类型不支持')
         return
     ofname = fname + '.md'
