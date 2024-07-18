@@ -4,53 +4,50 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import traceback
 
-DFT_SUM_PMT = '''
-假设你是一个高级编辑，遵循给定格式和注意事项，总结给定的段落。
+DFT_QA_PMT  = q='''
+假如你是一个文档工程师和高级编辑，请阅读如下文本并提出五个问题，然后按照原文的意思来回答。
 
 ## 注意事项
 
-1.  每个段落需要总结成一个概要和至少三个子概要，均为20-50字
-2.  确保原文中每一段都得到总结，也就是概要中的段落数和原文相等，不要漏掉任何一段！
-3.  不要省略概要前的格式（-   ）或（1.  ），否则我无法解析。
+1.  只需要输出问答，不需要重复原文
+2.  不要省略概要前的格式（-   ）或（1.  ），否则我无法解析。
 
 ## 格式
 
-原文：
-{原文}
-概要：
--   {概要1}
-    1.  {子概要1}
-    2.  {子概要2}
-    3.  ...
--   {概要2}
-    1.  ...
--   ...
+-   问题1：{xxx}
+-   回答1：{xxx}
+-   问题2：{xxx}
+-   回答2：{xxx}
+-   问题3：{xxx}
+-   回答3：{xxx}
+-   问题4：{xxx}
+-   回答4：{xxx}
+-   问题5：{xxx}
+-   回答5：{xxx}
 
-## 要总结的段落
+## 要处理的文本
 
-原文：
-{text}
-概要：
+-  原文：{text}
 '''
 
-
-def tr_sum_text_safe(*args, **kw):
+def tr_qa_text_safe(*args, **kw):
     try:
-        tr_sum_text(*args, **kw)
+        tr_qa_text(*args, **kw)
     except:
         traceback.print_exc()
 
-def tr_sum_text(it, args, write_func):
-    RE_LIST = r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$'
-    if 'summary' not in it:
-        ques = DFT_SUM_PMT.replace('{text}',  it['text'])
+def tr_qa_text(it, args, write_func):
+    RE_LIST = r'^(?:\-\x20{3})(?:问题|回答)\d+.+?$'
+    if 'qas' not in it:
+        ques = DFT_QA_PMT.replace('{text}', ‘it['text'])
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
         ans = fix_lists(ans)
-        sums = re.findall(RE_LIST, ans, flags=re.M)
-        it['summary'] = '\n'.join(sums)
+        qas = re.findall(RE_LIST, ans, flags=re.M)
+        it['qas'] = qas
     write_func()
 
-def sum_text(args):
+
+def qa_text(args):
     set_openai_props(args.key, args.proxy, args.host)
     print(args)
     if args.model == 'gpt-3.5-turbo':
@@ -82,7 +79,7 @@ def sum_text(args):
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
     for i, it in enumerate(tosum):
-        if not it.get('text') or it.get('summary'):
+        if not it.get('text') or it.get('qas'):
             continue
         h = pool.submit(tr_sum_text_safe, it, args, write_func)
         hdls.append(h)
@@ -90,15 +87,15 @@ def sum_text(args):
         h.result()
     
     if args.md:
-        title ='【总结】' + path.basename(args.fname)
+        title ='【问答】' + path.basename(args.fname)
         if ext == 'md':
             cont = open(args.fname, encoding='utf8').read()
             md_title, _ = get_md_title(cont)
-            title = '【总结】' + md_title if md_title else title
+            title = '【问答】' + md_title if md_title else title
         cont = f'# {title}\n\n' + \
-            '\n'.join([
-                it.get('summary', '') 
+            '\n\n'.join([
+                '\n\n'.join(it.get('qas', [])) 
                 for it in tosum
             ])
-        md_fname = args.fname[:-len(ext)-1] + '_sum.md'
+        md_fname = args.fname[:-len(ext)-1] + '_qa.md'
         open(md_fname, 'w', encoding='utf8').write(cont)
