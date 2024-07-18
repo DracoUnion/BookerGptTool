@@ -81,7 +81,7 @@ def qa_text(args):
     for i, it in enumerate(tosum):
         if not it.get('text') or it.get('qas'):
             continue
-        h = pool.submit(tr_sum_text_safe, it, args, write_func)
+        h = pool.submit(tr_qa_text, it, args, write_func)
         hdls.append(h)
     for h in hdls: 
         h.result()
