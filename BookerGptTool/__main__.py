@@ -10,6 +10,7 @@ from .arxiv import *
 from .sum import *
 from .infer import *
 from .stylish import *
+from .qa import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -78,9 +79,17 @@ def main():
     sum_parser.add_argument("fname", help="fname")
     sum_parser.add_argument("-s", "--para-size", type=int, default=1500, help="paragraph size")
     sum_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    sum_parser.add_argument("--ctx", type=int, default=2, help="context range")
     sum_parser.add_argument("--md", action='store_true', help="whether to write md")
     sum_parser.set_defaults(func=sum_text)
+
+    sum_parser = subparsers.add_parser("qa", help="summarize md or srt")
+    sum_parser.add_argument("fname", help="fname")
+    sum_parser.add_argument("-s", "--para-size", type=int, default=1500, help="paragraph size")
+    sum_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    sum_parser.add_argument("--md", action='store_true', help="whether to write md")
+    sum_parser.set_defaults(func=qa_text)
+
+
 
     infer_parser = subparsers.add_parser("infer", help="free inference")
     infer_parser.add_argument("fname", help="fname")

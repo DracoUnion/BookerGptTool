@@ -39,7 +39,7 @@ def tr_qa_text_safe(*args, **kw):
 def tr_qa_text(it, args, write_func):
     RE_LIST = r'^(?:\-\x20{3})(?:问题|回答)\d+.+?$'
     if 'qas' not in it:
-        ques = DFT_QA_PMT.replace('{text}', ‘it['text'])
+        ques = DFT_QA_PMT.replace('{text}', it['text'])
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
         ans = fix_lists(ans)
         qas = re.findall(RE_LIST, ans, flags=re.M)
