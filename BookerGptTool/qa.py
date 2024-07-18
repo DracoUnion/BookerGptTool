@@ -43,7 +43,7 @@ def tr_qa_text(it, args, write_func):
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
         ans = fix_lists(ans)
         qas = re.findall(RE_LIST, ans, flags=re.M)
-        it['qas'] = qas
+        it['qas'] = [t[4:] for t in qas]
     write_func()
 
 
