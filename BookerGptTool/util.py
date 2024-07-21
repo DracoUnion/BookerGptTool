@@ -13,7 +13,21 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from typing import *
 
-
+def reform_paras_mdcn(text, size=1500):
+    text = re.sub(r'```[\s\S]+?```', '', text)
+    lines = [l.strip() for l in text.split('\n') if l.strip()]
+    lines = sum([
+        re.split(r'(?<=[。，：！？；])', l) for l in lines
+    ], [])
+    lines = [l for l in lines if l]
+    paras = ['']
+    for l in lines:
+        if len(paras[-1]) + len(l) > size:
+            paras.append(l)
+        else:
+            paras[-1] += l
+    return paras
+    
 def fix_lists(ans):
     # 调整列表格式
     ans = re.sub(r'^(\x20*)[\+\-\*]\x20+', r'\1-   ', ans, flags=re.M)
