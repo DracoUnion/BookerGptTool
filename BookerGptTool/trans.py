@@ -84,6 +84,14 @@ def is_mathml_block(text: str):
            text[len(pref):].find(pref) == -1 and \
            text[:-len(suff)].find(suff) == -1
 
+def is_svg_block(text: str):
+    text = text.strip()
+    pref, suff = '<svg ', '</svg>'
+    return text.startswith(pref) and \
+           text.endswith(suff) and \
+           text[len(pref):].find(pref) == -1 and \
+           text[:-len(suff)].find(suff) == -1
+
 def preproc_totrans(totrans):
     for i, it in enumerate(totrans):
         if not it.get('id'):
@@ -94,7 +102,8 @@ def preproc_totrans(totrans):
             it['prefs'] = []
         if it.get('en'):
             it['en'] = it['en'].replace('\n', '')
-            if is_mathml_block(it['en']):
+            if is_mathml_block(it['en']) or \
+               is_svg_block(it['en']):
                 it['zh'] = it['en']
         if it['type'] == 'TYPE_PRE':
             it['zh'] = it.get('en', '')
