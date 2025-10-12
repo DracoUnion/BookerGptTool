@@ -71,7 +71,11 @@ def gen_xhs(args):
             path.join(args.fname, f) 
             for f in os.listdir(args.fname)
         ]
-    fnames = [f for f in fnames if extname(f) in 'txt']
+    fnames = [
+        f for f in fnames 
+        if extname(f) in 'txt'
+            and not f.endswith('_xhs.txt')
+    ]
     if not fnames:
         print('请提供 TXT 文件')
         return
