@@ -44,7 +44,7 @@ def gen_xhs_single_safe(args):
 
 def gen_xhs(args):
     print(args)
-    set_openai_props(args)
+    set_openai_props(args.key, args.proxy, args.host)
 
     if path.isfile(args.fname):
         fnames = [args.fname]
