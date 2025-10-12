@@ -182,5 +182,5 @@ def trans_yaml_handle(args):
 def trans_handle(args):
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
-    ans = openai_trans(args.en, args.prompt, args.temp, args.model)
+    ans = openai_trans(args.en, args.prompt, args.model, args.temp, args.retry)
     
