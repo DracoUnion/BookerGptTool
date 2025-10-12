@@ -26,10 +26,13 @@ XHS_PMT = '''
 '''
 
 def gen_xhs_single(args):
+    ofname = args.fname[:-4] + '_xhs.txt'
+    if path.isfile(ofname):
+        print(f'{args.fname} 已生成')
+        return
     cont = open(args.fname, encoding='utf8').read()
     ques = XHS_PMT.replace('{text}', cont)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
-    ofname = args.fname[:-4] + '_xhs.txt'
     open(ofname, 'w', encoding='utf8').write(ans)
     print(ofname)
 
