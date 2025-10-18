@@ -11,7 +11,7 @@ from .sum import *
 from .infer import *
 from .stylish import *
 from .qa import *
-from .xhs import *
+from .erchuang import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -100,9 +100,10 @@ def main():
     infer_parser.add_argument("--ans-col", default="answer", help="answer column name")
     infer_parser.set_defaults(func=infer)
 
-    xhs_parser = subparsers.add_parser("xhs", help="gen xhs notes")
+    xhs_parser = subparsers.add_parser("erchuang", help="gen xhs notes")
     xhs_parser.add_argument("fname", help="fname")
     xhs_parser.add_argument("-t", "--threads", type=int, default=8, help="threadcount")
+    xhs_parser.add_argument("-s", "--stype", type=str, default='xhs', choices=['chs', 'gzh'], help="article style")
     xhs_parser.set_defaults(func=gen_xhs)
 
     args = parser.parse_args()
