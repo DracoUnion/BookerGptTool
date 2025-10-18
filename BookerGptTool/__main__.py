@@ -103,7 +103,7 @@ def main():
     xhs_parser = subparsers.add_parser("erchuang", help="gen xhs notes")
     xhs_parser.add_argument("fname", help="fname")
     xhs_parser.add_argument("-t", "--threads", type=int, default=8, help="threadcount")
-    xhs_parser.add_argument("-s", "--style", type=str, default='xhs', choices=['chs', 'gzh'], help="article style")
+    xhs_parser.add_argument("-s", "--style", type=str, default='xhs', choices=['xhs', 'gzh'], help="article style")
     xhs_parser.set_defaults(func=gen_xhs)
 
     args = parser.parse_args()
