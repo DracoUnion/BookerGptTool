@@ -43,13 +43,28 @@ XHS_PMT = '''
 {text}
 '''
 
+GZH_PMT = '''
+假设你是一个资深公众号作者，请参考下面的素材，生成一篇有深度的公众号文章。
+
+
+## 注意
+
++   文章应当在五千到一万字，需要有数据支撑
++   只需要输出文章，不需要输出任何其它东西
+
+## 素材
+
+{text}
+'''
+
 def gen_xhs_single(args):
     ofname = args.fname[:-4] + '_xhs.txt'
     if path.isfile(ofname):
         print(f'{args.fname} 已生成')
         return
     cont = open(args.fname, encoding='utf8').read()
-    ques = XHS_PMT.replace('{text}', cont)
+    pmt = XHS_PMT if args.style == 'xhs' else GZH_PMT
+    ques = pmt.replace('{text}', cont)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
     open(ofname, 'w', encoding='utf8').write(ans)
     print(ofname)
