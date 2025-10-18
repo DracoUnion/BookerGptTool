@@ -58,7 +58,8 @@ GZH_PMT = '''
 '''
 
 def gen_xhs_single(args):
-    ofname = args.fname[:-4] + '_xhs.txt'
+    suf = 'xhs' if args.style == 'xhs' else 'gzh'
+    ofname = args.fname + f'_{suf}.txt'
     if path.isfile(ofname):
         print(f'{args.fname} 已生成')
         return
@@ -88,11 +89,10 @@ def gen_xhs(args):
         ]
     fnames = [
         f for f in fnames 
-        if extname(f) in 'txt'
-            and not f.endswith('_xhs.txt')
+        if extname(f) in ['txt', 'md']
     ]
     if not fnames:
-        print('请提供 TXT 文件')
+        print('请提供 TXT 或 MD 文件')
         return
 
     pool = ThreadPoolExecutor(args.threads)
