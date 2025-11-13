@@ -14,55 +14,34 @@ from threading import Lock
 from .util import *
 
 DFT_COMM_PROMPT = '''
-假设你是一位资深的程序员，请你参照示例并遵循注意事项，为给定代码的每个语句添加注释，解释它们的作用。
+假设你是一位资深的程序员，请解析以下代码中的全局变量，常量，函数，类字段，方法等，生成技术文档。
 
-## 注意事项
+## 注意
 
--   注释后的代码需要包含在代码块中，前后用三个反引号包围
--   不要改变代码的任何缩进
--   不要省略代码任何部分，每一行代码都需要注释
--   不要总结代码的整个含义，也不要将注释写到代码块之外
--   只输出代码块，不要输出其它东西
+-   以 Markdown 格式输出
+-   参考格式，只需要输出其中的东西，不要输出任何其他东西
 
-## 示例
+## 格式（仅限于函数和方法）
 
-代码：
+名称：
+参数：
+返回值：
+功能描述：
+流程图：（使用mermaid）
+带注释的源码：（包在三个反引号中）
 
-```
-def read_zip(fname):
-    bio = BytesIO(open(fname, 'rb').read())
-    zip = zipfile.ZipFile(bio, 'r')
-    fdict = {n:zip.read(n) for n in zip.namelist()}
-    zip.close()
-    return fdict
-```
+## 格式（仅限于变量常量和字段）
 
-注释：
+名称：
+类型：
+默认值：（仅限于常量）
+功能描述：
 
-```
-# 根据 ZIP 文件名读取内容，返回其中文件名到数据的字典
-def read_zip(fname):
-    # 根据 ZIP 文件名读取其二进制，封装成字节流
-    bio = BytesIO(open(fname, 'rb').read())
-    使用字节流里面内容创建 ZIP 对象
-    zip = zipfile.ZipFile(bio, 'r')
-    遍历 ZIP 对象所包含文件的文件名，读取文件数据，组成文件名到数据的字典
-    fdict = {n:zip.read(n) for n in zip.namelist()}
-    # 关闭 ZIP 对象
-    zip.close()
-    # 返回结果字典
-    return fdict
-```
-
-## 以下是需要注释的代码
-
-代码：
+## 要分析的代码
 
 ```
 {code}
 ```
-
-注释：
 '''
 
 def get_ind_len(text):
@@ -136,14 +115,17 @@ def process_file(args):
         return
     print(fname)
     code = open(fname, encoding='utf8').read()
+    '''
     blocks = chunk_code(code, args.limit)
     parts = []
     for b in blocks:
         part = openai_comment(b, args.prompt, args.model, args.temp, args.retry)
         parts.append(part)
     comment = '```\n' + '\n'.join(parts) + '\n```'
-    print(f'==={fname}===\n{comment}')
-    res = f'# `{fname}`\n\n{comment}'
+    '''
+    doc = openai_comment(code, args.prompt, args.model, args.temp, args.retry)
+    print(doc)
+    res = f'# `{fname}`\n\n{doc}'
     open(ofname, 'w', encoding='utf8').write(res)
     
 
