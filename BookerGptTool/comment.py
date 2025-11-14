@@ -28,15 +28,15 @@ DFT_COMM_PROMPT = '''
 格式（仅限于函数和方法）
 =====================
 
-## {名称}
+## `{名称}`
 
 参数：
 
--   {参数1}
--   {参数2}
+-   `{参数1}`
+-   `{参数2}`
 -   ...
 
-返回值：{返回值}
+返回值：`{返回值}`
 
 功能描述：{功能描述}
 
@@ -56,11 +56,11 @@ DFT_COMM_PROMPT = '''
 格式（仅限于变量常量和字段）
 #########################
 
-## {名称}
+## `{名称}`
 
-类型：{类型}
+类型：`{类型}`
 
-默认值：{默认值}
+默认值：`{默认值}`
 
 功能描述：{功能描述}
 
@@ -79,12 +79,12 @@ def get_ind_len(text):
 def openai_comment(code, prompt, model_name, temp=0, retry=10):
     ques = prompt.replace('{code}', code)
     ans = call_chatgpt_retry(ques, model_name, temp, retry)
-    ans = re.sub(r'^```\w*$', '', ans, flags=re.M)
-    ans = re.sub(r'\A\n+|\n+\Z', '', ans)
+    # ans = re.sub(r'^```\w*$', '', ans, flags=re.M)
+    # ans = re.sub(r'\A\n+|\n+\Z', '', ans)
     # 如果原始代码有缩进，但结果无缩进，则添加缩进
-    ind = get_ind_len(code)
-    if ind and not get_ind_len(ans):
-        ans = re.sub(r'^', '\x20' * ind, ans, flags=re.M)
+    # ind = get_ind_len(code)
+    # if ind and not get_ind_len(ans):
+    #     ans = re.sub(r'^', '\x20' * ind, ans, flags=re.M)
     return ans
 
 def chunk_code(lines, limit=2000):
