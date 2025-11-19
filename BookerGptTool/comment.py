@@ -220,6 +220,7 @@ def process_file(args):
     comment = '```\n' + '\n'.join(parts) + '\n```'
     '''
     lst = openai_comment(code, DFT_EXT_PROMPT, args.model, args.temp, args.retry)
+    lst = re.sub(r'^\-\x20{3}\(?无\)?', '', lst, flags=re.M)
     ms = re.finditer(r'^##\x20+(?:全局变量|类字段|常量)([\s\S]+?)(?=^##|\Z)', lst, re.M)
     vars = '\n'.join([m.group(1) for m in ms])
     print(f'变量：\n{vars}')
