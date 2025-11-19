@@ -224,7 +224,7 @@ def process_file(args):
     vars = '\n'.join([m.group(1) for m in ms])
     print(f'变量：\n{vars}')
     ques = DFT_COMM_VAR_PROMPT.replace('{code}', code) \
-        .replace({vars}, vars)
+        .replace('{vars}', vars)
     doc_vars = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
     doc = doc_vars
     ms = re.finditer(r'^##\x20+(?:全局函数|类方法)([\s\S]+?)(?=^##|\Z)', lst, re.M)
