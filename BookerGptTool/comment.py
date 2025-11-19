@@ -13,8 +13,88 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from .util import *
 
-DFT_COMM_PROMPT = '''
-假设你是一位资深的程序员，请解析以下代码中的全局变量，常量，函数，类字段，方法等，生成技术文档。
+DFT_EXT_PROMPT = '''
+假设你是一位资深的程序员，提取代码里的所有全局变量、常量、全局函数、类方法（格式为`{类名}.{方法名}`）、类字段（格式为`{类名}.{字段名}`），输出它们的名字。
+
+
+注意只需要输出名称，不需要输出其它任何东西。
+
+====
+格式
+====
+
+## 全局变量
+
+-   `{全局变量1}`
+-   `{全局变量2}`
+-   ...
+
+## 常量
+
+-   `{常量1}`
+-   `{常量2}`
+-   ...
+
+## 全局函数
+
+-   `{全局函数1}`
+-   `{全局函数2}`
+-   ...
+
+## 类字段
+
+-   `{类字段1}`
+-   `{类字段2}`
+-   ...
+
+## 类方法
+
+-   `{类方法1}`
+-   `{类方法2}`
+-   ...
+
+
+====
+代码
+====
+
+```
+{code}
+```
+'''
+
+DFT_COMM_VAR_PROMPT = '''
+假设你是一位资深的程序员，请解析以下代码中的指定全局变量，常量，函数，类方法，生成技术文档。
+
+####
+格式
+####
+
+## `{名称}`
+
+类型：`{类型}`
+
+默认值：`{默认值}`
+
+功能描述：{功能描述}
+
+###########
+要分析的代码
+###########
+
+```
+{code}
+```
+
+#############
+要分析的变量等
+#############
+
+{vars}
+'''
+
+DFT_COMM_FUNC_PROMPT = '''
+假设你是一位资深的程序员，请解析以下代码中的全局函数或方法{func}，生成技术文档。
 
 ####
 注意
@@ -22,11 +102,10 @@ DFT_COMM_PROMPT = '''
 
 -   流程图使用 mermaid 格式
 -   对于每个变量或者函数，只需要输出格式内规定的项目，不要输出任何其他东西
--   任何流程图或者源码需要包含在三个反引号（```）中，开头和结尾不要加
 
-=====================
-格式（仅限于函数和方法）
-=====================
+====
+格式
+====
 
 ## `{名称}`
 
@@ -51,18 +130,6 @@ DFT_COMM_PROMPT = '''
 ```
 {源码}
 ```
-
-#########################
-格式（仅限于变量常量和字段）
-#########################
-
-## `{名称}`
-
-类型：`{类型}`
-
-默认值：`{默认值}`
-
-功能描述：{功能描述}
 
 ###########
 要分析的代码
@@ -152,8 +219,24 @@ def process_file(args):
         parts.append(part)
     comment = '```\n' + '\n'.join(parts) + '\n```'
     '''
-    doc = openai_comment(code, args.prompt, args.model, args.temp, args.retry)
-    print(doc)
+    lst = openai_comment(code, DFT_EXT_PROMPT, args.model, args.temp, args.retry)
+    ms = re.finditer(r'^##\x20+(?:全局变量|类字段|常量)([\s\S]+?)(?=^##|\Z)', lst, re.M)
+    vars = '\n'.join([m.group(1) for m in ms])
+    print(f'变量：\n{vars}')
+    ques = DFT_COMM_VAR_PROMPT.replace('{code}', code) \
+        .replace({vars}, vars)
+    doc_vars = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
+    doc = doc_vars
+    ms = re.finditer(r'^##\x20+(?:全局函数|类方法)([\s\S]+?)(?=^##|\Z)', lst, re.M)
+    funcs = '\n'.join([m.group(1) for m in ms])
+    print(f'函数：\n{funcs}')
+    ms = re.finditer(r'^\-\x20{3}(.+?)$', funcs, re.M)
+    for m in ms:
+        func = m.group(1)
+        ques = DFT_COMM_FUNC_PROMPT.replace('{code}', code) \
+            .replace('{func}', func)
+        doc_func = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
+        doc += '\n\n' + doc_func
     res = f'# `{fname}`\n\n{doc}'
     open(ofname, 'w', encoding='utf8').write(res)
     

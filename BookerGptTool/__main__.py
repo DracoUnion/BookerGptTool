@@ -52,7 +52,7 @@ def main():
 
     comm_parser = subparsers.add_parser("comment", help="comment code")
     comm_parser.add_argument('fname', help='file or dir name')
-    comm_parser.add_argument('-p', '--prompt', default=DFT_COMM_PROMPT, help='prompt for code comment')
+    comm_parser.add_argument('-p', '--prompt', default=DFT_COMM_FUNC_PROMPT, help='prompt for code comment')
     comm_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
     comm_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
     comm_parser.set_defaults(func=comment_handle)
