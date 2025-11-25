@@ -13,8 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from .util import *
 
-DFT_EXT_PROMPT = '''
-假设你是一位资深的程序员，提取代码里的所有全局变量、常量、全局函数、类方法（格式为`{类名}.{方法名}`）、类字段（格式为`{类名}.{字段名}`），输出它们的名字。
+DFT_EXT_VAR_PROMPT = '''
+假设你是一位资深的程序员，提取代码里的所有全局变量、常量、类字段（格式为`{类名}.{字段名}`），输出它们的名字。
 
 
 注意只需要输出名称，不需要输出其它任何东西。
@@ -35,16 +35,37 @@ DFT_EXT_PROMPT = '''
 -   `{常量2}`
 -   ...
 
-## 全局函数
-
--   `{全局函数1}`
--   `{全局函数2}`
--   ...
 
 ## 类字段
 
 -   `{类字段1}`
 -   `{类字段2}`
+-   ...
+
+
+====
+代码
+====
+
+```
+{code}
+```
+'''
+
+DFT_EXY_FUNC_PMT = '''
+假设你是一位资深的程序员，提取代码里的所有全局函数、类方法（格式为`{类名}.{方法名}`），输出它们的名字。
+
+
+注意只需要输出名称，不需要输出其它任何东西。
+
+====
+格式
+====
+
+## 全局函数
+
+-   `{全局函数1}`
+-   `{全局函数2}`
 -   ...
 
 ## 类方法
@@ -61,6 +82,7 @@ DFT_EXT_PROMPT = '''
 ```
 {code}
 ```
+
 '''
 
 DFT_COMM_VAR_PROMPT = '''
@@ -220,17 +242,19 @@ def process_file(args):
         parts.append(part)
     comment = '```\n' + '\n'.join(parts) + '\n```'
     '''
-    lst = openai_comment(code, DFT_EXT_PROMPT, args.model, args.temp, args.retry)
+    lst = openai_comment(code, DFT_EXT_VAR_PROMPT, args.model, args.temp, args.retry)
     lst = re.sub(r'^\-\x20{3}\(?无\)?', '', lst, flags=re.M)
-    ms = re.finditer(r'^##\x20+(?:全局变量|类字段|常量)([\s\S]+?)(?=^##|\Z)', lst, re.M)
-    vars = '\n'.join([m.group(1) for m in ms])
+    ms = re.finditer(r'^\-\x20{3}.+?$', lst, re.M)
+    vars = '\n'.join([m.group() for m in ms])
     print(f'变量：\n{vars}')
     ques = DFT_COMM_VAR_PROMPT.replace('{code}', code) \
         .replace('{vars}', vars)
     doc_vars = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
     doc = doc_vars
-    ms = re.finditer(r'^##\x20+(?:全局函数|类方法)([\s\S]+?)(?=^##|\Z)', lst, re.M)
-    funcs = '\n'.join([m.group(1) for m in ms])
+    lst = openai_comment(code, DFT_EXY_FUNC_PMT, args.model, args.temp, args.retry)
+    lst = re.sub(r'^\-\x20{3}\(?无\)?', '', lst, flags=re.M)
+    ms = re.finditer(r'^\-\x20{3}.+?$', lst, re.M)
+    funcs = '\n'.join([m.group() for m in ms])
     print(f'函数：\n{funcs}')
     ms = re.finditer(r'^\-\x20{3}(.+?)$', funcs, re.M)
     for m in ms:
