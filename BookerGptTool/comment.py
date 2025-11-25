@@ -243,8 +243,8 @@ def process_file(args):
     comment = '```\n' + '\n'.join(parts) + '\n```'
     '''
     lst = openai_comment(code, DFT_EXT_VAR_PROMPT, args.model, args.temp, args.retry)
-    lst = re.sub(r'^\-\x20{3}\(?无\)?', '', lst, flags=re.M)
-    ms = re.finditer(r'^\-\x20{3}.+?$', lst, re.M)
+    lst = re.sub(r'^\-\x20+\(?无\)?', '', lst, flags=re.M)
+    ms = re.finditer(r'^\-\x20+.+?$', lst, re.M)
     vars = '\n'.join([m.group() for m in ms])
     print(f'变量：\n{vars}')
     ques = DFT_COMM_VAR_PROMPT.replace('{code}', code) \
@@ -252,11 +252,11 @@ def process_file(args):
     doc_vars = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
     doc = doc_vars
     lst = openai_comment(code, DFT_EXY_FUNC_PMT, args.model, args.temp, args.retry)
-    lst = re.sub(r'^\-\x20{3}\(?无\)?', '', lst, flags=re.M)
-    ms = re.finditer(r'^\-\x20{3}.+?$', lst, re.M)
+    lst = re.sub(r'^\-\x20+\(?无\)?', '', lst, flags=re.M)
+    ms = re.finditer(r'^\-\x20+.+?$', lst, re.M)
     funcs = '\n'.join([m.group() for m in ms])
     print(f'函数：\n{funcs}')
-    ms = re.finditer(r'^\-\x20{3}(.+?)$', funcs, re.M)
+    ms = re.finditer(r'^\-\x20+(.+?)$', funcs, re.M)
     for m in ms:
         func = m.group(1)
         ques = DFT_COMM_FUNC_PROMPT.replace('{code}', code) \
