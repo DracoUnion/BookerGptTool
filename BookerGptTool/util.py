@@ -34,7 +34,7 @@ def fix_lists(ans):
     ans = re.sub(r'^(\x20*)(\d+\.)\x20+', r'\1\2  ', ans, flags=re.M)
     return ans
 
-def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=8192):
+def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None):
     # 改变指令符号的形式，避免模型出错
     ques = re.sub(r'<\|([\w\-\.]+)\|>', r'</\1/>', ques)
     for i in range(retry):
