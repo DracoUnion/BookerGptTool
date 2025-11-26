@@ -166,9 +166,9 @@ DFT_COMM_FUNC_PROMPT = '''
 def get_ind_len(text):
     return len(re.search(r'\A\x20*', text).group())
 
-def openai_comment(code, prompt, model_name, temp=0, retry=10):
+def openai_comment(code, prompt, model_name, temp=0, retry=10, max_tokens=None):
     ques = prompt.replace('{code}', code)
-    ans = call_chatgpt_retry(ques, model_name, temp, retry)
+    ans = call_chatgpt_retry(ques, model_name, temp, retry, max_tokens)
     # ans = re.sub(r'^```\w*$', '', ans, flags=re.M)
     # ans = re.sub(r'\A\n+|\n+\Z', '', ans)
     # 如果原始代码有缩进，但结果无缩进，则添加缩进
@@ -242,16 +242,16 @@ def process_file(args):
         parts.append(part)
     comment = '```\n' + '\n'.join(parts) + '\n```'
     '''
-    lst = openai_comment(code, DFT_EXT_VAR_PROMPT, args.model, args.temp, args.retry)
+    lst = openai_comment(code, DFT_EXT_VAR_PROMPT, args.model, args.temp, args.retry, args.max_tokens)
     lst = re.sub(r'^\-\x20+\(?无\)?', '', lst, flags=re.M)
     ms = re.finditer(r'^\-\x20+.+?$', lst, re.M)
     vars = '\n'.join([m.group() for m in ms])
     print(f'变量：\n{vars}')
     ques = DFT_COMM_VAR_PROMPT.replace('{code}', code) \
         .replace('{vars}', vars)
-    doc_vars = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
+    doc_vars = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     doc = doc_vars
-    lst = openai_comment(code, DFT_EXY_FUNC_PMT, args.model, args.temp, args.retry)
+    lst = openai_comment(code, DFT_EXY_FUNC_PMT, args.model, args.temp, args.retry, args.max_tokens)
     lst = re.sub(r'^\-\x20+\(?无\)?', '', lst, flags=re.M)
     ms = re.finditer(r'^\-\x20+.+?$', lst, re.M)
     funcs = '\n'.join([m.group() for m in ms])
@@ -261,7 +261,7 @@ def process_file(args):
         func = m.group(1)
         ques = DFT_COMM_FUNC_PROMPT.replace('{code}', code) \
             .replace('{func}', func)
-        doc_func = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
+        doc_func = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         doc += '\n\n' + doc_func
     res = f'# `{fname}`\n\n{doc}'
     open(ofname, 'w', encoding='utf8').write(res)
