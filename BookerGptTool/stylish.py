@@ -96,7 +96,7 @@ def tr_stylish(g, args, totrans_id_map, write_callback=None):
         shuffle_group(g)    
         en = '\n'.join('-   ' + en for en in g['ens'])
         ques = args.prompt.replace('{text}', en)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         ans = fix_lists(ans)
         stys = re.findall(r'^\-\x20{3}(.+?)$', ans, flags=re.M)
         if len(g['ids']) == len(stys):

@@ -6,7 +6,7 @@ def tr_infer(dit, args, write_callback):
         if args.ans_col in dit: return
         ques = combine_prompt_args(args.prompt, dit)
         dit[args.ques_col] = ques
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         ans = fix_lists(ans)
         dit[args.ans_col] = ans
         write_callback()

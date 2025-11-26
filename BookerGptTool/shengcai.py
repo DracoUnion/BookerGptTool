@@ -80,7 +80,7 @@ def parse_shengcai(args):
             '{text}', 
             (it['title'] + ' ' + it['content'])[:args.limit]
         )
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         it['result'] = ans
         open(yaml_fname, 'w', encoding='utf8').write(
             yaml.safe_dump(todo, allow_unicode=True)

@@ -66,7 +66,7 @@ def gen_xhs_single(args):
     cont = open(args.fname, encoding='utf8').read()
     pmt = XHS_PMT if args.style == 'xhs' else GZH_PMT
     ques = pmt.replace('{text}', cont)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry)
+    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     open(ofname, 'w', encoding='utf8').write(ans)
     print(ofname)
 
