@@ -166,10 +166,27 @@ def reform_paras_texen(text, size=5000):
 
 def sum_arxiv(args):
     print(args)
-    if args.model == 'gpt-3.5-turbo':
-        args.model += '-16k'
     set_openai_props(args.key, args.proxy, args.host)
-    
+    tex = arxiv_id2text(args.arxiv)
+    title, abs_, chs = ext_chapters(tex)
+    ques = ARXIV_QA_PROMPT.replace('{sum}', tex) \
+            .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
+    for i in range(args.retry):
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        RE_ONE_ANS = r'^\-\x20{3}[\s\S]+?(?=^\-\x20{3}|\Z)'
+        sum_anses = re.findall(RE_ONE_ANS, ans, re.M)
+        sum_anses = [
+            a for a in sum_anses 
+            if a[4:].strip() not in sum_ques_set
+        ]
+        if len(sum_queses) == len(sum_anses):
+            break
+        print(f'ques-ans match retry: {i+1}')
+        if i == args.retry - 1:
+            raise AssertionError('ques-ans no match')
+    qas = [{'question': q, 'answer': a} for q, a in zip(sum_queses, sum_anses)]
+
+    '''
     yaml_fname = args.arxiv + '.yaml'
     if path.isfile(yaml_fname):
         tosum = yaml.safe_load(open(yaml_fname, encoding='utf8'))
@@ -221,13 +238,13 @@ def sum_arxiv(args):
                 raise AssertionError('ques-ans no match')
         tosum['qas'] = [{'question': q, 'answer': a} for q, a in zip(sum_queses, sum_anses)]
         write_callback()
-
+    '''
     # 总结摘要
     res = f'# 【GPT总结】 {title}\n\n'
     res += f'> 原文：<https://ar5iv.labs.arxiv.org/html/{args.arxiv}>\n\n'
     res += '\n\n'.join([
         '## ' + qa['question'] + '\n\n' + qa['answer']  
-        for qa in tosum['qas']
+        for qa in qas
     ])
 
     ofname = args.arxiv + '.md'
