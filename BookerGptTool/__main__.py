@@ -12,6 +12,7 @@ from .infer import *
 from .stylish import *
 from .qa import *
 from .erchuang import *
+from .note import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -106,6 +107,11 @@ def main():
     xhs_parser.add_argument("-t", "--threads", type=int, default=8, help="threadcount")
     xhs_parser.add_argument("-s", "--style", type=str, default='xhs', choices=['xhs', 'gzh'], help="article style")
     xhs_parser.set_defaults(func=gen_xhs)
+
+    note_parser = subparsers.add_parser("note", help="make notes")
+    note_parser.add_argument("fname", help="fname")
+    note_parser.add_argument("-t", "--threads", type=int, default=8, help="threadcount")
+    note_parser.set_defaults(func=mknote)
 
     args = parser.parse_args()
     args.func(args)
