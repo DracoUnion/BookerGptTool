@@ -104,6 +104,7 @@ def gen_xhs(args):
         hdls.append(h)
         if len(hdls) > args.threads:
             for h in hdls: h.result()
-
+            hdls = []
+            
     for h in hdls: h.result()
     
