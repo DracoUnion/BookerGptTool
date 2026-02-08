@@ -53,6 +53,7 @@ def mknote_file(args):
     total = len(lines)
     for frac, link in links[::-1]:
         idx = int(frac * total)
+        if idx == 0: idx = 1
         lines.insert(idx, link)
     res = '\n\n'.join(lines)
     open(ofname, 'w', encoding='utf8').write(res)
