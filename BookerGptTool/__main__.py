@@ -78,6 +78,12 @@ def main():
     arxiv_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
     arxiv_parser.set_defaults(func=sum_arxiv)
 
+    arxiv_batch_parser = subparsers.add_parser("arxiv-batch", help="summarize arxiv papers")
+    arxiv_batch_parser.add_argument("arxiv", help="arxiv id splitted by \',\'")
+    arxiv_batch_parser.add_argument("-l", "--limit", type=int, default=3000, help="limit")
+    arxiv_batch_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    arxiv_batch_parser.set_defaults(func=sum_arxiv_batch)
+
     sum_parser = subparsers.add_parser("sum", help="summarize md or srt")
     sum_parser.add_argument("fname", help="fname")
     sum_parser.add_argument("-s", "--para-size", type=int, default=1500, help="paragraph size")

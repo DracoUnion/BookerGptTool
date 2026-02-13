@@ -162,7 +162,26 @@ def reform_paras_texen(text, size=5000):
             paras[-1] += l
     return paras
     
-    
+def sum_arxiv_batch(args):
+    ids = args.arxiv.split(',')
+    pool = ThreadPoolExecutor(args.threads)
+    hdls = []
+    for id_ in ids:
+        args = copy.deepcopy(args)
+        args.arxiv = id_
+        h = pool.submit(sum_arxiv_safe, args)
+        hdls.append(h)
+        if len(hdls) > args.threads:
+            for h in hdls: h.result()
+            hdls = []
+
+    for h in hdls: h.result()
+
+def sum_arxiv_safe(args):
+    try:
+        sum_arxiv(args)
+    except:
+        traceback.print_exc()
 
 def sum_arxiv(args):
     print(args)
