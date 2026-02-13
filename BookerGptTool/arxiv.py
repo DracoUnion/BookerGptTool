@@ -49,33 +49,29 @@ ARXIV_QA_PROMPT = '''
 ## 注意事项
 
 1.  保证不要漏掉每个问题，也就是回答数量和问题数量要匹配。
-2.  不要重复问题，只需要输出回答。
-3.  每个回答在200~500字之间。
-4.  不要省略回答前的格式（-   ），否则我无法解析。
-5.  注意使用中文！
+2.  每个回答在200~500字之间。
+3.  以 Markdown 格式输出。
+4.  注意使用中文！
+
+## 格式
+
+## {问题1}
+
+{回答1}
+
+## {问题2}
+
+{回答2}
+
+...
 
 ## 问题
 
 {ques}
 
-## 格式
+## 文章
 
-概要：
-{概要}
-回答：
--   {回答1}
-    -   {子回答1}
-    -   {子回答2}
-    -   ...
--   {回答2}
-    -   ...
--   ...
-
-## 以下是需要处理的内容
-
-文章：
 {sum}
-回答：
 '''
 
 sum_queses = [
@@ -190,20 +186,7 @@ def sum_arxiv(args):
     title, abs_, chs = ext_chapters(tex)
     ques = ARXIV_QA_PROMPT.replace('{sum}', tex) \
             .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
-    for i in range(args.retry):
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        RE_ONE_ANS = r'^\-\x20{3}[\s\S]+?(?=^\-\x20{3}|\Z)'
-        sum_anses = re.findall(RE_ONE_ANS, ans, re.M)
-        sum_anses = [
-            a for a in sum_anses 
-            if a[4:].strip() not in sum_ques_set
-        ]
-        if len(sum_queses) == len(sum_anses):
-            break
-        print(f'ques-ans match retry: {i+1}')
-        if i == args.retry - 1:
-            raise AssertionError('ques-ans no match')
-    qas = [{'question': q, 'answer': a} for q, a in zip(sum_queses, sum_anses)]
+    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
 
     '''
     yaml_fname = args.arxiv + '.yaml'
@@ -261,10 +244,7 @@ def sum_arxiv(args):
     # 总结摘要
     res = f'# 【GPT总结】 {title}\n\n'
     res += f'> 原文：<https://ar5iv.labs.arxiv.org/html/{args.arxiv}>\n\n'
-    res += '\n\n'.join([
-        '## ' + qa['question'] + '\n\n' + qa['answer']  
-        for qa in qas
-    ])
+    res += ans
 
     ofname = args.arxiv + '.md'
     open(ofname, 'w', encoding='utf8').write(res)
