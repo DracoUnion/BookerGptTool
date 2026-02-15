@@ -45,7 +45,8 @@ def paper2code(args):
     if not path.isfile(tex_fname):
         tex = arxiv_id2text(args.arxiv)
         open(tex_fname, 'w', encoding='utf8').write(tex)
-    # title, abs_, chs = ext_chapters(tex)
+    else:
+        tex = open(tex_fname, encoding='utf8').read()
     
     print('[Planning] Overall plan')
     plan_fname = path.join(args.out, 'plan.md')
