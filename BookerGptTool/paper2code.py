@@ -118,7 +118,7 @@ def paper2code(args):
             .replace('{fdesc}', fdesc)
         logic_anls = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         logic_anls_dict[fname] = logic_anls
-        open(la_fname, 'w', encoding='utf8').write(json.dumps(logic_anls_dict))
+        open(la_fname, 'w', encoding='utf8').write(logic_anls)
 
     # print(logic_anls)
     code_dict = {}
