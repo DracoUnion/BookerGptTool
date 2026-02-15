@@ -26,6 +26,8 @@ PLAN_PMT = '''
 {paper}
 '''
 
+##############################################
+
 FLIST_PMT = '''
 你是一位经验丰富的研究员和战略规划专家，深刻理解科学实验中的实验设计与可重复性。你将收到一篇研究论文。你的任务是制定一个详细且高效的方案，以复现论文中描述的实验和方法。该方案必须严格遵循论文中的方法、实验设置和评估指标。
 
@@ -45,27 +47,27 @@ FLIST_PMT = '''
 
 ```
 {
-    "Implementation approach": "We will ... ,
-    "File list": [
+    "implementation_approach": "We will ... ,
+    "file_list": [
         "main.py",  
         "dataset_loader.py", 
         "model.py",  
         "trainer.py",
         "evaluation.py" 
     ],
-    "Data structures and interfaces": "\nclassDiagram\n    class Main {\n        +__init__()\n        +run_experiment()\n    }\n    class DatasetLoader {\n        +__init__(config: dict)\n        +load_data() -> Any\n    }\n    class Model {\n        +__init__(params: dict)\n        +forward(x: Tensor) -> Tensor\n    }\n    class Trainer {\n        +__init__(model: Model, data: Any)\n        +train() -> None\n    }\n    class Evaluation {\n        +__init__(model: Model, data: Any)\n        +evaluate() -> dict\n    }\n    Main --> DatasetLoader\n    Main --> Trainer\n    Main --> Evaluation\n    Trainer --> Model\n",
-    "Program call flow": "\nsequenceDiagram\n    participant M as Main\n    participant DL as DatasetLoader\n    participant MD as Model\n    participant TR as Trainer\n    participant EV as Evaluation\n    M->>DL: load_data()\n    DL-->>M: return dataset\n    M->>MD: initialize model()\n    M->>TR: train(model, dataset)\n    TR->>MD: forward(x)\n    MD-->>TR: predictions\n    TR-->>M: training complete\n    M->>EV: evaluate(model, dataset)\n    EV->>MD: forward(x)\n    MD-->>EV: predictions\n    EV-->>M: metrics\n",
-    "Anything UNCLEAR": "Need clarification on the exact dataset format and any specialized hyperparameters."
+    "data_structures_and_interfaces": "\nclassDiagram\n    class Main {\n        +__init__()\n        +run_experiment()\n    }\n    class DatasetLoader {\n        +__init__(config: dict)\n        +load_data() -> Any\n    }\n    class Model {\n        +__init__(params: dict)\n        +forward(x: Tensor) -> Tensor\n    }\n    class Trainer {\n        +__init__(model: Model, data: Any)\n        +train() -> None\n    }\n    class Evaluation {\n        +__init__(model: Model, data: Any)\n        +evaluate() -> dict\n    }\n    Main --> DatasetLoader\n    Main --> Trainer\n    Main --> Evaluation\n    Trainer --> Model\n",
+    "program_call_flow": "\nsequenceDiagram\n    participant M as Main\n    participant DL as DatasetLoader\n    participant MD as Model\n    participant TR as Trainer\n    participant EV as Evaluation\n    M->>DL: load_data()\n    DL-->>M: return dataset\n    M->>MD: initialize model()\n    M->>TR: train(model, dataset)\n    TR->>MD: forward(x)\n    MD-->>TR: predictions\n    TR-->>M: training complete\n    M->>EV: evaluate(model, dataset)\n    EV->>MD: forward(x)\n    MD-->>EV: predictions\n    EV-->>M: metrics\n",
+    "anything_unclear": "Need clarification on the exact dataset format and any specialized hyperparameters."
 }
 ```
 
-## 节点："<node>: <type>  # <instruction>"
+## 格式说明
 
-- 实施方案：`<class 'str'>`  # 总结所选的解决方案策略。
-- 文件列表：`typing.List[str]`  # 只需要相对路径。请务必在此处写入 main.py 或 app.py。
-- 数据结构和接口：`typing.Optional[str]`  # 使用 mermaid classDiagram 代码语法，包括类、方法（__init__ 等）和带有类型注解的函数，清晰标注类之间的关系，并符合 PEP8 标准。数据结构应非常详细，API 应全面且设计完整。
-- 程序调用流程：`typing.Optional[str]` # 使用 sequenceDiagram 代码语法，完整且非常详细，准确使用上述定义的类和 API，涵盖每个对象的增删改查（CRUD）和初始化，语法必须正确。
-- 任何不清楚的地方：`<class 'str'>`  # 指出模糊之处并请求澄清。
+- `implementation_approach`：`str` ，总结所选的解决方案策略。
+- `file_list`：`List[str]` ，只需要相对路径。请务必在此处写入 main.py 或 app.py。
+- `data_structures_and_interfaces`：`Optional[str]` ，使用 mermaid classDiagram 代码语法，包括类、方法（__init__ 等）和带有类型注解的函数，清晰标注类之间的关系，并符合 PEP8 标准。数据结构应非常详细，API 应全面且设计完整。
+- `program_call_flow`：`Optional[str]`，使用 sequenceDiagram 代码语法，完整且非常详细，准确使用上述定义的类和 API，涵盖每个对象的增删改查（CRUD）和初始化，语法必须正确。
+- `anything_unclear`：`str` ，指出模糊之处并请求澄清。
 
 ## 约束
 
@@ -156,9 +158,9 @@ TASKS_PMT = '''
 
 ## 格式说明
 
--   `required_packages`：`Optional[typing.List[str]]`，以`requirements.txt`格式提供所需的第三方包（例如：'numpy==1.21.0'）
+-   `required_packages`：`Optional[List[str]]`，以`requirements.txt`格式提供所需的第三方包（例如：'numpy==1.21.0'）
 -   `required_other_language_third_party_packages`：`List[str]`，列出非Python语言所需的软件包，若无则填写"无第三方依赖要求"
--   `logic_analysis`：`List[typing.List[str]]`，提供待实现的类/方法/函数文件列表，包含依赖关系分析和导入语句，尽可能包含详细描述
+-   `logic_analysis`：`List[List[str]]`，提供待实现的类/方法/函数文件列表，包含依赖关系分析和导入语句，尽可能包含详细描述
 -   `task_list`：`List[str]`，按依赖优先级将任务拆解为文件清单，任务清单必须包含之前生成的文件列表
 -   `full_api_spec`：`str`，使用OpenAPI 3.0规范描述前后端可能使用的所有API，如无需前后端通信则留空
 -   `shared_knowledge`：`str`，详细说明共享知识，如通用工具函数或配置变量
