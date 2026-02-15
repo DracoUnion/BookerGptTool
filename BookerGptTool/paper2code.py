@@ -41,38 +41,48 @@ def paper2code(args):
     set_openai_props(args.key, args.proxy, args.host)
     os.makedirs(args.out, exist_ok=True)
     print('[Downloading] download arxiv paper')
-    tex = arxiv_id2text(args.arxiv)
-    open(path.join(args.out, 'paper.tex'), 'w', encoding='utf8').write(tex)
+    tex_fname = path.join(args.out, 'paper.tex')
+    if not path.isfile(tex_fname):
+        tex = arxiv_id2text(args.arxiv)
+        open(tex_fname, 'w', encoding='utf8').write(tex)
     # title, abs_, chs = ext_chapters(tex)
     
     print('[Planning] Overall plan')
-    ques = PLAN_PMT.replace("{paper}", tex)
-    plan = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    open(path.join(args.out, 'plan.md'), 'w', encoding='utf8').write(plan)
+    plan_fname = path.join(args.out, 'plan.md')
+    if not path.isfile(plan_fname):
+        ques = PLAN_PMT.replace("{paper}", tex)
+        plan = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        open(plan_fname, 'w', encoding='utf8').write(plan)
     
     print('"[Planning] Architecture design')
-    ques = FLIST_PMT.replace("{paper}", tex) \
-        .replace('{plan}', plan)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    flist_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    open(path.join(args.out, 'file_list.json'), 'w', encoding='utf8').write(flist_str)
+    flist_fname = path.join(args.out, 'file_list.json')
+    if not path.isfile(flist_fname):
+        ques = FLIST_PMT.replace("{paper}", tex) \
+            .replace('{plan}', plan)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        flist_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+        open(flist_fname, 'w', encoding='utf8').write(flist_str)
 
     print('"[Planning] Logic design')
-    ques = TASKS_PMT.replace("{paper}", tex) \
-        .replace('{plan}', plan) \
-        .replace('{flist}', flist_str)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    tasks_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    open(path.join(args.out, 'tasks.json'), 'w', encoding='utf8').write(tasks_str)
+    tasks_fname = path.join(args.out, 'tasks.json')
+    if not path.isfile(tasks_fname):
+        ques = TASKS_PMT.replace("{paper}", tex) \
+            .replace('{plan}', plan) \
+            .replace('{flist}', flist_str)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        tasks_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+        open(flist_fname, 'w', encoding='utf8').write(tasks_str)
 
     print('[Planning] Configuration file generation')
-    ques = CFG_PMT.replace("{paper}", tex) \
-        .replace('{plan}', plan) \
-        .replace('{flist}', flist_str) \
-        .replace('{tasks}', tasks_str)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    cfg_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    open(path.join(args.out, 'config.yaml'), 'w', encoding='utf8').write(cfg_str)
+    cfg_fname = path.join(args.out, 'config.yaml')
+    if not path.isfile(cfg_fname):
+        ques = CFG_PMT.replace("{paper}", tex) \
+            .replace('{plan}', plan) \
+            .replace('{flist}', flist_str) \
+            .replace('{tasks}', tasks_str)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        cfg_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+        open(cfg_fname, 'w', encoding='utf8').write(cfg_str)
     # print(plan, '\n', flist_str, '\n', tasks_str, '\n', cfg_str)
     
     jtask = json.loads(tasks_str)
@@ -82,6 +92,11 @@ def paper2code(args):
     
     for fname in tasks:
         print(f"[ANALYSIS] {fname}")
+        la_fname = fname.replace('.', '_') + '_logic_analysis.md'
+        la_fname = path.join(args.out, la_fname)
+        if path.isfile(la_fname): continue 
+        dir_ = path.dirname(la_fname)
+        if dir_: os.makedirs(dir_, exist_ok=True)
         fdesc = fdesc_dict.get(fname, '“未指定”')
         ques = ANLS_PMT.replace("{paper}", tex) \
             .replace('{plan}', plan) \
@@ -92,13 +107,16 @@ def paper2code(args):
             .replace('{fdesc}', fdesc)
         logic_anls = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         logic_anls_dict[fname] = logic_anls
-    
-    open(path.join(args.out, 'logic_analysis.json'), 'w', encoding='utf8').write(json.dumps(logic_anls_dict))
+        open(la_fname, 'w', encoding='utf8').write(json.dumps(logic_anls_dict))
 
     # print(logic_anls)
     code_dict = {}
     for idx, fname in enumerate(tasks):
         print(f"[CODING] {fname}")
+        code_fname = path.join(args.out, fname)
+        if path.isfile(code_fname): continue
+        dir_ = path.dirname(fname)
+        if dir_: os.makedirs(dir_, exist_ok=True)
         done_files = ','.join(code_dict.keys()) or 'none'
         logic_analysis = logic_anls_dict.get(fname, "“未指定”")
         ques = CODE_PMT.replace("{paper}", tex) \
@@ -112,7 +130,7 @@ def paper2code(args):
         code = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         code = re.search(r'```\w*([\s\S]+?)```', code).group(1)
         code_dict[fname] = code
-        open(path.join(args.out, fname), 'w', encoding='utf8').write(code)
+        open(code_fname, 'w', encoding='utf8').write(code)
 
     print('[DONE]')
 
