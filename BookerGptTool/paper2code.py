@@ -36,25 +36,35 @@ def ext_chapters(tex):
     return title[0], abs_[0], chs
 
 def paper2code(args):
+    if args.out is None: args.out = args.arxiv
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
+    os.makedirs(args.out, exist_ok=True)
     print('[Downloading] download arxiv paper')
     tex = arxiv_id2text(args.arxiv)
-    title, abs_, chs = ext_chapters(tex)
+    open(path.join(args.out, 'paper.tex'), 'w', encoding='utf8').write(tex)
+    # title, abs_, chs = ext_chapters(tex)
+    
     print('[Planning] Overall plan')
     ques = PLAN_PMT.replace("{paper}", tex)
     plan = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    open(path.join(args.out, 'plan.md'), 'w', encoding='utf8').write(plan)
+    
     print('"[Planning] Architecture design')
     ques = FLIST_PMT.replace("{paper}", tex) \
         .replace('{plan}', plan)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     flist_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+    open(path.join(args.out, 'file_list.json'), 'w', encoding='utf8').write(flist_str)
+
     print('"[Planning] Logic design')
     ques = TASKS_PMT.replace("{paper}", tex) \
         .replace('{plan}', plan) \
         .replace('{flist}', flist_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     tasks_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+    open(path.join(args.out, 'tasks.json'), 'w', encoding='utf8').write(tasks_str)
+
     print('[Planning] Configuration file generation')
     ques = CFG_PMT.replace("{paper}", tex) \
         .replace('{plan}', plan) \
@@ -62,7 +72,9 @@ def paper2code(args):
         .replace('{tasks}', tasks_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     cfg_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+    open(path.join(args.out, 'config.yaml'), 'w', encoding='utf8').write(cfg_str)
     # print(plan, '\n', flist_str, '\n', tasks_str, '\n', cfg_str)
+    
     jtask = json.loads(tasks_str)
     tasks = jtask['task_list']
     fdesc_dict = jtask['file_descs']
@@ -81,6 +93,8 @@ def paper2code(args):
         logic_anls = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         logic_anls_dict[fname] = logic_anls
     
+    open(path.join(args.out, 'logic_analysis.json'), 'w', encoding='utf8').write(json.dumps(logic_anls_dict))
+
     # print(logic_anls)
     code_dict = {}
     for idx, fname in enumerate(tasks):
@@ -97,9 +111,9 @@ def paper2code(args):
             .replace('{logic_analysis}', logic_analysis)
         code = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         code_dict[fname] = code
+        open(path.join(args.out, fname), 'w', encoding='utf8').write(code)
 
-    print(code_dict)
-
+    print('[DONE]')
 
     
 
