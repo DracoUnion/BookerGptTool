@@ -38,26 +38,50 @@ def ext_chapters(tex):
 def paper2code(args):
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
+    print('[Downloading] download arxiv paper')
     tex = arxiv_id2text(args.arxiv)
     title, abs_, chs = ext_chapters(tex)
+    print('[Planning] Overall plan')
     ques = PLAN_PMT.replace("{paper}", tex)
     plan = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    print('"[Planning] Architecture design')
     ques = FLIST_PMT.replace("{paper}", tex) \
         .replace('{plan}', plan)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    flist = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+    flist_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+    print('"[Planning] Logic design')
     ques = TASKS_PMT.replace("{paper}", tex) \
         .replace('{plan}', plan) \
-        .replace('{flist}', flist)
+        .replace('{flist}', flist_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    tasks = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+    tasks_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+    print('[Planning] Configuration file generation')
     ques = CFG_PMT.replace("{paper}", tex) \
         .replace('{plan}', plan) \
-        .replace('{flist}', flist) \
-        .replace('{tasks}', tasks)
+        .replace('{flist}', flist_str) \
+        .replace('{tasks}', tasks_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    cfg = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    print(plan, '\n', flist, '\n', tasks, '\n', cfg)
+    cfg_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+    # print(plan, '\n', flist_str, '\n', tasks_str, '\n', cfg_str)
+    jtask = json.loads(tasks_str)
+    tasks = jtask['task_list']
+    fdesc_dict = jtask['logic_analysis']
+    logic_anls_dict = {}
+    
+    for fname in tasks:
+        print(f"[ANALYSIS] {fname}")
+        fdesc = fdesc_dict.get(fname, '“未指定”')
+        ques = ANLS_PMT.replace("{paper}", tex) \
+            .replace('{plan}', plan) \
+            .replace('{flist}', flist_str) \
+            .replace('{tasks}', tasks_str) \
+            .replace('{config}', cfg_str) \
+            .replace('{fname}', fname) \
+            .replace('{fdesc}', fdesc)
+        logic_anls = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        logic_anls_dict[fname] = logic_anls
+    
+    print(logic_anls)
 
     
 
