@@ -23,7 +23,7 @@ PLAN_PMT = '''
 
 ## 论文
 
-{content}
+{paper}
 '''
 
 FLIST_PMT = '''
@@ -77,7 +77,7 @@ FLIST_PMT = '''
 
 ## 论文
 
-{content}
+{paper}
 
 ## 规划
 
@@ -174,7 +174,7 @@ TASKS_PMT = '''
 
 ## 论文
 
-{content}
+{paper}
 
 ## 规划
 
@@ -227,7 +227,7 @@ training:
 
 ## 论文
 
-{content}
+{paper}
 
 ## 规划
 
@@ -264,7 +264,7 @@ ANLS_PMT = '''
 
 ## 论文
 
-{content}
+{paper}
 
 ## 规划
 
@@ -299,7 +299,7 @@ CODE_PMT = '''
 
 ## 论文
 
-{content}
+{paper}
 
 ## 规划
 

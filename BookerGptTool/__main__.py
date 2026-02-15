@@ -13,6 +13,7 @@ from .stylish import *
 from .qa import *
 from .erchuang import *
 from .note import *
+from .paper2code import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -83,6 +84,12 @@ def main():
     arxiv_batch_parser.add_argument("-l", "--limit", type=int, default=3000, help="limit")
     arxiv_batch_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
     arxiv_batch_parser.set_defaults(func=sum_arxiv_batch)
+
+    paper2code_parser = subparsers.add_parser("paper2code", help="summarize arxiv papers")
+    paper2code_parser.add_argument("arxiv", help="arxiv id")
+    paper2code_parser.add_argument("-l", "--limit", type=int, default=3000, help="limit")
+    paper2code_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    paper2code_parser.set_defaults(func=paper2code)
 
     sum_parser = subparsers.add_parser("sum", help="summarize md or srt")
     sum_parser.add_argument("fname", help="fname")
