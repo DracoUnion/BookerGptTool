@@ -53,12 +53,10 @@ def main():
     test_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
     test_parser.set_defaults(func=trans_handle)
 
-    comm_parser = subparsers.add_parser("comment", help="comment code")
+    comm_parser = subparsers.add_parser("code2doc", help="comment code")
     comm_parser.add_argument('fname', help='file or dir name')
-    comm_parser.add_argument('-p', '--prompt', default=DFT_COMM_FUNC_PROMPT, help='prompt for code comment')
     comm_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    comm_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
-    comm_parser.set_defaults(func=comment_handle)
+    comm_parser.set_defaults(func=code2doc_handle)
 
     shengcai_parser = subparsers.add_parser("shengcai", help="parse shengcai fengxiangbiao")
     shengcai_parser.add_argument('fname', help='epub file name')

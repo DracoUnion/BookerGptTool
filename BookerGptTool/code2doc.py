@@ -171,7 +171,7 @@ def extname(name):
     return m.group(1) if m else ''
 
     
-def comment_handle(args):
+def code2doc_handle(args):
     set_openai_props(args.key, args.proxy, args.host)
  
     if path.isdir(args.fname):
