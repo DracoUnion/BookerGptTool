@@ -117,8 +117,7 @@ def process_file(args):
         func_md_dict[func_name] = ans
     
     funcs_mtds_md = '\n\n'.join(
-        f'### `{k}`\n\n{v}' 
-        for k, v in func_md_dict.items()
+        v for _, v in func_md_dict.items()
     )
 
     print(f'[4] 分析关键组件')
