@@ -96,7 +96,7 @@ def process_file(args):
         .replace('{vars}', vars_txt)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     vars_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    jvars = json.loads(ans)
+    jvars = json.loads(vars_str)
     vars_flds_md = build_vars_flds_md(jvars)
 
     print(f'[3] 分析全局函数和类方法')
