@@ -65,7 +65,7 @@ def paper2code(args):
     # print(plan, '\n', flist_str, '\n', tasks_str, '\n', cfg_str)
     jtask = json.loads(tasks_str)
     tasks = jtask['task_list']
-    fdesc_dict = jtask['logic_analysis']
+    fdesc_dict = jtask['file_descs']
     logic_anls_dict = {}
     
     for fname in tasks:

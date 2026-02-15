@@ -167,32 +167,15 @@ TASKS_PMT = '''
     "required_other_language_third_party_packages": [
         "No third-party dependencies required"
     ],
-    "logic_analysis": [
-        [
-            "data_preprocessing.py",
-            "DataPreprocessing class ........"
-        ],
-        [
-            "trainer.py",
-            "Trainer ....... "
-        ],
-        [
-            "dataset_loader.py",
-            "Handles loading and ........"
-        ],
-        [
-            "model.py",
-            "Defines the model ......."
-        ],
-        [
-            "evaluation.py",
-            "Evaluation class ........ "
-        ],
-        [
-            "main.py",
-            "Entry point  ......."
-        ]
-    ],
+    "file_descs": {
+        "data_preprocessing.py": "DataPreprocessing class ........",
+        "trainer.py": "Trainer ....... ",
+        "dataset_loader.py": "Handles loading and ........",
+        "model.py": "Defines the model .......",
+        "evaluation.py": "Evaluation class ........ ",
+        "main.py": "Entry point  .......",
+        "{file name}": "{file desc}"    
+    },
     "task_list": [
         "dataset_loader.py", 
         "model.py",  
