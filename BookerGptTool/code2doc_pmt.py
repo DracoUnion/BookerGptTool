@@ -56,8 +56,8 @@ OVVW_PMT = '''
         },
         { ... }
     ],
-    "global_vars": ["var1", "..."],
-    "global_funcs": ["func1", "..."]
+    "vars": ["var1", "..."],
+    "funcs": ["func1", "..."]
 }
 ```
 
