@@ -132,6 +132,12 @@ def process_file(args):
     advc = ans.replace('[content]', '') \
             .replace('[/content]', '')
 
+    print(f'[6] 其它')
+    ques = ETC_PMT.replace('{code}', code)
+    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    etc = ans.replace('[content]', '') \
+            .replace('[/content]', '')
+
     doc = f'''
 # `{fname}` 详细设计文档
 
@@ -165,6 +171,10 @@ def process_file(args):
 ## 问题及建议
 
 {advc}
+
+## 其它
+
+{etc}
     '''
     open(ofname, 'w', encoding='utf8').write(doc)
     
