@@ -53,7 +53,8 @@ FLIST_PMT = '''
         "dataset_loader.py", 
         "model.py",  
         "trainer.py",
-        "evaluation.py" 
+        "evaluation.py",
+        "..."
     ],
     "data_structures_and_interfaces": [
         "classDiagram",
@@ -77,10 +78,12 @@ FLIST_PMT = '''
         "        +__init__(model: Model, data: Any)",
         "        +evaluate() -> dict",
         "    }",
+        "    class ...",
         "    Main --> DatasetLoader",
         "    Main --> Trainer",
         "    Main --> Evaluation",
-        "    Trainer --> Model"
+        "    Trainer --> Model",
+        "    ..."
     ],
     "program_call_flow": [
         "sequenceDiagram",
@@ -99,7 +102,8 @@ FLIST_PMT = '''
         "    M->>EV: evaluate(model, dataset)",
         "    EV->>MD: forward(x)",
         "    MD-->>EV: predictions",
-        "    EV-->>M: metrics"
+        "    EV-->>M: metrics",
+        "    ..."
     ],
     "anything_unclear": "Need clarification on the exact dataset format and any specialized hyperparameters."
 }
