@@ -81,7 +81,25 @@ def paper2code(args):
         logic_anls = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         logic_anls_dict[fname] = logic_anls
     
-    print(logic_anls)
+    # print(logic_anls)
+    code_dict = {}
+    for idx, fname in enumerate(tasks):
+        print(f"[CODING] {fname}")
+        done_files = ','.join(code_dict.keys()) or 'none'
+        logic_analysis = logic_anls_dict.get(fname, "“未指定”")
+        ques = CODE_PMT.replace("{paper}", tex) \
+            .replace('{plan}', plan) \
+            .replace('{flist}', flist_str) \
+            .replace('{tasks}', tasks_str) \
+            .replace('{config}', cfg_str) \
+            .replace('{done_file_list}', done_files) \
+            .replace('{todo_file_name}', fname) \
+            .replace('{logic_analysis}', logic_analysis)
+        code = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        code_dict[fname] = code
+
+    print(code_dict)
+
 
     
 

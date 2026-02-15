@@ -193,7 +193,7 @@ TASKS_PMT = '''
 
 -   `required_packages`：`Optional[List[str]]`，以`requirements.txt`格式提供所需的第三方包（例如：'numpy==1.21.0'）
 -   `required_other_language_third_party_packages`：`List[str]`，列出非Python语言所需的软件包，若无则填写"无第三方依赖要求"
--   `logic_analysis`：`List[List[str]]`，提供待实现的类/方法/函数文件列表，包含依赖关系分析和导入语句，尽可能包含详细描述
+-   `file_descs`：`Dict[str, str]`，提供待实现的类/方法/函数文件字典，键是文件名，值是尽可能详细的描述
 -   `task_list`：`List[str]`，按依赖优先级将任务拆解为文件清单，任务清单必须包含之前生成的文件列表
 -   `full_api_spec`：`str`，使用OpenAPI 3.0规范描述前后端可能使用的所有API，如无需前后端通信则留空
 -   `shared_knowledge`：`str`，详细说明共享知识，如通用工具函数或配置变量
