@@ -6,6 +6,10 @@ from io import BytesIO
 from os import path
 from .paper2code_pmt import *
 
+dft_hdrs = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+}
+
 def arxiv_id2text(aid):
     url = f'https://arxiv.org/src/{aid}'
     data = requests.get(url, headers=dft_hdrs).content
