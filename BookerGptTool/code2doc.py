@@ -82,7 +82,7 @@ def process_file(args):
     jovvw = json.loads(ovvw_str)
     desc = jovvw['desc']
     process = '\n'.join(jovvw['process'])
-    sturcture = '\n'.join(jovvw['sturcture'])
+    sturcture = '\n'.join(jovvw['structure'])
 
     print('[2] 分析全局变量和类字段')
     flds = [
