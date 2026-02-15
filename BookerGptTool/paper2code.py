@@ -53,6 +53,8 @@ def paper2code(args):
         ques = PLAN_PMT.replace("{paper}", tex)
         plan = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         open(plan_fname, 'w', encoding='utf8').write(plan)
+    else:
+        plan = open(plan_fname, encoding='utf8').read()
     
     print('"[Planning] Architecture design')
     flist_fname = path.join(args.out, 'file_list.json')
@@ -62,6 +64,8 @@ def paper2code(args):
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         flist_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         open(flist_fname, 'w', encoding='utf8').write(flist_str)
+    else:
+        flist_str = open(flist_fname, encoding='utf8').read()
 
     print('"[Planning] Logic design')
     tasks_fname = path.join(args.out, 'tasks.json')
@@ -72,6 +76,8 @@ def paper2code(args):
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         tasks_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         open(flist_fname, 'w', encoding='utf8').write(tasks_str)
+    else:
+        tasks_str = open(tasks_fname, encoding='utf8').read()
 
     print('[Planning] Configuration file generation')
     cfg_fname = path.join(args.out, 'config.yaml')
@@ -83,7 +89,8 @@ def paper2code(args):
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         cfg_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         open(cfg_fname, 'w', encoding='utf8').write(cfg_str)
-    # print(plan, '\n', flist_str, '\n', tasks_str, '\n', cfg_str)
+    else:
+        cfg_str = open(cfg_fname, encoding='utf8').read()
     
     jtask = json.loads(tasks_str)
     tasks = jtask['task_list']
@@ -94,7 +101,10 @@ def paper2code(args):
         print(f"[ANALYSIS] {fname}")
         la_fname = fname.replace('.', '_') + '_logic_analysis.md'
         la_fname = path.join(args.out, la_fname)
-        if path.isfile(la_fname): continue 
+        if path.isfile(la_fname): 
+            logic_anls = open(la_fname, encoding='utf8').read()
+            logic_anls_dict[fname] = logic_anls
+            continue         
         dir_ = path.dirname(la_fname)
         if dir_: os.makedirs(dir_, exist_ok=True)
         fdesc = fdesc_dict.get(fname, '“未指定”')
@@ -114,7 +124,10 @@ def paper2code(args):
     for idx, fname in enumerate(tasks):
         print(f"[CODING] {fname}")
         code_fname = path.join(args.out, fname)
-        if path.isfile(code_fname): continue
+        if path.isfile(code_fname): 
+            code = open(code_fname, encoding='utf8').read()
+            code_dict[fname] = code
+            continue
         dir_ = path.dirname(fname)
         if dir_: os.makedirs(dir_, exist_ok=True)
         done_files = ','.join(code_dict.keys()) or 'none'
