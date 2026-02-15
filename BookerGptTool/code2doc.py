@@ -5,13 +5,13 @@ import traceback
 import yaml
 import argparse
 from os import path
-import json
+import json_repair as json
 import random
 import copy
 import re
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-from .util import *
+from .util import call_chatgpt_retry, set_openai_props
 from .code2doc_pmt import *
 
 
