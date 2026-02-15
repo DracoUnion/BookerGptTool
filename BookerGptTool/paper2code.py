@@ -142,7 +142,8 @@ def paper2code(args):
             .replace('{todo_file_name}', fname) \
             .replace('{logic_analysis}', logic_analysis)
         code = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        code = re.search(r'```\w*([\s\S]+?)```', code).group(1)
+        m = re.search(r'```\w*([\s\S]+?)```', code)
+        if m : code = m.group(1)
         code_dict[fname] = code
         open(code_fname, 'w', encoding='utf8').write(code)
 
