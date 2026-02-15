@@ -140,11 +140,15 @@ def process_file(args):
 
 ## 整体流程
 
+```mermaid
 {process}
+```
 
 ## 类结构
 
+```
 {sturcture}
+```
 
 ## 全局变量及字段
 
