@@ -45,18 +45,18 @@ def paper2code(args):
     ques = FLIST_PMT.replace("{paper}", tex) \
         .replace('{plan}', plan)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    flist = re.search(r'```([\s\S]+?)```', ans).group(1)
+    flist = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
     ques = TASKS_PMT.replace("{paper}", tex) \
         .replace('{plan}', plan) \
         .replace('{flist}', flist)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    tasks = re.search(r'```([\s\S]+?)```', ans).group(1)
+    tasks = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
     ques = CFG_PMT.replace("{paper}", tex) \
         .replace('{plan}', plan) \
         .replace('{flist}', flist) \
         .replace('{tasks}', tasks)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    cfg = re.search(r'```([\s\S]+?)```', ans).group(1)
+    cfg = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
     print(plan, '\n', flist, '\n', tasks, '\n', cfg)
 
     
