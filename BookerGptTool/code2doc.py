@@ -101,7 +101,7 @@ def process_file(args):
 
     print(f'[3] 分析全局函数和类方法')
     mtds = [
-        f'{c}.{f}'
+        f'{c["name"]}.{f}'
         for c in jovvw['classes']
         for f in c['methods']
     ]
