@@ -108,14 +108,14 @@ TASKS_PMT = '''
 
 ```
 {
-    "Required packages": [
+    "required_packages": [
         "numpy==1.21.0",
         "torch==1.9.0"  
     ],
-    "Required Other language third-party packages": [
+    "required_other_language_third_party_packages": [
         "No third-party dependencies required"
     ],
-    "Logic Analysis": [
+    "logic_analysis": [
         [
             "data_preprocessing.py",
             "DataPreprocessing class ........"
@@ -141,28 +141,28 @@ TASKS_PMT = '''
             "Entry point  ......."
         ]
     ],
-    "Task list": [
+    "task_list": [
         "dataset_loader.py", 
         "model.py",  
         "trainer.py", 
         "evaluation.py",
         "main.py"  
     ],
-    "Full API spec": "openapi: 3.0.0 ...",
-    "Shared Knowledge": "Both data_preprocessing.py and trainer.py share ........",
-    "Anything UNCLEAR": "Clarification needed on recommended hardware configuration for large-scale experiments."
+    "full_api_spec": "openapi: 3.0.0 ...",
+    "shared_knowledge": "Both data_preprocessing.py and trainer.py share ........",
+    "anything_uncliear": "Clarification needed on recommended hardware configuration for large-scale experiments."
 }
 ```
 
-## 节点："<节点>：<类型> # <指令>"
+## 格式说明
 
--   所需Python包：`typing.Optional[typing.List[str]]` # 以requirements.txt格式提供所需的第三方包（例如：'numpy==1.21.0'）
--   所需其他语言第三方包：`typing.List[str]` # 列出非Python语言所需的软件包，若无则填写"无第三方依赖要求"
--   逻辑分析：`typing.List[typing.List[str]]` # 提供待实现的类/方法/函数文件列表，包含依赖关系分析和导入语句，尽可能包含详细描述
--   任务清单：`typing.List[str]` # 按依赖优先级将任务拆解为文件清单，任务清单必须包含之前生成的文件列表
--   完整API规范：`<class 'str'>` # 使用OpenAPI 3.0规范描述前后端可能使用的所有API，如无需前后端通信则留空
--   共享知识库：`<class 'str'>` # 详细说明共享知识，如通用工具函数或配置变量
--   待澄清事项：`<class 'str'>` # 列出论文或项目范围中需要解决的未决问题或待确认事项
+-   `required_packages`：`Optional[typing.List[str]]`，以`requirements.txt`格式提供所需的第三方包（例如：'numpy==1.21.0'）
+-   `required_other_language_third_party_packages`：`List[str]`，列出非Python语言所需的软件包，若无则填写"无第三方依赖要求"
+-   `logic_analysis`：`List[typing.List[str]]`，提供待实现的类/方法/函数文件列表，包含依赖关系分析和导入语句，尽可能包含详细描述
+-   `task_list`：`List[str]`，按依赖优先级将任务拆解为文件清单，任务清单必须包含之前生成的文件列表
+-   `full_api_spec`：`str`，使用OpenAPI 3.0规范描述前后端可能使用的所有API，如无需前后端通信则留空
+-   `shared_knowledge`：`str`，详细说明共享知识，如通用工具函数或配置变量
+-   `anything_uncliear`：`str`，列出论文或项目范围中需要解决的未决问题或待确认事项
 
 ## 约束条件
 
