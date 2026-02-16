@@ -89,7 +89,7 @@ def paper2code(args):
             .replace('{flist}', flist_str)
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         tasks_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-        open(flist_fname, 'w', encoding='utf8').write(tasks_str)
+        open(tasks_fname, 'w', encoding='utf8').write(tasks_str)
     else:
         tasks_str = open(tasks_fname, encoding='utf8').read()
 
