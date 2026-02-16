@@ -5,8 +5,9 @@ from io import BytesIO
 from os import path
 import re
 import os
+import shutil
 import json_repair as json
-from .util import call_chatgpt_retry, set_openai_props
+from .util import call_chatgpt_retry, set_openai_props, extname
 from .paper2code_pmt import *
 
 dft_hdrs = {
@@ -39,22 +40,31 @@ def ext_chapters(tex):
     return title[0], abs_[0], chs
 
 def paper2code(args):
-    if args.out is None: args.out = args.arxiv
+    if args.out is None: 
+        args.out = args.arxiv \
+            .replace(':', '_') \
+            .replace('.', '_') + '_code'
+    os.makedirs(args.out, exist_ok=True)
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
-    os.makedirs(args.out, exist_ok=True)
     print('[Downloading] download arxiv paper')
-    tex_fname = path.join(args.out, 'paper.tex')
-    if not path.isfile(tex_fname):
-        tex = arxiv_id2text(args.arxiv)
-        open(tex_fname, 'w', encoding='utf8').write(tex)
+    paper_fname = path.join(args.out, 'paper')
+    if path.isfile(paper_fname):
+        paper = open(paper_fname, encoding='utf8').read()
+    elif re.search(r'arxiv:\d+\.\d+', args.arxiv):
+        paper = arxiv_id2text(args.arxiv)
+        open(paper_fname, 'w', encoding='utf8').write(paper)
+    elif path.isfile(args.arxiv) and \
+         extname(args.arxiv) in ['tex', 'md', 'txt']:
+        paper = open(args.arxiv, encoding='utf8').read()
+        shutil.copy(args.arxiv, paper_fname)
     else:
-        tex = open(tex_fname, encoding='utf8').read()
-    
+        raise ValueError('请提供 MD/TEX/TXT 文件或 ARXIV ID（arxiv:\d+\.\d+）')
+
     print('[Planning] Overall plan')
     plan_fname = path.join(args.out, 'plan.md')
     if not path.isfile(plan_fname):
-        ques = PLAN_PMT.replace("{paper}", tex)
+        ques = PLAN_PMT.replace("{paper}", paper)
         plan = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         open(plan_fname, 'w', encoding='utf8').write(plan)
     else:
@@ -63,7 +73,7 @@ def paper2code(args):
     print('"[Planning] Architecture design')
     flist_fname = path.join(args.out, 'file_list.json')
     if not path.isfile(flist_fname):
-        ques = FLIST_PMT.replace("{paper}", tex) \
+        ques = FLIST_PMT.replace("{paper}", paper) \
             .replace('{plan}', plan)
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         flist_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
@@ -74,7 +84,7 @@ def paper2code(args):
     print('"[Planning] Logic design')
     tasks_fname = path.join(args.out, 'tasks.json')
     if not path.isfile(tasks_fname):
-        ques = TASKS_PMT.replace("{paper}", tex) \
+        ques = TASKS_PMT.replace("{paper}", paper) \
             .replace('{plan}', plan) \
             .replace('{flist}', flist_str)
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
@@ -86,7 +96,7 @@ def paper2code(args):
     print('[Planning] Configuration file generation')
     cfg_fname = path.join(args.out, 'config.yaml')
     if not path.isfile(cfg_fname):
-        ques = CFG_PMT.replace("{paper}", tex) \
+        ques = CFG_PMT.replace("{paper}", paper) \
             .replace('{plan}', plan) \
             .replace('{flist}', flist_str) \
             .replace('{tasks}', tasks_str)
@@ -112,7 +122,7 @@ def paper2code(args):
         dir_ = path.dirname(la_fname)
         if dir_: os.makedirs(dir_, exist_ok=True)
         fdesc = fdesc_dict.get(fname, '“未指定”')
-        ques = ANLS_PMT.replace("{paper}", tex) \
+        ques = ANLS_PMT.replace("{paper}", paper) \
             .replace('{plan}', plan) \
             .replace('{flist}', flist_str) \
             .replace('{tasks}', tasks_str) \
@@ -136,7 +146,7 @@ def paper2code(args):
         if dir_: os.makedirs(dir_, exist_ok=True)
         done_files = ','.join(code_dict.keys()) or 'none'
         logic_analysis = logic_anls_dict.get(fname, "“未指定”")
-        ques = CODE_PMT.replace("{paper}", tex) \
+        ques = CODE_PMT.replace("{paper}", paper) \
             .replace('{plan}', plan) \
             .replace('{flist}', flist_str) \
             .replace('{tasks}', tasks_str) \
