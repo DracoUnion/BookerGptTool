@@ -23,7 +23,9 @@ PLAN_PMT = '''
 
 ## 论文
 
+[content]
 {paper}
+[/content]
 '''
 
 ##############################################
@@ -127,7 +129,9 @@ FLIST_PMT = '''
 
 ## 论文
 
+[content]
 {paper}
+[/content]
 
 ## 规划
 
@@ -209,7 +213,9 @@ TASKS_PMT = '''
 
 ## 论文
 
+[content]
 {paper}
+[/content]
 
 ## 规划
 
@@ -264,7 +270,9 @@ training:
 
 ## 论文
 
+[content]
 {paper}
+[/content]
 
 ## 规划
 
@@ -303,7 +311,9 @@ ANLS_PMT = '''
 
 ## 论文
 
+[content]
 {paper}
+[/content]
 
 ## 规划
 
@@ -345,7 +355,9 @@ CODE_PMT = '''
 
 ## 论文
 
+[content]
 {paper}
+[/content]
 
 ## 规划
 
@@ -421,11 +433,15 @@ FIX_PMT = '''
 
 ## 代码
 
+```
 {code}
+```
 
 ## 错误信息
 
+```
 {errmsg}
+```
 
 ## 指令
 
