@@ -84,7 +84,7 @@ def main():
     arxiv_batch_parser.set_defaults(func=sum_arxiv_batch)
 
     paper2code_parser = subparsers.add_parser("paper2code", help="summarize arxiv papers")
-    paper2code_parser.add_argument("arxiv", help="arxiv id")
+    paper2code_parser.add_argument("fname", help="MD/TEX/TXT file or ARXIV ID（arxiv:\d+\.\d+）")
     paper2code_parser.add_argument("-o", "--out", type=str, help="output dir name")
     paper2code_parser.set_defaults(func=paper2code)
 

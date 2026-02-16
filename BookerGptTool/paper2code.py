@@ -41,7 +41,7 @@ def ext_chapters(tex):
 
 def paper2code(args):
     if args.out is None: 
-        args.out = args.arxiv \
+        args.out = args.fname \
             .replace(':', '_') \
             .replace('.', '_') + '_code'
     os.makedirs(args.out, exist_ok=True)
@@ -51,13 +51,13 @@ def paper2code(args):
     paper_fname = path.join(args.out, 'paper')
     if path.isfile(paper_fname):
         paper = open(paper_fname, encoding='utf8').read()
-    elif re.search(r'arxiv:\d+\.\d+', args.arxiv):
-        paper = arxiv_id2text(args.arxiv)
+    elif re.search(r'arxiv:\d+\.\d+', args.fname):
+        paper = arxiv_id2text(args.fname)
         open(paper_fname, 'w', encoding='utf8').write(paper)
-    elif path.isfile(args.arxiv) and \
-         extname(args.arxiv) in ['tex', 'md', 'txt']:
-        paper = open(args.arxiv, encoding='utf8').read()
-        shutil.copy(args.arxiv, paper_fname)
+    elif path.isfile(args.fname) and \
+         extname(args.fname) in ['tex', 'md', 'txt']:
+        paper = open(args.fname, encoding='utf8').read()
+        shutil.copy(args.fname, paper_fname)
     else:
         raise ValueError('请提供 MD/TEX/TXT 文件或 ARXIV ID（arxiv:\d+\.\d+）')
 
