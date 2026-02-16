@@ -52,7 +52,7 @@ def paper2code(args):
     if path.isfile(paper_fname):
         paper = open(paper_fname, encoding='utf8').read()
     elif re.search(r'arxiv:\d+\.\d+', args.fname):
-        paper = arxiv_id2text(args.fname)
+        paper = arxiv_id2text(args.fname[6:])
         open(paper_fname, 'w', encoding='utf8').write(paper)
     elif path.isfile(args.fname) and \
          extname(args.fname) in ['tex', 'md', 'txt']:
