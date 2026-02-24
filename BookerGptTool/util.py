@@ -59,6 +59,7 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None):
             ).choices[0].message.content.strip()
             # 还原指令格式
             ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
+            ans = re.sub(r'<think>[\s\S]+?</think>', '', ans)
             print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
             return ans
         except Exception as ex:
