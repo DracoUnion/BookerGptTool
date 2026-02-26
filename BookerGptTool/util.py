@@ -1,5 +1,7 @@
 import openai
+import base64
 import httpx
+import requests
 import os
 import traceback
 import yaml
@@ -12,6 +14,19 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from typing import *
+
+def request_retry(method, url, retry=10, check_status=False, **kw):
+    kw.setdefault('timeout', 10)
+    for i in range(retry):
+        try:
+            r = requests.request(method, url, **kw)
+            if check_status: r.raise_for_status()
+            return r
+        except KeyboardInterrupt as e:
+            raise e
+        except Exception as e:
+            print(f'{url} retry {i}')
+            if i == retry - 1: raise e
 
 def reform_paras_mdcn(text, size=1500):
     text = re.sub(r'```[\s\S]+?```', '', text)
@@ -154,3 +169,24 @@ def combine_prompt_args(prompt: str, args: Dict[str, Any]):
 def norm_l2(arr, axis=-1):
     l2 = (arr**2).sum(axis, keepdims=True) ** 0.5
     return arr / l2
+
+
+def call_glmocr_retry(img, retry=10):
+    img_base64 = base64.b64encode(img).decode('ascii')
+    url = "https://open.bigmodel.cn/api/paas/v4/layout_parsing"
+    payload = {
+        "model": "glm-ocr",
+        "file": f'data:image/png;base64,{img_base64}',
+    }
+    headers = {
+        "Authorization": f"Bearer {openai.api_key}",
+        "Content-Type": "application/json"
+    }
+    res = request_retry(
+        'POST', url, 
+        json=payload, 
+        headers=headers, 
+        proxies=openai.proxy,
+        retry=retry
+    )
+    return json.loads(res.text)['md_results']
