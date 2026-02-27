@@ -102,8 +102,8 @@ def pdf_ocr(args):
     pdf_hash = hashlib.md5(pdf).hexdigest()
     doc = fitz.open('pdf', BytesIO(pdf))
 
-    print(f'[2] 初始化 {yaml_fname}')
     yaml_fname = args.fname[:-4] + '.yaml'
+    print(f'[2] 初始化 {yaml_fname}')
     if path.isfile(yaml_fname):
         res = yaml.safe_load(open(yaml_fname, encoding='utf8').read())
     else:
