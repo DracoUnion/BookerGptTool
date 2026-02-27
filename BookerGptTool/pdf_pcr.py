@@ -74,7 +74,7 @@ def tr_proc_img(img, res, idx, img_dir, pdf_hash, write_callback):
         img_pt = bytes(cv2.imencode(
             '.png', img_pt, 
             [cv2.IMWRITE_PNG_COMPRESSION , 9]
-        ))
+        )[1])
         img_pt = pngquant(img_pt)
         img_fname = f'{pdf_hash}_{idx}_{j}.png'
         img_ffname = path.join(img_dir, img_fname)
