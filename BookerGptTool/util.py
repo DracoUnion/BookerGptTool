@@ -189,4 +189,5 @@ def call_glmocr_retry(img, retry=10):
         proxies=openai.proxy,
         retry=retry
     )
+    print(res.text)
     return json.loads(res.text)['md_results']
