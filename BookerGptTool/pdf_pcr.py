@@ -112,6 +112,8 @@ def pdf_ocr(args):
             'md': '',
             'merge': -1,
         } for i in range(len(doc))]
+        open(yaml_fname, 'w', encoding='utf8') \
+                .write(yaml.safe_dump(res))
 
     print(f'[3] 识别图像')
     pool = ThreadPoolExecutor(args.threads)
