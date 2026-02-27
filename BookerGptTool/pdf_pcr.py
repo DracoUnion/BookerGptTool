@@ -126,7 +126,6 @@ def pdf_ocr(args):
         if it['md']: continue
         pgno = it['pgno']
         img = doc[pgno].get_pixmap(dpi=args.dpi).tobytes('PNG')
-        img = buf.getvalue()
         h = pool.submit(
             tr_ocr_page, 
             img, res, i, args,
