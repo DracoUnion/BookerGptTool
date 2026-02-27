@@ -52,17 +52,17 @@ def fix_lists(ans):
 def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None):
     # 改变指令符号的形式，避免模型出错
     ques = re.sub(r'<\|([\w\-\.]+)\|>', r'</\1/>', ques)
+    print(f'ques: {json.dumps(ques, ensure_ascii=False)}')
+    client = openai.OpenAI(
+        base_url=openai.base_url,
+        api_key=openai.api_key,
+        http_client=httpx.Client(
+            proxies=openai.proxy,
+            transport=httpx.HTTPTransport(local_address="0.0.0.0"),
+        )
+    )
     for i in range(retry):
         try:
-            print(f'ques: {json.dumps(ques, ensure_ascii=False)}')
-            client = openai.OpenAI(
-                base_url=openai.base_url,
-                api_key=openai.api_key,
-                http_client=httpx.Client(
-                    proxies=openai.proxy,
-                    transport=httpx.HTTPTransport(local_address="0.0.0.0"),
-                )
-            )
             ans = client.chat.completions.create(
                 messages=[{
                     "role": "user",
@@ -72,14 +72,15 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None):
                 temperature=temp,
                 max_tokens=max_tokens,
             ).choices[0].message.content.strip()
-            # 还原指令格式
-            ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
-            ans = re.sub(r'<think>[\s\S]+?</think>', '', ans)
-            print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
-            return ans
+            break
         except Exception as ex:
             print(f'OpenAI retry {i+1}: {str(ex)}')
             if i == retry - 1: raise ex
+        # 还原指令格式
+        ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
+        ans = re.sub(r'<think>[\s\S]+?</think>', '', ans)
+        print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
+        return ans
 
 def set_openai_props(key=None, proxy=None, host=None):
     openai.api_key = key
