@@ -76,11 +76,11 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None):
         except Exception as ex:
             print(f'OpenAI retry {i+1}: {str(ex)}')
             if i == retry - 1: raise ex
-        # 还原指令格式
-        ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
-        ans = re.sub(r'<think>[\s\S]+?</think>', '', ans)
-        print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
-        return ans
+    # 还原指令格式
+    ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
+    ans = re.sub(r'<think>[\s\S]+?</think>', '', ans)
+    print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
+    return ans
 
 def set_openai_props(key=None, proxy=None, host=None):
     openai.api_key = key
