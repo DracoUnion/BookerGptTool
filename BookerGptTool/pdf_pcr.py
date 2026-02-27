@@ -47,8 +47,8 @@ def tr_ocr_page(img, res, idx, args, write_callback):
 
 def tr_merge(res, idx, args, write_callback):
     print(f'[3] 处理合并 {idx + 1}')
-    prev = re.sub(r'^.+?\Z', res[idx - 1]['md'], flags=re.M)
-    next = re.sub(r'\A.+?$', res[idx]['md'], flags=re.M)
+    prev = re.search(r'^.+?\Z', res[idx - 1]['md'], flags=re.M).group()
+    next = re.search(r'\A.+?$', res[idx]['md'], flags=re.M).group()
 
     ques = MERGE_PMT.replace('{prev}', prev) \
         .replace('{next}', next)
