@@ -53,9 +53,8 @@ def tr_merge(res, idx, args, write_callback):
     ques = MERGE_PMT.replace('{prev}', prev) \
         .replace('{next}', next)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    merge = re.search(r'```([\s\S]+?)```', ans).group(1)
-    merge = json.loads(merge.strip())
-    res[idx]['merge'] = int(merge)
+    merge = ans.replace('```', '').strip()
+    res[idx]['merge'] = int(merge == 'true')
     write_callback()
     
 
