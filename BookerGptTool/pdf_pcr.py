@@ -113,7 +113,7 @@ def pdf_ocr(args):
             'merge': -1,
         } for i in range(len(doc))]
         open(yaml_fname, 'w', encoding='utf8') \
-                .write(yaml.safe_dump(res))
+                .write(yaml.safe_dump(res, allow_unicode=True))
 
     print(f'[3] 识别图像')
     pool = ThreadPoolExecutor(args.threads)
@@ -122,7 +122,7 @@ def pdf_ocr(args):
     def write_callback(fname, res):
         with lock:
             open(fname, 'w', encoding='utf8') \
-                .write(yaml.safe_dump(res))
+                .write(yaml.safe_dump(res, allow_unicode=True))
     
     for i, it in enumerate(res):
         if it['md']: continue
