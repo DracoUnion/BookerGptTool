@@ -100,7 +100,7 @@ def pdf_ocr(args):
     print(f'[1] 加载 {args.fname}')
     pdf = open(args.fname, 'rb').read()
     pdf_hash = hashlib.md5(pdf).hexdigest()
-    doc = fitz.open('pdf', BytesIO(pdf))
+    doc: fitz.Document = fitz.open('pdf', BytesIO(pdf))
 
     yaml_fname = args.fname[:-4] + '.yaml'
     print(f'[2] 初始化 {yaml_fname}')
