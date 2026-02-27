@@ -92,6 +92,10 @@ def pdf_ocr(args):
     if not args.fname.endswith('.pdf'):
         print('请提供PDF文件')
         return
+    md_fname = args.fname[:-4] + '.md'
+    if path.isfile(md_fname):
+        print('PDF 已处理')
+        return
 
     print(f'[1] 加载 {args.fname}')
     pdf = open(args.fname, 'rb').read()
@@ -174,7 +178,6 @@ def pdf_ocr(args):
         h.result()
     hdls = []
     
-    md_fname = args.fname[:-4] + '.md'
     print(f'[6] 写入 {md_fname}')
     f = open(md_fname, 'w', encoding='utf8')
     for it in res:
