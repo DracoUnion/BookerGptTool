@@ -125,7 +125,10 @@ def pdf_ocr(args):
     for i, it in enumerate(res):
         if it['md']: continue
         pgno = it['pgno']
-        img = doc[pgno].get_pixmap(dpi=args.dpi)
+        pix = doc[pgno].get_pixmap(dpi=args.dpi)
+        buf = BytesIO()
+        pix.save(buf)
+        img = buf.getvalue()
         h = pool.submit(
             tr_ocr_page, 
             img, res, i, args,
@@ -163,7 +166,10 @@ def pdf_ocr(args):
     os.makedirs(img_dir, exist_ok=True)
     for i, it in enumerate(res):
         pgno = it['pgno']
-        img = doc[pgno].get_pixmap(dpi=args.dpi)
+        pix = doc[pgno].get_pixmap(dpi=args.dpi)
+        buf = BytesIO()
+        pix.save(buf)
+        img = buf.getvalue()
         h = pool.submit(
             tr_proc_img, 
             img, res, i, img_dir, pdf_hash,
