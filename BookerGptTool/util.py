@@ -182,12 +182,18 @@ def call_glmocr_retry(img, retry=10):
         "Authorization": f"Bearer {openai.api_key}",
         "Content-Type": "application/json"
     }
-    res = request_retry(
-        'POST', url, 
-        json=payload, 
-        headers=headers, 
-        proxies=openai.proxy,
-        retry=retry
-    )
+    for i in range(retry):
+        try:
+            res = requests.post(
+                url, 
+                json=payload, 
+                headers=headers, 
+                proxies=openai.proxy,
+                retry=retry
+            )
+            res.raise_for_status()
+        except Exception as ex:
+            print(f'GLM retry {i+1}: {str(ex)}')
+            if i == retry - 1: raise ex
     print(res.text)
     return json.loads(res.text)['md_results']
