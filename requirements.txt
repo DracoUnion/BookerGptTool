@@ -4,3 +4,6 @@ requests
 pyyaml
 json_repair
 pymupdf
+imgyaso
+opencv-python
+numpy
