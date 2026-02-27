@@ -60,6 +60,7 @@ def tr_merge(res, idx, args, write_callback):
 
 def tr_proc_img(img, res, idx, img_dir, pdf_hash, write_callback):
     md = res[idx]['md']
+    pgno = res[idx]['pgno']
     img_links = re.findall(r'!\[\]\(.+?\)', md)
     for j, link in enumerate(img_links):
         m = re.search(r'bbox=\[(\d+),\x20(\d+),\x20(\d+),\x20(\d+)\]', link)
@@ -76,7 +77,7 @@ def tr_proc_img(img, res, idx, img_dir, pdf_hash, write_callback):
             [cv2.IMWRITE_PNG_COMPRESSION , 9]
         )[1])
         img_pt = pngquant(img_pt)
-        img_fname = f'{pdf_hash}_{idx}_{j}.png'
+        img_fname = f'{pdf_hash}_{pgno}_{j}.png'
         img_ffname = path.join(img_dir, img_fname)
         print(f'[5] {img_ffname}')
         open(img_ffname, 'wb').write(img_pt)
