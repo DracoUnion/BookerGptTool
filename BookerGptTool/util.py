@@ -191,6 +191,7 @@ def call_glmocr_retry(img, retry=10):
                 proxies=openai.proxy,
             )
             res.raise_for_status()
+            break
         except Exception as ex:
             print(f'GLM retry {i+1}: {str(ex)}')
             if i == retry - 1: raise ex
