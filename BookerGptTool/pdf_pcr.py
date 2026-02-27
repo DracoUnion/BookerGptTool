@@ -183,7 +183,7 @@ def pdf_ocr(args):
     print(f'[6] 写入 {md_fname}')
     f = open(md_fname, 'w', encoding='utf8')
     for it in res:
-        if it['merge'] == 0:
+        if it['merge'] != 1:
             f.write('\n\n')
         f.write(it['md'])
     f.close()
