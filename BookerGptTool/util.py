@@ -189,7 +189,6 @@ def call_glmocr_retry(img, retry=10):
                 json=payload, 
                 headers=headers, 
                 proxies=openai.proxy,
-                retry=retry
             )
             res.raise_for_status()
         except Exception as ex:
