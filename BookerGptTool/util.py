@@ -191,7 +191,8 @@ def call_glmocr_retry(img, retry=10):
                 headers=headers, 
                 proxies=openai.proxy,
             )
-            res.raise_for_status()
+            if res.status_code >= 400:
+                raise requests.HTTPError(f'HTTP {res.status_code}: {res.text}')
             break
         except Exception as ex:
             print(f'GLM retry {i+1}: {str(ex)}')
