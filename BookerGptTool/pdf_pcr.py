@@ -81,6 +81,14 @@ def ocr_json2md(j):
         if seg['type'] == 'image':
             bbox = seg['bbox']
             md = f'![](bbox={bbox})'
+        elif seg['type'] == 'title':
+            md = '# ' + seg['markdown']
+        elif seg['type'] == 'list':
+            md = '+   ' + seg['markdown'][1:].strip()
+        elif seg['type'] == 'code':
+            md = '```\n' + seg['markdown'] + '\n```'
+        elif seg['type'] == 'quote':
+            md = '> ' + seg['markdown']
         else:
             md = seg['markdown']
         mds.append(md)
