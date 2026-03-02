@@ -17,6 +17,26 @@ import json_repair as json
 from imgyaso.quant import pngquant
 from .util import call_glmocr_retry, call_chatgpt_retry, set_openai_props, extname
 
+OCR_PMT = '''
+你是一个专业的文档编辑助手。请查看给定图片，提取出其中的所有标题、段落、列表、表格、插图、引用、代码块等，并一定要忽略页眉和页脚，以给定 JSON  格式输出。注意只需要输出 JSON，不需要输出其它任何东西。
+
+## 格式
+
+```
+{
+	"direction": "hirizonal|vertical",
+	"contents": [
+		{
+			"type": "paragraph|title|list|table|quote|image|code",
+			"text": "in markdown format",
+			"bbox": [xmin, ymin, xmax, ymax]
+		},
+		...
+	]
+}
+```
+'''
+
 MERGE_PMT = '''
 你是一个专业的文档编辑助手。你将会得到两段 Markdown 文本，分别位于第一页最后一行和第二页第一行，请判断它们是否属于同一段落。如果第一段文本没有结束（例如：缺少句号、引号，或者语义明显未完），请将其与下一页的开头合并为同一段落。 如果句子已经结束，则保留为独立段落。你应该为此输出`true`或者`false`，不要输出其它选项。
 
@@ -38,6 +58,22 @@ true | false
 {next}
 [/content]
 '''
+
+def corp_img(img, bbox):
+    xmin, ymin, xmax, ymax = bbox
+    fmt_bytes = isinstance(img, bytes)
+    if fmt_bytes:
+        img = cv2.imdecode(
+            np.frombuffer(img, np.uint8),
+            cv2.IMREAD_UNCHANGED
+        )
+    img_pt = img[ymin:ymax + 1, xmin: xmax + 1]
+    if fmt_bytes:
+        img_pt = bytes(cv2.imencode(
+            '.png', img_pt, 
+            [cv2.IMWRITE_PNG_COMPRESSION , 9]
+        )[1])
+    return img_pt
 
 def tr_ocr_page(img, res, idx, args, write_callback):
     print(f'[3] 识别页码 {idx + 1}')
@@ -65,17 +101,8 @@ def tr_proc_img(img, res, idx, img_dir, pdf_hash, write_callback):
     for j, link in enumerate(img_links):
         m = re.search(r'bbox=\[(\d+),\x20(\d+),\x20(\d+),\x20(\d+)\]', link)
         if not m: continue
-        xmin, ymin, xmax, ymax = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
-        if isinstance(img, bytes):
-            img = cv2.imdecode(
-                np.frombuffer(img, np.uint8),
-                cv2.IMREAD_UNCHANGED
-            )
-        img_pt = img[ymin:ymax + 1, xmin: xmax + 1]
-        img_pt = bytes(cv2.imencode(
-            '.png', img_pt, 
-            [cv2.IMWRITE_PNG_COMPRESSION , 9]
-        )[1])
+        bbox = [int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))]
+        img_pt = corp_img(img, bbox)
         img_pt = pngquant(img_pt)
         img_fname = f'{pdf_hash}_{pgno}_{j}.png'
         img_ffname = path.join(img_dir, img_fname)
