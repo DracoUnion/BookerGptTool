@@ -89,11 +89,18 @@ def ocr_json2md(j):
 
 def tr_ocr_page(img, res, idx, args, write_callback):
     print(f'[3] 识别页码 {idx + 1}')
-    ans = call_vlm_retry(
-        img, OCR_PMT, args.vmodel, args.temp, args.retry, args.max_tokens,
-    )
-    j = json.loads(ans)
-    res[idx]['md'] = ocr_json2md(j)
+    for i in range(args.retry):
+        try:
+            ans = call_vlm_retry(
+                img, OCR_PMT, args.vmodel, args.temp, args.retry, args.max_tokens,
+            )
+            ans = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+            j = json.loads(ans)
+            res[idx]['md'] = ocr_json2md(j)
+            break
+        except Exception as ex:
+            print(f'OCR retry {i+1}: {str(ex)}')
+            if i == args.retry - 1: raise ex
     write_callback()
 
 def tr_merge(res, idx, args, write_callback):
