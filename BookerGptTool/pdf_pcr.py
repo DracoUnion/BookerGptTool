@@ -78,11 +78,11 @@ def corp_img(img, bbox):
 def ocr_json2md(j):
     mds = []
     for seg in j['contents']:
-        if j['type'] == 'image':
-            bbox = j['bbox']
+        if seg['type'] == 'image':
+            bbox = seg['bbox']
             md = f'![](bbox={bbox})'
         else:
-            md = j['markdown']
+            md = seg['markdown']
         mds.append(md)
     return '\n\n'.join(mds).strip()
     
