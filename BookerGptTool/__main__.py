@@ -20,6 +20,7 @@ def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
     openai_url = os.environ.get('OPENAI_BASE_URL')
     openai_model = os.environ.get('OPENAI_CHAT_MODEL', 'gpt-3.5-turbo')
+    openai_vmodel = os.environ.get('OPENAI_VIS_MODEL', '')
 
     parser = argparse.ArgumentParser(prog="BookerGptTool", formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-v", "--version", action="version", version=f"PYBP version: {__version__}")
@@ -31,6 +32,7 @@ def main():
     parser.add_argument("-M", "--max-tokens", type=int, default=None, help="max tokens")
     parser.add_argument("-H", "--host", default=openai_url, help="api host")
     parser.add_argument("--emb", default=os.environ.get('M3E_PATH', 'moka-ai/m3e-base'), help="emb model path")
+    parser.add_argument("-vm", "--vmodel_name", default=openai_vmodel, help="vision model name")
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
     

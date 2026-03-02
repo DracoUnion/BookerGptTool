@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import json_repair as json
 from imgyaso.quant import pngquant
-from .util import call_glmocr_retry, call_chatgpt_retry, set_openai_props, extname
+from .util import call_vlm_retry, call_chatgpt_retry, set_openai_props, extname
 
 OCR_PMT = '''
 你是一个专业的文档编辑助手。请查看给定图片，提取出其中的所有标题、段落、列表、表格、插图、引用、代码块等，并一定要忽略页眉和页脚，以给定 JSON  格式输出。注意只需要输出 JSON，不需要输出其它任何东西。
@@ -75,10 +75,16 @@ def corp_img(img, bbox):
         )[1])
     return img_pt
 
+def ocr_json2md(j):
+    pass
+
 def tr_ocr_page(img, res, idx, args, write_callback):
     print(f'[3] 识别页码 {idx + 1}')
-    md = call_glmocr_retry(img, args.retry)
-    res[idx]['md'] = md.strip()
+    ans = call_vlm_retry(
+        img, OCR_PMT, args.vmodel_name, args.temp, args.retry, args.max_tokens,
+    )
+    j = json.loads(ans)
+    res[idx]['md'] = ocr_json2md(j)
     write_callback()
 
 def tr_merge(res, idx, args, write_callback):
