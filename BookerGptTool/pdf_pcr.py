@@ -28,7 +28,7 @@ OCR_PMT = '''
 	"contents": [
 		{
 			"type": "paragraph|title|list|table|quote|image|code",
-			"text": "in markdown format",
+			"markdown": "in markdown format",
 			"bbox": [xmin, ymin, xmax, ymax]
 		},
 		...
@@ -76,7 +76,16 @@ def corp_img(img, bbox):
     return img_pt
 
 def ocr_json2md(j):
-    pass
+    mds = []
+    for seg in j['contents']:
+        if j['type'] == 'image':
+            bbox = j['bbox']
+            md = f'![](bbox={bbox})'
+        else:
+            md = j['markdown']
+        mds.append(md)
+    return '\n\n'.join(mds).strip()
+    
 
 def tr_ocr_page(img, res, idx, args, write_callback):
     print(f'[3] 识别页码 {idx + 1}')
