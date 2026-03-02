@@ -84,7 +84,8 @@ def ocr_json2md(j):
         else:
             md = seg['markdown']
         mds.append(md)
-    return '\n\n'.join(mds).strip()
+    return '\n\n'.join(mds).strip() \
+        or '<!-- no content -->'
     
 
 def tr_ocr_page(img, res, idx, args, write_callback):
@@ -94,7 +95,8 @@ def tr_ocr_page(img, res, idx, args, write_callback):
             ans = call_vlm_retry(
                 img, OCR_PMT, args.vmodel, args.temp, args.retry, args.max_tokens,
             )
-            ans = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+            # ans = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+            ans = ans.replace('```', '')
             j = json.loads(ans)
             res[idx]['md'] = ocr_json2md(j)
             break
