@@ -55,6 +55,7 @@ ARXIV_QA_PROMPT = '''
 
 ## 格式
 
+[content]
 ## {问题1}
 
 {回答1}
@@ -62,6 +63,7 @@ ARXIV_QA_PROMPT = '''
 ## {问题2}
 
 {回答2}
+[/content]
 
 ...
 
@@ -71,7 +73,9 @@ ARXIV_QA_PROMPT = '''
 
 ## 文章
 
+[content]
 {sum}
+[/content]
 '''
 
 sum_queses = [
@@ -186,7 +190,7 @@ def sum_arxiv(args):
     ques = ARXIV_QA_PROMPT.replace('{sum}', tex) \
             .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-
+    ans = ans.replace('[content]', '').replace('[/content]', '')
     '''
     yaml_fname = args.arxiv + '.yaml'
     if path.isfile(yaml_fname):
