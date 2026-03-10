@@ -48,7 +48,7 @@ def write_fiction(args):
         outline = open(outline_fname, encoding='utf8').read()
     else:
         ques = OUTLINE_PMT.replace('{setting}', world_setting) \
-            .replace('{role}', roles) \
+            .replace('{roles}', roles) \
             .replace('{nchapters}', str(args.chapters))
         outline = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         open(outline_fname, 'w', encoding='utf8').write(outline)
@@ -62,9 +62,9 @@ def write_fiction(args):
             detail = open(detail_fname, encoding='utf8').read()
         else:
             ques = DETAIL_PMT.replace('{setting}', world_setting) \
-                .replace('{role}', roles) \
+                .replace('{roles}', roles) \
                 .replace('{outline}', outline) \
-                .replace('{i}', str(i))
+                .replace('{i}', str(i)) 
             detail = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
             open(detail_fname, 'w', encoding='utf8').write(detail)
         details.append(detail)
@@ -78,9 +78,11 @@ def write_fiction(args):
             body = open(body_fname, encoding='utf8').read()
         else:
             ques = BODY_PMT.replace('{setting}', world_setting) \
-                .replace('{role}', roles) \
+                .replace('{roles}', roles) \
                 .replace('{detail}', details[i - 1]) \
-                .replace('{command}', args.wirte_command)
+                .replace('{command}', args.wirte_command) \
+                .replace('{i}', str(i)) \
+                .replace('{nword}', str(args.word))
             body = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
             open(body_fname, 'w', encoding='utf8').write(body)
         bodies.append(body)
