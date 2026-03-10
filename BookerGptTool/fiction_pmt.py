@@ -17,13 +17,28 @@ SETTING_PMT = DELIM_PMT + '''
 +   社会文化：人们的生活方式、信仰及禁忌。
 +   其它你认为需要补充的东西...
 
+## 写作要求
+
+[content]
+{command}
+[/content]
+
+
 ## 核心创意
 
+[content]
 {idea}
+[/content]
 '''
 
 ROLE_PMT = DELIM_PMT + '''
 你是一位资深的小说架构师。请根据以下世界观，帮我设计小说主要角色。
+
+## 写作要求
+
+[content]
+{command}
+[/content]
 
 ## 世界观
 
@@ -40,6 +55,12 @@ OUTLINE_PMT = DELIM_PMT + '''
 +   开端（激励事件）： 什么事件打破了主角的日常生活？
 +   中段（冲突升级）： 主角经历了哪些考验？盟友与敌人的变化？
 +   高潮与结局： 最终决战及主角的最终状态。
+
+## 写作要求
+
+[content]
+{command}
+[/content]
 
 ## 世界观
 
@@ -63,6 +84,12 @@ DETAIL_PMT = DELIM_PMT + '''
 +   角色
 +   剧情点
 +   其它你认为需要补充的东西...
+
+## 写作要求
+
+[content]
+{command}
+[/content]
 
 ## 世界观
 

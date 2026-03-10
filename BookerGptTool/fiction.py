@@ -29,7 +29,8 @@ def write_fiction(args):
     if path.isfile(setting_fname):
         world_setting = open(setting_fname, encoding='utf8').read()
     else:
-        ques = SETTING_PMT.replace('{idea}', args.idea)
+        ques = SETTING_PMT.replace('{idea}', args.idea) \
+            .replace('{command}', args.write_command)
         world_setting = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         open(setting_fname, 'w', encoding='utf8').write(world_setting)
     
@@ -38,7 +39,8 @@ def write_fiction(args):
     if path.isfile(role_fname):
         roles =  open(role_fname, encoding='utf8').read()
     else:
-        ques = ROLE_PMT.replace('{setting}', world_setting)
+        ques = ROLE_PMT.replace('{setting}', world_setting) \
+            .replace('{command}', args.write_command)
         roles = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         open(role_fname, 'w', encoding='utf8').write(roles)
     
@@ -49,7 +51,8 @@ def write_fiction(args):
     else:
         ques = OUTLINE_PMT.replace('{setting}', world_setting) \
             .replace('{roles}', roles) \
-            .replace('{nchapters}', str(args.chapters))
+            .replace('{nchapters}', str(args.chapters)) \
+            .replace('{command}', args.write_command)
         outline = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         open(outline_fname, 'w', encoding='utf8').write(outline)
     
@@ -64,7 +67,8 @@ def write_fiction(args):
             ques = DETAIL_PMT.replace('{setting}', world_setting) \
                 .replace('{roles}', roles) \
                 .replace('{outline}', outline) \
-                .replace('{i}', str(i)) 
+                .replace('{i}', str(i)) \
+                .replace('{command}', args.write_command)
             detail = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
             open(detail_fname, 'w', encoding='utf8').write(detail)
         details.append(detail)
