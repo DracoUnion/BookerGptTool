@@ -80,9 +80,9 @@ def write_fiction(args):
             ques = BODY_PMT.replace('{setting}', world_setting) \
                 .replace('{roles}', roles) \
                 .replace('{detail}', details[i - 1]) \
-                .replace('{command}', args.wirte_command) \
+                .replace('{command}', args.write_command) \
                 .replace('{i}', str(i)) \
-                .replace('{nword}', str(args.word))
+                .replace('{nword}', str(args.words))
             body = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
             open(body_fname, 'w', encoding='utf8').write(body)
         bodies.append(body)

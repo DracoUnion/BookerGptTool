@@ -15,6 +15,7 @@ from .erchuang import *
 from .note import *
 from .paper2code import *
 from .pdf_pcr import *
+from .fiction import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -132,6 +133,15 @@ def main():
     pdf_ocr_parser.add_argument("-t", "--threads", type=int, default=4, help="num threads")
     pdf_ocr_parser.set_defaults(func=pdf_ocr)
 
+    fiction_parser = subparsers.add_parser("fiction", help="write fiction")
+    fiction_parser.add_argument("idea", help="idea")
+    fiction_parser.add_argument("-o", "--out-dir", help="output dir")
+    fiction_parser.add_argument("-c", "--chapters", type=int, default=20, help="num chapters")
+    fiction_parser.add_argument("-w", "--words", type=int, default=5000, help="num words")
+    fiction_parser.add_argument("-wc", "--write_command", default=DFT_WRITE_CMD, help="writing coommand")
+    fiction_parser.add_argument("-pc", "--polish_command", default=DFT_POLISH_CMD, help="polishing coommand")
+    fiction_parser.add_argument("-se", "--style-example", default='', help="style example")
+    fiction_parser.set_defaults(func=write_fiction)
 
     args = parser.parse_args()
     args.func(args)
