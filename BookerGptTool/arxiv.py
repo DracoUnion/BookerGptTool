@@ -162,7 +162,8 @@ def reform_paras_texen(text, size=5000):
     return paras
     
 def sum_arxiv_batch(args):
-    ids = args.arxiv.split(',')
+    ids = open(args.fname, encoding='utf8').read().split('\n')
+    ids = [id for id in ids if id]
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
     for id_ in ids:
