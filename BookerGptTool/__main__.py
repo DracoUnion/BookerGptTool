@@ -16,6 +16,7 @@ from .note import *
 from .paper2code import *
 from .pdf_pcr import *
 from .fiction import *
+from .md2skill import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -142,6 +143,10 @@ def main():
     fiction_parser.add_argument("-pc", "--polish_command", default=DFT_POLISH_CMD, help="polishing coommand")
     fiction_parser.add_argument("-se", "--style-example", default='', help="style example")
     fiction_parser.set_defaults(func=write_fiction)
+
+    md2skill_parser = subparsers.add_parser("md2skill", help="md2skill")
+    md2skill_parser.add_argument("fname", help="fname")
+    md2skill_parser.set_defaults(func=md2skill)
 
     args = parser.parse_args()
     args.func(args)
