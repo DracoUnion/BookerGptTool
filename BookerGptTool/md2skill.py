@@ -13,6 +13,7 @@ from threading import Lock
 import functools
 from .util import call_chatgpt_retry, set_openai_props, extname, reform_paras_mdcn
 from .md2skill_pmt import *
+from md_chubker import chunk_markdown
 
 TYPE_PMT_MAP = {
     '技术手册': TECH_EXT_PMT,
@@ -52,7 +53,8 @@ def get_pmt_by_type(tp):
 
 def tr_gen_raw_skill(tp, paras, idx, args, write_callback):
     ques = get_pmt_by_type(tp) \
-        .replace('{contect}', paras[idx]['text'])
+        .replace('{content}', paras[idx]['content']) \
+        .replace('{context}', paras[idx]['context'])
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     paras[idx]['skill'] = ans.replace('[content]', '') \
         .replace('[/content]', '')
@@ -100,8 +102,13 @@ def md2skill(args):
     if res.get('paras'):
         paras = res['paras']
     else:
-        paras = reform_paras_mdcn(md, 6000)
-        paras = [{'text': p, 'skill': ''} for p in paras]
+        paras = chunk_markdown(
+            md, path.basename(args.fname)[:-3]).chunks
+        paras = [{
+            'content': p.content, 
+            'context': p.context,
+            'skill': ''
+        } for p in paras]
         res['paras'] = paras
         open(yaml_fname, 'w',  encoding='utf8') \
             .write(yaml.safe_dump(res, allow_unicode=True))
