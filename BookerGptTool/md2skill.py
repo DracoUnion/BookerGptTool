@@ -13,7 +13,7 @@ from threading import Lock
 import functools
 from .util import call_chatgpt_retry, set_openai_props, extname, reform_paras_mdcn
 from .md2skill_pmt import *
-from md_chunker import chunk_markdown
+from .md_chunker import chunk_markdown
 
 TYPE_PMT_MAP = {
     '技术手册': TECH_EXT_PMT,
