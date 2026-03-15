@@ -193,6 +193,11 @@ def sum_arxiv_safe(args):
 def sum_arxiv(args):
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
+    ofname = args.arxiv + '.md'
+    if path.isfile(ofname):
+        print(f'{args.arxiv} 已总结')
+        return
+
     tex = arxiv_id2text(args.arxiv)
     # title, abs_, chs = ext_chapters(tex)
     title = arxiv_id2title(args.arxiv) or args.arxiv
@@ -257,6 +262,4 @@ def sum_arxiv(args):
     res = f'# 【GPT总结】 {title}\n\n'
     res += f'> 原文：<https://ar5iv.labs.arxiv.org/html/{args.arxiv}>\n\n'
     res += ans
-
-    ofname = args.arxiv + '.md'
     open(ofname, 'w', encoding='utf8').write(res)
