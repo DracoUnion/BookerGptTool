@@ -42,8 +42,7 @@ def ext_chapters(tex):
 def paper2code(args):
     if args.out is None: 
         args.out = args.fname \
-            .replace(':', '_') \
-            .replace('.', '_') + '_code'
+            .replace(':', '_') + '_code'
     os.makedirs(args.out, exist_ok=True)
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
