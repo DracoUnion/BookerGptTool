@@ -92,7 +92,7 @@ sum_ques_set = set(sum_queses)
 def arxiv_id2title(aid):
     url = f'https://arxiv.org/abs/{aid}'
     html = requests.get(url, headers=dft_hdrs).text
-    return  pq(html).find('h1.title').text
+    return  pq(html).find('h1.title').text()
 
 def arxiv_id2text(aid):
     url = f'https://arxiv.org/src/{aid}'
