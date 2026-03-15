@@ -5,6 +5,7 @@ import numpy as np
 from io import BytesIO
 from os import path
 from sentence_transformers import SentenceTransformer
+from pyquery import PyQuery as pq
 
 dft_hdrs = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -86,6 +87,12 @@ sum_queses = [
     '这篇文章还存在什么问题，其后续工作中有哪些改进路径？',
 ]
 sum_ques_set = set(sum_queses)
+
+
+def arxiv_id2title(aid):
+    url = f'https://arxiv.org/abs/{aid}'
+    html = requests.get(url, headers=dft_hdrs).text
+    return  pq(html).find('h1.title').text
 
 def arxiv_id2text(aid):
     url = f'https://arxiv.org/src/{aid}'
@@ -187,7 +194,8 @@ def sum_arxiv(args):
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
     tex = arxiv_id2text(args.arxiv)
-    title, abs_, chs = ext_chapters(tex)
+    # title, abs_, chs = ext_chapters(tex)
+    title = arxiv_id2title(args.arxiv) or args.arxiv
     ques = ARXIV_QA_PROMPT.replace('{sum}', tex) \
             .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
