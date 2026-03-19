@@ -11,6 +11,7 @@ import json_repair as json
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import functools
+from sentence_transformers import SentenceTransformer
 from typing import Dict, Optional, List
 from .util import call_chatgpt_retry, set_openai_props, extname, reform_paras_mdcn
 from .md2skill_pmt import *
@@ -79,6 +80,44 @@ def normalize_skills_tags(skills: List[Dict[str, str]]) -> dict[str, str]:
             tag_map[ori] = norm
             skill['domain'] = norm
     return tag_map
+
+def cluster_skills(
+    skills: List[Dict[str, str]], 
+    emb_model_name: str,
+    threshold: float = 0.88
+):
+    normalize_skills_tags(skills)
+
+    # 构建每个 Skill 的文本表示（trigger + body 前 500 字）
+    texts = [
+        f"{s['trigger']} {s['body'][:500]}" 
+        for s in skills
+    ]
+
+    st = SentenceTransformer(emb_model_name)
+    vectors = st.encode(texts)
+    sims = st.similarity(vectors)
+
+    # 贪心聚类
+    used = [False] * len(skills)
+    clusters = []
+
+    for i in range(len(skills)):
+        if used[i]:  continue
+        cluster = [skills[i]]
+        used[i] = True
+
+        for j in range(i + 1, len(skills)):
+            if used[j]:  continue
+            # 余弦相似度
+            sim = sims[i, j]
+            if sim >= threshold:
+                cluster.append(skills[j])
+                used[j] = True
+        
+        clusters.append(cluster)
+
+    return clusters
 
 def get_pmt_by_type(tp):
     """根据 book_type 解析出 (prompt_name, user_template)"""
