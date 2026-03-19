@@ -220,7 +220,7 @@ def tr_merge_cluster(
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     merged = ans.replace('[content]', '') \
         .replace('[/content]', '')
-    skills[idx] = merged
+    skills[idx] = parse_raw_skill(merged)
     write_callback()
 
 def ext_toc_preface(md, preface_len=3000):
@@ -316,9 +316,11 @@ def md2skill(args):
         skills = yaml.safe_load(
             open(skills_fname, encoding='utf8').read())
     else:
-        skills = ['' for _ in len(clusters)]
+        skills = [None for _ in len(clusters)]
         for i, c in enumerate(clusters):
-            if len(c) == 1: continue
+            if len(c) == 1: 
+                skills[i] = c[0]
+                continue
             h = pool.submit(
                 tr_merge_cluster,
                 c, skills, i, args,
