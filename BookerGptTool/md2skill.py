@@ -392,6 +392,9 @@ def md2skill(args):
     else:
         skills = [rs['raw_skills'] for rs in raw_skills]
         skills = functools.reduce(lambda x, y: x + y, skills, [])
+        if not skills:
+            print(f'[3] 未找到任何技能，无法聚类')
+            return
         clusters = cluster_skills(skills, args.emb)
         open(clusters_fname, 'w',  encoding='utf8') \
             .write(yaml.safe_dump(clusters, allow_unicode=True))
