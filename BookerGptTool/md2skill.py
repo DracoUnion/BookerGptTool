@@ -274,6 +274,11 @@ def tr_gen_raw_skill(tp, paras, idx, args, write_callback):
         rs for rs in raw_skills 
         if rs and check_hallucination(rs['body'], paras[idx]['content'])
     ]
+    # 补充块序号、原始内容和上下文
+    for rs in raw_skills:
+        rs['chunk_idx'] = idx
+        rs['raw_context'] = paras[idx]['context']
+        rs['raw_content'] = paras[idx]['content']
     paras[idx]['raw_skills'] = raw_skills
     paras[idx]['generated'] = True
     write_callback()
@@ -289,7 +294,10 @@ def tr_merge_cluster(
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     merged = ans.replace('[content]', '') \
         .replace('[/content]', '')
-    skills[idx] = parse_raw_skill(merged)
+    new_skill = parse_raw_skill(merged)
+    # 取集群第一个的元信息
+    skills[idx] = cluster[0].copy()
+    skills[idx]['body'] = new_skill['body']
     write_callback()
 
 def ext_toc_preface(md, preface_len=3000):
