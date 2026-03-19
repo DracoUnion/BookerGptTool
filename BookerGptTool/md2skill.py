@@ -50,7 +50,7 @@ DOMAIN_SYNONYMS: dict[str, str] = {
 }
 
 def parse_raw_skill(raw_skill: str) -> Optional[Dict[str, str]]:
-    RE_RAW_SKILL = r'```ya?ml\n([\s\S]+?)\n```\n([\s\S}+)'
+    RE_RAW_SKILL = r'```ya?ml\n([\s\S]+?)\n```\n([\s\S]+)'
     m = re.search(RE_RAW_SKILL, raw_skill)
     if not m: return None
     try:
