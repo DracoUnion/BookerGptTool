@@ -304,7 +304,7 @@ def md2skill(args):
     else:
         skills = [rs['raw_skills'] for rs in raw_skills]
         skills = functools.reduce(lambda x, y: x + y, skills, [])
-        clusters = cluster_skills(skills)
+        clusters = cluster_skills(skills, args.emb)
         open(clusters_fname, 'w',  encoding='utf8') \
             .write(yaml.safe_dump(clusters, allow_unicode=True))
 
@@ -318,7 +318,7 @@ def md2skill(args):
         for i, s in enumerate(clusters):
             h = pool.submit(
                 tr_merge_cluster,
-                clusters, skills, i, args,
+                s, skills, i, args,
                 functools.partial(write_callback, skills_fname, skills)
             )
             hdls.append(h)
