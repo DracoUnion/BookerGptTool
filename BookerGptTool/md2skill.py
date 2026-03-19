@@ -206,6 +206,7 @@ def tr_gen_raw_skill(tp, paras, idx, args, write_callback):
         if rs and check_hallucination(rs['body'], paras[idx]['content'])
     ]
     paras[idx]['raw_skills'] = raw_skills
+    paras[idx]['generated'] = True
     write_callback()
 
 def tr_merge_cluster(
@@ -265,7 +266,8 @@ def md2skill(args):
         raw_skills = [{
             'content': c.content, 
             'context': c.context,
-            'raw_skills': ''
+            'raw_skills': [],
+            'generated': False,
         } for c in chunks]
         open(raw_skill_fname, 'w',  encoding='utf8') \
             .write(yaml.safe_dump(raw_skills, allow_unicode=True))
@@ -280,7 +282,7 @@ def md2skill(args):
                 .write(yaml.safe_dump(res, allow_unicode=True))
 
     for i, p in enumerate(raw_skills):
-        if p.get('raw_skills'): continue
+        if p.get('generated'): continue
         h = pool.submit(
             tr_gen_raw_skill, 
             schema['book_type'],
