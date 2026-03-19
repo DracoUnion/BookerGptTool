@@ -13,6 +13,7 @@ from threading import Lock
 import functools
 from .util import call_chatgpt_retry, set_openai_props, extname, reform_paras_mdcn
 from .md2skill_pmt import *
+from skill_validator import *
 from .md_chunker import chunk_markdown
 
 TYPE_PMT_MAP = {
@@ -56,7 +57,7 @@ def tr_gen_raw_skill(tp, paras, idx, args, write_callback):
         .replace('{content}', paras[idx]['content']) \
         .replace('{context}', paras[idx]['context'])
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    paras[idx]['skill'] = ans.replace('[content]', '') \
+    paras[idx]['raw_skills'] = ans.replace('[content]', '') \
         .replace('[/content]', '')
     write_callback()
 
@@ -107,7 +108,7 @@ def md2skill(args):
         paras = [{
             'content': p.content, 
             'context': p.context,
-            'skill': ''
+            'raw_skills': ''
         } for p in paras]
         res['paras'] = paras
         open(yaml_fname, 'w',  encoding='utf8') \
@@ -123,7 +124,7 @@ def md2skill(args):
                 .write(yaml.safe_dump(res, allow_unicode=True))
 
     for i, p in enumerate(paras):
-        if p['skill']: continue
+        if p['raw_skills']: continue
         h = pool.submit(
             tr_gen_raw_skill, 
             schema['book_type'],
@@ -138,3 +139,21 @@ def md2skill(args):
     for h in hdls:
         h.result()
     hdls = []
+
+    print(f'[3] 校验原始技能')
+    if res.get('passed_skills'):
+        passed_skills = res['passed_skills']
+    else:
+        skills = [
+            p['raw_skills'].split('\n---\n') 
+            for p in paras
+        ]
+        skills = functools.reduce(lambda x, y: x + y, skills, [])
+        validator = SkillValidator()
+        passed_skills, _ = validator.validate_batch([
+            RawSkill(s) for s in skills
+        ])
+        passed_skills = [s.raw_text for s in passed_skills]
+        res['passed_skills'] = passed_skills
+        open(yaml_fname, 'w',  encoding='utf8') \
+                .write(yaml.safe_dump(res, allow_unicode=True))
