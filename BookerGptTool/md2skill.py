@@ -241,9 +241,9 @@ def md2skill(args):
     os.makedirs(output_dir, exist_ok=True)
 
     print(f'[1] 生成 SCHEMA')
-    schema_fname = path.join(output_dir, 'schema.json')
+    schema_fname = path.join(output_dir, 'schema.yaml')
     if path.isfile(schema_fname):
-        schema = json.loads(open(schema_fname, encoding='utf8').read())
+        schema = yaml.safe_load(open(schema_fname, encoding='utf8').read())
     else:
         toc, preface = ext_toc_preface(md)
         ques = SCHEMA_PMT.replace('{toc}', toc) \
@@ -252,7 +252,7 @@ def md2skill(args):
         schema = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         schema = json.loads(schema)
         open(schema_fname, 'w',  encoding='utf8') \
-            .write(json.dumps(schema))
+            .write(yaml.safe_dump(schema))
     
     print(f'[2] 生成原始技能')
     raw_skill_fname = path.join(output_dir, 'raw_skills.yaml')
