@@ -50,7 +50,7 @@ def generate_claude_skills(
             f'    """实现 Skill 逻辑"""\n'
             f'    pass\n\n'
             f'if __name__ == "__main__":\n'
-            f'    main()\n',
+            f'    main()\n'
         )
         zip.writestr(f'{slug}/scripts/run.py', run_py)
 
@@ -203,5 +203,5 @@ description: {description}
 | 类型 | {skill['type']} ({skill['type']}) |
 | 置信度 | {confidence_pct} |
 | 前置条件 | {prereqs} |
-| 来源 | {skill.source_ref} |
+| 来源 | {skill['source_ref']} |
 """
