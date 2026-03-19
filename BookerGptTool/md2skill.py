@@ -317,10 +317,11 @@ def md2skill(args):
             open(skills_fname, encoding='utf8').read())
     else:
         skills = ['' for _ in len(clusters)]
-        for i, s in enumerate(clusters):
+        for i, c in enumerate(clusters):
+            if len(c) == 1: continue
             h = pool.submit(
                 tr_merge_cluster,
-                s, skills, i, args,
+                c, skills, i, args,
                 functools.partial(write_callback, skills_fname, skills)
             )
             hdls.append(h)
