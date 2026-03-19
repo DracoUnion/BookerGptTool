@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import functools
 from sentence_transformers import SentenceTransformer
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Callable
 from .util import call_chatgpt_retry, set_openai_props, extname, reform_paras_mdcn
 from .md2skill_pmt import *
 from .md_chunker import chunk_markdown
@@ -58,6 +58,7 @@ def parse_raw_skill(raw_skill: str) -> Optional[Dict[str, str]]:
     except:
         return None
     res['body'] = m.group(2)
+    res['raw_text'] = raw_skill
     # 补全缺失字段
     if 'name' not in res:
         first_line = res['body'].split("\n")[0].strip("# ").strip()
@@ -85,7 +86,7 @@ def cluster_skills(
     skills: List[Dict[str, str]], 
     emb_model_name: str,
     threshold: float = 0.88
-):
+) -> List[List[Dict[str, str]]]:
     normalize_skills_tags(skills)
 
     # 构建每个 Skill 的文本表示（trigger + body 前 500 字）
@@ -207,6 +208,19 @@ def tr_gen_raw_skill(tp, paras, idx, args, write_callback):
     paras[idx]['raw_skills'] = raw_skills
     write_callback()
 
+def tr_merge_cluster(
+    cluster: List[Dict[str, str]],
+    skills: List[str], idx: int, 
+    args: object, write_callback: Callable,
+):
+    text = '\n---\n'.join([s['raw_text'] for s in cluster])
+    ques = REDUCE_PMT.replace('{count}', str(len(cluster))) \
+        .replace('{skills}', text)
+    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    merged = ans.replace('[content]', '') \
+        .replace('[/content]', '')
+    skills[idx] = merged
+    write_callback()
 
 def ext_toc_preface(md, preface_len=3000):
     toc = '\n'.join(re.findall(r'^#+\s+.+?$', md, re.M))
@@ -223,18 +237,13 @@ def md2skill(args):
         return
     md = open(args.fname, encoding='utf8').read()
 
-    yaml_fname = args.fname[:-3] + '.yaml'
-    if path.isfile(yaml_fname):
-        res = yaml.safe_load(
-            open(yaml_fname, encoding='utf8').read())
-    else:
-        res = {}
-        open(yaml_fname, 'w',  encoding='utf8') \
-            .write(yaml.safe_dump(res, allow_unicode=True))
+    output_dir = args.fname[:-3] + '_md2skill'
+    os.makedirs(output_dir, exist_ok=True)
 
     print(f'[1] 生成 SCHEMA')
-    if res.get('schema'):
-        schema = res['schema']
+    schema_fname = path.join(output_dir, 'schema.json')
+    if path.isfile(schema_fname):
+        schema = json.loads(open(schema_fname, encoding='utf8').read())
     else:
         toc, preface = ext_toc_preface(md)
         ques = SCHEMA_PMT.replace('{toc}', toc) \
@@ -242,17 +251,24 @@ def md2skill(args):
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         schema = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         schema = json.loads(schema)
-        res['schema'] = schema
-        open(yaml_fname, 'w',  encoding='utf8') \
-            .write(yaml.safe_dump(res, allow_unicode=True))
+        open(schema_fname, 'w',  encoding='utf8') \
+            .write(json.dumps(schema))
     
     print(f'[2] 生成原始技能')
-    if res.get('paras'):
-        paras = res['paras']
+    chunk_fname = path.join(output_dir, 'chunks.yaml')
+    if path.isfile(chunk_fname):
+        chunks = yaml.safe_load(
+            open(chunk_fname, encoding='utf8').read())
     else:
-        paras = chunk_markdown(
+        chunks = chunk_markdown(
             md, path.basename(args.fname)[:-3]).chunks
-        paras = [{
+    
+    rs_fname = path.join(output_dir, 'raw_skills.yaml')
+    if path.isfile(rs_fname):
+        raw_skills =  yaml.safe_load(
+            open(rs_fname, encoding='utf8').read())
+    else:
+        raw_skills = [{
             'content': p.content, 
             'context': p.context,
             'raw_skills': ''
@@ -288,3 +304,14 @@ def md2skill(args):
     hdls = []
 
     print(f'[3] 原始技能聚类')
+    if res.get('skills'):
+        skills = res['skills']
+    else:
+        skills = [p['raw_skills'] for p in paras]
+        skills = functools.reduce(lambda x, y: x + y, skills, [])
+        clusters = cluster_skills(skills)
+    
+        skills = ['' for _ in len(clusters)]
+        for i, s in enumerate(skills):
+            
+        
