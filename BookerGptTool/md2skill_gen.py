@@ -174,7 +174,7 @@ def generate_skill_md(skill: List[Dict[str, str]]) -> str:
     confidence_pct = f"{conf:.0%}"
 
     # 构建描述：触发条件就是最佳的 description
-    description = skill['trigger'].rstrip("。.") if skill.trigger else skill['name']
+    description = skill['trigger'].rstrip("。.") if skill['trigger'] else skill['name']
 
     frontmatter = f"""---
 name: {skill['name']}
