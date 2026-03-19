@@ -271,9 +271,14 @@ def tr_gen_raw_skill(tp, paras, idx, args, write_callback):
     raw_skills = ans.replace('[content]', '') \
         .replace('[/content]', '').split('---')
     raw_skills = [parse_raw_skill(rs) for rs in raw_skills]
+    '''
     raw_skills = [
         rs for rs in raw_skills 
         if rs and check_hallucination(rs['body'], paras[idx]['content'])
+    ]
+    '''
+    raw_skills = [
+        rs for rs in raw_skills  if rs
     ]
     # 补充块序号、原始内容和上下文
     for rs in raw_skills:
