@@ -97,7 +97,7 @@ def cluster_skills(
 
     st = SentenceTransformer(emb_model_name)
     vectors = st.encode(texts)
-    sims = st.similarity(vectors)
+    sims = st.similarity(vectors, vectors)
 
     # 贪心聚类
     used = [False] * len(skills)
@@ -214,7 +214,7 @@ def tr_merge_cluster(
     skills: List[str], idx: int, 
     args: object, write_callback: Callable,
 ):
-    text = '\n---\n'.join([s['raw_text'] for s in cluster])
+    text = '\n\n---\n\n'.join([s['raw_text'] for s in cluster])
     ques = REDUCE_PMT.replace('{count}', str(len(cluster))) \
         .replace('{skills}', text)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
