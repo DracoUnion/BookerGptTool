@@ -15,9 +15,7 @@ class SKUType(Enum):
 
 def generate_claude_skills(
     skills: list[Dict[str, str]],
-    book_name: str,
-    *,
-    output_dir: Optional[str] = None,
+    zip_fname: str,
 ):
     """
     将 ValidatedSkill 列表转为 Claude Code Skills 标准目录结构。
@@ -32,7 +30,7 @@ def generate_claude_skills(
     Returns:
         生成的 skills 目录路径
     """
-    zip = zipfile.ZipFile(output_dir, 'w')
+    zip = zipfile.ZipFile(zip_fname, 'w')
     # safe_name = re.sub(r'[^\w\-]', '_', book_name)
 
     # 生成每个技能的 SKILL.md + scripts/ 模板

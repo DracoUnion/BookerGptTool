@@ -16,6 +16,7 @@ from sentence_transformers import SentenceTransformer
 from typing import Dict, Optional, List, Callable
 from .util import call_chatgpt_retry, set_openai_props, extname, reform_paras_mdcn
 from .md2skill_pmt import *
+from .md2skill_gen import generate_claude_skills
 from .md_chunker import chunk_markdown
 
 TYPE_PMT_MAP = {
@@ -150,6 +151,13 @@ _RELATIONAL_PATTERNS = re.compile(
     r"网络|图谱|依赖|影响链|因果链",
     re.IGNORECASE,
 )
+
+class SKUType(Enum):
+    """知识单元类型"""
+
+    FACTUAL = "factual"          # 事实型：人物档案、数据、事件、设定
+    PROCEDURAL = "procedural"    # 程序型：流程、策略、战术、操作规范
+    RELATIONAL = "relational"    # 关系型：标签树、派系网络、术语表
 
 
 def classify_skill(skill: Dict[str, str]) -> SKUType:
@@ -422,3 +430,7 @@ def md2skill(args):
         .write(yaml.safe_dump(skills, allow_unicode=True))
 
     print(f'[5] 打包输出')
+    zip_fname = path.join(output_dir, args.fname[:-3] + '.zip')
+    generate_claude_skills(skills, zip_fname)
+
+    print('[*] 完成')
