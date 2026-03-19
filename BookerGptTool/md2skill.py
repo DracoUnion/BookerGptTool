@@ -176,7 +176,7 @@ def classify_skill(skill: Dict[str, str]) -> SKUType:
         return max_type
 
     # 弱信号时用启发式规则
-    body = skill.body.lower()
+    body = skill['body'].lower()
 
     # 有编号步骤 → procedural
     if re.search(r"[1-9]\.", body):
