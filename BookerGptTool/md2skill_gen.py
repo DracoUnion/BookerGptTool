@@ -30,6 +30,7 @@ def generate_claude_skills(
     Returns:
         生成的 skills 目录路径
     """
+    book_name = zip_fname[:-4]
     zip = zipfile.ZipFile(zip_fname, 'w')
     # safe_name = re.sub(r'[^\w\-]', '_', book_name)
 
