@@ -255,27 +255,20 @@ def md2skill(args):
             .write(json.dumps(schema))
     
     print(f'[2] 生成原始技能')
-    chunk_fname = path.join(output_dir, 'chunks.yaml')
-    if path.isfile(chunk_fname):
-        chunks = yaml.safe_load(
-            open(chunk_fname, encoding='utf8').read())
+    raw_skill_fname = path.join(output_dir, 'raw_skills.yaml')
+    if path.isfile(raw_skill_fname):
+        raw_skills = yaml.safe_load(
+            open(raw_skill_fname, encoding='utf8').read())
     else:
         chunks = chunk_markdown(
             md, path.basename(args.fname)[:-3]).chunks
-    
-    rs_fname = path.join(output_dir, 'raw_skills.yaml')
-    if path.isfile(rs_fname):
-        raw_skills =  yaml.safe_load(
-            open(rs_fname, encoding='utf8').read())
-    else:
         raw_skills = [{
-            'content': p.content, 
-            'context': p.context,
+            'content': c.content, 
+            'context': c.context,
             'raw_skills': ''
-        } for p in paras]
-        res['paras'] = paras
-        open(yaml_fname, 'w',  encoding='utf8') \
-            .write(yaml.safe_dump(res, allow_unicode=True))
+        } for c in chunks]
+        open(raw_skill_fname, 'w',  encoding='utf8') \
+            .write(yaml.safe_dump(raw_skills, allow_unicode=True))
     
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
@@ -283,16 +276,16 @@ def md2skill(args):
     lock = Lock()
     def write_callback(fname, res):
         with lock:
-            open(yaml_fname, 'w',  encoding='utf8') \
+            open(fname, 'w',  encoding='utf8') \
                 .write(yaml.safe_dump(res, allow_unicode=True))
 
-    for i, p in enumerate(paras):
+    for i, p in enumerate(raw_skills):
         if p.get('raw_skills'): continue
         h = pool.submit(
             tr_gen_raw_skill, 
             schema['book_type'],
-            paras, i, args,
-            functools.partial(write_callback, yaml_fname, res),
+            raw_skills, i, args,
+            functools.partial(write_callback, raw_skill_fname, raw_skills),
         )
         hdls.append(h)
         if len(hdls) > args.threads:
@@ -304,14 +297,20 @@ def md2skill(args):
     hdls = []
 
     print(f'[3] 原始技能聚类')
-    if res.get('skills'):
-        skills = res['skills']
+    clusters_fname = path.join(output_dir, 'clusters.yaml')
+    if path.isfile(clusters_fname):
+         clusters = yaml.safe_load(
+            open(clusters_fname, encoding='utf8').read())
     else:
-        skills = [p['raw_skills'] for p in paras]
+        skills = [rs['raw_skills'] for rs in raw_skills]
         skills = functools.reduce(lambda x, y: x + y, skills, [])
         clusters = cluster_skills(skills)
+        open(clusters_fname, 'w',  encoding='utf8') \
+            .write(yaml.safe_dump(clusters, allow_unicode=True))
+
+
     
-        skills = ['' for _ in len(clusters)]
-        for i, s in enumerate(skills):
+    skills = ['' for _ in len(clusters)]
+    for i, s in enumerate(skills):
             
         
