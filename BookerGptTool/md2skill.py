@@ -280,6 +280,7 @@ def tr_gen_raw_skill(tp, paras, idx, args, write_callback):
         rs['chunk_idx'] = idx
         rs['raw_context'] = paras[idx]['context']
         rs['raw_content'] = paras[idx]['content']
+        print(f'[2] {rs["name"]}')
     paras[idx]['raw_skills'] = raw_skills
     paras[idx]['generated'] = True
     write_callback()
@@ -299,6 +300,7 @@ def tr_merge_cluster(
     # 取集群第一个的元信息
     skills[idx] = cluster[0].copy()
     skills[idx]['body'] = new_skill['body']
+    print(f'[3] {skills[idx]["name"]}')
     write_callback()
 
 def ext_toc_preface(md, preface_len=3000):
@@ -424,13 +426,14 @@ def md2skill(args):
 
     print(f'[4] 技能分类')
     for s in skills:
+        print(f"[4] {s['name']}")
         if s.get('type'): continue
         s['type'] = classify_skill(s).value
     open(skills_fname, 'w',  encoding='utf8') \
         .write(yaml.safe_dump(skills, allow_unicode=True))
 
-    print(f'[5] 打包输出')
     zip_fname = args.fname[:-3] + '.zip'
+    print(f'[5] 打包输出 {zip_fname}')
     generate_claude_skills(skills, zip_fname)
 
     print('[*] 完成')
