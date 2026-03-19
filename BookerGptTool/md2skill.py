@@ -11,9 +11,9 @@ import json_repair as json
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import functools
+from typing import Dict
 from .util import call_chatgpt_retry, set_openai_props, extname, reform_paras_mdcn
 from .md2skill_pmt import *
-from .skill_validator import *
 from .md_chunker import chunk_markdown
 
 TYPE_PMT_MAP = {
@@ -26,6 +26,23 @@ TYPE_PMT_MAP = {
     '医学法律': MED_LGL_EXT_PMT,
     '流程规范': PROC_EXT_PMT,
 }
+
+def parse_raw_skill(raw_skill: str) -> Optional[Dict[str, str]]:
+    RE_RAW_SKILL = r'```ya?ml\n([\s\S]+?)\n```\n([\s\S}+)'
+    m = re.search(RE_RAW_SKILL, raw_skill)
+    if not m: return None
+    try:
+        res = yaml.safe_load(m.group(1))
+    except:
+        return None
+    res['body'] = m.group(2)
+    # 补全缺失字段
+    if 'name' not in res:
+        first_line = res['body'].split("\n")[0].strip("# ").strip()
+        res["name"] = re.sub(r"[^a-zA-Z0-9\u4e00-\u9fff]+", "-", first_line).strip("-").lower()[:50]
+    if 'trigger' not in res:
+        res['trigger'] = "通用知识查询"
+    return res
 
 def get_pmt_by_type(tp):
     """根据 book_type 解析出 (prompt_name, user_template)"""
@@ -52,13 +69,67 @@ def get_pmt_by_type(tp):
 
     return DFT_EXT_PMT
 
+def check_hallucination(
+    body: str, source_text: str
+) -> bool:
+    """
+    幻觉初筛：检查 body 中的关键术语是否在 source_text 中出现。
+
+    策略：提取 body 中的非常见术语（> 2 字的中文词或英文词），
+    检查其是否在原文中出现。超过 40% 的术语未出现则标记疑似幻觉。
+    """
+
+    # Skill 结构性停用词（R1 输出的格式标签，不属于幻觉）
+    _CN_STOPWORDS = {
+        "执行步骤", "输出格式", "格式要求", "输出格式要求", "前置条件",
+        "触发条件", "判断条件", "操作步骤", "注意事项", "具体步骤",
+        "排查步骤", "解决方案", "处理方法", "诊断步骤", "核心步骤",
+        "检查项目", "原因分析", "结果输出", "结论建议", "适用场景",
+        "原因为", "如适用", "事件详情", "配置项", "存在状态",
+        "匹配情况", "检查上游", "列出调度", "资源使用", "解决办法",
+    }
+    _EN_STOPWORDS = {
+        "this", "that", "with", "from", "your", "have", "will", "when",
+        "null", "true", "false", "none", "else", "step", "then", "each",
+        "following", "output", "input", "check", "verify", "ensure",
+        "execute", "confirm", "should", "must", "below", "above",
+        "format", "result", "trigger", "domain", "skill", "prerequisites",
+    }
+
+    # 提取 body 中的关键词（> 2 字中文词或英文单词）
+    cn_terms = set(re.findall(r"[\u4e00-\u9fff]{3,}", body)) - _CN_STOPWORDS
+    en_terms = set(
+        w.lower()
+        for w in re.findall(r"[A-Za-z]{4,}", body)
+        if w.lower() not in _EN_STOPWORDS
+    )
+
+    all_terms = cn_terms | en_terms
+    if len(all_terms) < 3:
+        return True
+
+    source_lower = source_text.lower()
+    missing = {t for t in all_terms if t.lower() not in source_lower}
+
+    miss_rate = len(missing) / len(all_terms)
+    if miss_rate > 0.4:
+        return False
+
+    return True
+
 def tr_gen_raw_skill(tp, paras, idx, args, write_callback):
     ques = get_pmt_by_type(tp) \
         .replace('{content}', paras[idx]['content']) \
         .replace('{context}', paras[idx]['context'])
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    paras[idx]['raw_skills'] = ans.replace('[content]', '') \
-        .replace('[/content]', '')
+    raw_skills = ans.replace('[content]', '') \
+        .replace('[/content]', '').split('---')
+    raw_skills = [parse_raw_skill(rs) for rs in raw_skills]
+    raw_skills = [
+        rs for rs in raw_skills 
+        if rs and check_hallucination(rs['body'], paras[idx]['content'])
+    ]
+    paras[idx]['raw_skills'] = raw_skills
     write_callback()
 
 
