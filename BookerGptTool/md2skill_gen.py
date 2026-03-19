@@ -38,6 +38,7 @@ def generate_claude_skills(
 
     # 生成每个技能的 SKILL.md + scripts/ 模板
     for skill in skills:
+        print(f'[5] {skill["name"]}')
         slug = skill['slug']
         zip.writestr(f'{slug}/SKILL.md', generate_skill_md(skill))
         zip.writestr(f'{slug}/references/source.md', generate_reference_md(skill))
