@@ -430,7 +430,7 @@ def md2skill(args):
         .write(yaml.safe_dump(skills, allow_unicode=True))
 
     print(f'[5] 打包输出')
-    zip_fname = path.join(output_dir, args.fname[:-3] + '.zip')
+    zip_fname = args.fname[:-3] + '.zip'
     generate_claude_skills(skills, zip_fname)
 
     print('[*] 完成')
