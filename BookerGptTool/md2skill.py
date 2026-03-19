@@ -64,7 +64,7 @@ def parse_raw_skill(raw_skill: str) -> Optional[Dict[str, str]]:
     if 'name' not in skill:
         first_line = skill['body'].split("\n")[0].strip("# ").strip()
         skill["name"] = re.sub(r"[^a-zA-Z0-9\u4e00-\u9fff]+", "-", first_line).strip("-").lower()[:50]
-    skill['name'] = to_kebab(skill['name'])
+    skill['slug'] = to_kebab(skill['name'])
     if 'trigger' not in skill:
         skill['trigger'] = "通用知识查询"
     return skill
@@ -150,13 +150,6 @@ _RELATIONAL_PATTERNS = re.compile(
     r"网络|图谱|依赖|影响链|因果链",
     re.IGNORECASE,
 )
-
-class SKUType(Enum):
-    """知识单元类型"""
-
-    FACTUAL = "factual"          # 事实型：人物档案、数据、事件、设定
-    PROCEDURAL = "procedural"    # 程序型：流程、策略、战术、操作规范
-    RELATIONAL = "relational"    # 关系型：标签树、派系网络、术语表
 
 
 def classify_skill(skill: Dict[str, str]) -> SKUType:
