@@ -5,6 +5,7 @@ from enum import Enum
 import json
 import zipfile
 import re
+from io import BytesIO
 
 class SKUType(Enum):
     """知识单元类型"""
@@ -31,7 +32,8 @@ def generate_claude_skills(
         生成的 skills 目录路径
     """
     book_name = zip_fname[:-4]
-    zip = zipfile.ZipFile(zip_fname, 'w')
+    bio = BytesIO()
+    zip = zipfile.ZipFile(bio, 'w')
     # safe_name = re.sub(r'[^\w\-]', '_', book_name)
 
     # 生成每个技能的 SKILL.md + scripts/ 模板
@@ -61,6 +63,7 @@ def generate_claude_skills(
     ))
 
     zip.close()
+    open(zip_fname, 'wb').write(bio.getvalue())
 
 def generate_manifest(
     skills: list[Dict[str, str]],
