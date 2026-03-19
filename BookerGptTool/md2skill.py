@@ -309,7 +309,7 @@ def md2skill(args):
             .write(yaml.safe_dump(clusters, allow_unicode=True))
 
 
-    skills_fname = path.join(output_dir. 'skills.yaml')
+    skills_fname = path.join(output_dir, 'skills.yaml')
     if path.isfile(skills_fname):
         skills = yaml.safe_load(
             open(skills_fname, encoding='utf8').read())
