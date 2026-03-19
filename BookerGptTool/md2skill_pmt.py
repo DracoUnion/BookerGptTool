@@ -463,5 +463,5 @@ Frontmatter 之后是 Markdown 正文，包含：
 
 ############################################################
 
-DFT_EXT_PMT = TECH_EXT_PMT
+DFT_EXT_PMT = PROC_EXT_PMT
 

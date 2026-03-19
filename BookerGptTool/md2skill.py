@@ -49,7 +49,7 @@ def get_pmt_by_type(tp):
     if any(kw in bt for kw in ("规范", "标准", "规程", "条例", "手册", "manual", "guide", "操作")):
         return TYPE_PMT_MAP["技术手册"]
 
-    return TYPE_PMT_MAP["技术手册"]
+    return DFT_EXT_PMT
 
 def tr_gen_raw_skill(tp, paras, idx, args, write_callback):
     ques = get_pmt_by_type(tp) \
