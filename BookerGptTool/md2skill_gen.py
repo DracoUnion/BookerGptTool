@@ -181,7 +181,7 @@ name: {skill['name']}
 description: {description}
 ---"""
 
-    body_section = skill.body.strip() if skill.body else "（内容待补充）"
+    body_section = skill['body'].strip() if skill['body'] else "（内容待补充）"
 
     return f"""{frontmatter}
 
