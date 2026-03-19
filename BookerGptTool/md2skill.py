@@ -125,7 +125,7 @@ def md2skill(args):
                 .write(yaml.safe_dump(res, allow_unicode=True))
 
     for i, p in enumerate(paras):
-        if p['raw_skills']: continue
+        if p.get('raw_skills'): continue
         h = pool.submit(
             tr_gen_raw_skill, 
             schema['book_type'],
