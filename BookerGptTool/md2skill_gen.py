@@ -126,7 +126,7 @@ def generate_index(
         lines.append("")
         lines.append("| 技能 | 触发条件 | 类型 | 置信度 |")
         lines.append("|------|---------|------|--------|")
-        for s in sorted(domain_skills, key=lambda x: x.name):
+        for s in sorted(domain_skills, key=lambda x: x['name']):
             slug = s['slug']
             trigger = (
                 s['trigger'][:50] + "…" if len(s['trigger']) > 50 else s['trigger']
