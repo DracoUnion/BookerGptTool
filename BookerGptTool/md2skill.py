@@ -309,8 +309,24 @@ def md2skill(args):
             .write(yaml.safe_dump(clusters, allow_unicode=True))
 
 
-    
-    skills = ['' for _ in len(clusters)]
-    for i, s in enumerate(skills):
+    skills_fname = path.join(output_dir. 'skills.yaml')
+    if path.isfile(skills_fname):
+        skills = yaml.safe_load(
+            open(skills_fname, encoding='utf8').read())
+    else:
+        skills = ['' for _ in len(clusters)]
+        for i, s in enumerate(clusters):
+            h = pool.submit(
+                tr_merge_cluster,
+                clusters, skills, i, args,
+                functools.partial(write_callback, skills_fname, skills)
+            )
+            hdls.append(h)
+            if len(hdls) > args.threads:
+                for h in hdls: h.result()
+                hdls = []
+        
+        for h in hdls: h.result()
+        hdls = []
             
         
