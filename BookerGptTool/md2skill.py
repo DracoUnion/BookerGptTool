@@ -6,6 +6,7 @@ from os import path
 import re
 import os
 import shutil
+from enum import Enum
 import yaml
 import json_repair as json
 from concurrent.futures import ThreadPoolExecutor
@@ -119,6 +120,73 @@ def cluster_skills(
         clusters.append(cluster)
 
     return clusters
+
+# 事实型关键词（高置信度）
+_FACTUAL_PATTERNS = re.compile(
+    r"档案|简历|生卒|籍贯|出生|家族|官职|品级|俸禄|"
+    r"收支|账目|银两|数据|数量|人口|产量|价格|"
+    r"地理|位置|建筑|结构|布局|面积|距离|"
+    r"设定|背景|世界观|历史|年表|时间线|大事记|"
+    r"物品|器物|武器|装备|规格|材质",
+    re.IGNORECASE,
+)
+
+# 程序型关键词（高置信度）
+_PROCEDURAL_PATTERNS = re.compile(
+    r"流程|步骤|操作|程序|方法|策略|战术|技巧|"
+    r"如何|怎样|应对|处理|执行|部署|实施|"
+    r"决策|判断|选择|权衡|博弈|谈判|"
+    r"IF.*THEN|前置条件|触发条件|预期结果|"
+    r"第[一二三四五六七八九十]步|Step\s*\d",
+    re.IGNORECASE,
+)
+
+# 关系型关键词（高置信度）
+_RELATIONAL_PATTERNS = re.compile(
+    r"关系|派系|阵营|联盟|对立|从属|"
+    r"标签|分类|层级|等级|体系|谱系|"
+    r"术语|定义|概念|词汇|名词解释|"
+    r"网络|图谱|依赖|影响链|因果链",
+    re.IGNORECASE,
+)
+
+class SKUType(Enum):
+    """知识单元类型"""
+
+    FACTUAL = "factual"          # 事实型：人物档案、数据、事件、设定
+    PROCEDURAL = "procedural"    # 程序型：流程、策略、战术、操作规范
+    RELATIONAL = "relational"    # 关系型：标签树、派系网络、术语表
+
+
+def classify_skill(skill: Dict[str, str]) -> SKUType:
+    """对单个 Skill 进行 SKU 类型分类（纯规则）"""
+    
+    text = f"{skill['name']} {skill['trigger']} {skill['body'][:500]}"
+    scores =  {
+        SKUType.FACTUAL: len(_FACTUAL_PATTERNS.findall(text)),
+        SKUType.PROCEDURAL: len(_PROCEDURAL_PATTERNS.findall(text)),
+        SKUType.RELATIONAL: len(_RELATIONAL_PATTERNS.findall(text)),
+    }
+    max_type = max(scores, key=lambda k: scores[k])
+
+    # 明确命中（最高分 >= 2 且领先第二名 >= 1）
+    sorted_scores = sorted(scores.values(), reverse=True)
+    if sorted_scores[0] >= 2 and sorted_scores[0] - sorted_scores[1] >= 1:
+        return max_type
+
+    # 弱信号时用启发式规则
+    body = skill.body.lower()
+
+    # 有编号步骤 → procedural
+    if re.search(r"[1-9]\.", body):
+        return SKUType.PROCEDURAL
+
+    # 有箭头关系 → relational
+    if "→" in body or "->" in body or "关系" in body:
+        return SKUType.RELATIONAL
+
+    # 默认 factual（事实类最通用）
+    return SKUType.FACTUAL
 
 def get_pmt_by_type(tp):
     """根据 book_type 解析出 (prompt_name, user_template)"""
@@ -316,7 +384,7 @@ def md2skill(args):
         skills = yaml.safe_load(
             open(skills_fname, encoding='utf8').read())
     else:
-        skills = [None for _ in len(clusters)]
+        skills = [None for _ in range(len(clusters))]
         for i, c in enumerate(clusters):
             if len(c) == 1: 
                 skills[i] = c[0]
@@ -334,4 +402,6 @@ def md2skill(args):
         for h in hdls: h.result()
         hdls = []
             
-        
+        skills = [s for s in skills if s]
+        open(skills_fname, 'w',  encoding='utf8') \
+            .write(yaml.safe_dump(skills, allow_unicode=True))
