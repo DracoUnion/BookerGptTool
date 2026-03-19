@@ -79,7 +79,8 @@ def md2skill(args):
 
     yaml_fname = args.fname[:-3] + '.yaml'
     if path.isfile(yaml_fname):
-        res = open(yaml_fname, encoding='utf8').read()
+        res = yaml.safe_load(
+            open(yaml_fname, encoding='utf8').read())
     else:
         res = {}
         open(yaml_fname, 'w',  encoding='utf8') \
