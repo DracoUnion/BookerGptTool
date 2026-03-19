@@ -8,4 +8,4 @@ imgyaso
 opencv-python
 numpy
 pillow
-sentence-transformer
+sentence-transformers
