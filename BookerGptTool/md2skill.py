@@ -55,18 +55,19 @@ def parse_raw_skill(raw_skill: str) -> Optional[Dict[str, str]]:
     m = re.search(RE_RAW_SKILL, raw_skill)
     if not m: return None
     try:
-        res = yaml.safe_load(m.group(1))
+        skill = yaml.safe_load(m.group(1))
     except:
         return None
-    res['body'] = m.group(2)
-    res['raw_text'] = raw_skill
+    skill['body'] = m.group(2)
+    skill['raw_text'] = raw_skill
     # 补全缺失字段
-    if 'name' not in res:
-        first_line = res['body'].split("\n")[0].strip("# ").strip()
-        res["name"] = re.sub(r"[^a-zA-Z0-9\u4e00-\u9fff]+", "-", first_line).strip("-").lower()[:50]
-    if 'trigger' not in res:
-        res['trigger'] = "通用知识查询"
-    return res
+    if 'name' not in skill:
+        first_line = skill['body'].split("\n")[0].strip("# ").strip()
+        skill["name"] = re.sub(r"[^a-zA-Z0-9\u4e00-\u9fff]+", "-", first_line).strip("-").lower()[:50]
+    skill['name'] = to_kebab(skill['name'])
+    if 'trigger' not in skill:
+        skill['trigger'] = "通用知识查询"
+    return skill
 
 def normalize_skills_tags(skills: List[Dict[str, str]]) -> dict[str, str]:
     """
@@ -298,6 +299,12 @@ def ext_toc_preface(md, preface_len=3000):
         preface +='\n\n[正文省略...]'
     return toc, preface
 
+def to_kebab(name: str) -> str:
+    """将技能名转为 kebab-case slug"""
+    s = re.sub(r"[^\w\s\u4e00-\u9fff-]", "", name)
+    s = re.sub(r"[\s_]+", "-", s).strip("-").lower()
+    return s[:60] or "unnamed-skill"
+
 def md2skill(args):
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
@@ -405,3 +412,12 @@ def md2skill(args):
         skills = [s for s in skills if s]
         open(skills_fname, 'w',  encoding='utf8') \
             .write(yaml.safe_dump(skills, allow_unicode=True))
+
+    print(f'[4] 技能分类')
+    for s in skills:
+        if s.get('type'): continue
+        s['type'] = classify_skill(s).value
+    open(skills_fname, 'w',  encoding='utf8') \
+        .write(yaml.safe_dump(skills, allow_unicode=True))
+
+    print(f'[5] 打包输出')
