@@ -11,7 +11,7 @@ import json_repair as json
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import functools
-from typing import Dict
+from typing import Dict, Optional, List
 from .util import call_chatgpt_retry, set_openai_props, extname, reform_paras_mdcn
 from .md2skill_pmt import *
 from .md_chunker import chunk_markdown
@@ -25,6 +25,27 @@ TYPE_PMT_MAP = {
     '行业报告': REPORT_EXT_PMT,
     '医学法律': MED_LGL_EXT_PMT,
     '流程规范': PROC_EXT_PMT,
+}
+
+# 领域同义词库：值 → 标准化标签
+DOMAIN_SYNONYMS: dict[str, str] = {
+    # 保险领域
+    "保险": "保险", "insurance": "保险", "保障": "保险",
+    "理赔": "保险·理赔", "赔付": "保险·理赔", "claims": "保险·理赔",
+    "核保": "保险·核保", "承保": "保险·核保", "underwriting": "保险·核保",
+    # 法律领域
+    "法律": "法律", "法规": "法律", "legal": "法律", "法务": "法律",
+    "合同": "法律·合同", "contract": "法律·合同", "条款": "法律·合同",
+    # 技术领域
+    "技术": "技术", "technology": "技术", "tech": "技术",
+    "开发": "技术·开发", "编程": "技术·开发", "programming": "技术·开发",
+    "运维": "技术·运维", "devops": "技术·运维", "ops": "技术·运维",
+    # 医学领域
+    "医学": "医学", "medical": "医学", "临床": "医学·临床",
+    "药学": "医学·药学", "pharmacy": "医学·药学",
+    # 金融领域
+    "金融": "金融", "finance": "金融", "财务": "金融",
+    "投资": "金融·投资", "investment": "金融·投资",
 }
 
 def parse_raw_skill(raw_skill: str) -> Optional[Dict[str, str]]:
@@ -43,6 +64,21 @@ def parse_raw_skill(raw_skill: str) -> Optional[Dict[str, str]]:
     if 'trigger' not in res:
         res['trigger'] = "通用知识查询"
     return res
+
+def normalize_skills_tags(skills: List[Dict[str, str]]) -> dict[str, str]:
+    """
+    批量归一化所有 Skill 的 domain 标签。
+
+    返回原始 → 归一化的映射表。
+    """
+    tag_map: dict[str, str] = {}
+    for skill in skills:
+        ori = skill.get('domain', '')
+        norm = DOMAIN_SYNONYMS.get(ori.lower(), ori)
+        if ori != norm:
+            tag_map[ori] = norm
+            skill['domain'] = norm
+    return tag_map
 
 def get_pmt_by_type(tp):
     """根据 book_type 解析出 (prompt_name, user_template)"""
@@ -212,20 +248,4 @@ def md2skill(args):
         h.result()
     hdls = []
 
-    print(f'[3] 校验原始技能')
-    if res.get('passed_skills'):
-        passed_skills = res['passed_skills']
-    else:
-        skills = [
-            p['raw_skills'].split('\n---\n') 
-            for p in paras
-        ]
-        skills = functools.reduce(lambda x, y: x + y, skills, [])
-        validator = SkillValidator()
-        passed_skills, _ = validator.validate_batch([
-            RawSkill(s) for s in skills
-        ])
-        passed_skills = [s.raw_text for s in passed_skills]
-        res['passed_skills'] = passed_skills
-        open(yaml_fname, 'w',  encoding='utf8') \
-                .write(yaml.safe_dump(res, allow_unicode=True))
+    print(f'[3] 原始技能聚类')
