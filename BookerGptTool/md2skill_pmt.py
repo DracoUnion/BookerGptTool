@@ -513,7 +513,7 @@ REDUCE_PMT = """
 输出格式严格使用 YAML Frontmatter + Markdown Body，与输入格式完全一致。
 直接输出合并后的 Skill，禁止输出分析过程。
 
-以下是 {count} 个相似的 Skill，需要合并为一个最终版本：
+以下是 {count} 个相似的 Skill，由 [split/] 分隔，需要合并为一个最终版本：
 
 [content]
 {skills}
