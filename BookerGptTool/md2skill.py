@@ -269,7 +269,7 @@ def tr_gen_raw_skill(tp, paras, idx, args, write_callback):
         .replace('{context}', paras[idx]['context'])
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     raw_skills = ans.replace('[content]', '') \
-        .replace('[/content]', '').split('---')
+        .replace('[/content]', '').split('[split/]')
     raw_skills = [parse_raw_skill(rs) for rs in raw_skills]
     '''
     raw_skills = [
@@ -295,7 +295,7 @@ def tr_merge_cluster(
     skills: List[str], idx: int, 
     args: object, write_callback: Callable,
 ):
-    text = '\n\n---\n\n'.join([s['raw_text'] for s in cluster])
+    text = '\n\n[split/]\n\n'.join([s['raw_text'] for s in cluster])
     ques = REDUCE_PMT.replace('{count}', str(len(cluster))) \
         .replace('{skills}', text)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
