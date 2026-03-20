@@ -56,9 +56,9 @@ TECH_EXT_PMT = '''
 
 ## 待提取的文本块
 
+[content]
 > {context}
 
-[content]
 {content}
 [/content]
 
@@ -66,7 +66,8 @@ TECH_EXT_PMT = '''
 
 你必须严格按以下 YAML Frontmatter 格式输出每个 Skill：
 
-```yaml
+[content]
+---
 name: <kebab-case 英文名称，全局唯一>
 trigger: <中文描述：什么场景下调用此 Skill>
 domain: <从以下领域中选择：{domain_list}>
@@ -74,11 +75,16 @@ prerequisites:
   - <前置依赖，如"需要获取XX数据">
 source_ref: <原文出处：章节名称>
 confidence: <0.0-1.0 的置信度自评>
-```
+---
 
-Frontmatter 之后是 Markdown 正文，包含：
-- 「# 执行步骤」：用 1, 2, 3 编号，包含 IF/ELSE 判断分支
-- 「# 输出格式要求」：规定 AI 最终回答用户的格式
+# 执行步骤
+
+（用 1, 2, 3 编号，包含 IF/ELSE 判断分支）
+
+# 输出格式要求
+
+（规定 AI 最终回答用户的格式）
+[/content]
 '''
 
 ############################################################
@@ -111,9 +117,9 @@ NARRATIVE_EXT_PMT = '''
 
 ## 待提取的文本块（来自叙事作品）
 
+[content]
 > {context}
 
-[content]
 {content}
 [/content]
 
@@ -184,17 +190,16 @@ METHOD_EXT_PMT = '''
 
 ## 待提取的文本块
 
+[content]
 > {context}
 
-[content]
 {content}
 [/content]
 
 ## 格式
 
-你必须严格按以下 YAML Frontmatter 格式输出每个 Skill：
-
-```yaml
+[content]
+---
 name: <kebab-case 英文名称，全局唯一>
 trigger: <中文描述：什么场景下调用此 Skill>
 domain: <从以下领域中选择：{domain_list}>
@@ -202,11 +207,16 @@ prerequisites:
   - <前置依赖，如"需要获取XX数据">
 source_ref: <原文出处：章节名称>
 confidence: <0.0-1.0 的置信度自评>
-```
+---
 
-Frontmatter 之后是 Markdown 正文，包含：
-- 「# 执行步骤」：用 1, 2, 3 编号，包含 IF/ELSE 判断分支
-- 「# 输出格式要求」：规定 AI 最终回答用户的格式
+# 执行步骤
+
+（用 1, 2, 3 编号，包含 IF/ELSE 判断分支）
+
+# 输出格式要求
+
+（规定 AI 最终回答用户的格式）
+[/content]
 '''
 
 ############################################################
@@ -239,17 +249,16 @@ ACADEMIC_EXT_PMT = '''
 
 ## 待提取的文本块
 
+[content]
 > {context}
 
-[content]
 {content}
 [/content]
 
 ## 格式
 
-你必须严格按以下 YAML Frontmatter 格式输出每个 Skill：
-
-```yaml
+[content]
+---
 name: <kebab-case 英文名称，全局唯一>
 trigger: <中文描述：什么场景下调用此 Skill>
 domain: <从以下领域中选择：{domain_list}>
@@ -257,11 +266,16 @@ prerequisites:
   - <前置依赖，如"需要获取XX数据">
 source_ref: <原文出处：章节名称>
 confidence: <0.0-1.0 的置信度自评>
-```
+---
 
-Frontmatter 之后是 Markdown 正文，包含：
-- 「# 执行步骤」：用 1, 2, 3 编号，包含 IF/ELSE 判断分支
-- 「# 输出格式要求」：规定 AI 最终回答用户的格式
+# 执行步骤
+
+（用 1, 2, 3 编号，包含 IF/ELSE 判断分支）
+
+# 输出格式要求
+
+（规定 AI 最终回答用户的格式）
+[/content]
 '''
 
 ############################################################
@@ -286,17 +300,16 @@ INSURANCE_EXT_PMT = '''
 
 ## 待提取的文本块
 
+[content]
 > {context}
 
-[content]
 {content}
 [/content]
 
 ## 格式
 
-你必须严格按以下 YAML Frontmatter 格式输出每个 Skill：
-
-```yaml
+[content]
+---
 name: <kebab-case 英文名称，全局唯一>
 trigger: <中文描述：什么场景下调用此 Skill>
 domain: <从以下领域中选择：{domain_list}>
@@ -304,11 +317,16 @@ prerequisites:
   - <前置依赖，如"需要获取XX数据">
 source_ref: <原文出处：章节名称>
 confidence: <0.0-1.0 的置信度自评>
-```
+---
 
-Frontmatter 之后是 Markdown 正文，包含：
-- 「# 执行步骤」：用 1, 2, 3 编号，包含 IF/ELSE 判断分支
-- 「# 输出格式要求」：规定 AI 最终回答用户的格式
+# 执行步骤
+
+（用 1, 2, 3 编号，包含 IF/ELSE 判断分支）
+
+# 输出格式要求
+
+（规定 AI 最终回答用户的格式）
+[/content]
 '''
 
 ############################################################
@@ -333,17 +351,16 @@ REPORT_EXT_PMT = '''
 
 ## 待提取的文本块
 
+[content]
 > {context}
 
-[content]
 {content}
 [/content]
 
 ## 格式
 
-你必须严格按以下 YAML Frontmatter 格式输出每个 Skill：
-
-```yaml
+[content]
+---
 name: <kebab-case 英文名称，全局唯一>
 trigger: <中文描述：什么场景下调用此 Skill>
 domain: <从以下领域中选择：{domain_list}>
@@ -351,11 +368,16 @@ prerequisites:
   - <前置依赖，如"需要获取XX数据">
 source_ref: <原文出处：章节名称>
 confidence: <0.0-1.0 的置信度自评>
-```
+---
 
-Frontmatter 之后是 Markdown 正文，包含：
-- 「# 执行步骤」：用 1, 2, 3 编号，包含 IF/ELSE 判断分支
-- 「# 输出格式要求」：规定 AI 最终回答用户的格式
+# 执行步骤
+
+（用 1, 2, 3 编号，包含 IF/ELSE 判断分支）
+
+# 输出格式要求
+
+（规定 AI 最终回答用户的格式）
+[/content]
 '''
 
 ############################################################
@@ -380,17 +402,16 @@ MED_LGL_EXT_PMT = '''
 
 ## 待提取的文本块
 
+[content]
 > {context}
 
-[content]
 {content}
 [/content]
 
 ## 格式
 
-你必须严格按以下 YAML Frontmatter 格式输出每个 Skill：
-
-```yaml
+[content]
+---
 name: <kebab-case 英文名称，全局唯一>
 trigger: <中文描述：什么场景下调用此 Skill>
 domain: <从以下领域中选择：{domain_list}>
@@ -398,11 +419,16 @@ prerequisites:
   - <前置依赖，如"需要获取XX数据">
 source_ref: <原文出处：章节名称>
 confidence: <0.0-1.0 的置信度自评>
-```
+---
 
-Frontmatter 之后是 Markdown 正文，包含：
-- 「# 执行步骤」：用 1, 2, 3 编号，包含 IF/ELSE 判断分支
-- 「# 输出格式要求」：规定 AI 最终回答用户的格式
+# 执行步骤
+
+（用 1, 2, 3 编号，包含 IF/ELSE 判断分支）
+
+# 输出格式要求
+
+（规定 AI 最终回答用户的格式）
+[/content]
 '''
 
 ############################################################
@@ -436,17 +462,16 @@ PROC_EXT_PMT = '''
 
 ## 待提取的文本块
 
+[content]
 > {context}
 
-[content]
 {content}
 [/content]
 
 ## 格式
 
-你必须严格按以下 YAML Frontmatter 格式输出每个 Skill：
-
-```yaml
+[content]
+---
 name: <kebab-case 英文名称，全局唯一>
 trigger: <中文描述：什么场景下调用此 Skill>
 domain: <从以下领域中选择：{domain_list}>
@@ -454,11 +479,16 @@ prerequisites:
   - <前置依赖，如"需要获取XX数据">
 source_ref: <原文出处：章节名称>
 confidence: <0.0-1.0 的置信度自评>
-```
+---
 
-Frontmatter 之后是 Markdown 正文，包含：
-- 「# 执行步骤」：用 1, 2, 3 编号，包含 IF/ELSE 判断分支
-- 「# 输出格式要求」：规定 AI 最终回答用户的格式
+# 执行步骤
+
+（用 1, 2, 3 编号，包含 IF/ELSE 判断分支）
+
+# 输出格式要求
+
+（规定 AI 最终回答用户的格式）
+[/content]
 '''
 
 ############################################################
