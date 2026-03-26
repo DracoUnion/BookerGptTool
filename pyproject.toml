@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "BookerGptTool"
+version = "2026.3.25.0"
+description = "iBooker/DracoUnion 大模型 Agent 工具"
+readme = "README.md"
+license = {text = "SATA"}
+authors = [
+    {name = "wizardforcel", email = "wizard.z@qq.com"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: Other/Proprietary License",
+    "Natural Language :: Chinese (Simplified)",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Text Processing :: Markup :: HTML",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Localization",
+    "Topic :: Utilities",
+]
+keywords = ["wiki", "知识库", "document", "文档", "crawler", "爬虫"]
+requires-python = ">=3.6"
+dependencies = [
+    "openai>=1.3.0,<1.4.0",
+    "httpx",
+    "requests",
+    "pyyaml",
+    "json_repair",
+    "pymupdf",
+    "imgyaso",
+    "opencv-python",
+    "numpy",
+    "pillow",
+    "sentence-transformers",
+]
+
+[project.urls]
+Homepage = "https://github.com/DracoUnion/BookerGptTool"
+
+[project.scripts]
+BookerGptTool = "BookerGptTool.__main__:main"
+gpt-tool = "BookerGptTool.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["BookerGptTool*"]
+
+[tool.setuptools.package-data]
+"*" = ["*"]
