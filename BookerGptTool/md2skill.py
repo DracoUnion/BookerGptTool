@@ -1,3 +1,4 @@
+import torch
 import requests
 import tarfile
 import numpy as np
@@ -99,6 +100,8 @@ def cluster_skills(
     ]
 
     st = SentenceTransformer(emb_model_name)
+    st = torch.quantization.quantize_dynamic(
+        st, {torch.nn.Linear}, dtype=torch.qint8)
     vectors = st.encode(texts)
     sims = st.similarity(vectors, vectors)
 
