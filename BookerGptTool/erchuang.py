@@ -13,6 +13,8 @@ from threading import Lock
 import functools
 from .util import *
 
+#########################################################
+
 QA_PMT  = '''
 假如你是一个文档工程师和高级编辑，请阅读如下文本并提出五个问题，然后按照原文的意思来回答。
 
@@ -42,6 +44,8 @@ QA_PMT  = '''
 {text}
 [/content]
 '''
+
+#########################################################
 
 SUM_PMT = '''
 假设你是一个高级编辑，遵循给定格式和注意事项，总结给定的段落。
@@ -73,6 +77,8 @@ SUM_PMT = '''
 {text}
 [/content]
 '''
+
+#########################################################
 
 XHS_PMT = '''
 假设你是一位小红书资深博主，请参考下面的素材，生成一篇吸引人的小红书笔记。
@@ -106,6 +112,8 @@ XHS_PMT = '''
 [/content]
 '''
 
+#########################################################
+
 GZH_PMT = '''
 假设你是一个资深公众号作者，请参考下面的素材，生成一篇有深度的公众号文章。
 
@@ -122,7 +130,9 @@ GZH_PMT = '''
 [/content]
 '''
 
-FMT_PROMPT = '''
+#########################################################
+
+FMT_PMT = '''
 假设你是一个高级文档工程师，请参考下面的注意事项了解 Markdown 文档的格式，然后参考示例，将给定英文或中文文本排版。
 
 请执行以下操作：
@@ -182,6 +192,8 @@ if (condVar > someVal) {console.log("xxx")}
 [/content]
 '''
 
+#########################################################
+
 def erchuang_single(args):
     ofname = args.fname[:-3] + f'_{args.style}.md'
     if path.isfile(ofname):
@@ -191,7 +203,7 @@ def erchuang_single(args):
     pmt = (
              XHS_PMT if args.style == 'xhs' 
         else GZH_PMT if args.style == 'gzh'
-        else FMT_PROMPT if args.style == 'fmt'
+        else FMT_PMT if args.style == 'fmt'
         else SUM_PMT if args.style == 'sum'
         else QA_PMT
     )
