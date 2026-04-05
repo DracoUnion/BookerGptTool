@@ -13,6 +13,37 @@ from threading import Lock
 import functools
 from .util import *
 
+SUM_PMT = '''
+假设你是一个高级编辑，遵循给定格式和注意事项，总结给定的段落。
+
+## 注意事项
+
+1.  每个段落需要总结成一个概要和至少三个子概要，均为20-50字
+2.  确保原文中每一段都得到总结，也就是概要中的段落数和原文相等，不要漏掉任何一段！
+3.  不要省略概要前的格式（-   ）或（1.  ），否则我无法解析。
+
+## 格式
+
+[content]
+概要：
+-   {概要1}
+    1.  {子概要1}
+    2.  {子概要2}
+    3.  ...
+-   {概要2}
+    1.  ...
+-   ...
+[/content]
+
+## 要总结的段落
+
+原文：
+
+[content]
+{text}
+[/content]
+'''
+
 XHS_PMT = '''
 假设你是一位小红书资深博主，请参考下面的素材，生成一篇吸引人的小红书笔记。
 
@@ -125,7 +156,8 @@ def erchuang_single(args):
     suf = (
              'xhs' if args.style == 'xhs' 
         else 'gzh' if args.style ==  'gzh' 
-        else 'fmt'
+        else 'fmt' if args.style == 'fmt'
+        else 'sum'
     )
     ofname = args.fname[:-3] + f'_{suf}.md'
     if path.isfile(ofname):
@@ -135,10 +167,13 @@ def erchuang_single(args):
     pmt = (
              XHS_PMT if args.style == 'xhs' 
         else GZH_PMT if args.style == 'gzh'
-        else FMT_PROMPT
+        else FMT_PROMPT if args.style == 'fmt'
+        else SUM_PMT
     )
     ques = pmt.replace('{text}', cont)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ans.replace('[content]', '') \
+        .replace('[/content]', '')
     open(ofname, 'w', encoding='utf8').write(ans)
     print(ofname)
 

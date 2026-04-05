@@ -7,7 +7,6 @@ from .code2doc import *
 from .shengcai import *
 from .call import *
 from .arxiv import *
-from .sum import *
 from .infer import *
 from .qa import *
 from .erchuang import *
@@ -86,12 +85,6 @@ def main():
     paper2code_parser.add_argument("-o", "--out", type=str, help="output dir name")
     paper2code_parser.set_defaults(func=paper2code)
 
-    sum_parser = subparsers.add_parser("sum", help="summarize md or srt")
-    sum_parser.add_argument("fname", help="fname")
-    sum_parser.add_argument("-s", "--para-size", type=int, default=1500, help="paragraph size")
-    sum_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    sum_parser.add_argument("--md", action='store_true', help="whether to write md")
-    sum_parser.set_defaults(func=sum_text)
 
     sum_parser = subparsers.add_parser("qa", help="summarize md or srt")
     sum_parser.add_argument("fname", help="fname")
