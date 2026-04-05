@@ -8,7 +8,6 @@ from .shengcai import *
 from .call import *
 from .arxiv import *
 from .infer import *
-from .qa import *
 from .erchuang import *
 from .note import *
 from .paper2code import *
@@ -86,15 +85,6 @@ def main():
     paper2code_parser.set_defaults(func=paper2code)
 
 
-    sum_parser = subparsers.add_parser("qa", help="summarize md or srt")
-    sum_parser.add_argument("fname", help="fname")
-    sum_parser.add_argument("-s", "--para-size", type=int, default=1500, help="paragraph size")
-    sum_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    sum_parser.add_argument("--md", action='store_true', help="whether to write md")
-    sum_parser.set_defaults(func=qa_text)
-
-
-
     infer_parser = subparsers.add_parser("infer", help="free inference")
     infer_parser.add_argument("fname", help="fname")
     infer_parser.add_argument("-p", "--prompt", default="{question}", help="prompt")
@@ -106,7 +96,12 @@ def main():
     erchuang_parser = subparsers.add_parser("erchuang", help="gen xhs notes")
     erchuang_parser.add_argument("fname", help="fname")
     erchuang_parser.add_argument("-t", "--threads", type=int, default=8, help="threadcount")
-    erchuang_parser.add_argument("-s", "--style", type=str, default='xhs', choices=['xhs', 'gzh', 'fmt'], help="article style")
+    erchuang_parser.add_argument(
+        "-s", "--style", 
+        type=str, default='xhs', 
+        choices=['xhs', 'gzh', 'fmt', 'sum', 'qa'], 
+        help="article style"
+    )
     erchuang_parser.set_defaults(func=erchuang_handle)
 
     note_parser = subparsers.add_parser("note", help="make notes")

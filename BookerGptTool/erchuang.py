@@ -13,6 +13,36 @@ from threading import Lock
 import functools
 from .util import *
 
+QA_PMT  = '''
+假如你是一个文档工程师和高级编辑，请阅读如下文本并提出五个问题，然后按照原文的意思来回答。
+
+## 注意事项
+
+1.  只需要输出问答，不需要重复原文
+2.  不要省略概要前的格式（-   ）或（1.  ），否则我无法解析。
+
+## 格式
+
+[content]
+-   问题1：{xxx}
+-   回答1：{xxx}
+-   问题2：{xxx}
+-   回答2：{xxx}
+-   问题3：{xxx}
+-   回答3：{xxx}
+-   问题4：{xxx}
+-   回答4：{xxx}
+-   问题5：{xxx}
+-   回答5：{xxx}
+[/content]
+
+## 要处理的文本
+
+[content]
+{text}
+[/content]
+'''
+
 SUM_PMT = '''
 假设你是一个高级编辑，遵循给定格式和注意事项，总结给定的段落。
 
@@ -157,7 +187,8 @@ def erchuang_single(args):
              'xhs' if args.style == 'xhs' 
         else 'gzh' if args.style ==  'gzh' 
         else 'fmt' if args.style == 'fmt'
-        else 'sum'
+        else 'sum' if args.style == 'sum'
+        else 'qa'
     )
     ofname = args.fname[:-3] + f'_{suf}.md'
     if path.isfile(ofname):
@@ -168,7 +199,8 @@ def erchuang_single(args):
              XHS_PMT if args.style == 'xhs' 
         else GZH_PMT if args.style == 'gzh'
         else FMT_PROMPT if args.style == 'fmt'
-        else SUM_PMT
+        else SUM_PMT if args.style == 'sum'
+        else QA_PMT
     )
     ques = pmt.replace('{text}', cont)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
