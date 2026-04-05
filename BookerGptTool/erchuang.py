@@ -127,7 +127,7 @@ def gen_xhs_single(args):
         else 'gzh' if args.style ==  'gzh' 
         else 'fmt'
     )
-    ofname = args.fname + f'_{suf}.md'
+    ofname = args.fname[:-3] + f'_{suf}.md'
     if path.isfile(ofname):
         print(f'{args.fname} 已生成')
         return
