@@ -114,7 +114,7 @@ def main():
     erchuang_parser.add_argument("fname", help="fname")
     erchuang_parser.add_argument("-t", "--threads", type=int, default=8, help="threadcount")
     erchuang_parser.add_argument("-s", "--style", type=str, default='xhs', choices=['xhs', 'gzh', 'fmt'], help="article style")
-    erchuang_parser.set_defaults(func=gen_xhs)
+    erchuang_parser.set_defaults(func=erchuang_handle)
 
     note_parser = subparsers.add_parser("note", help="make notes")
     note_parser.add_argument("fname", help="fname")

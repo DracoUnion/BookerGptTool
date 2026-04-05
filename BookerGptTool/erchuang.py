@@ -121,7 +121,7 @@ if (condVar > someVal) {console.log("xxx")}
 [/content]
 '''
 
-def gen_xhs_single(args):
+def erchuang_single(args):
     suf = (
              'xhs' if args.style == 'xhs' 
         else 'gzh' if args.style ==  'gzh' 
@@ -144,11 +144,11 @@ def gen_xhs_single(args):
 
 def gen_xhs_single_safe(args):
     try:
-        gen_xhs_single(args)
+        erchuang_single(args)
     except:
         traceback.print_exc()
 
-def gen_xhs(args):
+def erchuang_handle(args):
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
 
