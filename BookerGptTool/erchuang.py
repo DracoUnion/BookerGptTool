@@ -183,14 +183,7 @@ if (condVar > someVal) {console.log("xxx")}
 '''
 
 def erchuang_single(args):
-    suf = (
-             'xhs' if args.style == 'xhs' 
-        else 'gzh' if args.style ==  'gzh' 
-        else 'fmt' if args.style == 'fmt'
-        else 'sum' if args.style == 'sum'
-        else 'qa'
-    )
-    ofname = args.fname[:-3] + f'_{suf}.md'
+    ofname = args.fname[:-3] + f'_{args.style}.md'
     if path.isfile(ofname):
         print(f'{args.fname} 已生成')
         return
