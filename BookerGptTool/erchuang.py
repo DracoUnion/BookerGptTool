@@ -64,8 +64,6 @@ GZH_PMT = '''
 FMT_PROMPT = '''
 假设你是一个高级文档工程师，请参考下面的注意事项了解 Markdown 文档的格式，然后参考示例，将给定英文或中文文本排版。
 
-你是一个专业的Markdown排版专家。你的任务是清理和优化从PDF转换而来的Markdown文件。
-
 请执行以下操作：
 
 1. 删除所有广告内容（如"知识星球TOP"、微信号、二维码等推广信息）
@@ -124,13 +122,21 @@ if (condVar > someVal) {console.log("xxx")}
 '''
 
 def gen_xhs_single(args):
-    suf = 'xhs' if args.style == 'xhs' else 'gzh'
-    ofname = args.fname + f'_{suf}.txt'
+    suf = (
+             'xhs' if args.style == 'xhs' 
+        else 'gzh' if args.style ==  'gzh' 
+        else 'fmt'
+    )
+    ofname = args.fname + f'_{suf}.md'
     if path.isfile(ofname):
         print(f'{args.fname} 已生成')
         return
     cont = open(args.fname, encoding='utf8').read()
-    pmt = XHS_PMT if args.style == 'xhs' else GZH_PMT
+    pmt = (
+             XHS_PMT if args.style == 'xhs' 
+        else GZH_PMT if args.style == 'gzh'
+        else FMT_PROMPT
+    )
     ques = pmt.replace('{text}', cont)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     open(ofname, 'w', encoding='utf8').write(ans)
@@ -155,10 +161,10 @@ def gen_xhs(args):
         ]
     fnames = [
         f for f in fnames 
-        if extname(f) in ['txt', 'md']
+        if extname(f) == 'md'
     ]
     if not fnames:
-        print('请提供 TXT 或 MD 文件')
+        print('请提供 MD 文件')
         return
 
     pool = ThreadPoolExecutor(args.threads)
