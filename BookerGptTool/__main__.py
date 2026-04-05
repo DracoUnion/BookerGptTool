@@ -9,7 +9,6 @@ from .call import *
 from .arxiv import *
 from .sum import *
 from .infer import *
-from .stylish import *
 from .qa import *
 from .erchuang import *
 from .note import *
@@ -45,12 +44,6 @@ def main():
     trans_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
     trans_parser.set_defaults(func=trans_yaml_handle)
 
-    stylish_parser = subparsers.add_parser("stylish", help="stylish YAML files")
-    stylish_parser.add_argument("fname", help="yaml file name of dir")
-    stylish_parser.add_argument("-p", "--prompt", default=DFT_STYLE_PROMPT, help="prompt for trans")
-    stylish_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
-    stylish_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    stylish_parser.set_defaults(func=stylish_handle)
 
     test_parser = subparsers.add_parser("trans", help="translate one sentence")
     test_parser.add_argument("en", help="en text")
