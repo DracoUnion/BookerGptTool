@@ -330,14 +330,10 @@ def pdf_ocr(args):
         full_text += g['md']
 
     print(f'[7] 修正目录')
-    fix_toc(full_text, args)
+    full_text = fix_toc(full_text, args)
     
-
-
-    print(f'[7] 写入 {md_fname}')
-    f = open(md_fname, 'w', encoding='utf8')
-    
-    f.close()
+    print(f'[8] 写入 {md_fname}')
+    open(md_fname, 'w', encoding='utf8').write(full_text)
     print(f'[*] 处理完毕')
 
 def fix_toc(full_text, args):
@@ -346,5 +342,6 @@ def fix_toc(full_text, args):
     ans =  call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     fix_toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
     for lvl, title in fix_toc:
+        print(f'[7] {lvl} {title}')
         full_text = re.sub(r'^#+\x20+' + re.escape(title) + '$', f'{lvl} {title}', full_text, flags=re.M)
     return full_text
