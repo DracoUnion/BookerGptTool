@@ -11,7 +11,7 @@ from .infer import *
 from .erchuang import *
 from .note import *
 from .paper2code import *
-from .pdf_pcr import *
+from .pdf_ocr import *
 from .fiction import *
 from .md2skill import *
 

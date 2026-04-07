@@ -82,6 +82,23 @@ POSTPROC_PMT = '''
 [/content]
 '''
 
+TOC_PMT = '''
+你是一个文档修复专家，下面是从扫描件OCR得到的目录的 Markdown。文本中可能存在错字、层级混乱等问题。
+
+请完成以下修复任务，并严格按照 Markdown 格式输出。
+
+## 要求
+
+1. **纠正错别字**：根据语义和常见目录词汇（如“第”“章”“节”“参考文献”“附录”）修正明显OCR错误。
+2. **重建层级**：通过行首空格数量、编号模式（如“1.”“1.1”“1.1.1”）判断章/节/小节，在输出中用行首的井号（`#`）表示。
+
+## 目录
+
+[content]
+{text}
+[/content]
+'''
+
 def corp_img(img, bbox):
     xmin, ymin, xmax, ymax = bbox
     fmt_bytes = isinstance(img, bytes)
@@ -306,11 +323,28 @@ def pdf_ocr(args):
         h.result()
     hdls = []
 
-    print(f'[7] 写入 {md_fname}')
-    f = open(md_fname, 'w', encoding='utf8')
+    full_text = ''
     for g in res['groups']:
         if g['merge'] != 1:
-            f.write('\n\n')
-        f.write(g['md'])
+            full_text += '\n\n'
+        full_text += g['md']
+
+    print(f'[7] 修正目录')
+    fix_toc(full_text, args)
+    
+
+
+    print(f'[7] 写入 {md_fname}')
+    f = open(md_fname, 'w', encoding='utf8')
+    
     f.close()
     print(f'[*] 处理完毕')
+
+def fix_toc(full_text, args):
+    toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
+    ques = TOC_PMT.replace('{text}', '\n'.join(toc))
+    ans =  call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    fix_toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
+    for lvl, title in fix_toc:
+        full_text = re.sub(r'^#+\x20+' + re.escape(title) + '$', f'{lvl} {title}', full_text, flags=re.M)
+    return full_text
