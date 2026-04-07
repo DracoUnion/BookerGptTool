@@ -59,6 +59,29 @@ true | false
 [/content]
 '''
 
+POSTPROC_PMT = '''
+你是一个专业的OCR后处理助手。下面是一份扫描文档经过OCR识别后得到的原始文本，每页以[PAGE X]分隔。
+
+请你完成以下任务：
+
+1. 纠正明显的OCR错误（如形近字混淆、标点错误、数字/字母误判）。
+2. 将跨页的连续段落正确合并，不要保留分页标记。
+3. 根据语义和缩进/编号特征，识别标题（用## 表示一级标题，### 表示二级标题）、列表项（用- 开头）。
+4. 恢复正常的段落缩进（首行空两格不是必须，但请用空行分隔不同段落）。
+5. 如果出现表格样式的文本，请将其转换为Markdown表格。
+
+输出要求：
+
+- 只输出处理后的最终文本，不要包含解释或额外注释。
+- 保留原文的语言和所有信息，不要删减或总结。
+
+原始OCR文本：
+
+[content]
+{text}
+[/content]
+'''
+
 def corp_img(img, bbox):
     xmin, ymin, xmax, ymax = bbox
     fmt_bytes = isinstance(img, bytes)
@@ -96,7 +119,7 @@ def ocr_json2md(j):
         or '<!-- no content -->'
     
 
-def tr_ocr_page(img, res, idx, args, write_callback):
+def tr_ocr_page(img, pages, idx, args, write_callback):
     print(f'[3] 识别页码 {idx + 1}')
     for i in range(args.retry):
         try:
@@ -106,29 +129,30 @@ def tr_ocr_page(img, res, idx, args, write_callback):
             # ans = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
             ans = ans.replace('```', '')
             j = json.loads(ans)
-            res[idx]['md'] = ocr_json2md(j)
+            pages[idx]['md'] = ocr_json2md(j)
             break
         except Exception as ex:
             print(f'OCR retry {i+1}: {str(ex)}')
             if i == args.retry - 1: raise ex
     write_callback()
 
-def tr_merge(res, idx, args, write_callback):
-    print(f'[3] 处理合并 {idx + 1}')
-    prev = re.search(r'^.+?\Z', res[idx - 1]['md'], flags=re.M).group()
-    next = re.search(r'\A.+?$', res[idx]['md'], flags=re.M).group()
+def tr_merge_group(groups, idx, args, write_callback):
+    print(f'[6] 处理分组合并 {idx + 1}')
+    prev = re.search(r'^.+?\Z', groups[idx - 1]['md'], flags=re.M).group()
+    next = re.search(r'\A.+?$', groups[idx]['md'], flags=re.M).group()
 
     ques = MERGE_PMT.replace('{prev}', prev) \
         .replace('{next}', next)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     merge = ans.replace('```', '').strip()
-    res[idx]['merge'] = int(merge == 'true')
+    groups[idx]['merge'] = int(merge == 'true')
     write_callback()
     
 
-def tr_proc_img(img, res, idx, img_dir, pdf_hash, write_callback):
-    md = res[idx]['md']
-    pgno = res[idx]['pgno']
+def tr_proc_img(img, pages, idx, img_dir, pdf_hash, write_callback):
+    print(f'[4] 处理图像 {idx}')
+    md = pages[idx]['md']
+    pgno = pages[idx]['pgno']
     img_links = re.findall(r'!\[\]\(.+?\)', md)
     for j, link in enumerate(img_links):
         m = re.search(r'bbox=\[(\d+),\x20(\d+),\x20(\d+),\x20(\d+)\]', link)
@@ -141,9 +165,17 @@ def tr_proc_img(img, res, idx, img_dir, pdf_hash, write_callback):
         print(f'[5] {img_ffname}')
         open(img_ffname, 'wb').write(img_pt)
         md = md.replace(link, f'![](img/{img_fname})')
-        res[idx]['md'] = md
+        pages[idx]['md'] = md
         write_callback()
 
+def tr_group_page(groups, idx, args, write_callback):
+    print(f'[5] 处理页面合并 {idx}')
+    text = '\n\n'.join(groups[idx]['raw'])
+    ques = POSTPROC_PMT.replace('{text}', text)
+    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    groups[idx]['md'] = ans
+    write_callback()
+    
 
 def pdf_ocr(args):
     print(args)
@@ -165,12 +197,14 @@ def pdf_ocr(args):
     print(f'[2] 初始化 {yaml_fname}')
     if path.isfile(yaml_fname):
         res = yaml.safe_load(open(yaml_fname, encoding='utf8').read())
+        pages = res['pages']
     else:
-        res = [{
+        pages = [{
             'pgno': i,
             'md': '',
             'merge': -1,
         } for i in range(len(doc))]
+        res = {'pages': pages}
         open(yaml_fname, 'w', encoding='utf8') \
                 .write(yaml.safe_dump(res, allow_unicode=True))
 
@@ -183,13 +217,13 @@ def pdf_ocr(args):
             open(fname, 'w', encoding='utf8') \
                 .write(yaml.safe_dump(res, allow_unicode=True))
     
-    for i, it in enumerate(res):
-        if it['md']: continue
-        pgno = it['pgno']
+    for i, g in enumerate(res['pages']):
+        if g['md']: continue
+        pgno = g['pgno']
         img = doc[pgno].get_pixmap(dpi=args.dpi).pil_tobytes('png')
         h = pool.submit(
             tr_ocr_page, 
-            img, res, i, args,
+            img, res['pages'], i, args,
             functools.partial(write_callback, yaml_fname, res),
         )
         hdls.append(h)
@@ -200,34 +234,16 @@ def pdf_ocr(args):
         h.result()
     hdls = []
 
-    print(f'[4] 处理页间合并')
-    res = [it for it in res if it['md']]
-    for i, it in enumerate(res):
-        if i == 0: continue
-        if it['merge'] != -1: continue
-        h = pool.submit(
-            tr_merge, 
-            res, i, args,
-            functools.partial(write_callback, yaml_fname, res),
-        )
-        hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
-
-    for h in hdls: 
-        h.result()
-    hdls = []
         
-    print(f'[5] 处理图片')
+    print(f'[4] 处理图片')
     img_dir = args.fname[:-4] + '_imgs'
     os.makedirs(img_dir, exist_ok=True)
-    for i, it in enumerate(res):
-        pgno = it['pgno']
+    for i, g in enumerate(res['pages']):
+        pgno = g['pgno']
         img = doc[pgno].get_pixmap(dpi=args.dpi).pil_tobytes('png')
         h = pool.submit(
             tr_proc_img, 
-            img, res, i, img_dir, pdf_hash,
+            img, res['pages'], i, img_dir, pdf_hash,
             functools.partial(write_callback, yaml_fname, res),
         )
         hdls.append(h)
@@ -238,12 +254,63 @@ def pdf_ocr(args):
     for h in hdls: 
         h.result()
     hdls = []
-    
-    print(f'[6] 写入 {md_fname}')
+
+    print(f'[5] 处理页间合并')
+    if 'groups' in res:
+        groups = res['groups']
+    else:
+        groups =  [{
+            'raw': [], 
+            'md': '',
+            'merge': -1,
+        }]
+        for g in pages:
+            exi_len = sum(len(md) for md in groups[-1]['raw'])
+            if exi_len > args.limit:
+                groups.append({'raw': [], 'md': ''})
+            groups[-1]['raw'].append(
+                f"[PAGE {g['pgno']}]\n\n{g['md']}"
+            )
+        groups = [g for g in groups if g['raw']]
+        res['groups'] = groups
+
+    for i, g in enumerate(res['groups']):
+        if g['md']: continue
+        h = pool.submit(
+            tr_group_page, res['groups'], i, args,
+            functools.partial(write_callback, yaml_fname, res),
+        )
+        if len(hdls) > args.threads:
+            for h in hdls: h.result()
+            hdls = []
+    for h in hdls: 
+        h.result()
+    hdls = []
+
+    print(f'[6] 处理组间合并')
+    res['groups'] = [g for g in res['groups'] if g['md']]
+    for i, g in enumerate(res['groups']):
+        if i == 0: continue
+        if g['merge'] != -1: continue
+        h = pool.submit(
+            tr_merge_group, 
+            res['groups'], i, args,
+            functools.partial(write_callback, yaml_fname, res),
+        )
+        hdls.append(h)
+        if len(hdls) > args.threads:
+            for h in hdls: h.result()
+            hdls = []
+
+    for h in hdls: 
+        h.result()
+    hdls = []
+
+    print(f'[7] 写入 {md_fname}')
     f = open(md_fname, 'w', encoding='utf8')
-    for it in res:
-        if it['merge'] != 1:
+    for g in res['groups']:
+        if g['merge'] != 1:
             f.write('\n\n')
-        f.write(it['md'])
+        f.write(g['md'])
     f.close()
     print(f'[*] 处理完毕')
