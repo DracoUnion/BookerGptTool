@@ -127,6 +127,8 @@ def tr_trans(g, args, totrans_id_map, write_callback=None):
 def tr_trans_safe(*args, **kw):
     try:
         tr_trans(*args, **kw)
+    except KeyboardInterrupt:
+        raise
     except:
         traceback.print_exc()
 

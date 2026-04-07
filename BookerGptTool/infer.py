@@ -10,6 +10,8 @@ def tr_infer(dit, args, write_callback):
         ans = fix_lists(ans)
         dit[args.ans_col] = ans
         write_callback()
+    except KeyboardInterrupt:
+        raise
     except Exception:
         traceback.print_exc()
 

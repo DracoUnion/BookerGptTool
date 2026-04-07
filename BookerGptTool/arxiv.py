@@ -122,6 +122,8 @@ def ext_chapters(tex):
 def tr_sum_text_safe(*args, **kw):
     try:
         tr_sum_text(*args, **kw)
+    except KeyboardInterrupt:
+        raise
     except:
         traceback.print_exc()
 
@@ -187,6 +189,8 @@ def sum_arxiv_batch(args):
 def sum_arxiv_safe(args):
     try:
         sum_arxiv(args)
+    except KeyboardInterrupt:
+        raise
     except:
         traceback.print_exc()
 

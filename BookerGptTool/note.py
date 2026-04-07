@@ -23,6 +23,8 @@ DFT_PMT = '''
 def mknote_file_safe(args):
     try:
         mknote_file(args)
+    except KeyboardInterrupt:
+        raise
     except:
         traceback.print_exc()
 

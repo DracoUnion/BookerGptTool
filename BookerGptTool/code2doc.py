@@ -30,6 +30,8 @@ def process_dir(args):
 def process_file_safe(args):
     try:
         process_file(args)
+    except KeyboardInterrupt:
+        raise
     except:
         traceback.print_exc()
 

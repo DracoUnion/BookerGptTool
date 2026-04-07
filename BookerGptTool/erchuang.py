@@ -218,6 +218,8 @@ def erchuang_single(args):
 def gen_xhs_single_safe(args):
     try:
         erchuang_single(args)
+    except KeyboardInterrupt:
+        raise
     except:
         traceback.print_exc()
 
