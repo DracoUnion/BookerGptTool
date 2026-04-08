@@ -284,12 +284,12 @@ def pdf_ocr(args):
             'md': '',
             'merge': -1,
         }]
-        for g in pages:
+        for p in res['pages']:
             exi_len = sum(len(md) for md in groups[-1]['raw'])
             if exi_len > args.limit:
                 groups.append({'raw': [], 'md': '', 'merge': -1})
             groups[-1]['raw'].append(
-                f"[PAGE {g['pgno']}]\n\n{g['md']}"
+                f"[PAGE {p['pgno']}]\n\n{p['md']}"
             )
         groups = [g for g in groups if g['raw']]
         res['groups'] = groups
