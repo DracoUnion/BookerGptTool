@@ -279,19 +279,7 @@ def pdf_ocr(args):
     if 'groups' in res:
         groups = res['groups']
     else:
-        groups =  [{
-            'raw': [], 
-            'md': '',
-            'merge': -1,
-        }]
-        for p in res['pages']:
-            exi_len = sum(len(md) for md in groups[-1]['raw'])
-            if exi_len > args.limit:
-                groups.append({'raw': [], 'md': '', 'merge': -1})
-            groups[-1]['raw'].append(
-                f"[PAGE {p['pgno']}]\n\n{p['md']}"
-            )
-        groups = [g for g in groups if g['raw']]
+        groups = mkgroups(res['pages'], args)
         res['groups'] = groups
 
     for i, g in enumerate(res['groups']):
@@ -357,3 +345,19 @@ def fix_toc(full_text, res, args, write_callback):
         print(f'[7] {lvl} {title}')
         full_text = re.sub(r'^#+\x20+' + re.escape(title) + '$', f'{lvl} {title}', full_text, flags=re.M)
     return full_text
+
+def mkgroups(pages, args):
+    groups =  [{
+            'raw': [], 
+            'md': '',
+            'merge': -1,
+        }]
+    for p in pages:
+        exi_len = sum(len(md) for md in groups[-1]['raw'])
+        if exi_len > args.limit:
+            groups.append({'raw': [], 'md': '', 'merge': -1})
+        groups[-1]['raw'].append(
+            f"[PAGE {p['pgno']}]\n\n{p['md']}"
+        )
+    groups = [g for g in groups if g['raw']]
+    return groups
