@@ -334,18 +334,26 @@ def pdf_ocr(args):
         full_text += g['md']
 
     print(f'[7] 修正目录')
-    full_text = fix_toc(full_text, args)
+    full_text = fix_toc(
+        full_text, res, args,
+        functools.partial(write_callback, yaml_fname, res),
+    )
     
     print(f'[8] 写入 {md_fname}')
     open(md_fname, 'w', encoding='utf8').write(full_text)
     print(f'[*] 处理完毕')
 
-def fix_toc(full_text, args):
-    toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
-    ques = TOC_PMT.replace('{text}', '\n'.join(toc))
-    ans =  call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    fix_toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
-    for lvl, title in fix_toc:
+def fix_toc(full_text, res, args, write_callback):
+    if 'toc' in res:
+        toc = res['toc']
+    else:
+        toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
+        ques = TOC_PMT.replace('{text}', '\n'.join(toc))
+        ans =  call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
+        res['toc'] = toc
+        write_callback()
+    for lvl, title in toc:
         print(f'[7] {lvl} {title}')
         full_text = re.sub(r'^#+\x20+' + re.escape(title) + '$', f'{lvl} {title}', full_text, flags=re.M)
     return full_text
