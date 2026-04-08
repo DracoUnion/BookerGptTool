@@ -316,7 +316,8 @@ def pdf_ocr(args):
     hdls = []
 
     full_text = ''
-    for g in res['groups']:
+    for i, g in enumerate(res['groups']):
+        print(f'[6] 生成全文 {i}')
         if g['merge'] != 1:
             full_text += '\n\n'
         full_text += g['md']
