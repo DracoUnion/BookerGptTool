@@ -113,6 +113,7 @@ def main():
     pdf_ocr_parser.add_argument("fname", help="PDF file name")
     pdf_ocr_parser.add_argument("--dpi", type=int, default=300, help="dpi")
     pdf_ocr_parser.add_argument("-t", "--threads", type=int, default=4, help="num threads")
+    pdf_ocr_parser.add_argument("-l", "--limit", type=int, default=30000, help="text limit in groups")
     pdf_ocr_parser.set_defaults(func=pdf_ocr)
 
     fiction_parser = subparsers.add_parser("fiction", help="write fiction")
