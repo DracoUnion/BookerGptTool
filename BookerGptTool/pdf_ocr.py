@@ -236,9 +236,9 @@ def pdf_ocr(args):
             open(fname, 'w', encoding='utf8') \
                 .write(yaml.safe_dump(res, allow_unicode=True))
     
-    for i, p in enumerate(res['pages']):
-        if p['md']: continue
-        pgno = p['pgno']
+    for i, g in enumerate(res['pages']):
+        if g['md']: continue
+        pgno = g['pgno']
         img = doc[pgno].get_pixmap(dpi=args.dpi).pil_tobytes('png')
         h = pool.submit(
             tr_ocr_page, 
@@ -257,9 +257,9 @@ def pdf_ocr(args):
     print(f'[4] 处理图片')
     img_dir = args.fname[:-4] + '_imgs'
     os.makedirs(img_dir, exist_ok=True)
-    for i, p in enumerate(res['pages']):
-        if p['img_proc']: continue
-        pgno = p['pgno']
+    for i, g in enumerate(res['pages']):
+        if g['img_proc']: continue
+        pgno = g['pgno']
         img = doc[pgno].get_pixmap(dpi=args.dpi).pil_tobytes('png')
         h = pool.submit(
             tr_proc_img, 
@@ -284,22 +284,23 @@ def pdf_ocr(args):
             'md': '',
             'merge': -1,
         }]
-        for p in pages:
+        for g in pages:
             exi_len = sum(len(md) for md in groups[-1]['raw'])
             if exi_len > args.limit:
-                groups.append({'raw': [], 'md': ''})
+                groups.append({'raw': [], 'md': '', 'merge': -1})
             groups[-1]['raw'].append(
-                f"[PAGE {p['pgno']}]\n\n{p['md']}"
+                f"[PAGE {g['pgno']}]\n\n{g['md']}"
             )
         groups = [g for g in groups if g['raw']]
         res['groups'] = groups
 
-    for i, p in enumerate(res['groups']):
-        if p['md']: continue
+    for i, g in enumerate(res['groups']):
+        if g['md']: continue
         h = pool.submit(
             tr_group_page, res['groups'], i, args,
             functools.partial(write_callback, yaml_fname, res),
         )
+        hdls.append(h)
         if len(hdls) > args.threads:
             for h in hdls: h.result()
             hdls = []
@@ -309,9 +310,9 @@ def pdf_ocr(args):
 
     print(f'[6] 处理组间合并')
     res['groups'] = [g for g in res['groups'] if g['md']]
-    for i, p in enumerate(res['groups']):
+    for i, g in enumerate(res['groups']):
         if i == 0: continue
-        if p['merge'] != -1: continue
+        if g['merge'] != -1: continue
         h = pool.submit(
             tr_merge_group, 
             res['groups'], i, args,
@@ -327,10 +328,10 @@ def pdf_ocr(args):
     hdls = []
 
     full_text = ''
-    for p in res['groups']:
-        if p['merge'] != 1:
+    for g in res['groups']:
+        if g['merge'] != 1:
             full_text += '\n\n'
-        full_text += p['md']
+        full_text += g['md']
 
     print(f'[7] 修正目录')
     full_text = fix_toc(full_text, args)
