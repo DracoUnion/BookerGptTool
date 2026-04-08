@@ -183,8 +183,8 @@ def tr_proc_img(img, pages, idx, img_dir, pdf_hash, write_callback):
         open(img_ffname, 'wb').write(img_pt)
         md = md.replace(link, f'![](img/{img_fname})')
         pages[idx]['md'] = md
-        pages[idx]['img_proc'] = True
         write_callback()
+    pages[idx]['img_proc'] = True
 
 def tr_group_page(groups, idx, args, write_callback):
     print(f'[5] 处理页面合并 {idx}')
