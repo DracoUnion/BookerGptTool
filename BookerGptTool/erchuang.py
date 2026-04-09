@@ -221,6 +221,8 @@ KOUBO_PMT = '''
 [/content]
 '''
 
+#########################################################
+
 def erchuang_single(args):
     ofname = args.fname[:-3] + f'_{args.style}.md'
     if path.isfile(ofname):
