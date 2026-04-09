@@ -195,6 +195,32 @@ if (condVar > someVal) {console.log("xxx")}
 
 #########################################################
 
+KOUBO_PMT = '''
+你是一位资深电台主播兼新媒体编辑，擅长将书面化的公众号文章，改写成适合口语表达、节奏清晰、有感染力的口播稿。
+
+# 任务
+
+请将以下【原文】改写为一篇口播稿。
+
+# 要求
+
+1. **口语化**：把长句拆成短句，把书面词换成日常用词（如“此举”→“这个做法”，“其”→“他/她/它”）。适当加入“你知道吗？”“咱们先说……”等引导语。
+2. **听觉友好**：避免复杂从句和生僻术语。用声音能自然停顿的标点（句号、逗号、破折号）。人名、数据、关键概念要“说清楚”，必要时加简单解释。
+3. **结构清晰**：保留核心观点和逻辑，但用“第一/第二”、“接下来”、“最重要的是”这类听觉标记引导听众。开头要有吸引力（金句/设问/场景），结尾要有总结或行动呼吁。
+4. **时长控制**：一般口播语速约200-220字/分钟。请根据目标时长调整字数（例如3分钟约600-650字），如果原文太长，请提炼精华。
+5. **朗读提示**：可在需要强调、停顿或情感变化的地方，用【】或括号加注，如（语气渐缓）、（重点强调）、（此处停顿1秒）。
+
+# 输出格式
+
+直接输出改写后的口播正文，无需额外解释。如果需要删减重要信息，请说明删减了什么。
+
+# 原文
+
+[content]
+{text}
+[/content]
+'''
+
 def erchuang_single(args):
     ofname = args.fname[:-3] + f'_{args.style}.md'
     if path.isfile(ofname):
@@ -206,7 +232,8 @@ def erchuang_single(args):
         else GZH_PMT if args.style == 'gzh'
         else FMT_PMT if args.style == 'fmt'
         else SUM_PMT if args.style == 'sum'
-        else QA_PMT
+        else QA_PMT if args.style == 'qa'
+        else KOUBO_PMT
     )
     ques = pmt.replace('{text}', cont)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
