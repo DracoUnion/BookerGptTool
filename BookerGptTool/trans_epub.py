@@ -1,3 +1,47 @@
+TRANS_BODY_PMT = '''
+假设你是一个高级文档工程师和翻译员，请参考下面的注意事项了解 Markdown 文档的格式，然后参考示例，将给定英文文本翻译成中文。
+
+## 注意事项
+
+-   粗体（**bold**）和斜体（*itatic*）需要翻译翻译内容并保留符号。
+-   内联代码（`code`）和代码块不需要翻译。
+-   链接（[link](https://example.org)）需要翻译其内容，但保留网址。
+-   列表，表格，引用块保留格式，翻译内容
+-   原文可能有多行，不要漏掉任何一行，并且注意一定不要重复输出原文！！！
+
+## 示例
+
+原文：
+
+[content]
+-   [Feynman's learning method](https://wiki.example.org/feynmans_learning_method) is inspired by **Richard Feynman**, the Nobel Prize winner in physics. 
+
+1.  With Feynman's skills, you can understand the knowledge points in depth in just `20 min`, and it is memorable and *hard to forget*. 
+
+```
+if (condVar > someVal) {console.log("xxx")}
+```
+[/content]
+
+译文：
+
+[content]
+-   [费曼学习法](https://wiki.example.org/feynmans_learning_method)的灵感源于诺贝尔物理奖获得者**理查德·费曼**。
+
+1.  运用费曼技巧，你只需花上`20 min`就能深入理解知识点，而且记忆深刻，*难以遗忘*。
+
+```
+if (condVar > someVal) {console.log("xxx")}
+```
+[/content]
+
+## 以下是需要翻译的文本
+
+[content]
+{text}
+[/content]
+'''
+
 TRANS_TITLE_PMT = '''
 你是一个高级翻译，请参考示例，翻译指定的图书标题到中文。注意只需要输出翻译，不要输出其他任何东西。
 
