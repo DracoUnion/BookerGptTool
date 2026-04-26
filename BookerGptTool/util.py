@@ -21,10 +21,17 @@ from typing import *
 RE_IFRAME = r'<iframe[^>]*src="(.+?)"[^>]*>'
 RE_IFRAME_ALL = r'</?iframe[^>]*>'
 RE_IFRAME_REPL = r'<br/><br/><a href="\1">\1</a><br/><br/>'
+RE_TITLE = r'^#+\x20+(.+?)$'
 DIR = path.dirname(path.abspath(__file__))
 
 def d(name):
     return path.join(DIR, name)
+
+def get_md_title(text):
+    m = re.search(RE_TITLE, text, flags=re.M)
+    if not m:
+        return None, (None, None)
+    return m.group(1).strip(), m.span(1)
 
 def tomd(html, lang=None):
     # 处理 IFRAME
