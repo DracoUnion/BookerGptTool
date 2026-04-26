@@ -125,6 +125,24 @@ if (condVar > someVal) {console.log("xxx")}
 [/content]
 '''
 
+def tr_fmt_trans(chunks, idx, args, write_callback):
+    print(f'[4] 处理分块 {idx+1}')
+    raw = chunks[idx]['raw']
+    fmt = chunks[idx]['fmt']
+    trans = chunks[idx]['trans']
+    if not fmt:
+        ques = FMT_PMT.replace('{text}', raw)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        fmt = ans.replace('[content]', '').replace('[/content]', '')
+        chunks[idx]['fmt'] = fmt
+        write_callback()
+    if not trans:
+        ques = TRANS_BODY_PMT.replace('{text}', raw)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        trans = ans.replace('[content]', '').replace('[/content]', '')
+        chunks[idx]['trans'] = trans
+        write_callback()
+
 def trans_epub(args):
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
