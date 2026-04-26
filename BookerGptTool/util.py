@@ -21,6 +21,10 @@ from typing import *
 RE_IFRAME = r'<iframe[^>]*src="(.+?)"[^>]*>'
 RE_IFRAME_ALL = r'</?iframe[^>]*>'
 RE_IFRAME_REPL = r'<br/><br/><a href="\1">\1</a><br/><br/>'
+DIR = path.dirname(path.abspath(__file__))
+
+def d(name):
+    return path.join(DIR, name)
 
 def tomd(html, lang=None):
     # 处理 IFRAME
