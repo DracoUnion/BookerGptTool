@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import json_repair as json
 from imgyaso.quant import pngquant
-from .util import call_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title
+from .util import call_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc
 
 TRANS_BODY_PMT = '''
 假设你是一个高级文档工程师和翻译员，请参考下面的注意事项了解 Markdown 文档的格式，然后参考示例，将给定英文文本翻译成中文。
