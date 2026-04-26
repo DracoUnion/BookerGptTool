@@ -194,3 +194,27 @@ def trans_epub(args):
         } for c in chunks]
         open(chunk_fname, 'w',  encoding='utf8') \
             .write(yaml.safe_dump(chunks, allow_unicode=True))
+
+    pool = ThreadPoolExecutor(args.threads)
+    hdls = []
+    lock = Lock()
+    def write_callback(fname, res):
+        with lock:
+            open(fname, 'w', encoding='utf8') \
+                .write(yaml.safe_dump(res, allow_unicode=True))
+    
+    for idx, c in enumerate(chunks):
+        if c['fmt'] and c['trans']:
+            continue
+        h = tr_fmt_trans(
+            chunks, idx, args,
+            functools.partial(write_callback, chunk_fname, chunks),
+        )
+        hdls.append(h)
+        if len(hdls) > args.threads:
+            for h in hdls: h.result()
+            hdls = []
+
+    for h in hdls: 
+        h.result()
+    hdls = []    
