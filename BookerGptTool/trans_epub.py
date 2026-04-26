@@ -140,7 +140,7 @@ def tr_fmt_trans(chunks, idx, args, write_callback):
         ques = TRANS_BODY_PMT.replace('{text}', raw)
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         trans = ans.replace('[content]', '').replace('[/content]', '')
-        chunks[idx]['trans'] = trans
+        chunks[idx]['trans'] = fmt_zh(trans)
         write_callback()
 
 def trans_epub(args):
