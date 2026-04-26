@@ -16,6 +16,8 @@ import subprocess as subp
 from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+import tempfile
+import uuid
 from typing import *
 
 RE_IFRAME = r'<iframe[^>]*src="(.+?)"[^>]*>'
@@ -32,6 +34,16 @@ def get_md_title(text):
     if not m:
         return None, (None, None)
     return m.group(1).strip(), m.span(1)
+
+def epub2html_pandoc(epub):
+    fname = path.join(tempfile.gettempdir(), uuid.uuid4().hex + '.epub')
+    ofname = fname[:-5] + '.html'
+    open(fname, 'wb').write(epub)
+    subp.Popen(['pandoc', fname, '-o', ofname]).communicate()
+    html = open(ofname, encoding='utf8').read()
+    os.remove(fname)
+    os.remove(ofname)
+    return html
 
 def tomd(html, lang=None):
     # 处理 IFRAME
