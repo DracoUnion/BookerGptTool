@@ -271,3 +271,8 @@ def trans_epub(args):
         ch_fname = path.join(proj_dir, slug + '_' + str(i).zfill(l) + '.md')
         print(f'[5] {ch_fname}')
         open(ch_fname, 'w', encoding='utf8').write(c)
+
+    print('[6] 生成 readme')
+    readme = README_TMPL.replace('{name}', name).replace('{name_cn}', meta['name_cn'])
+    readme_fname = path.join(proj_dir, 'README.md')
+    open(readme_fname, 'w', encoding='utf8').write(readme)
