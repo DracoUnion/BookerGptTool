@@ -151,3 +151,19 @@ def trans_epub(args):
             'name_cn': name_cn,
         }
         open(meta_fname, 'w', encoding='utf8').write(yaml.safe_dump(meta))
+
+    print('[2] 转换 html 和 md')
+    html_fname = path.join(meta_dir, 'all.html')
+    if path.isfile(html_fname):
+        html = open(html_fname, encoding='utf8').read()
+    else:
+        epub = open(args.fname, 'rb').read()
+        html = epub2html_pandoc(epub)
+        open(html_fname, 'w', encoding='utf8').write(html)
+    
+    md_fname = path.join(meta_dir, 'all.md')
+    if path.isfile(md_fname):
+        md = open(md_fname, encoding='utf8').read()
+    else:
+        md = tomd(html)
+        open(md_fname, 'w', encoding='utf8').write(md)
