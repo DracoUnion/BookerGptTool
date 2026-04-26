@@ -1,3 +1,15 @@
+import os
+from io import BytesIO
+from os import path
+import re
+import yaml
+import functools
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
+import json_repair as json
+from imgyaso.quant import pngquant
+from .util import call_chatgpt_retry, set_openai_props
+
 TRANS_BODY_PMT = '''
 假设你是一个高级文档工程师和翻译员，请参考下面的注意事项了解 Markdown 文档的格式，然后参考示例，将给定英文文本翻译成中文。
 
