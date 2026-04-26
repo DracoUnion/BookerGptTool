@@ -179,3 +179,18 @@ def trans_epub(args):
         ifname = path.join(img_dir, path.basename(iname))
         open(ifname, 'wb').write(data)
         print(f'[3] {iname}')
+
+    print('[4] 排版和翻译')
+    chunk_fname = path.join(meta_dir, 'chunks.yaml')
+    if path.isfile(chunk_fname):
+        chunks = yaml.safe_load(open(chunk_fname, encoding='utf8').read())
+    else:
+        chunks = chunk_markdown(
+            md, path.basename(args.fname)[:-4]).chunks
+        chunks = [{
+            'raw': c.content,
+            'fmt': '',
+            'trans': '',
+        } for c in chunks]
+        open(chunk_fname, 'w',  encoding='utf8') \
+            .write(yaml.safe_dump(chunks, allow_unicode=True))
