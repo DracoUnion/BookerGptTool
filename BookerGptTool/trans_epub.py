@@ -167,3 +167,15 @@ def trans_epub(args):
     else:
         md = tomd(html)
         open(md_fname, 'w', encoding='utf8').write(md)
+
+    print('[3] 导出图像')
+    img_dir = path.join(proj_dir, 'img')
+    os.makedirs(img_dir, exist_ok=True)
+    fdict = read_zip(args.fname)
+    for iname, data in fdict.items():
+        if not is_pic(iname): 
+            continue
+        data = pngquant(data)
+        ifname = path.join(img_dir, path.basename(iname))
+        open(ifname, 'wb').write(data)
+        print(f'[3] {iname}')
