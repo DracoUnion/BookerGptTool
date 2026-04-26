@@ -125,6 +125,16 @@ if (condVar > someVal) {console.log("xxx")}
 [/content]
 '''
 
+README_TMPL = '''
+# {name_cn}
+
+> 原文：[{name}]()
+> 
+> 译者：[飞龙](https://github.com/wizardforcel)
+> 
+> 协议：[CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/)
+'''.strip()
+
 def split_chs(md):
     lines = md.split('\n')
     in_code = False
