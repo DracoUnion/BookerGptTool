@@ -124,3 +124,30 @@ if (condVar > someVal) {console.log("xxx")}
 {text}
 [/content]
 '''
+
+def trans_epub(args):
+    print(args)
+    set_openai_props(args.key, args.proxy, args.host)
+    if not args.fname.endswith('.epub'):
+        print('请提供EPUB文件')
+        return
+    
+    print('[1] 初始化元数据')
+    name = path.basename(args.fname)
+    slug = to_kebab(name)
+    proj_dir = path.join(path.dirname(args.fname), slug)
+    os.makedirs(proj_dir, exist_ok=True)
+    meta_dir = path.join(proj_dir, 'asset')
+    os.makedirs(meta_dir, exist_ok=True)
+    meta_fname = path.join(meta_dir, 'meta.yaml')
+    if path.isfile(meta_fname):
+        meta = yaml.safe_load(open(meta_fname, encoding='utf8').read())
+    else:
+        ques = TRANS_TITLE_PMT.replace('{text}', name)
+        name_cn = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        meta = {
+            'name': name,
+            'slug': slug,
+            'name_cn': name_cn,
+        }
+        open(meta_fname, 'w', encoding='utf8').write(yaml.safe_dump(meta))
