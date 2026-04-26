@@ -1,4 +1,4 @@
-r4  import openai
+import openai
 import base64
 import httpx
 import requests
