@@ -11,9 +11,18 @@ import json
 import random
 import copy
 import re
+import zipfile
+from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from typing import *
+
+def read_zip(fname: str) -> FDict:
+    bio = BytesIO(open(fname, 'rb').read())
+    zip = zipfile.ZipFile(bio, 'r')
+    fdict = {n:zip.read(n) for n in zip.namelist()}
+    zip.close()
+    return fdict
 
 def to_kebab(name: str) -> str:
     """将技能名转为 kebab-case slug"""
