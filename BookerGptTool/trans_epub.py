@@ -258,8 +258,14 @@ def trans_epub(args):
     hdls = []    
 
     print('[5] 分章节')
-    md = '\n\n'.join(c['trans'] for c in chunks)
-    chs = split_chs(md)
+    chs_fname = path.join(meta_dir, 'chs.yaml')
+    if path.isfile(chs_fname):
+        chs = yaml.safe_load(open(chs_fname, encoding='utf8').read())
+    else:
+        md = '\n\n'.join(c['trans'] for c in chunks)
+        chs = split_chs(md)
+        open(chs_fname, 'w', encoding='utf8').write(yaml.safe_dump(chs, allow_unicode=True))
+    
     l = len(str(len(chs)))
     for i, c in enumerate(chs):
         ch_fname = path.join(proj_dir, slug + '_' + str(i).zfill(l) + '.md')
