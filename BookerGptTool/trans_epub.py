@@ -183,7 +183,7 @@ def trans_epub(args):
         return
     
     print('[1] 初始化元数据')
-    name = path.basename(args.fname)
+    name = path.basename(args.fname)[:-5]
     slug = to_kebab(name)
     proj_dir = path.join(path.dirname(args.fname), slug)
     os.makedirs(proj_dir, exist_ok=True)
@@ -236,7 +236,7 @@ def trans_epub(args):
         chunks = yaml.safe_load(open(chunk_fname, encoding='utf8').read())
     else:
         chunks = chunk_markdown(
-            md, path.basename(args.fname)[:-4]).chunks
+            md, path.basename(args.fname)[:-5]).chunks
         chunks = [{
             'raw': c.content,
             'fmt': '',
