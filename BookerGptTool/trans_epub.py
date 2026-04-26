@@ -276,3 +276,13 @@ def trans_epub(args):
     readme = README_TMPL.replace('{name}', name).replace('{name_cn}', meta['name_cn'])
     readme_fname = path.join(proj_dir, 'README.md')
     open(readme_fname, 'w', encoding='utf8').write(readme)
+
+    print('[6] 生成 summary')
+    toc =[]
+    for i, ch in enumerate(chs):
+        title, _ = get_md_title(ch)
+        ch_fname = slug + '_' + str(i).zfill(l) + '.md'
+        toc.append(f'+   [{title}]({ch_fname})')
+    summary = '\n'.join(toc)   
+    summary_fname = path.join(proj_dir, 'SUMMARY.md')
+    open(summary_fname, 'w', encoding='utf8').write(summary)
