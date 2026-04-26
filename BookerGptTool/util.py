@@ -17,6 +17,15 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from typing import *
 
+
+def is_pic(fname):
+    ext = [
+        'jpg', 'jpeg', 'jfif', 'png', 
+        'gif', 'tiff', 'webp'
+    ]
+    m = re.search(r'\.(\w+)$', fname.lower())
+    return bool(m and m.group(1) in ext)
+
 def read_zip(fname: str) -> FDict:
     bio = BytesIO(open(fname, 'rb').read())
     zip = zipfile.ZipFile(bio, 'r')
