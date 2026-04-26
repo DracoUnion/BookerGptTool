@@ -286,3 +286,5 @@ def trans_epub(args):
     summary = '\n'.join(toc)   
     summary_fname = path.join(proj_dir, 'SUMMARY.md')
     open(summary_fname, 'w', encoding='utf8').write(summary)
+
+    print('[*] 完成')
