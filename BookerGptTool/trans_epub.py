@@ -125,6 +125,16 @@ if (condVar > someVal) {console.log("xxx")}
 [/content]
 '''
 
+def split_chs(md):
+    lines = md.split('\n')
+    in_code = False
+    for i, l in enumerate(lines):
+        if '```' in l:
+            in_code = not in_code
+        elif not in_code and l.startwith('# ') and i != 0:
+            lines[i] = '[split/]' + l
+    return '\n'.join(lines).split('[split/]')
+
 def tr_fmt_trans(chunks, idx, args, write_callback):
     print(f'[4] 处理分块 {idx+1}')
     raw = chunks[idx]['raw']
