@@ -15,6 +15,12 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from typing import *
 
+def to_kebab(name: str) -> str:
+    """将技能名转为 kebab-case slug"""
+    s = re.sub(r"[^\w\s\u4e00-\u9fff\-]", "", name)
+    s = re.sub(r"[\s_]+", "-", s).strip("-").lower()
+    return s[:60] or "unnamed"
+
 def request_retry(method, url, retry=10, check_status=False, **kw):
     kw.setdefault('timeout', 10)
     for i in range(retry):
