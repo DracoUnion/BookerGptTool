@@ -236,3 +236,12 @@ def trans_epub(args):
     for h in hdls: 
         h.result()
     hdls = []    
+
+    print('[5] 分章节')
+    md = '\n\n'.join(c['trans'] for c in chunks)
+    chs = split_chs(md)
+    l = len(str(len(chs)))
+    for i, c in enumerate(chs):
+        ch_fname = path.join(proj_dir, slug + '_' + str(i).zfill(l) + '.md')
+        print(f'[5] {ch_fname}')
+        open(ch_fname, 'w', encoding='utf8').write(c)
