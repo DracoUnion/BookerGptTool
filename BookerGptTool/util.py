@@ -20,16 +20,13 @@ import tempfile
 import uuid
 from typing import *
 
-RE_IFRAME = r'<iframe[^>]*src="(.+?)"[^>]*>'
-RE_IFRAME_ALL = r'</?iframe[^>]*>'
-RE_IFRAME_REPL = r'<br/><br/><a href="\1">\1</a><br/><br/>'
-RE_TITLE = r'^#+\x20+(.+?)$'
-DIR = path.dirname(path.abspath(__file__))
 
 def d(name):
+    DIR = path.dirname(path.abspath(__file__))
     return path.join(DIR, name)
 
 def get_md_title(text):
+    RE_TITLE = r'^#+\x20+(.+?)$'
     m = re.search(RE_TITLE, text, flags=re.M)
     if not m:
         return None, (None, None)
@@ -47,6 +44,9 @@ def epub2html_pandoc(epub):
 
 def tomd(html, lang=None):
     # 处理 IFRAME
+    RE_IFRAME = r'<iframe[^>]*src="(.+?)"[^>]*>'
+    RE_IFRAME_ALL = r'</?iframe[^>]*>'
+    RE_IFRAME_REPL = r'<br/><br/><a href="\1">\1</a><br/><br/>'
     html = re.sub(RE_IFRAME, RE_IFRAME_REPL, html)
     html = re.sub(RE_IFRAME_ALL, '', html)
     js_fname = d('tomd.js')
