@@ -211,6 +211,7 @@ def trans_epub(args):
     else:
         epub = open(args.fname, 'rb').read()
         html = epub2html_pandoc(epub)
+        html = fmt_publisher(html, args.fmt_mode)
         open(html_fname, 'w', encoding='utf8').write(html)
     
     md_fname = path.join(meta_dir, 'all.md')
