@@ -8,7 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import json_repair as json
 from imgyaso.quant import pngquant
-from .util import call_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, fmt_zh
+from .util import call_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc
+from .fmt import fmt_zh, fmt_publisher
 from .md2skill_chunker import chunk_markdown
 
 TRANS_BODY_PMT = '''
