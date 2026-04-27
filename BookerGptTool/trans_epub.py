@@ -293,6 +293,7 @@ def trans_epub(args):
     toc =[]
     for i, ch in enumerate(chs):
         title, _ = get_md_title(ch)
+        if not title: continue
         ch_fname = slug + '_' + str(i).zfill(l) + '.md'
         toc.append(f'+   [{title}]({ch_fname})')
     summary = '\n'.join(toc)   
