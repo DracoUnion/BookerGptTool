@@ -1,3 +1,10 @@
+import re
+import os
+import copy
+from multiprocessing import Pool
+from os import path
+from pyquery import PyQuery as pq
+
 def fmt_oreilly(html):
     html = html.replace('&#13;', '')
     html = re.sub(r'<code[^>]*>(\s*)</code>', r'\1', html)
