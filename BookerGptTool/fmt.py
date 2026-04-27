@@ -5,6 +5,15 @@ from multiprocessing import Pool
 from os import path
 from pyquery import PyQuery as pq
 
+def fmt_publisher(text, mode):
+    if mode in ['oreilly', 'orly']:
+        text = fmt_oreilly(text)
+    elif mode == 'packt':
+        text = fmt_packt(text)
+    elif mode == 'apress':
+        text = fmt_apress(text)
+    return text
+
 def fmt_zh(text):
     text = fmt_en_zh_gap(text)
     text = fmt_uprscp(text)
