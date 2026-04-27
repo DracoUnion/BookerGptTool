@@ -135,6 +135,7 @@ def main():
     trans_epub_parser = subparsers.add_parser("trans-epub", help="translate epub")
     trans_epub_parser.add_argument("fname", help="epub file name")
     trans_epub_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    trans_epub_parser.add_argument("-m", "--pub-mode", default='none', help="pub mode")
     trans_epub_parser.set_defaults(func=trans_epub)
     
     args = parser.parse_args()
