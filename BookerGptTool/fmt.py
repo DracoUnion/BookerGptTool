@@ -5,6 +5,90 @@ from multiprocessing import Pool
 from os import path
 from pyquery import PyQuery as pq
 
+def fmt_zh(text):
+    text = fmt_en_zh_gap(text)
+    text = fmt_uprscp(text)
+    text = fmt_link(text)
+    text = fmt_img(text)
+    # text = fmt_chnum(text)
+    # text = fmt_title_num(text)
+    text = fmt_en_zh_gap(text)
+    return text
+    
+num_uprscp_map = {
+    '1': '¹',
+    '2': '²',
+    '3': '³',
+    '4': '⁴',
+    '5': '⁵',
+    '6': '⁶',
+    '7': '⁷',
+    '8': '⁸',
+    '9': '⁹',
+    '0': '⁰',
+}
+
+def num2uprscp(text):
+    return ''.join([
+        num_uprscp_map.get(ch, ch)
+        for ch in text
+    ])
+    
+def fmt_uprscp(text):
+    text =  re.sub(
+        r'\^\((\d+)\)', 
+        lambda g: num2uprscp(g.group(1)), 
+        text
+    )
+    text = re.sub(
+        r'\^(\d+)',
+        lambda g: num2uprscp(g.group(1)), 
+        text
+    )
+    return text
+
+def fmt_en_zh_gap(text):
+    text = re.sub(r'([\u4e00-\u9fff])([a-zA-Z0-9_])', r'\1 \2', text)
+    text = re.sub(r'([a-zA-Z0-9_])([\u4e00-\u9fff])', r'\1 \2', text)
+    return text
+
+def fmt_link(text):
+    RE_LINK = r'''
+        \[
+            https?://
+            ([^\]]+)
+        \]
+        \(([^\)]+)\)
+    '''
+    text = re.sub(RE_LINK, r'[`\1`](\2)', text, flags=re.VERBOSE)
+    RE_INNER_LINK = r'''
+        (?<!!)
+        \[([^\]]+)\]
+        \(
+            (?!https?://)
+            [^\)]+
+        \)
+    '''
+    text = re.sub(RE_INNER_LINK, r'\1', text, flags=re.VERBOSE)
+    return text
+
+def fmt_img(text):
+    RE_INNER_IMG = r'''
+        !\[([^\]]*)\]
+        \(
+            (?!https?://)
+            ([^\)]+)
+        \)
+    '''
+
+    def repl_img_func(g):
+        desc, src = g.group(1), g.group(2)
+        desc = desc.replace('\r', '').replace('\n', '')
+        src = "img/" + path.basename(src)
+        return f'![{desc}]({src})'
+
+    return re.sub(RE_INNER_IMG, repl_img_func, text, flags=re.VERBOSE)
+
 def fmt_oreilly(html):
     html = html.replace('&#13;', '')
     html = re.sub(r'<code[^>]*>(\s*)</code>', r'\1', html)
