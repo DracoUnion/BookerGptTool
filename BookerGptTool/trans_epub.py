@@ -259,10 +259,11 @@ def trans_epub(args):
     for idx, c in enumerate(chunks):
         if c['fmt'] and c['trans']:
             continue
-        h = tr_fmt_trans(
-            chunks, idx, args,
-            functools.partial(write_callback, chunk_fname, chunks),
-        )
+        h = pool.submit(
+                tr_fmt_trans, 
+                chunks, idx, args,
+                functools.partial(write_callback, chunk_fname, chunks),
+            )
         hdls.append(h)
         if len(hdls) > args.threads:
             for h in hdls: h.result()
