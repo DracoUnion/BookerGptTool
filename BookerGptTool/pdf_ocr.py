@@ -183,9 +183,9 @@ def tr_proc_img(img, pages, idx, img_dir, pdf_hash, write_callback):
     pgno = pages[idx]['pgno']
     img_links = re.findall(r'!\[\]\(.+?\)', md)
     for j, link in enumerate(img_links):
-        m = re.search(r'bbox=\[(\d+),\x20(\d+),\x20(\d+),\x20(\d+)\]', link)
+        m = re.search(r'bbox=\[(\d+\.\d+),\x20(\d+\.\d+),\x20(\d+\.\d+),\x20(\d+\.\d+)\]', link)
         if not m: continue
-        bbox = [int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))]
+        bbox = [float(m.group(1)), float(m.group(2)), float(m.group(3)), float(m.group(4))]
         img_pt = corp_img(img, bbox)
         img_pt = pngquant(img_pt)
         img_fname = f'{pdf_hash}_{pgno}_{j}.png'
