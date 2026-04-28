@@ -95,9 +95,10 @@ def _extract_headings(text: str) -> list[_HeadingNode]:
     n_read = 0
     lines = text.split('\n')
     for l in lines:
+        m = re.search('^(#+)\x20+(.+?)$', l)
         if '```' in l:
             in_code = not in_code
-        elif m := re.search('^(#+)\x20+(.+?)$', l) and not in_code:
+        elif m and not in_code:
             headings.append(
                 _HeadingNode(
                     level=len(m.group(1)),
