@@ -155,7 +155,7 @@ def split_chs(md):
     for i, l in enumerate(lines):
         if '```' in l:
             in_code = not in_code
-        elif not in_code and l.startwith('# ') and i != 0:
+        elif not in_code and l.startswith('# ') and i != 0:
             lines[i] = '[split/]' + l
     return '\n'.join(lines).split('[split/]')
 
