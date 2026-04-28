@@ -20,6 +20,8 @@ from .util import call_vlm_retry, call_chatgpt_retry, set_openai_props, extname
 OCR_PMT = '''
 你是一个专业的文档编辑助手。请查看给定图片，提取出其中的所有标题、段落、列表、表格、插图、引用、代码块等，并一定要忽略页眉和页脚，以给定 JSON  格式输出。注意只需要输出 JSON，不需要输出其它任何东西。
 
+注意 BBOX 应该用相对坐标，即整个图片的一个比例，不要使用像素单位的绝对坐标！
+
 ## 格式
 
 ```
@@ -29,7 +31,7 @@ OCR_PMT = '''
 		{
 			"type": "paragraph|title|list|table|quote|image|code",
 			"markdown": "in markdown format",
-			"bbox": [xmin, ymin, xmax, ymax]
+			"bbox": [0.xmin, 0.ymin, 0.xmax, 0.ymax]
 		},
 		...
 	]
@@ -107,6 +109,15 @@ def corp_img(img, bbox):
             np.frombuffer(img, np.uint8),
             cv2.IMREAD_UNCHANGED
         )
+    h, w = img.shape[0], img.shape[1]
+    if 0 <= xmin <= 1:
+        xmin = int(w * xmin)
+    if 0 <= xmax <= 1:
+        xmax = int(w * xmax)
+    if 0 <= ymin <= 1:
+        ymin = int(h * ymin)
+    if 0 <= ymax <= 1:
+        ymax = int(h * ymax)
     img_pt = img[ymin:ymax + 1, xmin: xmax + 1]
     if fmt_bytes:
         img_pt = bytes(cv2.imencode(
