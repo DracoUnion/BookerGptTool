@@ -110,14 +110,10 @@ def corp_img(img, bbox):
             cv2.IMREAD_UNCHANGED
         )
     h, w = img.shape[0], img.shape[1]
-    if 0 <= xmin <= 1:
-        xmin = int(w * xmin)
-    if 0 <= xmax <= 1:
-        xmax = int(w * xmax)
-    if 0 <= ymin <= 1:
-        ymin = int(h * ymin)
-    if 0 <= ymax <= 1:
-        ymax = int(h * ymax)
+    xmin = int(w * xmin)
+    xmax = int(w * xmax)
+    ymin = int(h * ymin)
+    ymax = int(h * ymax)
     img_pt = img[ymin:ymax + 1, xmin: xmax + 1]
     if fmt_bytes:
         img_pt = bytes(cv2.imencode(
