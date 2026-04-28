@@ -297,7 +297,7 @@ def trans_epub(args):
     open(readme_fname, 'w', encoding='utf8').write(readme)
 
     print('[6] 生成 summary')
-    toc =[]
+    toc =[f'+   [{meta["name_cn"]}](README.md)']
     for i, ch in enumerate(chs):
         title, _ = get_md_title(ch)
         if not title: continue
