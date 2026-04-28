@@ -240,13 +240,14 @@ def trans_epub(args):
     if path.isfile(chunk_fname):
         chunks = yaml.safe_load(open(chunk_fname, encoding='utf8').read())
     else:
-        chunks = chunk_markdown(
+        cres = chunk_markdown(
             md, path.basename(args.fname)[:-5]).chunks
+        groups = group_chunks([c.content for c in cres])
         chunks = [{
-            'raw': c.content,
+            'raw': c,
             'fmt': '',
             'trans': '',
-        } for c in chunks]
+        } for c in groups]
         open(chunk_fname, 'w',  encoding='utf8') \
             .write(yaml.safe_dump(chunks, allow_unicode=True))
 
@@ -307,3 +308,13 @@ def trans_epub(args):
     open(summary_fname, 'w', encoding='utf8').write(summary)
 
     print('[*] 完成')
+
+def group_chunks(chunks, limit=8000):
+    groups = ['']
+    for c in chunks:
+        if len(groups[-1]) +  len(c) + 2 > limit:
+            groups.append(c)
+        else:
+            groups[-1] += '\n\n' + c
+    groups = [g for g in groups if g]
+    return groups
