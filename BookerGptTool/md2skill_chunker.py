@@ -91,6 +91,22 @@ class _HeadingNode:
 def _extract_headings(text: str) -> list[_HeadingNode]:
     """提取 Markdown 文本中的所有标题节点"""
     headings: list[_HeadingNode] = []
+    in_code = False
+    n_read = 0
+    lines = text.split('\n')
+    for l in lines:
+        if '```' in l:
+            in_code = not in_code
+        elif m := re.search('^(#+)\x20+(.+?)$', l) and not in_code:
+            headings.append(
+                _HeadingNode(
+                    level=len(m.group(1)),
+                    title=m.group(2).strip(),
+                    start_pos=n_read,
+                )
+            )
+        n_read += len(l) + 1
+    '''
     for m in _HEADING_RE.finditer(text):
         headings.append(
             _HeadingNode(
@@ -99,6 +115,7 @@ def _extract_headings(text: str) -> list[_HeadingNode]:
                 start_pos=m.start(),
             )
         )
+    '''
     # 计算每个标题管辖的内容结束位置（到下一个同级或更高级标题之前）
     for i, h in enumerate(headings):
         if i + 1 < len(headings):
