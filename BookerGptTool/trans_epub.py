@@ -228,11 +228,13 @@ def trans_epub(args):
     for iname, data in fdict.items():
         if not is_pic(iname): 
             continue
-        data = pngquant(data)
-        ifname = path.join(img_dir, path.basename(iname))
-        open(ifname, 'wb').write(data)
         print(f'[3] {iname}')
-
+        ifname = path.join(img_dir, path.basename(iname))
+        if path.isfile(ifname): 
+            continue
+        data = pngquant(data)
+        open(ifname, 'wb').write(data)
+        
     print('[4] 排版和翻译')
     chunk_fname = path.join(meta_dir, 'chunks.yaml')
     if path.isfile(chunk_fname):
