@@ -71,7 +71,7 @@ def is_pic(fname):
     m = re.search(r'\.(\w+)$', fname.lower())
     return bool(m and m.group(1) in ext)
 
-def read_zip(fname: str) -> FDict:
+def read_zip(fname: str) -> Dict[str, bytes]:
     bio = BytesIO(open(fname, 'rb').read())
     zip = zipfile.ZipFile(bio, 'r')
     fdict = {n:zip.read(n) for n in zip.namelist()}

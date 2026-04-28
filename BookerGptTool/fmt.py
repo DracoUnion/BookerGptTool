@@ -152,6 +152,12 @@ def process_apress_para(el_para, root):
     el_new_para.html(el_para.html())
     el_para.replace_with(el_new_para)
 
+def rm_xml_header(html):
+    html = re.sub(r'<\?xml[^>]*\?>', '', html)
+    html = re.sub(r'xmlns(:\w+)?=".+?"', '', html)
+    html = re.sub(r'</?\w+', lambda m: m.group().lower(), html)
+    return html
+
 def fmt_apress(html):
     html = rm_xml_header(html)
     root = pq(html)
