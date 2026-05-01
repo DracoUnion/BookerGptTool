@@ -115,6 +115,8 @@ def corp_img(img, bbox):
     ymin = int(h * ymin)
     ymax = int(h * ymax)
     img_pt = img[ymin:ymax + 1, xmin: xmax + 1]
+    if len(img_pt) == 0:
+        img_pt = np.full([1, 1, 3], 255, np.uint8)
     if fmt_bytes:
         img_pt = bytes(cv2.imencode(
             '.png', img_pt, 
