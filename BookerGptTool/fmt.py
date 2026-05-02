@@ -167,7 +167,7 @@ def fmt_apress(html):
         el_pre = el_pres.eq(i)
         el_new_pre = root('<pre></pre>')
         code = re.sub(r'<[^>]*>', '', el_pre.text())
-        code = re.sub(r'^\x20+', '', code, flags=re.M)
+        # code = re.sub(r'^\x20+', '', code, flags=re.M)
         code = code.replace('\xa0', '\x20')
         el_new_pre.text(code)
         el_pre.replace_with(el_new_pre)
