@@ -171,7 +171,7 @@ def tr_fmt_trans(chunks, idx, args, write_callback):
         chunks[idx]['fmt'] = fmt
         write_callback()
     if not trans:
-        ques = TRANS_BODY_PMT.replace('{text}', raw)
+        ques = TRANS_BODY_PMT.replace('{text}', fmt)
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         trans = ans.replace('[content]', '').replace('[/content]', '')
         chunks[idx]['trans'] = fmt_zh(trans)
