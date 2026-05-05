@@ -139,6 +139,24 @@ if (condVar > someVal) {console.log("xxx")}
 [/content]
 '''
 
+
+TOC_PMT = '''
+你是一个文档修复专家，下面是从扫描件OCR得到的目录的 Markdown。文本中可能存在错字、层级混乱等问题。
+
+请完成以下修复任务，并严格按照 Markdown 格式输出。
+
+## 要求
+
+1. **纠正错别字**：根据语义和常见目录词汇（如“第”“章”“节”“参考文献”“附录”）修正明显OCR错误。
+2. **重建层级**：通过行首空格数量、编号模式（如“1.”“1.1”“1.1.1”）判断章/节/小节，在输出中用行首的井号（`#`）表示。
+
+## 目录
+
+[content]
+{text}
+[/content]
+'''
+
 README_TMPL = '''
 # {name_cn}
 
@@ -148,6 +166,21 @@ README_TMPL = '''
 > 
 > 协议：[CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/)
 '''.strip()
+
+def fix_toc(full_text, meta, args, write_callback):
+    if 'toc' in meta:
+        toc = meta['toc']
+    else:
+        toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
+        ques = TOC_PMT.replace('{text}', '\n'.join(toc))
+        ans =  call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
+        meta['toc'] = toc
+        write_callback()
+    for lvl, title in toc:
+        print(f'[7] {lvl} {title}')
+        full_text = re.sub(r'^#+\x20+' + re.escape(title) + '$', f'{lvl} {title}', full_text, flags=re.M)
+    return full_text
 
 def split_chs(md):
     lines = md.split('\n')
@@ -276,12 +309,18 @@ def trans_epub(args):
         h.result()
     hdls = []    
 
-    print('[5] 分章节')
+    print('[5] 修正目录')
+    md = '\n\n'.join(c['trans'] for c in chunks)
+    md = fix_toc(
+        md, meta, args, 
+        functools.partial(write_callback, meta_fname, meta),
+    )
+
+    print('[6] 分章节')
     chs_fname = path.join(meta_dir, 'chs.yaml')
     if path.isfile(chs_fname):
         chs = yaml.safe_load(open(chs_fname, encoding='utf8').read())
     else:
-        md = '\n\n'.join(c['trans'] for c in chunks)
         chs = split_chs(md)
         open(chs_fname, 'w', encoding='utf8').write(yaml.safe_dump(chs, allow_unicode=True))
     
@@ -291,12 +330,12 @@ def trans_epub(args):
         print(f'[5] {ch_fname}')
         open(ch_fname, 'w', encoding='utf8').write(c)
 
-    print('[6] 生成 readme')
+    print('[7] 生成 readme')
     readme = README_TMPL.replace('{name}', name).replace('{name_cn}', meta['name_cn'])
     readme_fname = path.join(proj_dir, 'README.md')
     open(readme_fname, 'w', encoding='utf8').write(readme)
 
-    print('[6] 生成 summary')
+    print('[8] 生成 summary')
     toc =[f'+   [{meta["name_cn"]}](README.md)']
     for i, ch in enumerate(chs):
         title, _ = get_md_title(ch)
