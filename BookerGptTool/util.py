@@ -150,6 +150,7 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None):
                 temperature=temp,
                 max_tokens=max_tokens,
             ).choices[0].message.content.strip()
+            if not ans: raise ValueError('回复为空')
             break
         except Exception as ex:
             print(f'OpenAI retry {i+1}: {str(ex)}')
@@ -183,6 +184,7 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None):
                 temperature=temp,
                 max_tokens=max_tokens,
             ).choices[0].message.content.strip()
+            if not ans: raise ValueError('回复为空')
             break
         except Exception as ex:
             print(f'OpenAI retry {i+1}: {str(ex)}')
