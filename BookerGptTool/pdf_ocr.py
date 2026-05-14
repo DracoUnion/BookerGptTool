@@ -251,6 +251,7 @@ def tr_group_page(groups, idx, args, write_callback):
         ques = TRANS_BODY_PMT.replace(
             '{text}', groups[idx]['md'])
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ans.replace('[content]', '').replace('[/content]', '')
         groups[idx]['mdcn'] = ans
     else:
         groups[idx]['mdcn'] = groups[idx]['md']
