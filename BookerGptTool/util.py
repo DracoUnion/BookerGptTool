@@ -247,7 +247,8 @@ def write_ds_file(fname, ds):
         )
     else:
         raise Exception('文件必须是 JSON、JSONL、YAML')
-    open(fname, 'w', encoding='utf8').write(data)
+    with open(fname, 'w', encoding='utf8') as f:
+        f.write(data)
 
 
 def read_ds_file(fname):

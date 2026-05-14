@@ -289,8 +289,8 @@ def trans_epub(args):
     lock = Lock()
     def write_callback(fname, res):
         with lock:
-            open(fname, 'w', encoding='utf8') \
-                .write(yaml.safe_dump(res, allow_unicode=True))
+            with open(fname, 'w', encoding='utf8') as f:
+                f.write(yaml.safe_dump(res, allow_unicode=True))
     
     for idx, c in enumerate(chunks):
         if c['fmt'] and c['trans']:

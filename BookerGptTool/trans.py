@@ -153,8 +153,8 @@ file_lock = Lock()
 
 def write_callback(fname, totrans):
     with file_lock:
-        open(fname, 'w', encoding='utf8') \
-            .write(yaml.safe_dump(totrans, allow_unicode=True))
+        with open(fname, 'w', encoding='utf8') as f:
+            f.write(yaml.safe_dump(totrans, allow_unicode=True))
 
 def trans_yaml_handle(args):
     print(args)
