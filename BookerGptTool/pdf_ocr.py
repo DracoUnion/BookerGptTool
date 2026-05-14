@@ -405,7 +405,10 @@ def fix_toc(full_text, res, args, write_callback):
         write_callback()
     for lvl, title in toc:
         print(f'[7] {lvl} {title}')
-        full_text = re.sub(r'^#+\x20+' + re.escape(title) + '$', f'{lvl} {title}', full_text, flags=re.M)
+        try:
+            full_text = re.sub(r'^#+\x20+' + re.escape(title) + '$', f'{lvl} {title}', full_text, flags=re.M)
+        except re.error:
+            pass
     return full_text
 
 def mkgroups(pages, args):
