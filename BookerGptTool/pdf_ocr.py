@@ -91,8 +91,8 @@ TOC_PMT = '''
 
 ## 要求
 
-1. **纠正错别字**：根据语义和常见目录词汇（如“第”“章”“节”“参考文献”“附录”）修正明显OCR错误。
-2. **重建层级**：通过行首空格数量、编号模式（如“1.”“1.1”“1.1.1”）判断章/节/小节，在输出中用行首的井号（`#`）表示。
+1. **重建层级**：通过行首空格数量、编号模式（如“1.”“1.1”“1.1.1”）判断章/节/小节，在输出中用行首的井号（`#`）表示。
+2. **只输出变更的目录**：例如，“标题1”的层级从一级变更到二级，就输出“## 标题1”。“标题2”层级没有变更，就不输出。
 
 ## 目录
 
@@ -100,6 +100,51 @@ TOC_PMT = '''
 {text}
 [/content]
 '''
+
+TRANS_BODY_PMT = '''
+假设你是一个高级文档工程师和翻译员，请参考下面的注意事项了解 Markdown 文档的格式，然后参考示例，将给定英文文本翻译成中文。
+
+## 注意事项
+
+-   粗体（**bold**）和斜体（*itatic*）需要翻译翻译内容并保留符号。
+-   内联代码（`code`）和代码块不需要翻译。
+-   链接（[link](https://example.org)）需要翻译其内容，但保留网址。
+-   列表，表格，引用块保留格式，翻译内容
+-   原文可能有多行，不要漏掉任何一行，并且注意一定不要重复输出原文！！！
+
+## 示例
+
+原文：
+
+[content]
+-   [Feynman's learning method](https://wiki.example.org/feynmans_learning_method) is inspired by **Richard Feynman**, the Nobel Prize winner in physics. 
+
+1.  With Feynman's skills, you can understand the knowledge points in depth in just `20 min`, and it is memorable and *hard to forget*. 
+
+```
+if (condVar > someVal) {console.log("xxx")}
+```
+[/content]
+
+译文：
+
+[content]
+-   [费曼学习法](https://wiki.example.org/feynmans_learning_method)的灵感源于诺贝尔物理奖获得者**理查德·费曼**。
+
+1.  运用费曼技巧，你只需花上`20 min`就能深入理解知识点，而且记忆深刻，*难以遗忘*。
+
+```
+if (condVar > someVal) {console.log("xxx")}
+```
+[/content]
+
+## 以下是需要翻译的文本
+
+[content]
+{text}
+[/content]
+'''
+
 
 def corp_img(img, bbox):
     xmin, ymin, xmax, ymax = bbox
@@ -164,8 +209,8 @@ def tr_ocr_page(img, pages, idx, args, write_callback):
 
 def tr_merge_group(groups, idx, args, write_callback):
     print(f'[6] 处理分组合并 {idx + 1}')
-    prev = re.search(r'^.+?\Z', groups[idx - 1]['md'], flags=re.M).group()
-    next = re.search(r'\A.+?$', groups[idx]['md'], flags=re.M).group()
+    prev = re.search(r'^.+?\Z', groups[idx - 1]['mdcn'], flags=re.M).group()
+    next = re.search(r'\A.+?$', groups[idx]['mdcn'], flags=re.M).group()
 
     ques = MERGE_PMT.replace('{prev}', prev) \
         .replace('{next}', next)
@@ -202,7 +247,14 @@ def tr_group_page(groups, idx, args, write_callback):
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     groups[idx]['md'] = ans
     write_callback()
-    
+    if args.trans:
+        ques = TRANS_BODY_PMT.replace(
+            '{text}', groups[idx]['md'])
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        groups[idx]['mdcn'] = ans
+    else:
+        groups[idx]['mdcn'] = groups[idx]['md']
+    write_callback()
 
 def pdf_ocr(args):
     print(args)
@@ -292,7 +344,7 @@ def pdf_ocr(args):
         res['groups'] = groups
 
     for i, g in enumerate(res['groups']):
-        if g['md']: continue
+        if g['md'] and g['mdcn']: continue
         h = pool.submit(
             tr_group_page, res['groups'], i, args,
             functools.partial(write_callback, yaml_fname, res),
@@ -306,7 +358,7 @@ def pdf_ocr(args):
     hdls = []
 
     print(f'[6] 处理组间合并')
-    res['groups'] = [g for g in res['groups'] if g['md']]
+    res['groups'] = [g for g in res['groups'] if g['mdcn']]
     for i, g in enumerate(res['groups']):
         if i == 0: continue
         if g['merge'] != -1: continue
@@ -329,7 +381,7 @@ def pdf_ocr(args):
         print(f'[6] 生成全文 {i}')
         if g['merge'] != 1:
             full_text += '\n\n'
-        full_text += g['md']
+        full_text += g['mdcn']
 
     print(f'[7] 修正目录')
     full_text = fix_toc(
@@ -360,12 +412,18 @@ def mkgroups(pages, args):
     groups =  [{
             'raw': [], 
             'md': '',
+            'mdcn': '',
             'merge': -1,
         }]
     for p in pages:
         exi_len = sum(len(md) for md in groups[-1]['raw'])
         if exi_len > args.limit:
-            groups.append({'raw': [], 'md': '', 'merge': -1})
+            groups.append({
+                'raw': [], 
+                'md': '', 
+                'mdcn': '', 
+                'merge': -1,
+            })
         groups[-1]['raw'].append(
             f"[PAGE {p['pgno']}]\n\n{p['md']}"
         )
