@@ -209,8 +209,10 @@ def tr_ocr_page(img, pages, idx, args, write_callback):
 
 def tr_merge_group(groups, idx, args, write_callback):
     print(f'[6] 处理分组合并 {idx + 1}')
-    prev = re.search(r'^.+?\Z', groups[idx - 1]['mdcn'], flags=re.M).group()
-    next = re.search(r'\A.+?$', groups[idx]['mdcn'], flags=re.M).group()
+    prev_line = groups[idx - 1]['mdcn'].strip()
+    next_line = groups[idx]['mdcn'].strip()
+    prev = re.search(r'^.+?\Z', prev_line, flags=re.M).group()
+    next = re.search(r'\A.+?$', next_line, flags=re.M).group()
 
     ques = MERGE_PMT.replace('{prev}', prev) \
         .replace('{next}', next)
