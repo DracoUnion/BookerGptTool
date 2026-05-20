@@ -71,7 +71,7 @@ def tr_fmt_group(text, res, idx, args):
 def fmt_chunk(args):
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
-    if not args.fname.ednswith('.md'):
+    if not args.fname.endswith('.md'):
         print('请提供 MD 文件')
         return
     ofname = args.fname[:-3] + '_fmt.md'
