@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import json_repair as json
 from imgyaso.quant import pngquant
-from .util import call_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc
+from .util import call_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks
 from .fmt import fmt_zh, fmt_publisher
 from .md2skill_chunker import chunk_markdown
 
@@ -348,12 +348,3 @@ def trans_epub(args):
 
     print('[*] 完成')
 
-def group_chunks(chunks, limit=8000):
-    groups = ['']
-    for c in chunks:
-        if len(groups[-1]) +  len(c) + 2 > limit:
-            groups.append(c)
-        else:
-            groups[-1] += '\n\n' + c
-    groups = [g for g in groups if g]
-    return groups

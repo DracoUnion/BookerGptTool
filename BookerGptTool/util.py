@@ -305,3 +305,13 @@ def call_glmocr_retry(img, retry=10):
             if i == retry - 1: raise ex
     print(res.text)
     return json.loads(res.text)['md_results']
+
+def group_chunks(chunks, limit=8000):
+    groups = ['']
+    for c in chunks:
+        if len(groups[-1]) +  len(c) + 2 > limit:
+            groups.append(c)
+        else:
+            groups[-1] += '\n\n' + c
+    groups = [g for g in groups if g]
+    return groups

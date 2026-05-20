@@ -15,6 +15,7 @@ from .pdf_ocr import *
 from .fiction import *
 from .md2skill import *
 from .trans_epub import *
+from .fmt_chunk import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -141,6 +142,13 @@ def main():
     trans_epub_parser.add_argument("--split", action='store_true', help="whether to split chs")
     trans_epub_parser.set_defaults(func=trans_epub)
     
+    fmt_chunk_parser = subparsers.add_parser("fmt-chunk", help="translate epub")
+    fmt_chunk_parser.add_argument("fname", help="epub file name")
+    fmt_chunk_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    fmt_chunk_parser.add_argument("-l", "--limit", type=int, default=8000, help="chunk limit")
+    fmt_chunk_parser.set_defaults(func=fmt_chunk)
+
+
     args = parser.parse_args()
     args.func(args)
     
