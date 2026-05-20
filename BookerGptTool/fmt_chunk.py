@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import os
 from os import path
-from md2skill_chunker import chunk_markdown
+from .md2skill_chunker import chunk_markdown
 from .util import group_chunks, set_openai_props, call_chatgpt_retry
 
 FMT_PMT = '''
