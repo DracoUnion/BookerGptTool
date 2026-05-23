@@ -1,3 +1,5 @@
+import copy
+import math
 from concurrent.futures import ThreadPoolExecutor
 import os
 from os import path
@@ -67,8 +69,31 @@ def tr_fmt_group(text, res, idx, args):
     ans = ans.replace('[content]', '').replace('[/content]', '')
     res[idx] = ans
 
+def fmt_chunk_dir(args):
+    dir = args.fname
+    args.threads = int(args.threads ** 0.5)
+    fnames = os.listdir(dir)
+    pool = ThreadPoolExecutor(args.threads)
+    hdls = []
+    for f in fnames:
+        args = copy.deepcopy(args)
+        args.fname = path.join(dir, f)
+        h = pool.submit(fmt_chunk_file, args)
+        hdls.append(h)
+        if len(hdls) > args.threads:
+            for h in hdls: h.result()
+            hdls = []
 
-def fmt_chunk(args):
+    for h in hdls: h.result()
+    hdls = []
+
+def fmt_chunk_handle(args):
+    if path.isfile(args.fname):
+        fmt_chunk_file(args)
+    else:
+        fmt_chunk_dir(args)
+
+def fmt_chunk_file(args):
     print(args)
     set_openai_props(args.key, args.proxy, args.host)
     if not args.fname.endswith('.md'):
