@@ -129,6 +129,7 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None):
         http_client=httpx.Client(
             proxies=openai.proxy,
             transport=httpx.HTTPTransport(local_address="0.0.0.0"),
+            headers={'User-Agent': openai.user_agent},
         )
     )
     for i in range(retry):
@@ -171,6 +172,7 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None):
         http_client=httpx.Client(
             proxies=openai.proxy,
             transport=httpx.HTTPTransport(local_address="0.0.0.0"),
+            headers={'User-Agent': openai.user_agent},
         )
     )
     for i in range(retry):
@@ -195,10 +197,11 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None):
     print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
     return ans
 
-def set_openai_props(key=None, proxy=None, host=None):
+def set_openai_props(key=None, proxy=None, host=None, ua=None):
     openai.api_key = key
     openai.proxy = proxy
     openai.base_url = host
+    openai.user_agent = ua
 
 def extname(fname):
     m = re.search(r'\.(\w+)$', fname)

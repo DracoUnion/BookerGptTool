@@ -34,6 +34,7 @@ def main():
     parser.add_argument("-H", "--host", default=openai_url, help="api host")
     parser.add_argument("--emb", default=os.environ.get('EMB_MODEL_PATH', 'moka-ai/m3e-base'), help="emb model path")
     parser.add_argument("-vm", "--vmodel", default=openai_vmodel, help="vision model name")
+    parser.add_argument("-ua", "--user-agent", default='claude-cli/2.1.41 (external, cli)', help="HTTP User-Agent Header")
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
     
