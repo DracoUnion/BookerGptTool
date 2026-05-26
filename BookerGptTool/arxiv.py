@@ -196,7 +196,7 @@ def sum_arxiv_safe(args):
 
 def sum_arxiv(args):
     print(args)
-    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
+    set_openai_props(args)
     ofname = args.arxiv + '.md'
     if path.isfile(ofname):
         print(f'{args.arxiv} 已总结')

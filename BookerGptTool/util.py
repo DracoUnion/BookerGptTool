@@ -197,11 +197,11 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None):
     print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
     return ans
 
-def set_openai_props(key=None, proxy=None, host=None, ua=None):
-    openai.api_key = key
-    openai.proxy = proxy
-    openai.base_url = host
-    openai.user_agent = ua
+def set_openai_props(args):
+    openai.api_key = args.key
+    openai.proxy = args.proxy
+    openai.base_url = args.host
+    openai.user_agent = args.user_agent
 
 def extname(fname):
     m = re.search(r'\.(\w+)$', fname)

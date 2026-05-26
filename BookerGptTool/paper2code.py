@@ -45,7 +45,7 @@ def paper2code(args):
             .replace(':', '_') + '_code'
     os.makedirs(args.out, exist_ok=True)
     print(args)
-    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
+    set_openai_props(args)
     print('[Downloading] download arxiv paper')
     paper_fname = path.join(args.out, 'paper')
     if path.isfile(paper_fname):

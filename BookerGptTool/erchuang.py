@@ -254,7 +254,7 @@ def gen_xhs_single_safe(args):
 
 def erchuang_handle(args):
     print(args)
-    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
+    set_openai_props(args)
 
     if path.isfile(args.fname):
         fnames = [args.fname]

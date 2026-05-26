@@ -158,7 +158,7 @@ def write_callback(fname, totrans):
 
 def trans_yaml_handle(args):
     print(args)
-    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
+    set_openai_props(args)
     fnames = [args.fname] if path.isfile(args.fname) \
              else [path.join(args.fname, f) for f in os.listdir(args.fname)]
     fnames = [f for f in fnames if extname(f) == 'yaml']
@@ -183,6 +183,6 @@ def trans_yaml_handle(args):
     
 def trans_handle(args):
     print(args)
-    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
+    set_openai_props(args)
     ans = openai_trans(args.en, args.prompt, args.model, args.temp, args.retry, args.max_tokens)
     

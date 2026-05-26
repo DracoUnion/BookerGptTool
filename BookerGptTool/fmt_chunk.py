@@ -95,7 +95,7 @@ def fmt_chunk_handle(args):
 
 def fmt_chunk_file(args):
     print(args)
-    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
+    set_openai_props(args)
     if not args.fname.endswith('.md'):
         print('请提供 MD 文件')
         return

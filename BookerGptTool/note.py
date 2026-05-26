@@ -62,7 +62,7 @@ def mknote_file(args):
 
 def mknote(args):
     print(args)
-    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
+    set_openai_props(args)
 
     if path.isfile(args.fname):
         fnames = [args.fname]
