@@ -212,7 +212,7 @@ def tr_fmt_trans(chunks, idx, args, write_callback):
 
 def trans_epub(args):
     print(args)
-    set_openai_props(args.key, args.proxy, args.host)
+    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
     if not args.fname.endswith('.epub'):
         print('请提供EPUB文件')
         return

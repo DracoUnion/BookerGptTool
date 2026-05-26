@@ -326,7 +326,7 @@ def to_kebab(name: str) -> str:
 
 def md2skill(args):
     print(args)
-    set_openai_props(args.key, args.proxy, args.host)
+    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
     if not args.fname.endswith('.md'):
         print('请提供 MD 文件')
         return

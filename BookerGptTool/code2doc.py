@@ -187,7 +187,7 @@ def extname(name):
 
     
 def code2doc_handle(args):
-    set_openai_props(args.key, args.proxy, args.host)
+    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
  
     if path.isdir(args.fname):
         process_dir(args)

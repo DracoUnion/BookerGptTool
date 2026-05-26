@@ -18,7 +18,7 @@ def tr_infer(dit, args, write_callback):
 def infer(args):
     if path.isfile(args.prompt):
         args.prompt = open(args.prompt, encoding='utf8').read()
-    set_openai_props(args.key, args.proxy, args.host)
+    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
     print(args)
     ds = read_ds_file(args.fname)
 

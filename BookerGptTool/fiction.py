@@ -18,7 +18,7 @@ from .fiction_pmt import *
 
 def write_fiction(args):
     print(args)
-    set_openai_props(args.key, args.proxy, args.host)
+    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
 
     if args.out_dir is None:
         args.out_dir = uuid.uuid4().hex

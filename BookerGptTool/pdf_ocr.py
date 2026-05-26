@@ -261,7 +261,7 @@ def tr_group_page(groups, idx, args, write_callback):
 
 def pdf_ocr(args):
     print(args)
-    set_openai_props(args.key, args.proxy, args.host)
+    set_openai_props(args.key, args.proxy, args.host, args.user_agent)
     if not args.fname.endswith('.pdf'):
         print('请提供PDF文件')
         return
