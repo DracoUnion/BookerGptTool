@@ -126,10 +126,10 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None):
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
+        default_headers={'User-Agent': openai.user_agent},
         http_client=httpx.Client(
             proxies=openai.proxy,
             transport=httpx.HTTPTransport(local_address="0.0.0.0"),
-            headers={'User-Agent': openai.user_agent},
         )
     )
     for i in range(retry):
@@ -169,10 +169,10 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None):
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
+        default_headers={'User-Agent': openai.user_agent},
         http_client=httpx.Client(
             proxies=openai.proxy,
             transport=httpx.HTTPTransport(local_address="0.0.0.0"),
-            headers={'User-Agent': openai.user_agent},
         )
     )
     for i in range(retry):
