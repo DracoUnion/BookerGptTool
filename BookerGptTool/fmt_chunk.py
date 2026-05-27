@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 from os import path
 from .md2skill_chunker import chunk_markdown
-from .util import group_chunks, set_openai_props, call_chatgpt_retry
+from .util import group_chunks, set_openai_props, call_chatgpt_retry, split_md_lines
 
 FMT_PMT = '''
 假设你是一个高级文档工程师，请参考下面的注意事项了解 Markdown 文档的格式，然后参考示例，将给定英文或中文文本排版。
@@ -108,9 +108,7 @@ def fmt_chunk_file(args):
         return
     print(args.fname)
     md = open(args.fname, encoding='utf8').read()
-    cres = chunk_markdown(md, args.fname).chunks
-    chunks = [c.content for c in cres]
-    chunks = group_chunks(chunks, args.limit)
+    chunks = group_chunks(split_md_lines(md), args.limit)
     
     res = [''] * len(chunks)
     pool = ThreadPoolExecutor(args.threads)

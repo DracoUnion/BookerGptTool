@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import json_repair as json
 from imgyaso.quant import pngquant
-from .util import call_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks
+from .util import call_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks, split_md_lines
 from .fmt import fmt_zh, fmt_publisher
 from .md2skill_chunker import chunk_markdown
 
@@ -273,9 +273,7 @@ def trans_epub(args):
     if path.isfile(chunk_fname):
         chunks = yaml.safe_load(open(chunk_fname, encoding='utf8').read())
     else:
-        cres = chunk_markdown(
-            md, path.basename(args.fname)[:-5]).chunks
-        groups = group_chunks([c.content for c in cres])
+        groups = group_chunks(split_md_lines(md))
         chunks = [{
             'raw': c,
             'fmt': '',
