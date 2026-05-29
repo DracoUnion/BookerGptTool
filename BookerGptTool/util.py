@@ -200,7 +200,8 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, thin
                     "enable_thinking": think,
                     "think": think,
                     'include_reasoning': think,
-                    'reasoning': {"reasoning_effort": "medium" if think else "none"},
+                    "reasoning_effort": "medium" if think else "none",
+                    'reasoning': {"effort": "medium" if think else "none"},
                     'thinking': {"type": "enabled" if think else "disabled"},
                 },
             )
