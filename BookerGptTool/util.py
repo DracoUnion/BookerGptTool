@@ -132,6 +132,18 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thi
             transport=httpx.HTTPTransport(local_address="0.0.0.0"),
         )
     )
+        extra_body = {
+        "chat_template_kwargs": {"enable_thinking": think},
+        "enable_thinking": think,
+        "think": think,
+        'include_reasoning': think,
+        'reasoning': {"effort": "medium" if think else "none"},
+        'thinking': {"type": "enabled" if think else "disabled"},
+    }
+    if think or openai.pren:
+        extra_body.update({
+            "reasoning_effort": "medium" if think else "none",
+        })
     for i in range(retry):
         try:
             res = client.chat.completions.create(
@@ -150,15 +162,7 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thi
                 model=model_name,
                 temperature=temp,
                 max_tokens=max_tokens,
-                extra_body={
-                    "chat_template_kwargs": {"enable_thinking": think},
-                    "enable_thinking": think,
-                    "think": think,
-                    'include_reasoning': think,
-                    "reasoning_effort": "medium" if think else "none",
-                    'reasoning': {"effort": "medium" if think else "none"},
-                    'thinking': {"type": "enabled" if think else "disabled"},
-                },
+                extra_body=extra_body,
             )
             ans = res.choices[0].message.content.strip()
             if not ans: raise ValueError(f'回复为空：{res}')
@@ -185,6 +189,18 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, thin
             transport=httpx.HTTPTransport(local_address="0.0.0.0"),
         )
     )
+    extra_body = {
+        "chat_template_kwargs": {"enable_thinking": think},
+        "enable_thinking": think,
+        "think": think,
+        'include_reasoning': think,
+        'reasoning': {"effort": "medium" if think else "none"},
+        'thinking': {"type": "enabled" if think else "disabled"},
+    }
+    if think or openai.pren:
+        extra_body.update({
+            "reasoning_effort": "medium" if think else "none",
+        })
     for i in range(retry):
         try:
             res = client.chat.completions.create(
@@ -195,15 +211,7 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, thin
                 model=model_name,
                 temperature=temp,
                 max_tokens=max_tokens,
-                extra_body={
-                    "chat_template_kwargs": {"enable_thinking": think},
-                    "enable_thinking": think,
-                    "think": think,
-                    'include_reasoning': think,
-                    "reasoning_effort": "medium" if think else "none",
-                    'reasoning': {"effort": "medium" if think else "none"},
-                    'thinking': {"type": "enabled" if think else "disabled"},
-                },
+                extra_body=extra_body,
             )
             ans = res.choices[0].message.content.strip()
             if not ans: raise ValueError(f'回复为空：{res}')
@@ -222,6 +230,7 @@ def set_openai_props(args):
     openai.proxy = args.proxy
     openai.base_url = args.host
     openai.user_agent = args.user_agent
+    openai.pren = args.pass_reasoning_effort_none
 
 def extname(fname):
     m = re.search(r'\.(\w+)$', fname)
