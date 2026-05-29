@@ -118,7 +118,7 @@ def fix_lists(ans):
     ans = re.sub(r'^(\x20*)(\d+\.)\x20+', r'\1\2  ', ans, flags=re.M)
     return ans
 
-def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thinking=False):
+def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, think=False):
     # 改变指令符号的形式，避免模型出错
     ques = re.sub(r'<\|([\w\-\.]+)\|>', r'</\1/>', ques)
     img_base64 = base64.b64encode(img).decode('ascii')
@@ -150,7 +150,10 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thi
                 model=model_name,
                 temperature=temp,
                 max_tokens=max_tokens,
-                extra_body={"enable_thinking": thinking},
+                extra_body={
+                    "enable_thinking": think,
+                    "think": think,
+                },
             )
             ans = res.choices[0].message.content.strip()
             if not ans: raise ValueError(f'回复为空：{res}')
@@ -164,7 +167,7 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thi
     print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
     return ans
 
-def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, thinking=False):
+def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, think=False):
     # 改变指令符号的形式，避免模型出错
     ques = re.sub(r'<\|([\w\-\.]+)\|>', r'</\1/>', ques)
     print(f'ques: {json.dumps(ques, ensure_ascii=False)}')
@@ -187,7 +190,10 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, thin
                 model=model_name,
                 temperature=temp,
                 max_tokens=max_tokens,
-                extra_body={"enable_thinking": thinking},
+                extra_body={
+                    "enable_thinking": think,
+                    "think": think,
+                },
             )
             ans = res.choices[0].message.content.strip()
             if not ans: raise ValueError(f'回复为空：{res}')
