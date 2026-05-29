@@ -151,9 +151,11 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thi
                 temperature=temp,
                 max_tokens=max_tokens,
                 extra_body={
+                    "chat_template_kwargs": {"enable_thinking": False},
                     "enable_thinking": think,
                     "think": think,
                     'include_reasoning': think,
+                    "reasoning_effort": "medium" if think else "none",
                     'reasoning': think,
                     'thinking': think,
                 },
@@ -194,9 +196,11 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, thin
                 temperature=temp,
                 max_tokens=max_tokens,
                 extra_body={
+                    "chat_template_kwargs": {"enable_thinking": False},
                     "enable_thinking": think,
                     "think": think,
                     'include_reasoning': think,
+                    "reasoning_effort": "medium" if think else "none",
                     'reasoning': think,
                     'thinking': think,
                 },
