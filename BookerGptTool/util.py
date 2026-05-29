@@ -155,8 +155,8 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thi
                     "enable_thinking": think,
                     "think": think,
                     'include_reasoning': think,
-                    'reasoning': think,
-                    'thinking': think,
+                    'reasoning': {"reasoning_effort": "medium" if think else "none"},
+                    'thinking': {"type": "enabled" if think else "disabled"},
                 },
             )
             ans = res.choices[0].message.content.strip()
@@ -199,8 +199,8 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, thin
                     "enable_thinking": think,
                     "think": think,
                     'include_reasoning': think,
-                    'reasoning': think,
-                    'thinking': think,
+                    'reasoning': {"reasoning_effort": "medium" if think else "none"},
+                    'thinking': {"type": "enabled" if think else "disabled"},
                 },
             )
             ans = res.choices[0].message.content.strip()
