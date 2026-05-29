@@ -132,7 +132,7 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thi
             transport=httpx.HTTPTransport(local_address="0.0.0.0"),
         )
     )
-        extra_body = {
+    extra_body = {
         "chat_template_kwargs": {"enable_thinking": think},
         "enable_thinking": think,
         "think": think,
