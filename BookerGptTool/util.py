@@ -155,7 +155,8 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thi
                     "enable_thinking": think,
                     "think": think,
                     'include_reasoning': think,
-                    'reasoning': {"reasoning_effort": "medium" if think else "none"},
+                    "reasoning_effort": "medium" if think else "none",
+                    'reasoning': {"effort": "medium" if think else "none"},
                     'thinking': {"type": "enabled" if think else "disabled"},
                 },
             )
