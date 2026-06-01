@@ -148,6 +148,8 @@ def main():
     fmt_chunk_parser.add_argument("fname", help="epub file name")
     fmt_chunk_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
     fmt_chunk_parser.add_argument("-l", "--limit", type=int, default=8000, help="chunk limit")
+    fmt_chunk_parser.add_argument("-r", "--round", type=int, default=3, help="fix round")
+    fmt_chunk_parser.add_argument("-mr", "--multi-round", action='store_true', help="whether multi round")
     fmt_chunk_parser.set_defaults(func=fmt_chunk_handle)
 
 
