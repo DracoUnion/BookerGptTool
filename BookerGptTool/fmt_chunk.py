@@ -156,7 +156,7 @@ def tr_fmt_group_multi(text, res, idx, args):
         ques = CRTC_PMT.replace('{text}', text)
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         ans = ans.replace('[content]', '').replace('[/content]', '').strip()
-        if ans == '[TEXT_PERFECT/]':
+        if '[TEXT_PERFECT/]' in ans:
             res[idx] = ans
             break
         ques = FIX_PMT.replace('{text}', text).replace('{crtc}', ans)
