@@ -15,7 +15,7 @@ CRTC_PMT = '''
 2. 优化段落格式，删除多余空行
 3. 保留正文核心内容
 4. 所有单独出现的变量名（`varName`），函数名（`funcName()`），类名（`ClassName`），路径名（`/path.to.xxx`），命令名（`cmdname`）以及它们的语句或表达式（`ClassName.funcName(var1 + var2, "cmd arg0 arg1"`）都需要添加反引号。如果上述东西被粗体（**）或者斜体（*）包围，去掉星号再加反引号。
-5. 代码块前后加上三个反引号（```）
+5. 代码块前后加上三个反引号（```），里面的任何东西不要添加反引号。
 
 ## 重要规则
 
@@ -155,14 +155,14 @@ def tr_fmt_group_multi(text, res, idx, args):
     for i in range(args.round):
         ques = CRTC_PMT.replace('{text}', text)
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        ans = ans.replace('[content]', '').replace('[/content]', '').strip()
-        if '[TEXT_PERFECT/]' in ans:
-            res[idx] = ans
+        crtc = ans.replace('[content]', '').replace('[/content]', '').strip()
+        if '[TEXT_PERFECT/]' in crtc:
+            res[idx] = text
             break
-        ques = FIX_PMT.replace('{text}', text).replace('{crtc}', ans)
+        ques = FIX_PMT.replace('{text}', text).replace('{crtc}', crtc)
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        ans = ans.replace('[content]', '').replace('[/content]', '').strip()
-        res[idx] = ans
+        text = ans.replace('[content]', '').replace('[/content]', '').strip()
+        res[idx] = text
 
 def tr_fmt_group(text, res, idx, args):
     ques = FMT_PMT.replace('{text}', text)
