@@ -244,7 +244,7 @@ def set_openai_props(args):
 def collect_stream_content(resp):
     content = []
     for chunk in resp:
-        if chunk.choices[0].delta.content is not None:
+        if chunk.choices and chunk.choices[0].delta.content:
             pt = chunk.choices[0].delta.content
             content.append(pt)
             print(f'stream: {json.dumps(pt, ensure_ascii=False)}')
