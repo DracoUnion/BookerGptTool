@@ -163,8 +163,12 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thi
                 temperature=temp,
                 max_tokens=max_tokens,
                 extra_body=extra_body,
+                stream=openai.stream,
             )
-            ans = res.choices[0].message.content.strip()
+            if openai.stream:
+                ans = collect_stream_content(res)
+            else:
+                ans = res.choices[0].message.content.strip()
             if not ans: raise ValueError(f'回复为空：{res}')
             break
         except Exception as ex:
@@ -187,7 +191,7 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, thin
         http_client=httpx.Client(
             proxies=openai.proxy,
             transport=httpx.HTTPTransport(local_address="0.0.0.0"),
-        )
+        ),
     )
     extra_body = {
         "chat_template_kwargs": {"enable_thinking": think},
@@ -212,8 +216,12 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, thin
                 temperature=temp,
                 max_tokens=max_tokens,
                 extra_body=extra_body,
+                stream=openai.stream,
             )
-            ans = res.choices[0].message.content.strip()
+            if openai.stream:
+                ans = collect_stream_content(res)
+            else:
+                ans = res.choices[0].message.content.strip()
             if not ans: raise ValueError(f'回复为空：{res}')
             break
         except Exception as ex:
@@ -231,6 +239,16 @@ def set_openai_props(args):
     openai.base_url = args.host
     openai.user_agent = args.user_agent
     openai.pren = args.pass_reasoning_effort_none
+    openai.stream = args.stream
+
+def collect_stream_content(resp):
+    content = []
+    for chunk in resp:
+        if chunk.choices[0].delta.content is not None:
+            pt = chunk.choices[0].delta.content
+            content.append(pt)
+            print(f'stream: {json.dumps(pt, ensure_ascii=False)}')
+    return ''.join(content)
 
 def extname(fname):
     m = re.search(r'\.(\w+)$', fname)
