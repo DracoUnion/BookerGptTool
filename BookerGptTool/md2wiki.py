@@ -97,7 +97,7 @@ def get_cand_items(chunks):
                 'draft': '',
                 **it,
             })
-            cand_items_map[name]['chunks'].append(c)
+            cand_items_map[name]['chunks'].append(c['chunk'])
     return list(cand_items_map.items())
 
 def tr_gen_cand_item(res, idx, args, write_callback):
