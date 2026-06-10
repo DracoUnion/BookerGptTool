@@ -107,6 +107,7 @@ def tr_gen_cand_item(res, idx, args, write_callback):
     lines = ans.replace('```', '').strip().split('\n')
     lines = [json.loads(l) for l in lines]
     res[idx]['items'] = lines
+    res[idx]['generated'] = True
     write_callback()
 
 def md2wiki(args):
