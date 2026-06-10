@@ -392,8 +392,10 @@ def split_md_lines(md):
     return res
 
 def ngram_jaccard(text1: str, text2: str, n: int = 3) -> float:
-    tok_en_zh = lambda text: re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', text)
-    get_ngram_set = lambda toks, n: set(tuple(toks[i:i+n]) for i in range(len(toks)-n+1))
+    tok_en_zh = lambda text: \
+        re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', text)
+    get_ngram_set = lambda toks, n: \
+        set(tuple(toks[i:i+n]) for i in range(len(toks)-n+1))
     set1 = get_ngram_set(tok_en_zh(text1.lower()), n)
     set2 = get_ngram_set(tok_en_zh(text2.lower()), n)
     inter = len(set1 & set2)
