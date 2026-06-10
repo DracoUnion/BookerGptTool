@@ -87,7 +87,7 @@ def tr_make_draft(cand_items, idx, args, write_callback):
     ratio = ngram_coverage(origin, draft)
     if ratio > 0.6:
         cand_items[idx]['draft'] = draft
-        cand_items[idx]['generated'] = True
+    cand_items[idx]['generated'] = True
     write_callback()
 
 def get_cand_items(chunks):
