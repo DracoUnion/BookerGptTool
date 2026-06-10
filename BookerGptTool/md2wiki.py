@@ -7,7 +7,7 @@ import yaml
 import os
 from os import path
 from .md2skill_chunker import chunk_markdown
-from .util import call_chatgpt_retry, set_openai_props
+from .util import call_chatgpt_retry, set_openai_props, ngram_coverage
 
 DRAFT_PMT = '''
 你是一位专业的百科编辑，负责为「{name}」撰写标准 Wiki 词条。
@@ -83,7 +83,11 @@ def tr_make_draft(cand_items, idx, args, write_callback):
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     draft = ans.replace('[content]', '') \
         .replace('[/content]', '').strip()
-    cand_items[idx]['draft'] = draft
+    # 检测幻觉
+    ratio = ngram_coverage(origin, draft)
+    if ratio > 0.6:
+        cand_items[idx]['draft'] = draft
+        cand_items[idx]['generated'] = True
     write_callback()
 
 def get_cand_items(chunks):
@@ -172,7 +176,7 @@ def md2wiki(args):
             .write(yaml.safe_dump(cand_items, allow_unicode=True))
 
     for i, it in enumerate(cand_items):
-        if it.get('draft'): continue
+        if it.get('generated'): continue
         h = pool.submit(
             tr_make_draft,
             cand_items, i, args,
