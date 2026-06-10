@@ -7,7 +7,7 @@ import yaml
 import os
 from os import path
 from .md2skill_chunker import chunk_markdown
-from .util import call_chatgpt_retry
+from .util import call_chatgpt_retry, set_openai_props
 
 EXT_PMT = '''
 你是一位知识工程专家，擅长从文本中提取可独立成百科词条的知识单元。分析以下文本片段，提取所有值得成为Wiki词条的实体。
@@ -37,6 +37,8 @@ def tr_gen_cand_item(res, idx, args, write_callback):
     write_callback()
 
 def md2wiki(args):
+    print(args)
+    set_openai_props(args)
     if not args.fname.endswith('.md'):
         print('请提供 MD 文件')
         return
