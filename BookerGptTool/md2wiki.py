@@ -31,7 +31,7 @@ def tr_gen_cand_item(res, idx, args, write_callback):
     print(f'[1] 提取候选词条 {idx+1}')
     ques = EXT_PMT.replace('{text}', res[idx]['chunk'])
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    lines = re.search(r'```\w*([\s\S]+?)```', ans).group(1).strip().split('\n')
+    lines = ans.replace('```', '').strip().split('\n')
     lines = [json.loads(l) for l in lines]
     res[idx]['items'] = lines
     write_callback()
