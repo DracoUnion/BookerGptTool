@@ -391,13 +391,21 @@ def split_md_lines(md):
         res.append(code + '```')
     return res
 
+tok_en_zh = lambda text: \
+    re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', text)
+get_ngram_set = lambda toks, n: \
+    set(tuple(toks[i:i+n]) for i in range(len(toks)-n+1))
+
 def ngram_jaccard(text1: str, text2: str, n: int = 3) -> float:
-    tok_en_zh = lambda text: \
-        re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', text)
-    get_ngram_set = lambda toks, n: \
-        set(tuple(toks[i:i+n]) for i in range(len(toks)-n+1))
     set1 = get_ngram_set(tok_en_zh(text1.lower()), n)
     set2 = get_ngram_set(tok_en_zh(text2.lower()), n)
     inter = len(set1 & set2)
     union = len(set1 | set2)
     return inter / union if union else 0.0
+
+def ngram_coverage(src: str, gen: str, n: int = 3) -> float:
+    src_set = get_ngram_set(tok_en_zh(src.lower()), n)
+    gen_set = get_ngram_set(tok_en_zh(gen.lower()), n)
+    inter = len(src_set & gen_set)
+    all_ = len(gen_set)
+    return inter / all_ if all_ else 0.0
