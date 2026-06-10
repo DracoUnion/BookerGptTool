@@ -98,7 +98,7 @@ def get_cand_items(chunks):
                 **it,
             })
             cand_items_map[name]['chunks'].append(c['chunk'])
-    return list(cand_items_map.items())
+    return list(cand_items_map.values())
 
 def tr_gen_cand_item(res, idx, args, write_callback):
     print(f'[1] 提取候选词条 {idx+1}')
