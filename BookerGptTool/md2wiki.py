@@ -106,6 +106,7 @@ def tr_gen_cand_item(res, idx, args, write_callback):
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     lines = ans.replace('```', '').strip().split('\n')
     lines = [json.loads(l) for l in lines if l.strip()]
+    lines = [l for l in lines if isinstance(l, dict)]
     res[idx]['items'] = lines
     res[idx]['generated'] = True
     write_callback()
