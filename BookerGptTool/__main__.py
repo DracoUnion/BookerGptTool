@@ -16,6 +16,7 @@ from .fiction import *
 from .md2skill import *
 from .trans_epub import *
 from .fmt_chunk import *
+from .md2wiki import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -136,6 +137,12 @@ def main():
     md2skill_parser.add_argument("fname", help="fname")
     md2skill_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
     md2skill_parser.set_defaults(func=md2skill)
+
+    md2wiki_parser = subparsers.add_parser("md2wiki", help="md2wiki")
+    md2wiki_parser.add_argument("fname", help="fname")
+    md2wiki_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    md2wiki_parser.set_defaults(func=md2wiki)
+
 
     trans_epub_parser = subparsers.add_parser("trans-epub", help="translate epub")
     trans_epub_parser.add_argument("fname", help="epub file name")
