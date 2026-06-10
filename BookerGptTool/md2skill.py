@@ -15,7 +15,7 @@ from threading import Lock
 import functools
 from sentence_transformers import SentenceTransformer
 from typing import Dict, Optional, List, Callable
-from .util import call_chatgpt_retry, set_openai_props, extname, reform_paras_mdcn
+from .util import call_chatgpt_retry, set_openai_props, ngram_jaccard
 from .md2skill_pmt import *
 from .md2skill_gen import generate_claude_skills
 from .md2skill_chunker import chunk_markdown
@@ -99,11 +99,13 @@ def cluster_skills(
         for s in skills
     ]
 
+    '''
     st = SentenceTransformer(emb_model_name)
     st = torch.quantization.quantize_dynamic(
         st, {torch.nn.Linear}, dtype=torch.qint8)
     vectors = st.encode(texts)
     sims = st.similarity(vectors, vectors)
+    '''
 
     # 贪心聚类
     used = [False] * len(skills)
@@ -117,7 +119,7 @@ def cluster_skills(
         for j in range(i + 1, len(skills)):
             if used[j]:  continue
             # 余弦相似度
-            sim = sims[i, j]
+            sim = ngram_jaccard(texts[i], texts[j])
             if sim >= threshold:
                 cluster.append(skills[j])
                 used[j] = True
