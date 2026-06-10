@@ -27,6 +27,19 @@ EXT_PMT = '''
 [/content]
 '''
 
+def get_cand_items(chunks):
+    cand_items_map = {}
+    for c in chunks:
+        for it in c['items']:
+            name = it.get('name')
+            if not name: continue
+            cand_items_map.setdefault(name, {
+                'chunks': [],
+                **it,
+            })
+            cand_items_map[name]['chunks'].append(c)
+    return list(cand_items_map.items())
+
 def tr_gen_cand_item(res, idx, args, write_callback):
     print(f'[1] 提取候选词条 {idx+1}')
     ques = EXT_PMT.replace('{text}', res[idx]['chunk'])
@@ -47,20 +60,20 @@ def md2wiki(args):
     os.makedirs(pj_dir, exist_ok=True)
     print(f'[1] 提取候选词条')
     md = open(args.fname, encoding='utf8').read()
-    cand_item_fname = path.join(pj_dir, 'cand_items.yaml')
-    if path.isfile(cand_item_fname):
-        cand_items = yaml.safe_load(
-            open(cand_item_fname, encoding='utf8').read())
+    chunk_fname = path.join(pj_dir, 'chunks.yaml')
+    if path.isfile(chunk_fname):
+        chunks = yaml.safe_load(
+            open(chunk_fname, encoding='utf8').read())
     else:
         cres = chunk_markdown(md, path.basename(args.fname))
-        cand_items = [{
+        chunks = [{
             'chunk': c.content,
             'title': c.heading_path,
             'items': [],
             'generated': False,
         } for c in cres.chunks]
-        open(cand_item_fname, 'w',  encoding='utf8') \
-            .write(yaml.safe_dump(cand_items, allow_unicode=True))
+        open(chunk_fname, 'w',  encoding='utf8') \
+            .write(yaml.safe_dump(chunks, allow_unicode=True))
 
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
@@ -70,12 +83,12 @@ def md2wiki(args):
             with open(fname, 'w',  encoding='utf8') as f:
                 f.write(yaml.safe_dump(res, allow_unicode=True))
 
-    for i, it in enumerate(cand_items):
+    for i, it in enumerate(chunks):
         if it['generated']: continue
         h = pool.submit(
             tr_gen_cand_item,
-            cand_items, i, args, 
-            functools.partial(write_callback, cand_item_fname, cand_items)
+            chunks, i, args, 
+            functools.partial(write_callback, chunk_fname, chunks)
         )
         hdls.append(h)
         if len(hdls) > args.threads:
@@ -86,3 +99,11 @@ def md2wiki(args):
         h.result()
     hdls = []
 
+    cand_items_fname = path.join(pj_dir, 'cand_items.yaml')
+    if path.isfile(cand_items_fname):
+        cand_items = yaml.safe_load(
+            open(cand_items_fname, encoding='utf8').read())
+    else:
+        cand_items = get_cand_items(chunks)
+        open(cand_items_fname, 'w',  encoding='utf8') \
+            .write(yaml.safe_dump(cand_items, allow_unicode=True))
