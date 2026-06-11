@@ -15,7 +15,24 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import json_repair as json
 from imgyaso.quant import pngquant
-from .util import call_vlm_retry, call_chatgpt_retry, set_openai_props, extname
+from .util import (
+    call_vlm_retry, 
+    call_chatgpt_retry, 
+    set_openai_props, 
+    extname, 
+    to_kebab,
+)
+
+
+README_TMPL = '''
+# {name_cn}
+
+> 原文：[{name}]()
+> 
+> 译者：[飞龙](https://github.com/wizardforcel)
+> 
+> 协议：[CC BY-NC-SA 4.0](http://creativecommons.org/licenses/by-nc-sa/4.0/)
+'''.strip()
 
 OCR_PMT = '''
 你是一个专业的文档编辑助手。请查看给定图片，提取出其中的所有标题、段落、列表、表格、插图、引用、代码块等，并一定要忽略页眉和页脚，以给定 JSON  格式输出。注意只需要输出 JSON，不需要输出其它任何东西。
@@ -99,6 +116,32 @@ TOC_PMT = '''
 [content]
 {text}
 [/content]
+'''
+
+TRANS_TITLE_PMT = '''
+你是一个高级翻译，请参考示例，翻译指定的图书标题到中文。注意只需要输出翻译，不要输出其他任何东西。
+
+## 示例
+
++   “with”不翻译，比如“deep learning with python”翻译为“python 深度学习”
++   “beginners guide”翻译为“初学者指南”
++   “cookbook”翻译为“秘籍”
++   “build xxx”翻译为“xxx构建指南”
++   “xxx in action”翻译为“xxx 实战”
++   “hands on xxx”翻译为“xxx 实用指南”
++   “practice xxx”翻译为“xxx 实践指南”
++   “unlock xxx”翻译为“xxx 解锁指南”
++   “xxx by example”翻译为“xxx 示例”
++   “pro xxx”翻译为“xxx 高级指南”
++   “xxx for yyy”翻译为“yyy 的 xxx”
++   “using xxx”翻译为“xxx 使用指南”
++   “introduction to xxx”或者“beginning xxx”翻译为“xxx 入门指南”
++   “quick start guide”翻译为“快速启动指南”
++   “playbook”翻译为“攻略书”
+
+## 要翻译的标题
+
+{text}
 '''
 
 TRANS_BODY_PMT = '''
@@ -265,7 +308,15 @@ def pdf_ocr(args):
     if not args.fname.endswith('.pdf'):
         print('请提供PDF文件')
         return
-    md_fname = args.fname[:-4] + '.md'
+    
+    slug = to_kebab(args.fname[:-4])
+    pj_dir = slug if args.mkdir else '.'
+    os.makedirs(pj_dir, exist_ok=True)
+    md_fname = (
+        path.join(pj_dir, f'{slug}.md')
+        if args.mkdir
+        else args.fname[:-4] + '.md'
+    )
     if path.isfile(md_fname):
         print('PDF 已处理')
         return
@@ -275,7 +326,11 @@ def pdf_ocr(args):
     pdf_hash = hashlib.md5(pdf).hexdigest()
     doc: fitz.Document = fitz.open('pdf', BytesIO(pdf))
 
-    yaml_fname = args.fname[:-4] + '.yaml'
+    yaml_fname = (
+        path.join(pj_dir, 'meta.yaml') 
+        if args.mkdir 
+        else args.fname[:-4] + '.yaml'
+    )
     print(f'[2] 初始化 {yaml_fname}')
     if path.isfile(yaml_fname):
         res = yaml.safe_load(open(yaml_fname, encoding='utf8').read())
@@ -319,7 +374,11 @@ def pdf_ocr(args):
 
         
     print(f'[4] 处理图片')
-    img_dir = args.fname[:-4] + '_imgs'
+    img_dir = (
+        path.join(pj_dir, 'img')
+        if args.mkdir
+        else args.fname[:-4] + '_imgs'
+    )
     os.makedirs(img_dir, exist_ok=True)
     for i, g in enumerate(res['pages']):
         if g['img_proc']: continue
@@ -394,6 +453,23 @@ def pdf_ocr(args):
     
     print(f'[8] 写入 {md_fname}')
     open(md_fname, 'w', encoding='utf8').write(full_text)
+    if args.mkdir:
+        print(f'[8] 写入 README.md')
+        name = args.fname[:-4]
+        ques = TRANS_TITLE_PMT.replace('{text}', name)
+        name_cn = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        readme = README_TMPL.replace('{name}', name).replace('{name_cn}', name_cn)
+        readme_fname = path.join(pj_dir, 'README.md')
+        open(readme_fname, 'w', encoding='utf8').write(readme)
+        print(f'[8] 写入 SUMMARY.md')
+        toc =[
+            f'+   [{name_cn}](README.md)',
+            f'+   [{name_cn}]({slug}.md)',
+        ]
+        summary = '\n'.join(toc)   
+        summary_fname = path.join(pj_dir, 'SUMMARY.md')
+        open(summary_fname, 'w', encoding='utf8').write(summary)
+
     print(f'[*] 处理完毕')
 
 def fix_toc(full_text, res, args, write_callback):
