@@ -119,6 +119,7 @@ def main():
     pdf_ocr_parser.add_argument("fname", help="PDF file name")
     pdf_ocr_parser.add_argument("--dpi", type=int, default=300, help="dpi")
     pdf_ocr_parser.add_argument("--trans", action='store_true', help="whether to translate")
+    pdf_ocr_parser.add_argument("-md", "--mkdir", action='store_true', help="whether to make a single dir")
     pdf_ocr_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
     pdf_ocr_parser.add_argument("-l", "--limit", type=int, default=8000, help="text limit in groups")
     pdf_ocr_parser.set_defaults(func=pdf_ocr)
