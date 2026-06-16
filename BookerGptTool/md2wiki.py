@@ -13,8 +13,11 @@ from .md2wiki_pmt import *
 def tr_make_draft(cand_items, idx, args, write_callback):
     print(f'[2] 编写词条初稿 {idx+1}')
     origin = '\n\n'.join(cand_items[idx]['chunks'])
+    tp = cand_items[idx]['type']
+    tmpl = ITEM_TMPL_MAP.get(tp, TERM_TMPL)
     ques = DRAFT_PMT.replace('{origin}', origin) \
-        .replace('{name}', cand_items[idx]['name'])
+        .replace('{name}', cand_items[idx]['name']) \
+        .replace('{tmpl}', tmpl)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     draft = ans.replace('[content]', '') \
         .replace('[/content]', '').strip()
