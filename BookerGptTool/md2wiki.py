@@ -23,9 +23,11 @@ def tr_make_draft(cand_items, idx, args, write_callback):
     draft = ans.replace('[content]', '') \
         .replace('[/content]', '').strip()
     # 检测幻觉
+    '''
     ratio = ngram_coverage(origin, draft)
     if ratio > 0.6:
-        cand_items[idx]['draft'] = draft
+    '''
+    cand_items[idx]['draft'] = draft
     cand_items[idx]['generated'] = True
     write_callback()
 
