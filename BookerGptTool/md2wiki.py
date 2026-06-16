@@ -61,7 +61,7 @@ def md2wiki(args):
         print('请提供 MD 文件')
         return
 
-    pj_dir = path.join(args.fname[:-3])
+    pj_dir = args.fname[:-3] + '_md2wiki'
     os.makedirs(pj_dir, exist_ok=True)
     print(f'[1] 提取候选词条')
     md = open(args.fname, encoding='utf8').read()
