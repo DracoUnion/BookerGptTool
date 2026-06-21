@@ -61,8 +61,8 @@ def code2book(args):
     else:
         code_desc = [
             {
-                "file": f,
-                "full_path": path.join(args.dir, f),
+                "file": path.relpath(f, args.dir),
+                "full_path": f,
             }
             for f in fnames
         ]

@@ -18,7 +18,6 @@ CLS_FUNC_EXT_PMT = '''
 
 ```
 {
-    "file": "xxx.py",
     "desc": "the file ....",
     "process": [
         "graph TD",
