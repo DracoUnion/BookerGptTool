@@ -4,6 +4,7 @@ import os
 from . import __version__
 from .trans import *
 from .code2doc import *
+from .code2book import *
 from .shengcai import *
 from .call import *
 from .arxiv import *
@@ -59,6 +60,11 @@ def main():
     comm_parser.add_argument('fname', help='file or dir name')
     comm_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
     comm_parser.set_defaults(func=code2doc_handle)
+
+    code2book_parser = subparsers.add_parser("code2book", help="code to book")
+    code2book_parser.add_argument('dir', help='proj dir name')
+    code2book_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    code2book_parser.set_defaults(func=code2book)
 
     shengcai_parser = subparsers.add_parser("shengcai", help="parse shengcai fengxiangbiao")
     shengcai_parser.add_argument('fname', help='epub file name')
