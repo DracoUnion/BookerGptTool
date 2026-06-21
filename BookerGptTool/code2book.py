@@ -105,4 +105,4 @@ def code2book(args):
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         outline_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         outline = json_repair.loads(outline_str)
-        open(outline_fname, encoding='utf8').witre(yaml.safe_dump(outline))
+        open(outline_fname, 'w', encoding='utf8').witre(yaml.safe_dump(outline))
