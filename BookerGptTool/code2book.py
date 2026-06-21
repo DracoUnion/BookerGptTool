@@ -101,7 +101,7 @@ def code2book(args):
             open(outline_fname, encoding='utf8').read())
     else:
         ques = OUTLINE_PMT.replace('{struct}', fnames_li) \
-            .replace('{code_desc}', json.dumps(code_desc))
+            .replace('{code_desc}', json.dumps(code_desc, ensure_ascii=False))
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         outline_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         outline = json_repair.loads(outline_str)
