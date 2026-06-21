@@ -28,7 +28,9 @@ def tr_gen_code_desc(res, idx, args, write_callback):
     res[idx].update(descs)
     write_callback()
 
-def code2book_handle(args):
+def code2book(args):
+    print(args)
+    set_openai_props(args)
     if not path.isdir(args.dir):
         print('请提供项目目录！')
         return
