@@ -16,7 +16,7 @@ from threading import Lock
 from .util import call_chatgpt_retry, set_openai_props, extname
 from .code2book_pmt import *
 
-def tr_gen_spec_secs(details, idx, spec_secs, args, write_callback):
+def tr_gen_spec_details(details, idx, args, write_callback):
     print(f'[5] 编写第{idx+1}章特殊小节')
     code_fnames = [
         c['file'] 
@@ -32,12 +32,12 @@ def tr_gen_spec_secs(details, idx, spec_secs, args, write_callback):
         for f, code in code_dict.items()
     ])
     detail_str = json.dumps(details[idx], ensure_ascii=False)
-    ques = SPEC_SEC_PMT.replace('{detail}', detail_str) \
+    ques = SPEC_DETAIL_PMT.replace('{detail}', detail_str) \
         .replace('{code}', code_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    spec_sec_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    spec_sec = json_repair.loads(spec_sec_str)
-    spec_secs[idx].update(spec_sec)
+    spec_detail_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+    spec_detail = json_repair.loads(spec_detail_str)
+    details[idx].update(spec_detail)
     write_callback()
 
 def tr_gen_detail(outline_chs, idx, details, args, write_callback):
@@ -62,6 +62,14 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     detail_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
     detail = json_repair.loads(detail_str)
     details[idx].update(detail)
+    write_callback()
+    detail_str = json.dumps(details[idx], ensure_ascii=False)
+    ques = SPEC_DETAIL_PMT.replace('{detail}', detail_str) \
+        .replace('{code}', code_str)
+    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    spec_detail_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+    spec_detail = json_repair.loads(spec_detail_str)
+    details[idx].update(spec_detail)
     write_callback()
 
 
@@ -176,30 +184,6 @@ def code2book(args):
             tr_gen_detail,
             outline_chs, i, details, args,
             functools.partial(write_callback, detail_fname, details[-1])
-        )
-        hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
-
-    for h in hdls:
-        h.result()
-    hdls = []
-
-    print(f'[5] 生成特殊小节')
-    spec_secs = []
-    for i, ch in enumerate(details):
-        spec_sec_fname = path.join(pj_dir, f'spec_sec_{i+1}.yaml')
-        if path.isfile(spec_sec_fname):
-            spec_sec = yaml.safe_load(
-                open(spec_sec_fname, encoding='utf8').read())
-            spec_secs.append(spec_sec)
-            continue
-        spec_secs.append({})
-        h = pool.submit(
-            tr_gen_spec_secs,
-            details, i, spec_secs, args,
-            functools.partial(write_callback, spec_sec_fname, spec_secs[-1])
         )
         hdls.append(h)
         if len(hdls) > args.threads:
