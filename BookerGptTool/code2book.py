@@ -16,6 +16,31 @@ from threading import Lock
 from .util import call_chatgpt_retry, set_openai_props, extname
 from .code2book_pmt import *
 
+def tr_gen_detail(outline, idx, details, args, write_callback):
+    print(f'[4] 编写第{idx+1}章细纲')
+    code_fnames = [
+        f for sec in outline[idx]['sections']
+          for f in sec['src']
+    ]
+    code_dict = {
+        f:open(path.join(args.dir, f)).read()
+        for f in code_fnames
+    }
+    code_str = '\n\n'.join([
+        f'`{f}`\n\n```\n{code}\n```'
+        for f, code in code_dict.items()
+    ])
+    outline_str = json.dumps(outline[idx], ensure_ascii=False)
+    ques = DETAIL_PMT.replace('{i}', idx + 1) \
+        .replace('{outline}', outline_str) \
+        .replace('{code}', code_str)
+    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    detail_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+    detail = json_repair.loads(detail_str)
+    details[idx].update(detail)
+    write_callback()
+
+
 def tr_gen_code_desc(res, idx, args, write_callback):
     fname = res[idx]['file']
     print(f'[2] 生成描述 {fname}')
@@ -107,3 +132,28 @@ def code2book(args):
         outline = json_repair.loads(outline_str)
         open(outline_fname, 'w', encoding='utf8') \
             .write(yaml.safe_dump(outline, allow_unicode=True))
+
+    print('[4] 生成细纲')
+    outline_chs = sum([pt['chapters']for pt in outline], [])
+    details = []
+    for i, ch in enumerate(outline_chs):
+        detail_fname = path.join(pj_dir, f'detail_{i+1}.yaml')
+        if path.isfile(detail_fname):
+            detail = yaml.safe_load(
+                open(detail_fname, encoding='utf8').read())
+            details.append(detail)
+            continue
+        details.append({})
+        h = pool.submit(
+            tr_gen_detail,
+            outline, i, details, args,
+            functools.partial(write_callback, detail_fname, details[-1])
+        )
+        hdls.append(h)
+        if len(hdls) > args.threads:
+            for h in hdls: h.result()
+            hdls = []
+
+    for h in hdls:
+        h.result()
+    hdls = []
