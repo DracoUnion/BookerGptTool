@@ -134,6 +134,11 @@ OUTLINE_PMT = '''
 [coontent]
 {code_desc}
 [/content]
+
+## README
+[content]
+{readme}
+[/content]
 '''
 
 ################################################
