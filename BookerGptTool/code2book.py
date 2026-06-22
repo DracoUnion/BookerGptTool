@@ -31,7 +31,7 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
         for f, code in code_dict.items()
     ])
     outline_str = json.dumps(outline_chs[idx], ensure_ascii=False)
-    ques = DETAIL_PMT.replace('{i}', idx + 1) \
+    ques = DETAIL_PMT.replace('{i}', str(idx + 1)) \
         .replace('{outline}', outline_str) \
         .replace('{code}', code_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
