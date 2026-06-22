@@ -134,7 +134,9 @@ def code2book(args):
             .write(yaml.safe_dump(outline, allow_unicode=True))
 
     print('[4] 生成细纲')
-    outline_chs = sum([pt['chapters']for pt in outline], [])
+    outline_chs = sum([
+        pt['chapters']for pt in outline['parts']
+    ], [])
     details = []
     for i, ch in enumerate(outline_chs):
         detail_fname = path.join(pj_dir, f'detail_{i+1}.yaml')
