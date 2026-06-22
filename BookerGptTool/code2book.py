@@ -17,7 +17,7 @@ from .util import call_chatgpt_retry, set_openai_props, extname
 from .code2book_pmt import *
 
 def tr_gen_spec_secs(details, idx, spec_secs, args, write_callback):
-    print(f'[4] 编写第{idx+1}章特殊小节')
+    print(f'[5] 编写第{idx+1}章特殊小节')
     code_fnames = [
         f for sec in details[idx]['sections']
           for c in sec['code']
@@ -176,6 +176,30 @@ def code2book(args):
             tr_gen_detail,
             outline_chs, i, details, args,
             functools.partial(write_callback, detail_fname, details[-1])
+        )
+        hdls.append(h)
+        if len(hdls) > args.threads:
+            for h in hdls: h.result()
+            hdls = []
+
+    for h in hdls:
+        h.result()
+    hdls = []
+
+    print(f'[5] 生成特殊小节')
+    spec_secs = []
+    for i, ch in enumerate(details):
+        spec_sec_fname = path.join(pj_dir, f'spec_sec_{i+1}.yaml')
+        if path.isfile(spec_sec_fname):
+            spec_sec = yaml.safe_load(
+                open(spec_sec_fname, encoding='utf8').read())
+            spec_secs.append(spec_sec)
+            continue
+        spec_secs.append({})
+        h = pool.submit(
+            tr_gen_spec_secs,
+            details, i, spec_secs, args,
+            functools.partial(write_callback, spec_sec_fname, spec_secs[-1])
         )
         hdls.append(h)
         if len(hdls) > args.threads:
