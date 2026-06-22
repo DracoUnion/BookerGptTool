@@ -16,8 +16,8 @@ from threading import Lock
 from .util import call_chatgpt_retry, set_openai_props, extname
 from .code2book_pmt import *
 
-def tr_gen_body(details, idx, fname, args):
-    print(f'[5] 编写第{idx+1}章特殊小节')
+def tr_gen_body(details, idx, bodies, fname, args):
+    print(f'[5] 编写第{idx+1}章正文')
     code_fnames = [
         c['file'] 
         for sec in details[idx]['sections']
@@ -36,6 +36,7 @@ def tr_gen_body(details, idx, fname, args):
         .replace('{code}', code_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     body = ans.replace('[content]', '').replace('[/content]', ''),
+    bodies[idx] = body
     open(fname, 'w', encoding='utf8').write(body)
 
 def tr_gen_detail(outline_chs, idx, details, args, write_callback):
@@ -182,6 +183,28 @@ def code2book(args):
             tr_gen_detail,
             outline_chs, i, details, args,
             functools.partial(write_callback, detail_fname, details[-1])
+        )
+        hdls.append(h)
+        if len(hdls) > args.threads:
+            for h in hdls: h.result()
+            hdls = []
+
+    for h in hdls:
+        h.result()
+    hdls = []
+
+    print(f'[5] 生成正文')
+    bodies = []
+    for i, detail in enumerate(details):
+        body_fname = path.join(pj_dir, f'body_{i+1}.yaml')
+        if path.isfile(body_fname):
+            body = open(detail_fname, encoding='utf8').read()
+            bodies.append(body)
+            continue
+        bodies.append('')
+        h = pool.submit(
+            tr_gen_body,
+            details, i, bodies, body_fname, args,
         )
         hdls.append(h)
         if len(hdls) > args.threads:
