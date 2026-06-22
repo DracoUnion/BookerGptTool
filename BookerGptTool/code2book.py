@@ -196,7 +196,7 @@ def code2book(args):
     print(f'[5] 生成正文')
     bodies = []
     for i, detail in enumerate(details):
-        body_fname = path.join(pj_dir, f'body_{i+1}.yaml')
+        body_fname = path.join(pj_dir, f'body_{i+1}.md')
         if path.isfile(body_fname):
             body = open(detail_fname, encoding='utf8').read()
             bodies.append(body)
