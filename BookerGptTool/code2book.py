@@ -19,9 +19,9 @@ from .code2book_pmt import *
 def tr_gen_spec_secs(details, idx, spec_secs, args, write_callback):
     print(f'[5] 编写第{idx+1}章特殊小节')
     code_fnames = [
-        f for sec in details[idx]['sections']
-          for c in sec['code']
-          for f in c['file']
+        c['file'] 
+        for sec in details[idx]['sections']
+        for c in sec['code']
     ]
     code_dict = {
         f:open(path.join(args.dir, f)).read()
