@@ -35,7 +35,7 @@ def tr_gen_body(details, idx, bodies, fname, args):
     ques = BODY_PMT.replace('{detail}', detail_str) \
         .replace('{code}', code_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    body = ans.replace('[content]', '').replace('[/content]', ''),
+    body = ans.replace('[content]', '').replace('[/content]', '')
     bodies[idx] = body
     open(fname, 'w', encoding='utf8').write(body)
 
