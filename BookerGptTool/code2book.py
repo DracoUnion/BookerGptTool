@@ -16,7 +16,7 @@ from threading import Lock
 from .util import call_chatgpt_retry, set_openai_props, extname
 from .code2book_pmt import *
 
-def tr_gen_spec_details(details, idx, args, write_callback):
+def tr_gen_body(details, idx, fname, args):
     print(f'[5] 编写第{idx+1}章特殊小节')
     code_fnames = [
         c['file'] 
@@ -32,13 +32,11 @@ def tr_gen_spec_details(details, idx, args, write_callback):
         for f, code in code_dict.items()
     ])
     detail_str = json.dumps(details[idx], ensure_ascii=False)
-    ques = SPEC_DETAIL_PMT.replace('{detail}', detail_str) \
+    ques = BODY_PMT.replace('{detail}', detail_str) \
         .replace('{code}', code_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    spec_detail_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    spec_detail = json_repair.loads(spec_detail_str)
-    details[idx].update(spec_detail)
-    write_callback()
+    body = ans.replace('[content]', '').replace('[/content]', ''),
+    open(fname, 'w', encoding='utf8').write(body)
 
 def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     print(f'[4] 编写第{idx+1}章细纲')
