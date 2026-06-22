@@ -13,7 +13,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from .util import call_chatgpt_retry, set_openai_props
-from .fiction_pmt import *
+from .gts_fiction_pmt import *
 
 
 def write_fiction(args):

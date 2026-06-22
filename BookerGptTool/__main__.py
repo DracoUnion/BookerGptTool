@@ -13,7 +13,7 @@ from .erchuang import *
 from .note import *
 from .paper2code import *
 from .pdf_ocr import *
-from .fiction import *
+from .gts_fiction import *
 from .md2skill import *
 from .trans_epub import *
 from .fmt_chunk import *
@@ -130,7 +130,7 @@ def main():
     pdf_ocr_parser.add_argument("-l", "--limit", type=int, default=8000, help="text limit in groups")
     pdf_ocr_parser.set_defaults(func=pdf_ocr)
 
-    fiction_parser = subparsers.add_parser("fiction", help="write fiction")
+    fiction_parser = subparsers.add_parser("gts-fiction", help="write fiction")
     fiction_parser.add_argument("idea", help="idea")
     fiction_parser.add_argument("-o", "--out-dir", help="output dir")
     fiction_parser.add_argument("-c", "--chapters", type=int, default=20, help="num chapters")
