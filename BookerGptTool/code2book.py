@@ -16,10 +16,10 @@ from threading import Lock
 from .util import call_chatgpt_retry, set_openai_props, extname
 from .code2book_pmt import *
 
-def tr_gen_detail(outline, idx, details, args, write_callback):
+def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     print(f'[4] 编写第{idx+1}章细纲')
     code_fnames = [
-        f for sec in outline[idx]['sections']
+        f for sec in outline_chs[idx]['sections']
           for f in sec['src']
     ]
     code_dict = {
@@ -30,7 +30,7 @@ def tr_gen_detail(outline, idx, details, args, write_callback):
         f'`{f}`\n\n```\n{code}\n```'
         for f, code in code_dict.items()
     ])
-    outline_str = json.dumps(outline[idx], ensure_ascii=False)
+    outline_str = json.dumps(outline_chs[idx], ensure_ascii=False)
     ques = DETAIL_PMT.replace('{i}', idx + 1) \
         .replace('{outline}', outline_str) \
         .replace('{code}', code_str)
@@ -148,7 +148,7 @@ def code2book(args):
         details.append({})
         h = pool.submit(
             tr_gen_detail,
-            outline, i, details, args,
+            outline_chs, i, details, args,
             functools.partial(write_callback, detail_fname, details[-1])
         )
         hdls.append(h)
