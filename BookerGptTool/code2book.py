@@ -20,11 +20,11 @@ def tr_gen_body(details, idx, bodies, fname, args):
     print(f'[5] 编写第{idx+1}章正文')
     code_fnames = [
         c['file'] 
-        for sec in details[idx]['sections']
-        for c in sec['code']
+        for u in details[idx]['units']
+        for c in u['code']
     ]
     code_dict = {
-        f:open(path.join(args.dir, f)).read()
+        f:open(path.join(args.dir, f), encoding='utf8').read()
         for f in code_fnames
     }
     code_str = '\n\n'.join([
@@ -42,7 +42,7 @@ def tr_gen_body(details, idx, bodies, fname, args):
 def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     print(f'[4] 编写第{idx+1}章细纲')
     code_fnames = [
-        f for pt in outline_chs[idx]['points']
+        f for pt in outline_chs[idx]['nodes']
           for f in pt['src']
     ]
     code_dict = {
@@ -54,7 +54,7 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
         for f, code in code_dict.items()
     ])
     outline_str = json.dumps(outline_chs[idx], ensure_ascii=False)
-    ques = DETAIL_PMT.replace('{i}', str(idx + 1)) \
+    ques = SRC_ANLS_DETAIL_PMT.replace('{i}', str(idx + 1)) \
         .replace('{outline}', outline_str) \
         .replace('{code}', code_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
