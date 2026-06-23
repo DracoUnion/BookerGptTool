@@ -56,7 +56,7 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
         f'`{f}`\n\n```\n{code}\n```'
         for f, code in code_dict.items()
     ])
-    outline_str = json.dumps(outline_chs[idx], ensure_ascii=False)
+    outline_str = json.dumps(outline_chs, ensure_ascii=False)
     ques = SRC_ANLS_DETAIL_PMT.replace('{i}', str(idx + 1)) \
         .replace('{outline}', outline_str) \
         .replace('{code}', code_str)
@@ -68,6 +68,7 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     detail_str = json.dumps(details[idx], ensure_ascii=False)
     ques = REST_DETAIL_PMT.replace('{detail}', detail_str) \
         .replace('{outline}', outline_str) \
+        .replace('{i}', str(idx + 1)) \
         .replace('{code}', code_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     spec_detail_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
