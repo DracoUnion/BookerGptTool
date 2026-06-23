@@ -65,6 +65,7 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     write_callback()
     detail_str = json.dumps(details[idx], ensure_ascii=False)
     ques = REST_DETAIL_PMT.replace('{detail}', detail_str) \
+        .replace('{outline}', outline_str) \
         .replace('{code}', code_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     spec_detail_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
