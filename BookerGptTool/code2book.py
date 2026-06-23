@@ -103,7 +103,7 @@ def code2book(args):
         'py', 'pyx', 'pyi', 'pxd',
     ]
     fnames = [
-        path.join(path.relpath(rt. args.dir), f)
+        path.join(path.relpath(rt, args.dir), f)
         for rt, _, fnames in os.walk(args.dir)
         for f in fnames
         if extname(f) in ext_li
