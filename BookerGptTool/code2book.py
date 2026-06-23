@@ -76,7 +76,8 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
 def tr_gen_code_desc(res, idx, args, write_callback):
     fname = res[idx]['file']
     print(f'[2] 生成描述 {fname}')
-    code = open(res[idx]['full_path'], encoding='utf8').read()
+    full_path = path.join(args.dir, fname)
+    code = open(full_path, encoding='utf8').read()
     ques = CLS_FUNC_EXT_PMT.replace('{fname}', fname) \
         .replace('{code}', code)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
@@ -102,7 +103,7 @@ def code2book(args):
         'py', 'pyx', 'pyi', 'pxd',
     ]
     fnames = [
-        path.join(rt, f)
+        path.join(path.relpath(rt. args.dir), f)
         for rt, _, fnames in os.walk(args.dir)
         for f in fnames
         if extname(f) in ext_li
@@ -118,8 +119,7 @@ def code2book(args):
     else:
         code_desc = [
             {
-                "file": path.relpath(f, args.dir),
-                "full_path": f,
+                "file": f,
             }
             for f in fnames
         ]
