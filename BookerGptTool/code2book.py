@@ -42,11 +42,11 @@ def tr_gen_body(details, idx, bodies, fname, args):
 def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     print(f'[4] 编写第{idx+1}章细纲')
     code_fnames = [
-        f for sec in outline_chs[idx]['sections']
-          for f in sec['src']
+        f for pt in outline_chs[idx]['points']
+          for f in pt['src']
     ]
     code_dict = {
-        f:open(path.join(args.dir, f)).read()
+        f:open(path.join(args.dir, f), encoding='utf8').read()
         for f in code_fnames
     }
     code_str = '\n\n'.join([
