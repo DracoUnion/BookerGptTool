@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import json_repair as json
 from imgyaso.quant import pngquant
+from .clean_heading import clean_md_llm
 from .util import (
     call_vlm_retry, 
     call_chatgpt_retry, 
@@ -444,6 +445,11 @@ def pdf_ocr(args):
         if g['merge'] != 1:
             full_text += '\n\n'
         full_text += g['mdcn']
+    name_cn = ''
+    if args.clean:
+        full_text = clean_md_llm(full_text, args)
+        name_cn = trans_title(args.fname[:-4], args)
+        full_text = f'# {name_cn}\n\n{full_text}')
 
     print(f'[7] 修正目录')
     full_text = fix_toc(
@@ -456,8 +462,8 @@ def pdf_ocr(args):
     if args.mkdir:
         print(f'[8] 写入 README.md')
         name = args.fname[:-4]
-        ques = TRANS_TITLE_PMT.replace('{text}', name)
-        name_cn = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        if not name_cn:
+            name_cn = trans_title(name, args)
         readme = README_TMPL.replace('{name}', name).replace('{name_cn}', name_cn)
         readme_fname = path.join(pj_dir, 'README.md')
         open(readme_fname, 'w', encoding='utf8').write(readme)
@@ -511,3 +517,8 @@ def mkgroups(pages, args):
         )
     groups = [g for g in groups if g['raw']]
     return groups
+
+def trans_title(title, args):
+    ques = TRANS_TITLE_PMT.replace('{text}', title)
+    title_cn = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    return title_cn

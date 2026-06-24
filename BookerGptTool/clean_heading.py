@@ -45,12 +45,12 @@ def clean_handle(args):
 
     for h in hdls: h.result()
 
-def clean_file(args):
-    lines = open(args.fname, encoding='utf8').read().split('\n')
-    if args.lines < 1:
-        ed = int(args.lines * len(lines))
+def clean_md_llm(md, args, lines=3000):
+    lines = md.split('\n')
+    if lines < 1:
+        ed = int(lines * len(lines))
     else:
-        ed = int(args.lines)
+        ed = int(lines)
     heading = [{
         'no': i,
         'line': l,
@@ -68,4 +68,8 @@ def clean_file(args):
     
     lines = [l for i, l in enumerate(lines) if i not in torm]
     md = '\n'.join(lines)
+
+def clean_file(args):
+    md = open(args.fname, encoding='utf8').read()
+    md = clean_md_llm(md, args, args.lines)
     open(args.fname, 'w', encoding='utf8').write(md)

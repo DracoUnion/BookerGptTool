@@ -131,6 +131,7 @@ def main():
     pdf_ocr_parser.add_argument("fname", help="PDF file name")
     pdf_ocr_parser.add_argument("--dpi", type=int, default=300, help="dpi")
     pdf_ocr_parser.add_argument("--trans", action='store_true', help="whether to translate")
+    pdf_ocr_parser.add_argument("--clean", action='store_true', help="whether to clean heading")
     pdf_ocr_parser.add_argument("-md", "--mkdir", action='store_true', help="whether to make a single dir")
     pdf_ocr_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
     pdf_ocr_parser.add_argument("-l", "--limit", type=int, default=8000, help="text limit in groups")
@@ -163,6 +164,7 @@ def main():
     trans_epub_parser.add_argument("-l", "--limit", type=int, default=8000, help="chunk limit")
     trans_epub_parser.add_argument("-m", "--fmt-mode", default='none', help="format mode")
     trans_epub_parser.add_argument("--split", action='store_true', help="whether to split chs")
+    trans_epub_parser.add_argument("--clean", action='store_true', help="whether to clean heading")
     trans_epub_parser.set_defaults(func=trans_epub)
     
     fmt_chunk_parser = subparsers.add_parser("fmt-chunk", help="translate epub")
