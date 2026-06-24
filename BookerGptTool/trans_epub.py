@@ -11,6 +11,7 @@ from imgyaso.quant import pngquant
 from .util import call_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks, split_md_lines
 from .fmt import fmt_zh, fmt_publisher
 from .md2skill_chunker import chunk_markdown
+from .clean_heading import clean_md_llm
 
 TRANS_BODY_PMT = '''
 假设你是一个高级文档工程师和翻译员，请参考下面的注意事项了解 Markdown 文档的格式，然后参考示例，将给定英文文本翻译成中文。
@@ -312,6 +313,10 @@ def trans_epub(args):
 
     print('[5] 修正目录')
     md = '\n\n'.join(c['trans'] for c in chunks)
+    if args.clean:
+        name_cn = meta['name_cn']
+        md = clean_md_llm(md, args)
+        md = f'# {name_cn}\n\n{md}'
     md = fix_toc(
         md, meta, args, 
         functools.partial(write_callback, meta_fname, meta),
