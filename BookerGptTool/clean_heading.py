@@ -68,6 +68,7 @@ def clean_md_llm(md, args, nlines=3000):
     
     lines = [l for i, l in enumerate(lines) if i not in torm]
     md = '\n'.join(lines)
+    return md
 
 def clean_file(args):
     md = open(args.fname, encoding='utf8').read()
