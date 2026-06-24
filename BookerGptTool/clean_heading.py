@@ -49,7 +49,7 @@ def clean_file(args):
     lines = open(args.fname, encoding='utf8').read().split('\n')
     ed = int(args.ratio * len(lines))
     heading = lines[:ed]
-    heading_str = json.dumps({"lines": heading})
+    heading_str = json.dumps({"lines": heading}, ensure_ascii=False)
     ques = CLEAN_HEAD_PMT.replace('{text}', heading_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     res_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
