@@ -18,7 +18,7 @@ from .md2skill import *
 from .trans_epub import *
 from .fmt_chunk import *
 from .md2wiki import *
-from clean_heading import *
+from .clean_heading import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
