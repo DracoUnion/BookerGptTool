@@ -47,7 +47,10 @@ def clean_handle(args):
 
 def clean_file(args):
     lines = open(args.fname, encoding='utf8').read().split('\n')
-    ed = int(args.ratio * len(lines))
+    if args.lines < 1:
+        ed = int(args.lines * len(lines))
+    else:
+        ed = int(args.lines)
     heading = [{
         'no': i,
         'line': l,
