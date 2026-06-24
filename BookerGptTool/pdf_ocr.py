@@ -449,7 +449,7 @@ def pdf_ocr(args):
     if args.clean:
         full_text = clean_md_llm(full_text, args)
         name_cn = trans_title(args.fname[:-4], args)
-        full_text = f'# {name_cn}\n\n{full_text}')
+        full_text = f'# {name_cn}\n\n{full_text}'
 
     print(f'[7] 修正目录')
     full_text = fix_toc(
