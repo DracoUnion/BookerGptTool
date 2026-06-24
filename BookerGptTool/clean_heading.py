@@ -48,7 +48,7 @@ def clean_handle(args):
 def clean_md_llm(md, args, nlines=3000):
     lines = md.split('\n')
     if nlines < 1:
-        ed = int(nlines * len(nlines))
+        ed = int(nlines * len(lines))
     else:
         ed = int(nlines)
     heading = [{
