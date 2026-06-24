@@ -45,12 +45,12 @@ def clean_handle(args):
 
     for h in hdls: h.result()
 
-def clean_md_llm(md, args, lines=3000):
+def clean_md_llm(md, args, nlines=3000):
     lines = md.split('\n')
-    if lines < 1:
-        ed = int(lines * len(lines))
+    if nlines < 1:
+        ed = int(nlines * len(nlines))
     else:
-        ed = int(lines)
+        ed = int(nlines)
     heading = [{
         'no': i,
         'line': l,
