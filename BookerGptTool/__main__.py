@@ -100,6 +100,7 @@ def main():
     clean_parser = subparsers.add_parser("clean-heading", help="clean heading")
     clean_parser.add_argument("fname", help="MD for dir of them")
     clean_parser.add_argument("-r", "--ratio", type=float, default=0.25, help="ratio of heading")
+    clean_parser.add_argument("-t", "--threads", type=int, default=8, help="num of threads")
     clean_parser.set_defaults(func=clean_handle)
 
     infer_parser = subparsers.add_parser("infer", help="free inference")
