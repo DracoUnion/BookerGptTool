@@ -16,14 +16,36 @@ from threading import Lock
 from .util import call_chatgpt_retry, set_openai_props, extname
 from .clean_heading_pmt import *
 
-def clean_file(args):
+def clean_handle(args):
     print(args)
     set_openai_props(args)
+
+    if path.isfile(args.fname):
+        fnames = [args.fname]
+    else:
+        fnames = [
+            path.join(args.fname, f) 
+            for f in os.listdir(args.fname)
+        ]
     
-    if not args.fname.endswith('.md'):
+    if not fnames:
         print('请提供 MD 文件')
         return
-    
+
+    pool = ThreadPoolExecutor(args.threads)
+    hdls = []
+    for f in fnames:
+        args = copy.deepcopy(args)
+        args.fname = f
+        h = pool.submit(clean_file, args)
+        hdls.append(h)
+        if len(hdls) > args.threads:
+            for h in hdls: h.result()
+            hdls = []
+
+    for h in hdls: h.result()
+
+def clean_file(args):
     lines = open(args.fname, encoding='utf8').read().split('\n')
     ed = int(args.ratio * len(lines))
     heading = lines[:ed]

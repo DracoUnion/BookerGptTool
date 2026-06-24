@@ -18,6 +18,7 @@ from .md2skill import *
 from .trans_epub import *
 from .fmt_chunk import *
 from .md2wiki import *
+from clean_heading import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -96,6 +97,10 @@ def main():
     paper2code_parser.add_argument("-o", "--out", type=str, help="output dir name")
     paper2code_parser.set_defaults(func=paper2code)
 
+    clean_parser = subparsers.add_parser("clean-heading", help="clean heading")
+    clean_parser.add_argument("fname", help="MD for dir of them")
+    clean_parser.add_argument("-r", "--ratio", type=float, default=0.25, help="ratio of heading")
+    clean_parser.set_defaults(func=clean_handle)
 
     infer_parser = subparsers.add_parser("infer", help="free inference")
     infer_parser.add_argument("fname", help="fname")
