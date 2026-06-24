@@ -48,7 +48,10 @@ def clean_handle(args):
 def clean_file(args):
     lines = open(args.fname, encoding='utf8').read().split('\n')
     ed = int(args.ratio * len(lines))
-    heading = lines[:ed]
+    heading = [{
+        'no': i,
+        'line': l,
+    } for i, l in enumerate(lines[:ed])]
     heading_str = json.dumps({"lines": heading}, ensure_ascii=False)
     ques = CLEAN_HEAD_PMT.replace('{text}', heading_str)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
