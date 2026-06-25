@@ -30,7 +30,7 @@ def check_details(details, code_desc):
         for m in cls_['methods']
     ]
     total_funcs = [
-        it.replace('\\', '/').repalce('()', '')
+        it.replace('\\', '/').replace('()', '')
         for it in total_funcs
     ]
     exi_funcs = [
@@ -40,7 +40,7 @@ def check_details(details, code_desc):
         for cd in u['code']
     ]
     exi_funcs = [
-        it.replace('\\', '/').repalce('()', '')
+        it.replace('\\', '/').replace('()', '')
         for it in exi_funcs
     ]
     rest_funcs = list(set(total_funcs) - set(exi_funcs))
