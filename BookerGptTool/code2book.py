@@ -109,7 +109,7 @@ def gen_outline(fnames, code_desc, args):
     print('[3] 校验源码文件完整覆盖')
     for _ in range(args.check):
         outline_fnames = [
-            f
+            f.replace('\\', '/')
             for pt in outline['parts']
             for ch in pt['chapters']
             for n in ch['nodes']
@@ -161,7 +161,8 @@ def code2book(args):
         'py', 'pyx', 'pyi', 'pxd',
     ]
     fnames = [
-        path.join(path.relpath(rt, args.dir), f)
+        path.join(path.relpath(rt, args.dir), f) \
+            .replace('\\', '/')
         for rt, _, fnames in os.walk(args.dir)
         for f in fnames
         if extname(f) in ext_li
