@@ -76,6 +76,15 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     details[idx].update(spec_detail)
     write_callback()
 
+def gen_outline(fnames_li, code_desc, args):
+    readme = open(path.join(args.dir, 'README.md'), encoding='utf8').read()
+    ques = OUTLINE_PMT.replace('{struct}', fnames_li) \
+        .replace('{code_desc}', json.dumps(code_desc, ensure_ascii=False)) \
+        .replace('{readme}', readme)
+    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    outline_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+    outline = json_repair.loads(outline_str)
+    return outline
 
 def tr_gen_code_desc(res, idx, args, write_callback):
     fname = res[idx]['file']
@@ -161,15 +170,10 @@ def code2book(args):
         outline = yaml.safe_load(
             open(outline_fname, encoding='utf8').read())
     else:
-        readme = open(path.join(args.dir, 'README.md'), encoding='utf8').read()
-        ques = OUTLINE_PMT.replace('{struct}', fnames_li) \
-            .replace('{code_desc}', json.dumps(code_desc, ensure_ascii=False)) \
-            .replace('{readme}', readme)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        outline_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-        outline = json_repair.loads(outline_str)
+        outline = gen_outline(fnames_li, code_desc, args)
         open(outline_fname, 'w', encoding='utf8') \
             .write(yaml.safe_dump(outline, allow_unicode=True))
+
 
     print('[4] 生成细纲')
     outline_chs = sum([
