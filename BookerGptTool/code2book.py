@@ -102,7 +102,7 @@ def gen_outline(fnames, code_desc, args):
             break
         print('[3] 校验未通过')
         print('\n'.join(rest_fnames))
-        ques = OUTLINE_CHK_PMT.replace('{struct}', fnames_li) \
+        ques = OUTLINE_FIX_PMT.replace('{struct}', fnames_li) \
             .replace('{code_desc}', code_desc_str) \
             .replace('{readme}', readme) \
             .replace('{rest_fnames}', '\n'.join(rest_fnames))
