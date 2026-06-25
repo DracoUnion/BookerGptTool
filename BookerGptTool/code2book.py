@@ -338,3 +338,5 @@ def code2book(args):
     for h in hdls:
         h.result()
     hdls = []
+
+    print('[*] 已完成')
