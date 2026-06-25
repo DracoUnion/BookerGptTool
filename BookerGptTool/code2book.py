@@ -22,6 +22,8 @@ def check_details(details, code_desc, fnames, pj_dir, args):
     if fixed: 
         print(f'[4] 细纲校验通过')
         return details
+    for i, d in enumerate(details):
+        d['no'] = i + 1
     fnames_li = '\n'.join(fnames)
     code_desc_str = json.dumps(code_desc, ensure_ascii=False)
     readme = open(path.join(args.dir, 'README.md'), encoding='utf8').read()
