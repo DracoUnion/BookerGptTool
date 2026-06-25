@@ -24,10 +24,10 @@ def check_details(details, code_desc):
         for fn in cd['funcs']
     ]
     total_funcs += [
-        cd['file'] + ':' + cls['name'] + '.' + m['name']
+        cd['file'] + ':' + cls_['name'] + '.' + m['name']
         for cd in code_desc
-        for cls in cd['classes']
-        for m in cls['methods']
+        for cls_ in cd['classes']
+        for m in cls_['methods']
     ]
     total_funcs = [
         it.replace('\\', '/').repalce('()', '')
