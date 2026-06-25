@@ -13,8 +13,43 @@ import re
 import functools
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+import sys
 from .util import call_chatgpt_retry, set_openai_props, extname
 from .code2book_pmt import *
+
+def check_details(details, code_desc):
+    total_funcs = [
+        cd['file'] + ':' + fn['name']
+        for cd in code_desc
+        for fn in cd['funcs']
+    ]
+    total_funcs += [
+        cd['file'] + ':' + cls['name'] + '.' + m['name']
+        for cd in code_desc
+        for cls in cd['classes']
+        for m in cls['methods']
+    ]
+    total_funcs = [
+        it.replace('\\', '/').repalce('()', '')
+        for it in total_funcs
+    ]
+    exi_funcs = [
+        cd['file'] + ':' + cd['class_or_func']
+        for d in details
+        for u in d['units']
+        for cd in u['code']
+    ]
+    exi_funcs = [
+        it.replace('\\', '/').repalce('()', '')
+        for it in exi_funcs
+    ]
+    rest_funcs = list(set(total_funcs) - set(exi_funcs))
+    if len(rest_funcs) == 0:
+        print(f'[4] 细纲校验通过')
+    else:
+        print(f'[4] 细纲校验未通过')
+        print('\n'.join(rest_funcs))
+        sys.exit()
 
 def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
     print(f'[5] 编写第{idx+1}章正文')
@@ -248,6 +283,9 @@ def code2book(args):
     for h in hdls:
         h.result()
     hdls = []
+
+    print(f'[4] 校验细纲')
+    check_details(details, code_desc)
 
     print(f'[5] 生成正文')
     bodies = []
