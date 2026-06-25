@@ -21,13 +21,15 @@ def check_details(details, code_desc):
     total_funcs = [
         cd['file'] + ':' + fn['name']
         for cd in code_desc
-        for fn in cd['funcs']
+        for fn in cd.get('funcs', [])
+        if 'file' in cd and 'name' in fn
     ]
     total_funcs += [
         cd['file'] + ':' + cls_['name'] + '.' + m['name']
         for cd in code_desc
-        for cls_ in cd['classes']
-        for m in cls_['methods']
+        for cls_ in cd.get('classes', [])
+        for m in cls_.get('methods', [])
+        if 'file' in cd and 'name' in cls_ and 'name' in m
     ]
     total_funcs = [
         it.replace('\\', '/').replace('()', '')
@@ -36,8 +38,9 @@ def check_details(details, code_desc):
     exi_funcs = [
         cd['file'] + ':' + cd['class_or_func']
         for d in details
-        for u in d['units']
-        for cd in u['code']
+        for u in d.get('units', [])
+        for cd in u.get('code', [])
+        if 'file' in cd and 'class_or_func' in cd
     ]
     exi_funcs = [
         it.replace('\\', '/').replace('()', '')
