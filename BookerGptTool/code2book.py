@@ -52,7 +52,8 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
         cmt = ans.replace('[content]', '').replace('[/content]', '')
         print(f'[5] 正文 {idx + 1} 校验未通过')
         print(cmt)
-        ques = BODY_FIX_PMT.replace('{body}', body) \
+        ques = BODY_FIX_PMT.replace('{detail}', detail_str) \
+            .replace('{body}', body) \
             .replace('{comment}', cmt) \
             .replace('{code}', code_str)
         ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
