@@ -76,14 +76,40 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     details[idx].update(spec_detail)
     write_callback()
 
-def gen_outline(fnames_li, code_desc, args):
+def gen_outline(fnames, code_desc, args):
+    fnames_li = '\n'.join(fnames)
+    code_desc_str = json.dumps(code_desc, ensure_ascii=False)
     readme = open(path.join(args.dir, 'README.md'), encoding='utf8').read()
     ques = OUTLINE_PMT.replace('{struct}', fnames_li) \
-        .replace('{code_desc}', json.dumps(code_desc, ensure_ascii=False)) \
+        .replace('{code_desc}', code_desc_str) \
         .replace('{readme}', readme)
     ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     outline_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
     outline = json_repair.loads(outline_str)
+    
+    print('[3] 校验源码文件完整覆盖')
+    for _ in range(args.check):
+        outline_fnames = [
+            f
+            for pt in outline['parts']
+            for ch in pt['chapters']
+            for n in ch['nodes']
+            for f in n['src']
+        ]
+        rest_fnames = list(set(fnames) - set(outline_fnames))
+        if len(rest_fnames) == 0:
+            print('[3] 校验通过')
+            break
+        print('[3] 校验未通过')
+        print('\n'.join(rest_fnames))
+        ques = OUTLINE_PMT.replace('{struct}', fnames_li) \
+            .replace('{code_desc}', code_desc_str) \
+            .replace('{readme}', readme) \
+            .replace('{rest_fnames}', '\n'.join(rest_fnames))
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        outline_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+        outline = json_repair.loads(outline_str)
+
     return outline
 
 def tr_gen_code_desc(res, idx, args, write_callback):
@@ -170,7 +196,7 @@ def code2book(args):
         outline = yaml.safe_load(
             open(outline_fname, encoding='utf8').read())
     else:
-        outline = gen_outline(fnames_li, code_desc, args)
+        outline = gen_outline(fnames, code_desc, args)
         open(outline_fname, 'w', encoding='utf8') \
             .write(yaml.safe_dump(outline, allow_unicode=True))
 
