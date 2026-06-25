@@ -17,7 +17,14 @@ import sys
 from .util import call_chatgpt_retry, set_openai_props, extname
 from .code2book_pmt import *
 
-def check_details(details, code_desc):
+def check_details(details, code_desc, fnames, pj_dir, args):
+    fixed = all(d.get('fixed', False) for d in details)
+    if fixed: 
+        print(f'[4] 细纲校验通过')
+        return details
+    fnames_li = '\n'.join(fnames)
+    code_desc_str = json.dumps(code_desc, ensure_ascii=False)
+    readme = open(path.join(args.dir, 'README.md'), encoding='utf8').read()
     total_funcs = [
         cd['file'] + ':' + fn['name']
         for cd in code_desc
@@ -35,24 +42,42 @@ def check_details(details, code_desc):
         it.replace('\\', '/').replace('()', '')
         for it in total_funcs
     ]
-    exi_funcs = [
-        cd['file'] + ':' + cd['class_or_func']
-        for d in details
-        for u in d.get('units', [])
-        for cd in u.get('code', [])
-        if 'file' in cd and 'class_or_func' in cd
-    ]
-    exi_funcs = [
-        it.replace('\\', '/').replace('()', '')
-        for it in exi_funcs
-    ]
-    rest_funcs = list(set(total_funcs) - set(exi_funcs))
-    if len(rest_funcs) == 0:
-        print(f'[4] 细纲校验通过')
-    else:
+    for _ in range(args.check):
+        exi_funcs = [
+            cd['file'] + ':' + cd['class_or_func']
+            for d in details
+            for u in d.get('units', [])
+            for cd in u.get('code', [])
+            if 'file' in cd and 'class_or_func' in cd
+        ]
+        exi_funcs = [
+            it.replace('\\', '/').replace('()', '')
+            for it in exi_funcs
+        ]
+        rest_funcs = list(set(total_funcs) - set(exi_funcs))
+        if len(rest_funcs) == 0:
+            print(f'[4] 细纲校验通过')
+            break
         print(f'[4] 细纲校验未通过')
         print('\n'.join(rest_funcs))
-        sys.exit()
+        details_str = json.dumps(details, ensure_ascii=False)
+        ques = DETAIL_FIX_PMT \
+            .replace('{details}', details_str) \
+            .replace('{struct}', fnames_li) \
+            .replace('{code_desc}', code_desc_str) \
+            .replace('{readme}', readme) \
+            .replace('{rest_funcs}', '\n'.join(rest_funcs))
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        details_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
+        details = json_repair.loads(details_str)
+        sorted(details, key=lambda it: it['no'])
+        for i, d in enumerate(details): 
+            d['fixed'] = True
+            detail_fname = path.join(pj_dir, f'detail_{i+1}.yaml')
+            open(detail_fname, 'w', encoding='utf8') \
+                .write(yaml.safe_dump(d, allow_unicode=True))
+    return details
+
 
 def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
     print(f'[5] 编写第{idx+1}章正文')
@@ -288,7 +313,7 @@ def code2book(args):
     hdls = []
 
     print(f'[4] 校验细纲')
-    check_details(details, code_desc)
+    details = check_details(details, code_desc, fnames, pj_dir, args)
 
     print(f'[5] 生成正文')
     bodies = []
