@@ -50,6 +50,8 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
             print(f'[5] 正文 {idx + 1} 校验完成')
             break
         cmt = ans.replace('[content]', '').replace('[/content]', '')
+        print(f'[5] 正文 {idx + 1} 校验未通过')
+        print(cmt)
         ques = BODY_FIX_PMT.replace('{body}', body) \
             .replace('{comment}', cmt) \
             .replace('{code}', code_str)
