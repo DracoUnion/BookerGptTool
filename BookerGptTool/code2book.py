@@ -42,6 +42,23 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
     bodies[idx] = body
     open(fname, 'w', encoding='utf8').write(body)
 
+    print(f'[5] 校验正文 {idx + 1}')
+    for _ in range(args.check):
+        ques = BODY_CHK_PMT.replace('{body}', body)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        if "[PERFECT/]" in ans:
+            print(f'[5] 正文 {idx + 1} 校验完成')
+            break
+        cmt = ans.replace('[content]', '').replace('[/content]', '')
+        ques = BODY_FIX_PMT.replace('{body}', body) \
+            .replace('{comment}', cmt) \
+            .replace('{code}', code_str)
+        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        body = ans.replace('[content]', '').replace('[/content]', '')
+        bodies[idx] = body
+        open(fname, 'w', encoding='utf8').write(body)
+
+
 def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     print(f'[4] 编写第{idx+1}章细纲')
     code_fnames = [
