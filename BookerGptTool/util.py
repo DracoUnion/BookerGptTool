@@ -135,7 +135,7 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thi
     return call_llm_retry(msgs, model_name, temp, retry, max_tokens, think)
 
 def get_msgs_text(msgs):
-    for m in msgs:
+    for m in msgs[::-1]:
         cont = m.get('content')
         if isinstance(cont, str):
             return m['content']
