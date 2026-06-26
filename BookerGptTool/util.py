@@ -134,6 +134,17 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thi
     }]
     return call_llm_retry(msgs, model_name, temp, retry, max_tokens, think)
 
+def get_msgs_text(msgs):
+    for m in msgs:
+        cont = m.get('content')
+        if isinstance(cont, str):
+            return m['content']
+        elif isinstance(cont, list):
+            for it in m['content']:
+                tp = it.get('type')
+                if tp == 'text':
+                    return it['text']
+    return ''
 
 def repl_ins_token(msgs):
     repl_ins_token_re = lambda s: re.sub(r'<\|([\w\-\.]+)\|>', r'</\1/>', s)
@@ -158,6 +169,7 @@ def ask_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, think
 def call_llm_retry(msgs, model_name, temp=0, retry=10, max_tokens=None, think=False):
     # 改变指令符号的形式，避免模型出错
     msgs = repl_ins_token(msgs)
+    print(f'ques: {json.dumps(get_msgs_text(msgs), ensure_ascii=False)}')
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
