@@ -72,7 +72,7 @@ def check_details(details, code_desc, fnames, pj_dir, args):
         ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         details_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         details = json_repair.loads(details_str)
-        # sorted(details, key=lambda it: it['no'])
+        sorted(details, key=lambda it: it['no'])
         for i, d in enumerate(details): 
             d['fixed'] = True
             detail_fname = path.join(pj_dir, f'detail_{i+1}.yaml')
