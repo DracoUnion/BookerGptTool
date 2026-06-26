@@ -38,7 +38,6 @@ def main():
     parser.add_argument("--emb", default=os.environ.get('EMB_MODEL_PATH', 'moka-ai/m3e-base'), help="emb model path")
     parser.add_argument("-vm", "--vmodel", default=openai_vmodel, help="vision model name")
     parser.add_argument("-ua", "--user-agent", default='claude-cli/2.1.41 (external, cli)', help="HTTP User-Agent Header")
-    parser.add_argument("-pn", "--pass-reasoning-effort-none", action='store_true' , help="")
     parser.add_argument("-st", "--stream", action='store_true' , help="stream mode")
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()

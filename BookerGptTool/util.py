@@ -221,7 +221,6 @@ def set_openai_props(args):
     openai.proxy = args.proxy
     openai.base_url = args.host
     openai.user_agent = args.user_agent
-    openai.pren = args.pass_reasoning_effort_none
     openai.stream = args.stream
 
 def collect_stream_content(resp):
