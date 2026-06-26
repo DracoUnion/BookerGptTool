@@ -140,12 +140,12 @@ def repl_ins_token(msgs):
     for m in msgs:
         cont = m.get('content')
         if isinstance(cont, str):
-            m['content'] = repl_ins_token(m['content'])
+            m['content'] = repl_ins_token_re(m['content'])
         elif isinstance(cont, list):
             for it in m['content']:
                 tp = it.get('type')
                 if tp == 'text':
-                    it['text'] = repl_ins_token(it['text'])
+                    it['text'] = repl_ins_token_re(it['text'])
     return msgs
 
 def ask_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, think=False):
