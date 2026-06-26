@@ -48,7 +48,7 @@ def shuffle_group(g):
 
 def openai_trans(en, prompt, model_name, temp=0, retry=10, max_tokens=None):
     ques = prompt.replace('{en}', en)
-    ans = call_chatgpt_retry(ques, model_name, temp, retry, max_tokens)
+    ans = ask_chatgpt_retry(ques, model_name, temp, retry, max_tokens)
     ans = fix_lists(ans)
     return ans
     

@@ -50,7 +50,7 @@ def mknote_file(args):
         for m in ms
     ]
     ques = DFT_PMT.replace('{text}', text)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     lines = re.split(r'\n\n(?=\S)', ans)
     total = len(lines)
     for frac, link in links[::-1]:

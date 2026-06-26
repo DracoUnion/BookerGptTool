@@ -18,7 +18,7 @@ from imgyaso.quant import pngquant
 from .clean_heading import clean_md_llm
 from .util import (
     call_vlm_retry, 
-    call_chatgpt_retry, 
+    ask_chatgpt_retry, 
     set_openai_props, 
     extname, 
     to_kebab,
@@ -260,7 +260,7 @@ def tr_merge_group(groups, idx, args, write_callback):
 
     ques = MERGE_PMT.replace('{prev}', prev) \
         .replace('{next}', next)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     merge = ans.replace('```', '').strip()
     groups[idx]['merge'] = int(merge == 'true')
     write_callback()
@@ -290,13 +290,13 @@ def tr_group_page(groups, idx, args, write_callback):
     print(f'[5] 处理页面合并 {idx}')
     text = '\n\n'.join(groups[idx]['raw'])
     ques = POSTPROC_PMT.replace('{text}', text)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     groups[idx]['md'] = ans
     write_callback()
     if args.trans:
         ques = TRANS_BODY_PMT.replace(
             '{text}', groups[idx]['md'])
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         ans = ans.replace('[content]', '').replace('[/content]', '').strip()
         groups[idx]['mdcn'] = ans
     else:
@@ -484,7 +484,7 @@ def fix_toc(full_text, res, args, write_callback):
     else:
         toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
         ques = TOC_PMT.replace('{text}', '\n'.join(toc))
-        ans =  call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans =  ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
         res['toc'] = toc
         write_callback()
@@ -520,5 +520,5 @@ def mkgroups(pages, args):
 
 def trans_title(title, args):
     ques = TRANS_TITLE_PMT.replace('{text}', title)
-    title_cn = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    title_cn = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     return title_cn

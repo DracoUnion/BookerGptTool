@@ -130,7 +130,7 @@ def tr_sum_text_safe(*args, **kw):
 def tr_sum_text(it, args, write_func):
     RE_LIST = r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$'
     ques = ARXIV_SUM_PMT.replace('{text}', '-   ' + it['text'])
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     ans = fix_lists(ans)
     sums = re.findall(RE_LIST, ans, flags=re.M)
     it['summary'] = '\n'.join(sums)
@@ -207,7 +207,7 @@ def sum_arxiv(args):
     title = arxiv_id2title(args.arxiv) or args.arxiv
     ques = ARXIV_QA_PROMPT.replace('{sum}', tex) \
             .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     ans = ans.replace('[content]', '').replace('[/content]', '')
     '''
     yaml_fname = args.arxiv + '.yaml'

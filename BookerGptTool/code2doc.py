@@ -11,7 +11,7 @@ import copy
 import re
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-from .util import call_chatgpt_retry, set_openai_props
+from .util import ask_chatgpt_retry, set_openai_props
 from .code2doc_pmt import *
 
 
@@ -79,7 +79,7 @@ def process_file(args):
 
     print('[1] 处理大纲')
     ques = OVVW_PMT.replace('{code}', code)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     ovvw_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
     jovvw = json.loads(ovvw_str)
     desc = jovvw['desc']
@@ -96,7 +96,7 @@ def process_file(args):
     vars_txt = '\n'.join(vars + flds)
     ques = VAR_FLD_EXT_PMT.replace('{code}', code) \
         .replace('{vars}', vars_txt)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     vars_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
     jvars = json.loads(vars_str)
     vars_flds_md = build_vars_flds_md(jvars)
@@ -113,7 +113,7 @@ def process_file(args):
         print(f'[3] 分析 {func_name}')
         ques = FUNC_MTD_EXT_PMT.replace('{code}', code) \
             .replace('{func}', func_name)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         ans = ans.replace('[content]', '') \
             .replace('[/content]', '')
         func_md_dict[func_name] = ans
@@ -124,19 +124,19 @@ def process_file(args):
 
     print(f'[4] 分析关键组件')
     ques = KEY_CMPN_PMT.replace('{code}', code)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     key_comp = ans.replace('[content]', '') \
             .replace('[/content]', '')
     
     print(f'[5] 分析改机建议')
     ques = ADVC_PMT.replace('{code}', code)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     advc = ans.replace('[content]', '') \
             .replace('[/content]', '')
 
     print(f'[6] 其它')
     ques = ETC_PMT.replace('{code}', code)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     etc = ans.replace('[content]', '') \
             .replace('[/content]', '')
 

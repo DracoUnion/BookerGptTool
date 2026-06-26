@@ -7,7 +7,7 @@ import yaml
 import os
 from os import path
 from .md2skill_chunker import chunk_markdown
-from .util import call_chatgpt_retry, set_openai_props, ngram_coverage
+from .util import ask_chatgpt_retry, set_openai_props, ngram_coverage
 from .md2wiki_pmt import *
 
 def tr_make_draft(cand_items, idx, args, write_callback):
@@ -19,7 +19,7 @@ def tr_make_draft(cand_items, idx, args, write_callback):
     ques = DRAFT_PMT.replace('{origin}', origin) \
         .replace('{name}', cand_items[idx]['name']) \
         .replace('{tmpl}', tmpl)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     draft = ans.replace('[content]', '') \
         .replace('[/content]', '').strip()
     # 检测幻觉
@@ -48,7 +48,7 @@ def get_cand_items(chunks):
 def tr_gen_cand_item(res, idx, args, write_callback):
     print(f'[1] 提取候选词条 {idx+1}')
     ques = EXT_PMT.replace('{text}', res[idx]['chunk'])
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     lines = ans.replace('```', '').strip().split('\n')
     lines = [json.loads(l) for l in lines if l.strip()]
     lines = [l for l in lines if isinstance(l, dict)]

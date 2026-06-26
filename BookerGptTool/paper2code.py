@@ -7,7 +7,7 @@ import re
 import os
 import shutil
 import json_repair as json
-from .util import call_chatgpt_retry, set_openai_props, extname
+from .util import ask_chatgpt_retry, set_openai_props, extname
 from .paper2code_pmt import *
 
 dft_hdrs = {
@@ -64,7 +64,7 @@ def paper2code(args):
     plan_fname = path.join(args.out, 'plan.md')
     if not path.isfile(plan_fname):
         ques = PLAN_PMT.replace("{paper}", paper)
-        plan = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        plan = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         open(plan_fname, 'w', encoding='utf8').write(plan)
     else:
         plan = open(plan_fname, encoding='utf8').read()
@@ -74,7 +74,7 @@ def paper2code(args):
     if not path.isfile(flist_fname):
         ques = FLIST_PMT.replace("{paper}", paper) \
             .replace('{plan}', plan)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         flist_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         open(flist_fname, 'w', encoding='utf8').write(flist_str)
     else:
@@ -86,7 +86,7 @@ def paper2code(args):
         ques = TASKS_PMT.replace("{paper}", paper) \
             .replace('{plan}', plan) \
             .replace('{flist}', flist_str)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         tasks_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         open(tasks_fname, 'w', encoding='utf8').write(tasks_str)
     else:
@@ -99,7 +99,7 @@ def paper2code(args):
             .replace('{plan}', plan) \
             .replace('{flist}', flist_str) \
             .replace('{tasks}', tasks_str)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         cfg_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         open(cfg_fname, 'w', encoding='utf8').write(cfg_str)
     else:
@@ -128,7 +128,7 @@ def paper2code(args):
             .replace('{config}', cfg_str) \
             .replace('{fname}', fname) \
             .replace('{fdesc}', fdesc)
-        logic_anls = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        logic_anls = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         logic_anls_dict[fname] = logic_anls
         open(la_fname, 'w', encoding='utf8').write(logic_anls)
 
@@ -153,7 +153,7 @@ def paper2code(args):
             .replace('{done_file_list}', done_files) \
             .replace('{todo_file_name}', fname) \
             .replace('{logic_analysis}', logic_analysis)
-        code = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        code = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         code = re.search(r'```\w*([\s\S]+?)```', code).group(1)
         code_dict[fname] = code
         open(code_fname, 'w', encoding='utf8').write(code)

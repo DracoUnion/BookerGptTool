@@ -14,7 +14,7 @@ import functools
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import sys
-from .util import call_chatgpt_retry, set_openai_props, extname
+from .util import ask_chatgpt_retry, set_openai_props, extname
 from .code2book_pmt import *
 
 def check_details(details, code_desc, fnames, pj_dir, args):
@@ -69,7 +69,7 @@ def check_details(details, code_desc, fnames, pj_dir, args):
             .replace('{code_desc}', code_desc_str) \
             .replace('{readme}', readme) \
             .replace('{rest_funcs}', '\n'.join(rest_funcs))
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         details_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         details = json_repair.loads(details_str)
         # sorted(details, key=lambda it: it['no'])
@@ -102,7 +102,7 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
         .replace('{outline}', outline_str) \
         .replace('{code}', code_str) \
         .replace('{i}', str(idx + 1))
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     body = ans.replace('[content]', '').replace('[/content]', '')
     bodies[idx] = body
     open(fname, 'w', encoding='utf8').write(body)
@@ -110,7 +110,7 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
     print(f'[5] 校验正文 {idx + 1}')
     for _ in range(args.check):
         ques = BODY_CHK_PMT.replace('{body}', body)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         if "[PERFECT/]" in ans:
             print(f'[5] 正文 {idx + 1} 校验完成')
             break
@@ -121,7 +121,7 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
             .replace('{body}', body) \
             .replace('{comment}', cmt) \
             .replace('{code}', code_str)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         body = ans.replace('[content]', '').replace('[/content]', '')
         bodies[idx] = body
         open(fname, 'w', encoding='utf8').write(body)
@@ -145,7 +145,7 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     ques = SRC_ANLS_DETAIL_PMT.replace('{i}', str(idx + 1)) \
         .replace('{outline}', outline_str) \
         .replace('{code}', code_str)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     detail_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
     detail = json_repair.loads(detail_str)
     details[idx].update(detail)
@@ -155,7 +155,7 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
         .replace('{outline}', outline_str) \
         .replace('{i}', str(idx + 1)) \
         .replace('{code}', code_str)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     spec_detail_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
     spec_detail = json_repair.loads(spec_detail_str)
     details[idx].update(spec_detail)
@@ -168,7 +168,7 @@ def gen_outline(fnames, code_desc, args):
     ques = OUTLINE_PMT.replace('{struct}', fnames_li) \
         .replace('{code_desc}', code_desc_str) \
         .replace('{readme}', readme)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     outline_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
     outline = json_repair.loads(outline_str)
     
@@ -191,7 +191,7 @@ def gen_outline(fnames, code_desc, args):
             .replace('{code_desc}', code_desc_str) \
             .replace('{readme}', readme) \
             .replace('{rest_fnames}', '\n'.join(rest_fnames))
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         outline_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         outline = json_repair.loads(outline_str)
 
@@ -204,7 +204,7 @@ def tr_gen_code_desc(res, idx, args, write_callback):
     code = open(full_path, encoding='utf8').read()
     ques = CLS_FUNC_EXT_PMT.replace('{fname}', fname) \
         .replace('{code}', code)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     descs_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
     descs = json_repair.loads(descs_str)
     res[idx].update(descs)

@@ -13,7 +13,7 @@ import re
 import functools
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-from .util import call_chatgpt_retry, set_openai_props, extname
+from .util import ask_chatgpt_retry, set_openai_props, extname
 from .clean_heading_pmt import *
 
 def clean_handle(args):
@@ -57,7 +57,7 @@ def clean_md_llm(md, args, nlines=3000):
     } for i, l in enumerate(lines[:ed])]
     heading_str = json.dumps({"lines": heading}, ensure_ascii=False)
     ques = CLEAN_HEAD_PMT.replace('{text}', heading_str)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     res_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
     res = json_repair.loads(res_str)
 

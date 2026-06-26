@@ -238,7 +238,7 @@ def erchuang_single(args):
         else KOUBO_PMT
     )
     ques = pmt.replace('{text}', cont)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     ans = ans.replace('[content]', '') \
         .replace('[/content]', '')
     open(ofname, 'w', encoding='utf8').write(ans)

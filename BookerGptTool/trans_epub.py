@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import json_repair as json
 from imgyaso.quant import pngquant
-from .util import call_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks, split_md_lines
+from .util import ask_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks, split_md_lines
 from .fmt import fmt_zh, fmt_publisher
 from .md2skill_chunker import chunk_markdown
 from .clean_heading import clean_md_llm
@@ -174,7 +174,7 @@ def fix_toc(full_text, meta, args, write_callback):
     else:
         toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
         ques = TOC_PMT.replace('{text}', '\n'.join(toc))
-        ans =  call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans =  ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
         meta['toc'] = toc
         write_callback()
@@ -203,13 +203,13 @@ def tr_fmt_trans(chunks, idx, args, write_callback):
     trans = chunks[idx]['trans']
     if not fmt:
         ques = FMT_PMT.replace('{text}', raw)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         fmt = ans.replace('[content]', '').replace('[/content]', '')
         chunks[idx]['fmt'] = fmt
         write_callback()
     if not trans:
         ques = TRANS_BODY_PMT.replace('{text}', fmt)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         trans = ans.replace('[content]', '').replace('[/content]', '')
         chunks[idx]['trans'] = fmt_zh(trans)
         write_callback()
@@ -233,7 +233,7 @@ def trans_epub(args):
         meta = yaml.safe_load(open(meta_fname, encoding='utf8').read())
     else:
         ques = TRANS_TITLE_PMT.replace('{text}', name)
-        name_cn = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        name_cn = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         meta = {
             'name': name,
             'slug': slug,

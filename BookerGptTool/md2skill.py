@@ -15,7 +15,7 @@ from threading import Lock
 import functools
 from sentence_transformers import SentenceTransformer
 from typing import Dict, Optional, List, Callable
-from .util import call_chatgpt_retry, set_openai_props, ngram_jaccard
+from .util import ask_chatgpt_retry, set_openai_props, ngram_jaccard
 from .md2skill_pmt import *
 from .md2skill_gen import generate_claude_skills
 from .md2skill_chunker import chunk_markdown
@@ -272,7 +272,7 @@ def tr_gen_raw_skill(tp, paras, idx, args, write_callback):
     ques = get_pmt_by_type(tp) \
         .replace('{content}', paras[idx]['content']) \
         .replace('{context}', paras[idx]['context'])
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     raw_skills = ans.replace('[content]', '') \
         .replace('[/content]', '').split('[split/]')
     raw_skills = [parse_raw_skill(rs) for rs in raw_skills]
@@ -303,7 +303,7 @@ def tr_merge_cluster(
     text = '\n\n[split/]\n\n'.join([s['raw_text'] for s in cluster])
     ques = REDUCE_PMT.replace('{count}', str(len(cluster))) \
         .replace('{skills}', text)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     merged = ans.replace('[content]', '') \
         .replace('[/content]', '')
     new_skill = parse_raw_skill(merged)
@@ -345,7 +345,7 @@ def md2skill(args):
         toc, preface = ext_toc_preface(md)
         ques = SCHEMA_PMT.replace('{toc}', toc) \
             .replace('{preface}', preface)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         schema = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         schema = json.loads(schema)
         open(schema_fname, 'w',  encoding='utf8') \

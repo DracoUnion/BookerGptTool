@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 from os import path
 from .md2skill_chunker import chunk_markdown
-from .util import group_chunks, set_openai_props, call_chatgpt_retry, split_md_lines
+from .util import group_chunks, set_openai_props, ask_chatgpt_retry, split_md_lines
 
 CRTC_PMT = '''
 假设你是一个高级文档工程师，你的任务是审核提供的 Markdown 文本的格式问题，然后参考格式要求和重要规则，提出排版建议。如果文本不需要排版，直接输出“[TEXT_PERFECT/]”。
@@ -154,19 +154,19 @@ if (condVar > someVal) {console.log("xxx")}
 def tr_fmt_group_multi(text, res, idx, args):
     for i in range(args.round):
         ques = CRTC_PMT.replace('{text}', text)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         crtc = ans.replace('[content]', '').replace('[/content]', '').strip()
         if '[TEXT_PERFECT/]' in crtc:
             res[idx] = text
             break
         ques = FIX_PMT.replace('{text}', text).replace('{crtc}', crtc)
-        ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         text = ans.replace('[content]', '').replace('[/content]', '').strip()
         res[idx] = text
 
 def tr_fmt_group(text, res, idx, args):
     ques = FMT_PMT.replace('{text}', text)
-    ans = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     ans = ans.replace('[content]', '').replace('[/content]', '')
     res[idx] = ans
 

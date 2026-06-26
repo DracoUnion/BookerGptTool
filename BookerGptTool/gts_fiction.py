@@ -12,7 +12,7 @@ import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-from .util import call_chatgpt_retry, set_openai_props
+from .util import ask_chatgpt_retry, set_openai_props
 from .gts_fiction_pmt import *
 
 
@@ -31,7 +31,7 @@ def write_fiction(args):
     else:
         ques = SETTING_PMT.replace('{idea}', args.idea) \
             .replace('{command}', args.write_command)
-        world_setting = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        world_setting = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         open(setting_fname, 'w', encoding='utf8').write(world_setting)
     
     print(f'[2] 生成主要角色')
@@ -41,7 +41,7 @@ def write_fiction(args):
     else:
         ques = ROLE_PMT.replace('{setting}', world_setting) \
             .replace('{command}', args.write_command)
-        roles = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        roles = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         open(role_fname, 'w', encoding='utf8').write(roles)
     
     print(f'[3] 生成章节大纲')
@@ -53,7 +53,7 @@ def write_fiction(args):
             .replace('{roles}', roles) \
             .replace('{nchapters}', str(args.chapters)) \
             .replace('{command}', args.write_command)
-        outline = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        outline = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         open(outline_fname, 'w', encoding='utf8').write(outline)
     
     print(f'[4] 生成细纲')
@@ -69,7 +69,7 @@ def write_fiction(args):
                 .replace('{outline}', outline) \
                 .replace('{i}', str(i)) \
                 .replace('{command}', args.write_command)
-            detail = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+            detail = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
             open(detail_fname, 'w', encoding='utf8').write(detail)
         details.append(detail)
 
@@ -87,7 +87,7 @@ def write_fiction(args):
                 .replace('{command}', args.write_command) \
                 .replace('{i}', str(i)) \
                 .replace('{nword}', str(args.words))
-            body = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+            body = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
             open(body_fname, 'w', encoding='utf8').write(body)
         bodies.append(body)
 
@@ -101,7 +101,7 @@ def write_fiction(args):
             ques = POLISH_PMT.replace('{body}', bodies[i - 1]) \
                 .replace('{command}', args.polish_command) \
                 .replace('{style}', args.style_example)
-            body = call_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+            body = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
             open(polish_fname, 'w', encoding='utf8').write(body)
         bodies[i - 1] = body
         

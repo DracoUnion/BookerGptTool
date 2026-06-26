@@ -119,71 +119,45 @@ def fix_lists(ans):
     return ans
 
 def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, think=False):
-    # 改变指令符号的形式，避免模型出错
-    ques = re.sub(r'<\|([\w\-\.]+)\|>', r'</\1/>', ques)
     img_base64 = base64.b64encode(img).decode('ascii')
-    print(f'ques: {json.dumps(ques, ensure_ascii=False)}')
-    client = openai.OpenAI(
-        base_url=openai.base_url,
-        api_key=openai.api_key,
-        default_headers={'User-Agent': openai.user_agent},
-        http_client=httpx.Client(
-            proxies=openai.proxy,
-            transport=httpx.HTTPTransport(local_address="0.0.0.0"),
-        )
-    )
-    extra_body = {
-        "chat_template_kwargs": {"enable_thinking": think},
-        "enable_thinking": think,
-        "think": think,
-        'include_reasoning': think,
-        'reasoning': {"effort": "medium" if think else "none"},
-        'thinking': {"type": "enabled" if think else "disabled"},
-    }
-    if think or openai.pren:
-        extra_body.update({
-            "reasoning_effort": "medium" if think else "none",
-        })
-    for i in range(retry):
-        try:
-            res = client.chat.completions.create(
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": ques},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{img_base64}"
-                            }
-                        },
-                    ]
-                }],
-                model=model_name,
-                temperature=temp,
-                max_tokens=max_tokens,
-                extra_body=extra_body,
-                stream=openai.stream,
-            )
-            if openai.stream:
-                ans = collect_stream_content(res)
-            else:
-                ans = res.choices[0].message.content.strip()
-            if not ans: raise ValueError(f'回复为空：{res}')
-            break
-        except Exception as ex:
-            print(f'OpenAI retry {i+1}: {str(ex)}')
-            if i == retry - 1: raise ex
-    # 还原指令格式
-    ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
-    ans = re.sub(r'<think>[\s\S]+?</think>', '', ans)
-    print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
-    return ans
+    msgs = [{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": ques},
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{img_base64}"
+                }
+            },
+        ]
+    }]
+    return call_llm_retry(msgs, model_name, temp, retry, max_tokens, think)
 
-def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, think=False):
+
+def repl_ins_token(msgs):
+    repl_ins_token_re = lambda s: re.sub(r'<\|([\w\-\.]+)\|>', r'</\1/>', s)
+    for m in msgs:
+        cont = m.get('content')
+        if isinstance(cont, str):
+            m['content'] = repl_ins_token(m['content'])
+        elif isinstance(cont, list):
+            for it in m['content']:
+                tp = it.get('type')
+                if tp == 'text':
+                    it['text'] = repl_ins_token(it['text'])
+    return msgs
+
+def ask_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, think=False):
+    msgs = [{
+        'role': 'user',
+        'content': ques,
+    }]
+    return call_llm_retry(msgs, model_name, temp, retry, max_tokens, think)
+
+def call_llm_retry(msgs, model_name, temp=0, retry=10, max_tokens=None, think=False):
     # 改变指令符号的形式，避免模型出错
-    ques = re.sub(r'<\|([\w\-\.]+)\|>', r'</\1/>', ques)
-    print(f'ques: {json.dumps(ques, ensure_ascii=False)}')
+    msgs = repl_ins_token(msgs)
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
@@ -201,17 +175,14 @@ def call_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, thin
         'reasoning': {"effort": "medium" if think else "none"},
         'thinking': {"type": "enabled" if think else "disabled"},
     }
-    if think or openai.pren:
+    if think:
         extra_body.update({
             "reasoning_effort": "medium" if think else "none",
         })
     for i in range(retry):
         try:
             res = client.chat.completions.create(
-                messages=[{
-                    "role": "user",
-                    "content": ques,
-                }],
+                messages=msgs,
                 model=model_name,
                 temperature=temp,
                 max_tokens=max_tokens,
