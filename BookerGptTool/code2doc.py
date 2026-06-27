@@ -36,7 +36,7 @@ def process_file_safe(args):
     except:
         traceback.print_exc()
 
-def build_vars_flds_md(jvars):
+def build_vars_flds_md(jvars: VarFieldExtResult):
     tmpl = '''
 ### `{name}`
     
@@ -45,17 +45,17 @@ def build_vars_flds_md(jvars):
 类型：`{type}`
     '''
     vars_md  = '\n\n'.join(
-        tmpl.replace('{name}', v['name'])
-            .replace('{desc}', v['desc'])
-            .replace('{type}', v['type'])
-        for v in jvars['vars']
+        tmpl.replace('{name}', v.name)
+            .replace('{desc}', v.desc)
+            .replace('{type}', v.type)
+        for v in jvars.vars
     )
 
     flds_md = '\n\n'.join(
-        tmpl.replace('{name}', v['class'] + '.' + v['name'])
-            .replace('{desc}', v['desc'])
-            .replace('{type}', v['type'])
-        for v in jvars['fields']
+        tmpl.replace('{name}', v.class_+ '.' + v.name)
+            .replace('{desc}', v.desc)
+            .replace('{type}', v.type)
+        for v in jvars.fields
     )
 
     return  vars_md + '\n\n' + flds_md
@@ -102,9 +102,14 @@ def process_file(args):
     vars_txt = '\n'.join(vars + flds)
     ques = VAR_FLD_EXT_PMT.replace('{code}', code) \
         .replace('{vars}', vars_txt)
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    vars_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    jvars = json.loads(vars_str)
+    parse_output = lambda s: VarFieldExtResult(
+        **json.loads(ext_code_block(s))
+    )
+    jvars: VarFieldExtResult = ask_chatgpt_retry(
+        ques, args.model, args.temp, 
+        args.retry, args.max_tokens,
+        parse_output=parse_output,
+    )
     vars_flds_md = build_vars_flds_md(jvars)
 
     print(f'[3] 分析全局函数和类方法')

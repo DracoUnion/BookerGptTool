@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from typing import *
 
 class OverViewClassResult(BaseModel):
@@ -14,3 +14,18 @@ class OverviewResult(BaseModel):
     classes: List[OverViewClassResult]
     vars: List[str]
     funcs: List[str]
+
+class VarExtResult(BaseModel):
+    name: str
+    type: str
+    desc: str
+
+class FieldExtResult(BaseModel):
+    name: str
+    class_: str = Field(..., alias='class')
+    type: str
+    desc: str
+
+class VarFieldExtResult(BaseModel):
+    vars: List[VarExtResult]
+    fields: List[FieldExtResult]
