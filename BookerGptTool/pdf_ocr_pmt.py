@@ -21,7 +21,7 @@ JSON 应包含在三个反引号（```）中返回。
 
 ```
 {
-	"direction": "horizonal|vertical",
+	"direction": "horizontal‌|vertical",
 	"contents": [
 		{
 			"type": "paragraph|title|list|table|quote|image|code",
