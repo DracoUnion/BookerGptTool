@@ -302,7 +302,7 @@ def code2book(args):
                 f.write(yaml.safe_dump(res, allow_unicode=True))
 
     for i, it in enumerate(code_desc):
-        if it.get('desc'): continue
+        if it.desc: continue
         h = pool.submit(
             tr_gen_code_desc,
             code_desc, i, 
