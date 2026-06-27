@@ -19,7 +19,7 @@ class OCRContentResult(BaseModel):
 
 
 class OCRResult(BaseModel):
-    direction: Literal['horizontal‌', 'vertical']
+    direction: Literal['horizontal', 'vertical']
     contents: List[OCRContentResult]
 
 class Page(BaseModel):
