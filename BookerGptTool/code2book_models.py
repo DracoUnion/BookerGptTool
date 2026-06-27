@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, parse_obj_as
 from typing import *
 
 class FuncExtResult(BaseModel):
@@ -15,7 +15,10 @@ class ClsFuncExtResult(BaseModel):
     process: List[str]
     structure: List[str]
     classes: List[ClsExtResult]
-    func: List[FuncExtResult]
+    funcs: List[FuncExtResult]
+
+class CodeDescItemResult(ClsFuncExtResult):
+    file: str
 
 class OutlineNodeResult(BaseModel):
     no: int
@@ -38,3 +41,37 @@ class OutlinePartResult(BaseModel):
 
 class OutlineResult(BaseModel):
     parts: List[OutlinePartResult]
+
+class SrcAnlsDetailCodeResult(BaseModel):
+    file: str
+    class_or_func: str
+    line: str
+
+class SrcAnlsDetailUnitResult(BaseModel):
+    no: int
+    name: str
+    points: List[str]
+    code: List[SrcAnlsDetailCodeResult]
+
+class SrcAnlsDetailResult(BaseModel):
+    units: List[SrcAnlsDetailUnitResult]
+
+class RestDetailSummaryResult(BaseModel):
+    concept: str
+    desc: str
+
+class RestDetailExerciseResult(BaseModel):
+    no: int
+    title: str
+    contents: List[str]
+
+class RestDetailResult(BaseModel):
+    learning_targets: List[str]
+    code_map: List[str]
+    life_analogy: List[str]
+    summary: List[RestDetailSummaryResult]
+    exercises: List[RestDetailExerciseResult]
+
+class DetailResult(RestDetailResult, SrcAnlsDetailCodeResult):
+    no: int = 0
+    fixed: bool = False

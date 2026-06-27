@@ -23,23 +23,23 @@ def check_details(details, code_desc, fnames, pj_dir, args):
     if fixed: 
         print(f'[4] 细纲校验通过')
         return details
+    code_desc = parse_obj_as(List[CodeDescItemResult], code_desc)
+    details = parse_obj_as(List[DetailResult], details)
     for i, d in enumerate(details):
-        d['no'] = i + 1
+        d.no = i + 1
     fnames_li = '\n'.join(fnames)
     code_desc_str = json.dumps(code_desc, ensure_ascii=False)
     readme = open(path.join(args.dir, 'README.md'), encoding='utf8').read()
     total_funcs = [
-        cd['file'] + ':' + fn['name']
+        cd.file + ':' + fn.name
         for cd in code_desc
-        for fn in cd.get('funcs', [])
-        if 'file' in cd and 'name' in fn
+        for fn in cd.funcs
     ]
     total_funcs += [
-        cd['file'] + ':' + cls_['name'] + '.' + m['name']
+        cd.file + ':' + cls_.name + '.' + m.name
         for cd in code_desc
-        for cls_ in cd.get('classes', [])
-        for m in cls_.get('methods', [])
-        if 'file' in cd and 'name' in cls_ and 'name' in m
+        for cls_ in cd.classes
+        for m in cls_.methods
     ]
     total_funcs = [
         it.replace('\\', '/').replace('()', '')
@@ -47,11 +47,10 @@ def check_details(details, code_desc, fnames, pj_dir, args):
     ]
     for _ in range(args.check):
         exi_funcs = [
-            cd['file'] + ':' + cd['class_or_func']
+            cd.file + ':' + cd.class_or_func
             for d in details
-            for u in d.get('units', [])
-            for cd in u.get('code', [])
-            if 'file' in cd and 'class_or_func' in cd
+            for u in d.units
+            for cd in u.code
         ]
         exi_funcs = [
             it.replace('\\', '/').replace('()', '')
@@ -63,31 +62,38 @@ def check_details(details, code_desc, fnames, pj_dir, args):
             break
         print(f'[4] 细纲校验未通过')
         print('\n'.join(rest_funcs))
-        details_str = json.dumps(details, ensure_ascii=False)
+        details_str = json.dumps(
+            [d.dict() for d in details], ensure_ascii=False)
         ques = DETAIL_FIX_PMT \
             .replace('{details}', details_str) \
             .replace('{struct}', fnames_li) \
             .replace('{code_desc}', code_desc_str) \
             .replace('{readme}', readme) \
             .replace('{rest_funcs}', '\n'.join(rest_funcs))
-        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        details_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-        details = json_repair.loads(details_str)
+        parse_output = lambda s: parse_obj_as(
+            List[DetailResult], json_repair.loads(ext_code_block(s))
+        )
+        details: List[DetailResult] = ask_chatgpt_retry(
+            ques, args.model, args.temp, 
+            args.retry, args.max_tokens,
+            parse_output=parse_output,
+        )
         sorted(details, key=lambda it: it['no'])
         for i, d in enumerate(details): 
-            d['fixed'] = True
+            d.fixed = True
             detail_fname = path.join(pj_dir, f'detail_{i+1}.yaml')
             open(detail_fname, 'w', encoding='utf8') \
-                .write(yaml.safe_dump(d, allow_unicode=True))
+                .write(yaml.safe_dump(d.dict(), allow_unicode=True))
     return details
 
 
 def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
     print(f'[5] 编写第{idx+1}章正文')
+    details = parse_obj_as(List[DetailResult], details)
     code_fnames = [
-        c['file'] 
-        for u in details[idx]['units']
-        for c in u['code']
+        c.file
+        for u in details[idx].units
+        for c in u.code
     ]
     code_dict = {
         f:open(path.join(args.dir, f), encoding='utf8').read()
@@ -98,13 +104,16 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
         for f, code in code_dict.items()
     ])
     outline_str = json.dumps(outline_chs, ensure_ascii=False)
-    detail_str = json.dumps(details[idx], ensure_ascii=False)
+    detail_str = json.dumps(details[idx].dict(), ensure_ascii=False)
     ques = BODY_PMT.replace('{detail}', detail_str) \
         .replace('{outline}', outline_str) \
         .replace('{code}', code_str) \
         .replace('{i}', str(idx + 1))
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    body = ans.replace('[content]', '').replace('[/content]', '')
+    body = ask_chatgpt_retry(
+        ques, args.model, args.temp, 
+        args.retry, args.max_tokens,
+        parse_output=ext_cont_block,
+    )
     bodies[idx] = body
     open(fname, 'w', encoding='utf8').write(body)
 
@@ -122,8 +131,11 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
             .replace('{body}', body) \
             .replace('{comment}', cmt) \
             .replace('{code}', code_str)
-        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        body = ans.replace('[content]', '').replace('[/content]', '')
+        body = ask_chatgpt_retry(
+            ques, args.model, args.temp, 
+            args.retry, args.max_tokens,
+            parse_output=ext_cont_block,
+        )
         bodies[idx] = body
         open(fname, 'w', encoding='utf8').write(body)
 
@@ -146,20 +158,30 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     ques = SRC_ANLS_DETAIL_PMT.replace('{i}', str(idx + 1)) \
         .replace('{outline}', outline_str) \
         .replace('{code}', code_str)
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    detail_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    detail = json_repair.loads(detail_str)
-    details[idx].update(detail)
+    parse_output = lambda s: SrcAnlsDetailResult(
+        **json_repair.loads(ext_code_block(s))
+    )
+    detail: SrcAnlsDetailResult = ask_chatgpt_retry(
+        ques, args.model, args.temp, 
+        args.retry, args.max_tokens,
+        parse_output=parse_output,
+    )
+    details[idx].update(detail.dict())
     write_callback()
     detail_str = json.dumps(details[idx], ensure_ascii=False)
     ques = REST_DETAIL_PMT.replace('{detail}', detail_str) \
         .replace('{outline}', outline_str) \
         .replace('{i}', str(idx + 1)) \
         .replace('{code}', code_str)
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    spec_detail_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    spec_detail = json_repair.loads(spec_detail_str)
-    details[idx].update(spec_detail)
+    parse_output = lambda s: RestDetailResult(
+        **json_repair.loads(ext_code_block(s))
+    )
+    spec_detail: RestDetailResult = ask_chatgpt_retry(
+        ques, args.model, args.temp, 
+        args.retry, args.max_tokens,
+        parse_output=parse_output,
+    )
+    details[idx].update(spec_detail.dict())
     write_callback()
 
 def gen_outline(fnames, code_desc, args) -> OutlineResult:
