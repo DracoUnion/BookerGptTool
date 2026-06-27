@@ -76,7 +76,7 @@ def check_details(details: List[DetailResult], code_desc: List[CodeDescItemResul
             args.retry, args.max_tokens,
             parse_output=parse_output,
         )
-        sorted(details, key=lambda it: it['no'])
+        sorted(details, key=lambda it: it.no)
         for i, d in enumerate(details): 
             d.fixed = True
             detail_fname = path.join(pj_dir, f'detail_{i+1}.yaml')
@@ -141,11 +141,11 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
         open(fname, 'w', encoding='utf8').write(body)
 
 
-def tr_gen_detail(outline_chs, idx, details, args, write_callback):
+def tr_gen_detail(outline_chs: List[OutlineChapterResult], idx, details, args, write_callback):
     print(f'[4] 编写第{idx+1}章细纲')
     code_fnames = [
-        f for pt in outline_chs[idx]['nodes']
-          for f in pt['src']
+        f for pt in outline_chs[idx].nodes
+          for f in pt.src
     ]
     code_dict = {
         f:open(path.join(args.dir, f), encoding='utf8').read()
