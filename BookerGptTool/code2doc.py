@@ -124,9 +124,11 @@ def process_file(args):
         print(f'[3] 分析 {func_name}')
         ques = FUNC_MTD_EXT_PMT.replace('{code}', code) \
             .replace('{func}', func_name)
-        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        ans = ans.replace('[content]', '') \
-            .replace('[/content]', '')
+        ans = ask_chatgpt_retry(
+            ques, args.model, args.temp, 
+            args.retry, args.max_tokens,
+            parse_output=ext_cont_block,
+        )
         func_md_dict[func_name] = ans
     
     funcs_mtds_md = '\n\n'.join(
@@ -135,21 +137,27 @@ def process_file(args):
 
     print(f'[4] 分析关键组件')
     ques = KEY_CMPN_PMT.replace('{code}', code)
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    key_comp = ans.replace('[content]', '') \
-            .replace('[/content]', '')
+    key_comp = ask_chatgpt_retry(
+        ques, args.model, args.temp, 
+        args.retry, args.max_tokens,
+        parse_output=ext_cont_block,
+    )
     
     print(f'[5] 分析改机建议')
     ques = ADVC_PMT.replace('{code}', code)
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    advc = ans.replace('[content]', '') \
-            .replace('[/content]', '')
+    advc = ask_chatgpt_retry(
+        ques, args.model, args.temp, 
+        args.retry, args.max_tokens,
+        parse_output=ext_cont_block,
+    )
 
     print(f'[6] 其它')
     ques = ETC_PMT.replace('{code}', code)
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    etc = ans.replace('[content]', '') \
-            .replace('[/content]', '')
+    etc = ask_chatgpt_retry(
+        ques, args.model, args.temp, 
+        args.retry, args.max_tokens,
+        parse_output=ext_cont_block,
+    )
 
     doc = f'''
 # `{fname}` 详细设计文档
