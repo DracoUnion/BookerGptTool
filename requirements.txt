@@ -2,6 +2,7 @@ openai>=1.3.0,<1.4.0
 httpx
 requests
 pyyaml
+pydantic
 json_repair
 pymupdf
 imgyaso
