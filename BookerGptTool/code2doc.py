@@ -11,8 +11,9 @@ import copy
 import re
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-from .util import ask_chatgpt_retry, set_openai_props
+from .util import ask_chatgpt_retry, set_openai_props, ext_code_block, ext_cont_block
 from .code2doc_pmt import *
+from .code2doc_models import *
 
 
 def process_dir(args):
@@ -79,20 +80,25 @@ def process_file(args):
 
     print('[1] 处理大纲')
     ques = OVVW_PMT.replace('{code}', code)
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    ovvw_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    jovvw = json.loads(ovvw_str)
-    desc = jovvw['desc']
-    process = '\n'.join(jovvw['process'])
-    sturcture = '\n'.join(jovvw['structure'])
+    parse_output = lambda s: OverviewResult(
+        **json.loads(ext_code_block(s))
+    )
+    ovvw: OverviewResult = ask_chatgpt_retry(
+        ques, args.model, args.temp, 
+        args.retry, args.max_tokens,
+        parse_output=parse_output,
+    )
+    desc = ovvw.desc
+    process = '\n'.join(ovvw.process)
+    sturcture = '\n'.join(ovvw.structure)
 
     print('[2] 分析全局变量和类字段')
     flds = [
         f'{c}.{f}'
-        for c in jovvw['classes']
-        for f in c['fields']
+        for c in ovvw.classes
+        for f in c.fields
     ]
-    vars = jovvw['vars']
+    vars = ovvw.vars
     vars_txt = '\n'.join(vars + flds)
     ques = VAR_FLD_EXT_PMT.replace('{code}', code) \
         .replace('{vars}', vars_txt)
@@ -103,11 +109,11 @@ def process_file(args):
 
     print(f'[3] 分析全局函数和类方法')
     mtds = [
-        f'{c["name"]}.{f}'
-        for c in jovvw['classes']
-        for f in c['methods']
+        f'{c.name}.{f}'
+        for c in ovvw.classes
+        for f in c.methods
     ]
-    funcs = jovvw['funcs']
+    funcs = ovvw.funcs
     func_md_dict = {}
     for func_name in funcs + mtds:
         print(f'[3] 分析 {func_name}')
