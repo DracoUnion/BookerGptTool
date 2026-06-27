@@ -296,10 +296,15 @@ def code2book(args):
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
     lock = Lock()
-    def write_callback(fname, res):
+    def write_callback_mdl(fname, res):
         with lock:
             with open(fname, 'w', encoding='utf8') as f:
-                f.write(yaml.safe_dump(res, allow_unicode=True))
+                obj = (
+                    [r.dict() for r in res]
+                    if isinstance(list, res)
+                    else res.dict()
+                )
+                f.write(yaml.safe_dump(obj, allow_unicode=True))
 
     for i, it in enumerate(code_desc):
         if it.desc: continue
@@ -307,7 +312,7 @@ def code2book(args):
             tr_gen_code_desc,
             code_desc, i, 
             args,
-            functools.partial(write_callback, code_desc_fname, code_desc)
+            functools.partial(write_callback_mdl, code_desc_fname, code_desc)
         )
         hdls.append(h)
         if len(hdls) > args.threads:
@@ -346,7 +351,7 @@ def code2book(args):
         h = pool.submit(
             tr_gen_detail,
             outline_chs, i, details, args,
-            functools.partial(write_callback, detail_fname, details[-1])
+            functools.partial(write_callback_mdl, detail_fname, details[-1])
         )
         hdls.append(h)
         if len(hdls) > args.threads:
