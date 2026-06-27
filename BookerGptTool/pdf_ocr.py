@@ -77,7 +77,7 @@ def tr_ocr_page(img, pages: List[Page], idx, args, write_callback):
     print(f'[3] 识别页码 {idx + 1}')
 
     parse_output = lambda ans: OCRResult(
-        **json.dumps(ext_code_block(ans))
+        **json.loads(ext_code_block(ans))
     )
     res: OCRResult = call_vlm_retry(
         img, OCR_PMT, 
