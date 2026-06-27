@@ -118,7 +118,12 @@ def fix_lists(ans):
     ans = re.sub(r'^(\x20*)(\d+\.)\x20+', r'\1\2  ', ans, flags=re.M)
     return ans
 
-def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, think=False):
+def call_vlm_retry(
+    img, ques, model_name, 
+    temp=0, retry=10, 
+    max_tokens=None, think=False,
+    parse_output=None,
+):
     img_base64 = base64.b64encode(img).decode('ascii')
     msgs = [{
         "role": "user",
@@ -132,7 +137,12 @@ def call_vlm_retry(img, ques, model_name, temp=0, retry=10, max_tokens=None, thi
             },
         ]
     }]
-    return call_llm_retry(msgs, model_name, temp, retry, max_tokens, think)
+    return call_llm_retry(
+        msgs, model_name, 
+        temp, retry, 
+        max_tokens, think,
+        parse_output,
+    )
 
 def get_msgs_text(msgs):
     for m in msgs[::-1]:
@@ -159,14 +169,44 @@ def repl_ins_token(msgs):
                     it['text'] = repl_ins_token_re(it['text'])
     return msgs
 
-def ask_chatgpt_retry(ques, model_name, temp=0, retry=10, max_tokens=None, think=False):
+def ask_chatgpt_retry(
+    ques, model_name, 
+    temp=0, retry=10, 
+    max_tokens=None, think=False,
+    parse_output=None,
+):
     msgs = [{
         'role': 'user',
         'content': ques,
     }]
-    return call_llm_retry(msgs, model_name, temp, retry, max_tokens, think)
+    return call_llm_retry(
+        msgs, model_name, 
+        temp, retry, 
+        max_tokens, think,
+        parse_output,
+    )
 
-def call_llm_retry(msgs, model_name, temp=0, retry=10, max_tokens=None, think=False):
+def call_llm_retry(
+    msgs, model_name, 
+    temp=0, retry=10, 
+    max_tokens=None, think=False,
+    parse_output=None,
+):
+    for i in range(retry):
+        try:
+            res =  call_llm(
+                msgs, model_name, temp, 
+                max_tokens, think,
+            )
+            return parse_output(res) if parse_output else res
+        except Exception as ex:
+            print(f'OpenAI retry {i+1}: {str(ex)}')
+            if i == retry - 1: raise ex
+
+def call_llm(
+    msgs, model_name, temp=0, 
+    max_tokens=None, think=False
+):
     # 改变指令符号的形式，避免模型出错
     msgs = repl_ins_token(msgs)
     print(f'ques: {json.dumps(get_msgs_text(msgs), ensure_ascii=False)}')
@@ -191,25 +231,21 @@ def call_llm_retry(msgs, model_name, temp=0, retry=10, max_tokens=None, think=Fa
         extra_body.update({
             "reasoning_effort": "medium" if think else "none",
         })
-    for i in range(retry):
-        try:
-            res = client.chat.completions.create(
-                messages=msgs,
-                model=model_name,
-                temperature=temp,
-                max_tokens=max_tokens,
-                extra_body=extra_body,
-                stream=openai.stream,
-            )
-            if openai.stream:
-                ans = collect_stream_content(res)
-            else:
-                ans = res.choices[0].message.content.strip()
-            if not ans: raise ValueError(f'回复为空：{res}')
-            break
-        except Exception as ex:
-            print(f'OpenAI retry {i+1}: {str(ex)}')
-            if i == retry - 1: raise ex
+
+    res = client.chat.completions.create(
+        messages=msgs,
+        model=model_name,
+        temperature=temp,
+        max_tokens=max_tokens,
+        extra_body=extra_body,
+        stream=openai.stream,
+    )
+    if openai.stream:
+        ans = collect_stream_content(res)
+    else:
+        ans = res.choices[0].message.content.strip()
+    if not ans: raise ValueError(f'回复为空：{res}')
+    
     # 还原指令格式
     ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
     ans = re.sub(r'<think>[\s\S]+?</think>', '', ans)
