@@ -18,17 +18,15 @@ from .util import ask_chatgpt_retry, set_openai_props, extname, ext_code_block, 
 from .code2book_pmt import *
 from .code2book_models import *
 
-def check_details(details, code_desc, fnames, pj_dir, args):
+def check_details(details: List[DetailResult], code_desc: List[CodeDescItemResult], fnames, pj_dir, args):
     fixed = all(d.get('fixed', False) for d in details)
     if fixed: 
         print(f'[4] 细纲校验通过')
         return details
-    code_desc = parse_obj_as(List[CodeDescItemResult], code_desc)
-    details = parse_obj_as(List[DetailResult], details)
     for i, d in enumerate(details):
         d.no = i + 1
     fnames_li = '\n'.join(fnames)
-    code_desc_str = json.dumps(code_desc, ensure_ascii=False)
+    code_desc_str = json.dumps([d.dict() for d in code_desc], ensure_ascii=False)
     readme = open(path.join(args.dir, 'README.md'), encoding='utf8').read()
     total_funcs = [
         cd.file + ':' + fn.name
@@ -187,9 +185,9 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     details[idx].update(spec_detail.dict())
     write_callback()
 
-def gen_outline(fnames, code_desc, args) -> OutlineResult:
+def gen_outline(fnames, code_desc: List[CodeDescItemResult], args) -> OutlineResult:
     fnames_li = '\n'.join(fnames)
-    code_desc_str = json.dumps(code_desc, ensure_ascii=False)
+    code_desc_str = json.dumps([d.dict() for d in code_desc], ensure_ascii=False)
     readme = open(path.join(args.dir, 'README.md'), encoding='utf8').read()
     ques = OUTLINE_PMT.replace('{struct}', fnames_li) \
         .replace('{code_desc}', code_desc_str) \
@@ -279,15 +277,21 @@ def code2book(args):
     if path.isfile(code_desc_fname):
         code_desc = yaml.safe_load(
             open(code_desc_fname, encoding='utf8').read())
+        code_desc = parse_obj_as(List[CodeDescItemResult], code_desc)
     else:
         code_desc = [
-            {
-                "file": f,
-            }
+            CodeDescItemResult(
+                file=f,
+                desc='',
+                process=[],
+                structure=[],
+                classes=[],
+                funcs=[],
+            )
             for f in fnames
         ]
         open(code_desc_fname, 'w', encoding='utf8') \
-            .write(yaml.safe_dump(code_desc))
+            .write(yaml.safe_dump([d.dict() for d in code_desc]))
 
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
