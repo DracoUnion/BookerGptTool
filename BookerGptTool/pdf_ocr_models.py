@@ -21,3 +21,20 @@ class OCRContentResult(BaseModel):
 class OCRResult(BaseModel):
     direction: Literal['horizonal', 'vertical']
     contents: List[OCRContentResult]
+
+class Page(BaseModel):
+    pgno: int
+    md: str = ''
+    merge: int = -1
+    img_proc: bool = False
+    
+class Group(BaseModel):
+    raw: List[str] = []
+    md: str = ''
+    mdcn: str = ''
+    merge: int = -1
+
+class Meta(BaseModel):
+    pages: List[Page]
+    groups: List[Group] = []
+    toc: List[List[str]] = []

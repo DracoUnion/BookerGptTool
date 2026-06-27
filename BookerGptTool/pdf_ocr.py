@@ -73,7 +73,7 @@ def ocr_res2md(r: OCRResult):
         or '<!-- no content -->'
     
 
-def tr_ocr_page(img, pages, idx, args, write_callback):
+def tr_ocr_page(img, pages: List[Page], idx, args, write_callback):
     print(f'[3] 识别页码 {idx + 1}')
 
     parse_output = lambda ans: OCRResult(
@@ -86,13 +86,13 @@ def tr_ocr_page(img, pages, idx, args, write_callback):
         retry=args.retry, 
         max_tokens=args.max_tokens, parse_output=parse_output,
     )
-    pages[idx]['md'] = ocr_res2md(res)
+    pages[idx].md = ocr_res2md(res)
     write_callback()
 
-def tr_merge_group(groups, idx, args, write_callback):
+def tr_merge_group(groups: List[Group], idx, args, write_callback):
     print(f'[6] 处理分组合并 {idx + 1}')
-    prev_line = groups[idx - 1]['mdcn'].strip()
-    next_line = groups[idx]['mdcn'].strip()
+    prev_line = groups[idx - 1].mdcn.strip()
+    next_line = groups[idx].mdcn.strip()
     prev = re.search(r'^.+?\Z', prev_line, flags=re.M).group()
     next = re.search(r'\A.+?$', next_line, flags=re.M).group()
 
@@ -100,14 +100,14 @@ def tr_merge_group(groups, idx, args, write_callback):
         .replace('{next}', next)
     ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
     merge = ans.replace('```', '').strip()
-    groups[idx]['merge'] = int(merge == 'true')
+    groups[idx].merge = int(merge == 'true')
     write_callback()
     
 
-def tr_proc_img(img, pages, idx, img_dir, pdf_hash, write_callback):
+def tr_proc_img(img, pages: List[Page], idx, img_dir, pdf_hash, write_callback):
     print(f'[4] 处理图像 {idx}')
-    md = pages[idx]['md']
-    pgno = pages[idx]['pgno']
+    md = pages[idx].md
+    pgno = pages[idx].pgno
     img_links = re.findall(r'!\[\]\(.+?\)', md)
     for j, link in enumerate(img_links):
         m = re.search(r'bbox=\[(\d+\.\d+),\x20(\d+\.\d+),\x20(\d+\.\d+),\x20(\d+\.\d+)\]', link)
@@ -120,29 +120,29 @@ def tr_proc_img(img, pages, idx, img_dir, pdf_hash, write_callback):
         print(f'[5] {img_ffname}')
         open(img_ffname, 'wb').write(img_pt)
         md = md.replace(link, f'![](img/{img_fname})')
-        pages[idx]['md'] = md
+        pages[idx].md = md
         write_callback()
-    pages[idx]['img_proc'] = True
+    pages[idx].img_proc = True
 
-def tr_group_page(groups, idx, args, write_callback):
+def tr_group_page(groups: List[Group], idx, args, write_callback):
     print(f'[5] 处理页面合并 {idx}')
-    text = '\n\n'.join(groups[idx]['raw'])
+    text = '\n\n'.join(groups[idx].raw)
     ques = POSTPROC_PMT.replace('{text}', text)
     ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    groups[idx]['md'] = ans
+    groups[idx].md = ans
     write_callback()
     if args.trans:
         ques = TRANS_BODY_PMT.replace(
-            '{text}', groups[idx]['md'])
+            '{text}', groups[idx].md)
         ans = ask_chatgpt_retry(
             ques, args.model, 
             args.temp, args.retry, 
             args.max_tokens,
             parse_output=ext_cont_block,
         )
-        groups[idx]['mdcn'] = ans
+        groups[idx].mdcn = ans
     else:
-        groups[idx]['mdcn'] = groups[idx]['md']
+        groups[idx].mdcn = groups[idx].md
     write_callback()
 
 def pdf_ocr(args):
@@ -177,35 +177,36 @@ def pdf_ocr(args):
     print(f'[2] 初始化 {yaml_fname}')
     if path.isfile(yaml_fname):
         res = yaml.safe_load(open(yaml_fname, encoding='utf8').read())
-        pages = res['pages']
+        res = Meta(**res)
+        pages = res.pages
     else:
-        pages = [{
-            'pgno': i,
-            'md': '',
-            'merge': -1,
-            'img_proc': False,
-        } for i in range(len(doc))]
-        res = {'pages': pages}
+        pages = [Page(pgno=i) for i in range(len(doc))]
+        res = Meta(pages=pages)
         open(yaml_fname, 'w', encoding='utf8') \
-                .write(yaml.safe_dump(res, allow_unicode=True))
+                .write(yaml.safe_dump(res.dict(), allow_unicode=True))
 
     print(f'[3] 识别图像')
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
     lock = Lock()
-    def write_callback(fname, res):
+    def write_callback_mdl(fname, res):
         with lock:
             with open(fname, 'w', encoding='utf8') as f:
-                f.write(yaml.safe_dump(res, allow_unicode=True))
+                obj = (
+                    [r.dict() for r in res]
+                    if isinstance(res, list)
+                    else res.dict()
+                )
+                f.write(yaml.safe_dump(obj, allow_unicode=True))
     
-    for i, g in enumerate(res['pages']):
-        if g['md']: continue
-        pgno = g['pgno']
+    for i, g in enumerate(res.pages):
+        if g.md: continue
+        pgno = g.pgno
         img = doc[pgno].get_pixmap(dpi=args.dpi).pil_tobytes('png')
         h = pool.submit(
             tr_ocr_page, 
-            img, res['pages'], i, args,
-            functools.partial(write_callback, yaml_fname, res),
+            img, res.pages, i, args,
+            functools.partial(write_callback_mdl, yaml_fname, res),
         )
         hdls.append(h)
         if len(hdls) > args.threads:
@@ -223,14 +224,14 @@ def pdf_ocr(args):
         else args.fname[:-4] + '_imgs'
     )
     os.makedirs(img_dir, exist_ok=True)
-    for i, g in enumerate(res['pages']):
-        if g['img_proc']: continue
-        pgno = g['pgno']
+    for i, g in enumerate(res.pages):
+        if g.img_proc: continue
+        pgno = g.pgno
         img = doc[pgno].get_pixmap(dpi=args.dpi).pil_tobytes('png')
         h = pool.submit(
             tr_proc_img, 
-            img, res['pages'], i, img_dir, pdf_hash,
-            functools.partial(write_callback, yaml_fname, res),
+            img, res.pages, i, img_dir, pdf_hash,
+            functools.partial(write_callback_mdl, yaml_fname, res),
         )
         hdls.append(h)
         if len(hdls) > args.threads:
@@ -242,17 +243,17 @@ def pdf_ocr(args):
     hdls = []
 
     print(f'[5] 处理页间合并')
-    if 'groups' in res:
-        groups = res['groups']
+    if res.groups:
+        groups = res.groups
     else:
-        groups = mkgroups(res['pages'], args)
-        res['groups'] = groups
+        groups = mkgroups(res.pages, args)
+        res.groups = groups
 
-    for i, g in enumerate(res['groups']):
-        if g['md'] and g['mdcn']: continue
+    for i, g in enumerate(res.groups):
+        if g.md and g.mdcn: continue
         h = pool.submit(
-            tr_group_page, res['groups'], i, args,
-            functools.partial(write_callback, yaml_fname, res),
+            tr_group_page, res.groups, i, args,
+            functools.partial(write_callback_mdl, yaml_fname, res),
         )
         hdls.append(h)
         if len(hdls) > args.threads:
@@ -263,14 +264,14 @@ def pdf_ocr(args):
     hdls = []
 
     print(f'[6] 处理组间合并')
-    res['groups'] = [g for g in res['groups'] if g['mdcn']]
-    for i, g in enumerate(res['groups']):
+    res.groups = [g for g in res.groups if g.mdcn]
+    for i, g in enumerate(res.groups):
         if i == 0: continue
-        if g['merge'] != -1: continue
+        if g.merge != -1: continue
         h = pool.submit(
             tr_merge_group, 
-            res['groups'], i, args,
-            functools.partial(write_callback, yaml_fname, res),
+            res.groups, i, args,
+            functools.partial(write_callback_mdl, yaml_fname, res),
         )
         hdls.append(h)
         if len(hdls) > args.threads:
@@ -282,11 +283,11 @@ def pdf_ocr(args):
     hdls = []
 
     full_text = ''
-    for i, g in enumerate(res['groups']):
+    for i, g in enumerate(res.groups):
         print(f'[6] 生成全文 {i}')
-        if g['merge'] != 1:
+        if g.merge != 1:
             full_text += '\n\n'
-        full_text += g['mdcn']
+        full_text += g.mdcn
     name_cn = ''
     if args.clean:
         full_text = clean_md_llm(full_text, args)
@@ -296,7 +297,7 @@ def pdf_ocr(args):
     print(f'[7] 修正目录')
     full_text = fix_toc(
         full_text, res, args,
-        functools.partial(write_callback, yaml_fname, res),
+        functools.partial(write_callback_mdl, yaml_fname, res),
     )
     
     print(f'[8] 写入 {md_fname}')
@@ -320,15 +321,15 @@ def pdf_ocr(args):
 
     print(f'[*] 处理完毕')
 
-def fix_toc(full_text, res, args, write_callback):
-    if 'toc' in res:
-        toc = res['toc']
+def fix_toc(full_text, res: Meta, args, write_callback):
+    if res.toc:
+        toc = res.toc
     else:
         toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
         ques = TOC_PMT.replace('{text}', '\n'.join(toc))
         ans =  ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
-        res['toc'] = toc
+        res.toc = toc
         write_callback()
     for lvl, title in toc:
         print(f'[7] {lvl} {title}')
@@ -338,26 +339,16 @@ def fix_toc(full_text, res, args, write_callback):
             pass
     return full_text
 
-def mkgroups(pages, args):
-    groups =  [{
-            'raw': [], 
-            'md': '',
-            'mdcn': '',
-            'merge': -1,
-        }]
+def mkgroups(pages: List[Page], args) -> List[Group]:
+    groups = [Group()]
     for p in pages:
-        exi_len = sum(len(md) for md in groups[-1]['raw'])
+        exi_len = sum(len(md) for md in groups[-1].raw)
         if exi_len > args.limit:
-            groups.append({
-                'raw': [], 
-                'md': '', 
-                'mdcn': '', 
-                'merge': -1,
-            })
-        groups[-1]['raw'].append(
-            f"[PAGE {p['pgno']}]\n\n{p['md']}"
+            groups.append(Group())
+        groups[-1].raw.append(
+            f"[PAGE {p.pgno}]\n\n{p.md}"
         )
-    groups = [g for g in groups if g['raw']]
+    groups = [g for g in groups if g.raw]
     return groups
 
 def trans_title(title, args):
