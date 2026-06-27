@@ -54,7 +54,7 @@ def clean_md_llm(md, args, nlines=3000):
         ed = int(nlines)
     heading = [{
         'no': i,
-        'line': l,
+        'line': l[:50] + '...' if len(l) > 50 else l,
     } for i, l in enumerate(lines[:ed])]
     heading_str = json.dumps({"lines": heading}, ensure_ascii=False)
     ques = CLEAN_HEAD_PMT.replace('{text}', heading_str)
