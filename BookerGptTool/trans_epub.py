@@ -13,17 +13,18 @@ from .util import ask_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pi
 from .fmt import fmt_zh, fmt_publisher
 from .md2skill_chunker import chunk_markdown
 from .clean_heading import clean_md_llm
+from trans_epub_models import *
 
 
-def fix_toc(full_text, meta, args, write_callback):
-    if 'toc' in meta:
-        toc = meta['toc']
+def fix_toc(full_text, meta: Meta, args, write_callback):
+    if meta.toc:
+        toc = meta.toc
     else:
         toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
         ques = TOC_PMT.replace('{text}', '\n'.join(toc))
         ans =  ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
         toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
-        meta['toc'] = toc
+        meta.toc = toc
         write_callback()
     for lvl, title in toc:
         print(f'[7] {lvl} {title}')
@@ -43,11 +44,11 @@ def split_chs(md):
             lines[i] = '[split/]' + l
     return '\n'.join(lines).split('[split/]')
 
-def tr_fmt_trans(chunks, idx, args, write_callback):
+def tr_fmt_trans(chunks: List[Chunk], idx, args, write_callback):
     print(f'[4] 处理分块 {idx+1}')
-    raw = chunks[idx]['raw']
-    fmt = chunks[idx]['fmt']
-    trans = chunks[idx]['trans']
+    raw = chunks[idx].raw
+    fmt = chunks[idx].fmt
+    trans = chunks[idx].trans
     if not fmt:
         ques = FMT_PMT.replace('{text}', raw)
         fmt = ask_chatgpt_retry(
@@ -55,7 +56,7 @@ def tr_fmt_trans(chunks, idx, args, write_callback):
             args.retry, args.max_tokens,
             parse_output=ext_cont_block,
         )
-        chunks[idx]['fmt'] = fmt
+        chunks[idx].fmt = fmt
         write_callback()
     if not trans:
         ques = TRANS_BODY_PMT.replace('{text}', fmt)
@@ -64,7 +65,7 @@ def tr_fmt_trans(chunks, idx, args, write_callback):
             args.retry, args.max_tokens,
             parse_output=ext_cont_block,
         )
-        chunks[idx]['trans'] = fmt_zh(trans)
+        chunks[idx].trans = fmt_zh(trans)
         write_callback()
 
 def trans_epub(args):
@@ -84,15 +85,12 @@ def trans_epub(args):
     meta_fname = path.join(meta_dir, 'meta.yaml')
     if path.isfile(meta_fname):
         meta = yaml.safe_load(open(meta_fname, encoding='utf8').read())
+        meta = Meta(**meta)
     else:
         ques = TRANS_TITLE_PMT.replace('{text}', name)
         name_cn = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        meta = {
-            'name': name,
-            'slug': slug,
-            'name_cn': name_cn,
-        }
-        open(meta_fname, 'w', encoding='utf8').write(yaml.safe_dump(meta))
+        meta = Meta(name=name, slug=slug, name_cn=name_cn)
+        open(meta_fname, 'w', encoding='utf8').write(yaml.safe_dump(meta.dict()))
 
     print('[2] 转换 html 和 md')
     html_fname = path.join(meta_dir, 'all.html')
@@ -129,31 +127,33 @@ def trans_epub(args):
     chunk_fname = path.join(meta_dir, 'chunks.yaml')
     if path.isfile(chunk_fname):
         chunks = yaml.safe_load(open(chunk_fname, encoding='utf8').read())
+        chunks = parse_obj_as(List[Chunk], chunks)
     else:
         groups = group_chunks(split_md_lines(md))
-        chunks = [{
-            'raw': c,
-            'fmt': '',
-            'trans': '',
-        } for c in groups]
+        chunks = [Chunk(raw=c) for c in groups]
         open(chunk_fname, 'w',  encoding='utf8') \
-            .write(yaml.safe_dump(chunks, allow_unicode=True))
+            .write(yaml.safe_dump([c.dict() for c in chunks], allow_unicode=True))
 
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
     lock = Lock()
-    def write_callback(fname, res):
+    def write_callback_mdl(fname, res):
         with lock:
             with open(fname, 'w', encoding='utf8') as f:
-                f.write(yaml.safe_dump(res, allow_unicode=True))
+                obj = (
+                    [r.dict() for r in res]
+                    if isinstance(res, list)
+                    else res.dict()
+                )
+                f.write(yaml.safe_dump(obj, allow_unicode=True))
     
     for idx, c in enumerate(chunks):
-        if c['fmt'] and c['trans']:
+        if c.fmt and c.trans:
             continue
         h = pool.submit(
                 tr_fmt_trans, 
                 chunks, idx, args,
-                functools.partial(write_callback, chunk_fname, chunks),
+                functools.partial(write_callback_mdl, chunk_fname, chunks),
             )
         hdls.append(h)
         if len(hdls) > args.threads:
@@ -165,14 +165,14 @@ def trans_epub(args):
     hdls = []    
 
     print('[5] 修正目录')
-    md = '\n\n'.join(c['trans'] for c in chunks)
+    md = '\n\n'.join(c.trans for c in chunks)
     if args.clean:
-        name_cn = meta['name_cn']
+        name_cn = meta.name_cn
         md = clean_md_llm(md, args)
         md = f'# {name_cn}\n\n{md}'
     md = fix_toc(
         md, meta, args, 
-        functools.partial(write_callback, meta_fname, meta),
+        functools.partial(write_callback_mdl, meta_fname, meta),
     )
 
     print('[6] 分章节')
@@ -190,12 +190,12 @@ def trans_epub(args):
         open(ch_fname, 'w', encoding='utf8').write(c)
 
     print('[7] 生成 readme')
-    readme = README_TMPL.replace('{name}', name).replace('{name_cn}', meta['name_cn'])
+    readme = README_TMPL.replace('{name}', name).replace('{name_cn}', meta.name_cn)
     readme_fname = path.join(proj_dir, 'README.md')
     open(readme_fname, 'w', encoding='utf8').write(readme)
 
     print('[8] 生成 summary')
-    toc =[f'+   [{meta["name_cn"]}](README.md)']
+    toc =[f'+   [{meta.name_cn}](README.md)']
     for i, ch in enumerate(chs):
         title, _ = get_md_title(ch)
         if not title: continue
