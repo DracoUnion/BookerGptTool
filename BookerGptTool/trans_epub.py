@@ -13,7 +13,7 @@ from .util import ask_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pi
 from .fmt import fmt_zh, fmt_publisher
 from .md2skill_chunker import chunk_markdown
 from .clean_heading import clean_md_llm
-from trans_epub_models import *
+from .trans_epub_models import *
 
 
 def fix_toc(full_text, meta: Meta, args, write_callback):
