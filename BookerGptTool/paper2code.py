@@ -83,7 +83,8 @@ def paper2code(args):
             args.retry, args.max_tokens,
             parse_output=parse_output,
         )
-        open(flist_fname, 'w', encoding='utf8').write(flist.json())
+        flist_str = flist.json()
+        open(flist_fname, 'w', encoding='utf8').write(flist_str)
     else:
         flist_str = open(flist_fname, encoding='utf8').read()
 
@@ -101,7 +102,8 @@ def paper2code(args):
             args.retry, args.max_tokens,
             parse_output=parse_output,
         )
-        open(tasks_fname, 'w', encoding='utf8').write(tasks.json())
+        tasks_str = tasks.json()
+        open(tasks_fname, 'w', encoding='utf8').write(tasks_str)
     else:
         tasks_str = open(tasks_fname, encoding='utf8').read()
 

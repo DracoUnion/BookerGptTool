@@ -14,8 +14,9 @@ import functools
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import sys
-from .util import ask_chatgpt_retry, set_openai_props, extname
+from .util import ask_chatgpt_retry, set_openai_props, extname, ext_code_block, ext_cont_block
 from .code2book_pmt import *
+from .code2book_models import *
 
 def check_details(details, code_desc, fnames, pj_dir, args):
     fixed = all(d.get('fixed', False) for d in details)
@@ -161,25 +162,30 @@ def tr_gen_detail(outline_chs, idx, details, args, write_callback):
     details[idx].update(spec_detail)
     write_callback()
 
-def gen_outline(fnames, code_desc, args):
+def gen_outline(fnames, code_desc, args) -> OutlineResult:
     fnames_li = '\n'.join(fnames)
     code_desc_str = json.dumps(code_desc, ensure_ascii=False)
     readme = open(path.join(args.dir, 'README.md'), encoding='utf8').read()
     ques = OUTLINE_PMT.replace('{struct}', fnames_li) \
         .replace('{code_desc}', code_desc_str) \
         .replace('{readme}', readme)
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    outline_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    outline = json_repair.loads(outline_str)
+    parse_output = lambda s: OutlineResult(
+        **json_repair.loads(ext_code_block(s))
+    )
+    outline: OutlineResult = ask_chatgpt_retry(
+        ques, args.model, args.temp, 
+        args.retry, args.max_tokens,
+        parse_output=parse_output,
+    )
     
     print('[3] 校验源码文件完整覆盖')
     for _ in range(args.check):
         outline_fnames = [
             f.replace('\\', '/')
-            for pt in outline['parts']
-            for ch in pt['chapters']
-            for n in ch['nodes']
-            for f in n['src']
+            for pt in outline.parts
+            for ch in pt.chapters
+            for n in ch.nodes
+            for f in n.src
         ]
         rest_fnames = list(set(fnames) - set(outline_fnames))
         if len(rest_fnames) == 0:
@@ -191,9 +197,11 @@ def gen_outline(fnames, code_desc, args):
             .replace('{code_desc}', code_desc_str) \
             .replace('{readme}', readme) \
             .replace('{rest_fnames}', '\n'.join(rest_fnames))
-        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        outline_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-        outline = json_repair.loads(outline_str)
+        outline = ask_chatgpt_retry(
+            ques, args.model, args.temp, 
+            args.retry, args.max_tokens,
+            parse_output=parse_output,
+        )
 
     return outline
 
@@ -204,10 +212,15 @@ def tr_gen_code_desc(res, idx, args, write_callback):
     code = open(full_path, encoding='utf8').read()
     ques = CLS_FUNC_EXT_PMT.replace('{fname}', fname) \
         .replace('{code}', code)
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-    descs_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-    descs = json_repair.loads(descs_str)
-    res[idx].update(descs)
+    parse_output = lambda s: ClsFuncExtResult(
+        **json_repair.loads(ext_code_block(s))
+    )
+    descs: ClsFuncExtResult = ask_chatgpt_retry(
+        ques, args.model, args.temp, 
+        args.retry, args.max_tokens,
+        parse_output=parse_output,
+    )
+    res[idx].update(descs.dict())
     write_callback()
 
 def code2book(args):
@@ -281,15 +294,16 @@ def code2book(args):
     if path.isfile(outline_fname):
         outline = yaml.safe_load(
             open(outline_fname, encoding='utf8').read())
+        outline = OutlineResult(**outline)
     else:
         outline = gen_outline(fnames, code_desc, args)
         open(outline_fname, 'w', encoding='utf8') \
-            .write(yaml.safe_dump(outline, allow_unicode=True))
+            .write(yaml.safe_dump(outline.dict(), allow_unicode=True))
 
 
     print('[4] 生成细纲')
     outline_chs = sum([
-        pt['chapters']for pt in outline['parts']
+        pt.chapters for pt in outline.parts
     ], [])
     details = []
     for i, ch in enumerate(outline_chs):
