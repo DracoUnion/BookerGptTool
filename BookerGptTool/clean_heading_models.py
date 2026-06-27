@@ -15,7 +15,7 @@ class CleanHeadingResult(BaseModel):
         "preface", "about", "body", "etc",
     )
     @classmethod
-    def check_arr(arr):
+    def check_arr(cls, arr):
         for inner in arr:
             if len(inner) != 2:
                 raise ValueError('内层数组长度必须为 2')
