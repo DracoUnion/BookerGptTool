@@ -228,8 +228,8 @@ def gen_outline(fnames, code_desc: List[CodeDescItemResult], args) -> OutlineRes
 
     return outline
 
-def tr_gen_code_desc(res, idx, args, write_callback):
-    fname = res[idx]['file']
+def tr_gen_code_desc(res: List[CodeDescItemResult], idx, args, write_callback):
+    fname = res[idx].file
     print(f'[2] 生成描述 {fname}')
     full_path = path.join(args.dir, fname)
     code = open(full_path, encoding='utf8').read()
@@ -243,7 +243,7 @@ def tr_gen_code_desc(res, idx, args, write_callback):
         args.retry, args.max_tokens,
         parse_output=parse_output,
     )
-    res[idx].update(descs.dict())
+    res[idx] = CodeDescItemResult(file=fname, **descs)
     write_callback()
 
 def code2book(args):
