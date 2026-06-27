@@ -243,7 +243,7 @@ def tr_gen_code_desc(res: List[CodeDescItemResult], idx, args, write_callback):
         args.retry, args.max_tokens,
         parse_output=parse_output,
     )
-    res[idx] = CodeDescItemResult(file=fname, **descs)
+    res[idx] = CodeDescItemResult(file=fname, **descs.dict())
     write_callback()
 
 def code2book(args):
