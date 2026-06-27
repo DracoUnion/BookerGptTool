@@ -198,9 +198,13 @@ def call_llm_retry(
                 msgs, model_name, temp, 
                 max_tokens, think,
             )
-            return parse_output(res) if parse_output else res
+            return (
+                parse_output(res) 
+                if parse_output else res
+            )
         except Exception as ex:
-            print(f'OpenAI retry {i+1}: {str(ex)}')
+            print(f'OpenAI retry {i+1}')
+            traceback.print_exc()
             if i == retry - 1: raise ex
 
 def call_llm(
