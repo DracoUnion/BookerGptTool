@@ -18,7 +18,7 @@ from .util import ask_chatgpt_retry, set_openai_props, extname, ext_code_block, 
 from .code2book_pmt import *
 from .code2book_models import *
 
-def check_details(details: List[DetailResult], code_desc: List[CodeDescItemResult], fnames, pj_dir, args):
+def check_details(details: List[Detail], code_desc: List[CodeDescItemResult], fnames, pj_dir, args):
     fixed = all(d.get('fixed', False) for d in details)
     if fixed: 
         print(f'[4] 细纲校验通过')
@@ -69,9 +69,9 @@ def check_details(details: List[DetailResult], code_desc: List[CodeDescItemResul
             .replace('{readme}', readme) \
             .replace('{rest_funcs}', '\n'.join(rest_funcs))
         parse_output = lambda s: parse_obj_as(
-            List[DetailResult], json_repair.loads(ext_code_block(s))
+            List[Detail], json_repair.loads(ext_code_block(s))
         )
-        details: List[DetailResult] = ask_chatgpt_retry(
+        details: List[Detail] = ask_chatgpt_retry(
             ques, args.model, args.temp, 
             args.retry, args.max_tokens,
             parse_output=parse_output,
@@ -87,7 +87,7 @@ def check_details(details: List[DetailResult], code_desc: List[CodeDescItemResul
 
 def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
     print(f'[5] 编写第{idx+1}章正文')
-    details = parse_obj_as(List[DetailResult], details)
+    details = parse_obj_as(List[Detail], details)
     code_fnames = [
         c.file
         for u in details[idx].units
@@ -141,7 +141,7 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
         open(fname, 'w', encoding='utf8').write(body)
 
 
-def tr_gen_detail(outline_chs: List[OutlineChapterResult], idx, details, args, write_callback):
+def tr_gen_detail(outline_chs: List[OutlineChapterResult], idx, details: List[Detail], args, write_callback):
     print(f'[4] 编写第{idx+1}章细纲')
     code_fnames = [
         f for pt in outline_chs[idx].nodes
@@ -167,7 +167,7 @@ def tr_gen_detail(outline_chs: List[OutlineChapterResult], idx, details, args, w
         args.retry, args.max_tokens,
         parse_output=parse_output,
     )
-    details[idx].update(detail.dict())
+    details[idx] = Detail(**details[idx], **detail.dict())
     write_callback()
     detail_str = json.dumps(details[idx], ensure_ascii=False)
     ques = REST_DETAIL_PMT.replace('{detail}', detail_str) \
@@ -182,7 +182,7 @@ def tr_gen_detail(outline_chs: List[OutlineChapterResult], idx, details, args, w
         args.retry, args.max_tokens,
         parse_output=parse_output,
     )
-    details[idx].update(spec_detail.dict())
+    details[idx] = Detail(**details[idx], **spec_detail.dict())
     write_callback()
 
 def gen_outline(fnames, code_desc: List[CodeDescItemResult], args) -> OutlineResult:
@@ -339,15 +339,16 @@ def code2book(args):
     outline_chs = sum([
         pt.chapters for pt in outline.parts
     ], [])
-    details = []
+    details: List[Detail] = []
     for i, ch in enumerate(outline_chs):
         detail_fname = path.join(pj_dir, f'detail_{i+1}.yaml')
         if path.isfile(detail_fname):
             detail = yaml.safe_load(
                 open(detail_fname, encoding='utf8').read())
+            detail = Detail(**detail)
             details.append(detail)
             continue
-        details.append({})
+        details.append(Detail())
         h = pool.submit(
             tr_gen_detail,
             outline_chs, i, details, args,

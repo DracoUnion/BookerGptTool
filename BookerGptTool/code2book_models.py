@@ -72,6 +72,12 @@ class RestDetailResult(BaseModel):
     summary: List[RestDetailSummaryResult]
     exercises: List[RestDetailExerciseResult]
 
-class DetailResult(RestDetailResult, SrcAnlsDetailCodeResult):
+class Detail(BaseModel):
     no: int = 0
     fixed: bool = False
+    learning_targets: List[str] = []
+    code_map: List[str] = []
+    life_analogy: List[str] = []
+    summary: List[RestDetailSummaryResult] = []
+    exercises: List[RestDetailExerciseResult] = []
+    units: List[SrcAnlsDetailUnitResult] = []
