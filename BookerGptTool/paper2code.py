@@ -7,8 +7,9 @@ import re
 import os
 import shutil
 import json_repair as json
-from .util import ask_chatgpt_retry, set_openai_props, extname
+from .util import ask_chatgpt_retry, set_openai_props, extname, ext_code_block, ext_cont_block
 from .paper2code_pmt import *
+from .paper2code_models import *
 
 dft_hdrs = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -74,9 +75,15 @@ def paper2code(args):
     if not path.isfile(flist_fname):
         ques = FLIST_PMT.replace("{paper}", paper) \
             .replace('{plan}', plan)
-        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        flist_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-        open(flist_fname, 'w', encoding='utf8').write(flist_str)
+        parse_output = lambda s: FListResult(
+            **json.loads(ext_code_block(s))
+        )
+        flist: FListResult = ask_chatgpt_retry(
+            ques, args.model, args.temp, 
+            args.retry, args.max_tokens,
+            parse_output=parse_output,
+        )
+        open(flist_fname, 'w', encoding='utf8').write(flist.json())
     else:
         flist_str = open(flist_fname, encoding='utf8').read()
 
@@ -86,9 +93,15 @@ def paper2code(args):
         ques = TASKS_PMT.replace("{paper}", paper) \
             .replace('{plan}', plan) \
             .replace('{flist}', flist_str)
-        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        tasks_str = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-        open(tasks_fname, 'w', encoding='utf8').write(tasks_str)
+        parse_output = lambda s: TasksResult(
+            **json.loads(ext_code_block(s))
+        )
+        tasks: TasksResult = ask_chatgpt_retry(
+            ques, args.model, args.temp, 
+            args.retry, args.max_tokens,
+            parse_output=parse_output,
+        )
+        open(tasks_fname, 'w', encoding='utf8').write(tasks.json())
     else:
         tasks_str = open(tasks_fname, encoding='utf8').read()
 
