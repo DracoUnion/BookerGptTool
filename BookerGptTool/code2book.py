@@ -120,11 +120,14 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
     print(f'[5] 校验正文 {idx + 1}')
     for _ in range(args.check):
         ques = BODY_CHK_PMT.replace('{body}', body)
-        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
-        if "[PERFECT/]" in ans:
+        cmt = ask_chatgpt_retry(
+            ques, args.model, args.temp, 
+            args.retry, args.max_tokens,
+            parse_output=ext_cont_block,
+        )
+        if "[PERFECT/]" in cmt:
             print(f'[5] 正文 {idx + 1} 校验完成')
             break
-        cmt = ans.replace('[content]', '').replace('[/content]', '')
         print(f'[5] 正文 {idx + 1} 校验未通过')
         print(cmt)
         ques = BODY_FIX_PMT.replace('{detail}', detail_str) \
