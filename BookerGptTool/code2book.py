@@ -301,7 +301,7 @@ def code2book(args):
             with open(fname, 'w', encoding='utf8') as f:
                 obj = (
                     [r.dict() for r in res]
-                    if isinstance(list, res)
+                    if isinstance(res, list)
                     else res.dict()
                 )
                 f.write(yaml.safe_dump(obj, allow_unicode=True))
