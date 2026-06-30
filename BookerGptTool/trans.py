@@ -176,8 +176,8 @@ def trans_yaml_handle(args):
             totrans, args, pool,
             functools.partial(write_callback, f, totrans),
         )
-        if len(hdls) >= args.threads:
-            for h in hdls: h.result()
+        # if len(hdls) >= args.threads:
+        #     for h in hdls: h.result()
     for h in hdls: h.result()
         
     

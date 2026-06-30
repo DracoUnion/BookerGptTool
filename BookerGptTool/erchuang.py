@@ -278,9 +278,9 @@ def erchuang_handle(args):
         args.fname = f
         h = pool.submit(gen_xhs_single_safe, args)
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
             
     for h in hdls: h.result()
     

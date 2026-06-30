@@ -184,9 +184,9 @@ def fmt_chunk_dir(args):
         args.fname = path.join(dir, f)
         h = pool.submit(fmt_chunk_file, args)
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
 
     for h in hdls: h.result()
     hdls = []
@@ -221,9 +221,9 @@ def fmt_chunk_file(args):
         fn = tr_fmt_group_multi if args.multi_round else tr_fmt_group
         h = pool.submit(fn, c, res, i, args)
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
 
     for h in hdls: h.result()
     hdls = []

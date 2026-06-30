@@ -386,9 +386,9 @@ def md2skill(args):
             functools.partial(write_callback, raw_skill_fname, raw_skills),
         )
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
 
     for h in hdls:
         h.result()
@@ -426,9 +426,9 @@ def md2skill(args):
                 functools.partial(write_callback, skills_fname, skills)
             )
             hdls.append(h)
-            if len(hdls) > args.threads:
-                for h in hdls: h.result()
-                hdls = []
+            # if len(hdls) > args.threads:
+            #     for h in hdls: h.result()
+            #     hdls = []
         
         for h in hdls: h.result()
         hdls = []

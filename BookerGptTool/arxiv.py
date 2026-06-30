@@ -180,9 +180,9 @@ def sum_arxiv_batch(args):
         args.arxiv = id_
         h = pool.submit(sum_arxiv_safe, args)
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
 
     for h in hdls: h.result()
 

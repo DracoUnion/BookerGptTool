@@ -315,9 +315,9 @@ def code2book(args):
             functools.partial(write_callback_mdl, code_desc_fname, code_desc)
         )
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
 
     for h in hdls:
         h.result()
@@ -355,9 +355,9 @@ def code2book(args):
             functools.partial(write_callback_mdl, detail_fname, details[-1])
         )
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
 
     for h in hdls:
         h.result()
@@ -382,9 +382,9 @@ def code2book(args):
             body_fname, args,
         )
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
 
     for h in hdls:
         h.result()

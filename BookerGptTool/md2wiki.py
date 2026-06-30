@@ -98,9 +98,9 @@ def md2wiki(args):
             functools.partial(write_callback, chunk_fname, chunks)
         )
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
 
     for h in hdls:
         h.result()
@@ -124,9 +124,9 @@ def md2wiki(args):
             functools.partial(write_callback, cand_items_fname, cand_items),
         )
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
 
     for h in hdls:
         h.result()
