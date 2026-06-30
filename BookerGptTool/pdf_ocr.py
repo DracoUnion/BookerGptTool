@@ -171,9 +171,9 @@ def pdf_ocr(args):
         args.fname = f
         h = pool.submit(pdf_ocr_file_safe, args)
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
     for h in hdls: 
         h.result()
 
@@ -247,9 +247,9 @@ def pdf_ocr_file(args):
             functools.partial(write_callback_mdl, yaml_fname, res),
         )
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
     for h in hdls: 
         h.result()
     hdls = []
@@ -272,9 +272,9 @@ def pdf_ocr_file(args):
             functools.partial(write_callback_mdl, yaml_fname, res),
         )
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
 
     for h in hdls: 
         h.result()
@@ -294,9 +294,9 @@ def pdf_ocr_file(args):
             functools.partial(write_callback_mdl, yaml_fname, res),
         )
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
     for h in hdls: 
         h.result()
     hdls = []
@@ -312,9 +312,9 @@ def pdf_ocr_file(args):
             functools.partial(write_callback_mdl, yaml_fname, res),
         )
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
 
     for h in hdls: 
         h.result()

@@ -94,9 +94,9 @@ def trans_epub(args):
         args.fname = f
         h = pool.submit(trans_epub_file_safe, args)
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
     for h in hdls: 
         h.result()
 
@@ -194,9 +194,9 @@ def trans_epub_file(args):
                 functools.partial(write_callback_mdl, chunk_fname, chunks),
             )
         hdls.append(h)
-        if len(hdls) > args.threads:
-            for h in hdls: h.result()
-            hdls = []
+        # if len(hdls) > args.threads:
+        #     for h in hdls: h.result()
+        #     hdls = []
 
     for h in hdls: 
         h.result()
