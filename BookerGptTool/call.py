@@ -17,7 +17,7 @@ def check_batch_handle(args):
            print(ans)
         except:
             traceback.print_exc()
-        print('=' * 30)
+        print('=' * 60)
 
 def call_handle(args):
     print(args)
