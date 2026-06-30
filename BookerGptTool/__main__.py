@@ -80,6 +80,11 @@ def main():
     call_parser.add_argument("ques", help="question")
     call_parser.set_defaults(func=call_handle)
 
+    call_parser = subparsers.add_parser("check-batch", help="check keys in YAML")
+    call_parser.add_argument("fname", help="YAML file name")
+    call_parser.add_argument("ques", help="question")
+    call_parser.set_defaults(func=check_batch_handle)
+
     arxiv_parser = subparsers.add_parser("arxiv", help="summarize arxiv papers")
     arxiv_parser.add_argument("arxiv", help="arxiv id")
     arxiv_parser.add_argument("-l", "--limit", type=int, default=3000, help="limit")
