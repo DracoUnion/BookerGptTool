@@ -1,3 +1,5 @@
+import copy
+import traceback
 import os
 from io import BytesIO
 from os import path
@@ -69,6 +71,42 @@ def tr_fmt_trans(chunks: List[Chunk], idx, args, write_callback):
         write_callback()
 
 def trans_epub(args):
+    if path.isfile(args.fname):
+        fnames = [args.fname]
+    else:
+        fnames = [
+            path.join(args.fname, f)
+            for f in os.listdir(args.fname)
+        ]
+    fnames = [f for f in fnames if f.endswith('.epub')]
+    if not fnames:
+        print('请提供 EPUB 或目录')
+        return
+
+    args.threads = max(
+        int(args.threads ** 0.5),
+        int(args.threads / len(fnames))
+    )
+    pool = ThreadPoolExecutor(args.threads)
+    hdls = []
+    for f in fnames:
+        args = copy.deepcopy(args)
+        args.fname = f
+        h = pool.submit(trans_epub_file_safe, args)
+        hdls.append(h)
+        if len(hdls) > args.threads:
+            for h in hdls: h.result()
+            hdls = []
+    for h in hdls: 
+        h.result()
+
+def trans_epub_file_safe(args):
+    try:
+        trans_epub_file(args)
+    except:
+        traceback.print_exc()
+
+def trans_epub_file(args):
     print(args)
     set_openai_props(args)
     if not args.fname.endswith('.epub'):
