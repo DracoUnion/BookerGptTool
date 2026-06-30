@@ -172,8 +172,11 @@ def tr_fmt_group(text, res, idx, args):
 
 def fmt_chunk_dir(args):
     dir = args.fname
-    args.threads = int(args.threads ** 0.5)
     fnames = os.listdir(dir)
+    args.threads = max(
+        int(args.threads ** 0.5),
+        int(args.threads / len(fnames))
+    )
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
     for f in fnames:

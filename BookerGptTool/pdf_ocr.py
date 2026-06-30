@@ -1,3 +1,5 @@
+import traceback
+import copy
 import requests
 import tarfile
 import numpy as np
@@ -146,6 +148,42 @@ def tr_group_page(groups: List[Group], idx, args, write_callback):
     write_callback()
 
 def pdf_ocr(args):
+    if path.isfile(args.fname):
+        fnames = [args.fname]
+    else:
+        fnames = [
+            path.join(args.fname, f)
+            for f in os.listdir(args.fname)
+        ]
+    fnames = [f for f in fnames if f.endswith('.pdf')]
+    if not fnames:
+        print('请提供 PDF 或目录')
+        return
+
+    args.threads = max(
+        int(args.threads ** 0.5),
+        int(args.threads / len(fnames))
+    )
+    pool = ThreadPoolExecutor(args.threads)
+    hdls = []
+    for f in fnames:
+        args = copy.deepcopy(args)
+        args.fname = f
+        h = pool.submit(pdf_ocr_file_safe, args)
+        hdls.append(h)
+        if len(hdls) > args.threads:
+            for h in hdls: h.result()
+            hdls = []
+    for h in hdls: 
+        h.result()
+
+def pdf_ocr_file_safe(args):
+    try:
+        pdf_ocr_file(args)
+    except:
+        traceback.print_exc()
+
+def pdf_ocr_file(args):
     print(args)
     set_openai_props(args)
     if not args.fname.endswith('.pdf'):

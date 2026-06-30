@@ -12,7 +12,7 @@ from .infer import *
 from .erchuang import *
 from .note import *
 from .paper2code import *
-from .pdf_ocr import *
+from .pdf_ocr_file import *
 from .gts_fiction import *
 from .md2skill import *
 from .trans_epub import *
@@ -135,7 +135,7 @@ def main():
     pdf_ocr_parser.add_argument("-md", "--mkdir", action='store_true', help="whether to make a single dir")
     pdf_ocr_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
     pdf_ocr_parser.add_argument("-l", "--limit", type=int, default=8000, help="text limit in groups")
-    pdf_ocr_parser.set_defaults(func=pdf_ocr)
+    pdf_ocr_parser.set_defaults(func=pdf_ocr_file)
 
     fiction_parser = subparsers.add_parser("gts-fiction", help="write fiction")
     fiction_parser.add_argument("idea", help="idea")
