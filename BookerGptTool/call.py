@@ -12,8 +12,11 @@ def check_batch_handle(args):
         print(k)
         openai.api_key = k['api_key']
         openai.base_url = k['base_url']
-        ans = ask_chatgpt_retry(args.ques, k['model'], args.temp, args.retry, args.max_tokens)
-        print(ans)
+        try:
+           ans = ask_chatgpt_retry(args.ques, k['model'], args.temp, args.retry, args.max_tokens)
+           print(ans)
+        except:
+            traceback.print_exc()
         print('=' * 30)
 
 def call_handle(args):
