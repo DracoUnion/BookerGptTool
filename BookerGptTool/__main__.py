@@ -188,6 +188,7 @@ def main():
     forward_parser.add_argument("-ct", "--conn-timeout", type=int, default=10, help="")
     forward_parser.add_argument("-rt", "--read-timeout", type=int, default=600, help="")
     forward_parser.add_argument("-D", "--debug", action='store_true', help="")
+    forward_parser.set_defaults(func=forward)
 
     args = parser.parse_args()
     args.func(args)
