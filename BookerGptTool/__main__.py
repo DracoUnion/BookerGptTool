@@ -19,6 +19,7 @@ from .trans_epub import *
 from .fmt_chunk import *
 from .md2wiki import *
 from .clean_heading import *
+from .forward import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -180,6 +181,13 @@ def main():
     fmt_chunk_parser.add_argument("-mr", "--multi-round", action='store_true', help="whether multi round")
     fmt_chunk_parser.set_defaults(func=fmt_chunk_handle)
 
+    forward_parser = subparsers.add_parser("forward", help="forward oopenai api")
+    forward_parser.add_argument("fname", help="yaml file name containing keys")
+    forward_parser.add_argument("-lh", "--listen-host", type=str, default='localhost', help="")
+    forward_parser.add_argument("-lp", "--listen-port", type=int, default=5000, help="")
+    forward_parser.add_argument("-ct", "--conn-timeout", type=int, default=10, help="")
+    forward_parser.add_argument("-rt", "--read-timeout", type=int, default=600, help="")
+    forward_parser.add_argument("-D", "--debug", action='store_true', help="")
 
     args = parser.parse_args()
     args.func(args)
