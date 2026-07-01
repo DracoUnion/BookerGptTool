@@ -18,6 +18,9 @@ def forward(args):
         hdrs['Authorization'] = f'Bearer {key["api_key"]}'
         hdrs.pop('Host')
         data['model'] = key['model']
+        # KIMI 模型只能接受温度 0.6
+        if 'api.kimi.com/coding' in key['base_url']:
+            data['temperature'] = 0.6
         stream = data.get('stream', False)
         url = key['base_url'] + '/chat/completions'
         r = requests.post(
