@@ -45,6 +45,7 @@ dependencies = [
     "numpy",
     "pillow",
     "sentence-transformers",
+    "flask",
 ]
 
 [project.urls]
