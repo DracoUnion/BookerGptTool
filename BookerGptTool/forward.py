@@ -49,7 +49,7 @@ def forward(args):
             for line in r.iter_lines(decode_unicode=False):
                 if line:  # 跳过空行
                     # OpenAI 的 SSE 格式为 "data: {...}"，每块后有两个换行
-                    line.decode('utf-8')
+                    line = line.decode('utf-8')
                     logger.info(f'line: {line}')
                     yield line + "\n\n"
 
