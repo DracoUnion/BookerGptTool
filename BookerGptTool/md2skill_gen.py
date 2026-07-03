@@ -67,7 +67,7 @@ def generate_claude_skills(
     open(zip_fname, 'wb').write(bio.getvalue())
 
 def generate_manifest(
-    skills: list[Dict[str, str]],
+    skills: List[Dict[str, str]],
     book_name: str,
 ) -> dict:
     """生成 manifest.json 能力摘要"""
@@ -94,7 +94,7 @@ def generate_manifest(
     }
 
 def generate_index(
-    skills: list[Dict[str, str]],
+    skills: List[Dict[str, str]],
     book_name: str,
 ) -> str:
     """生成 index.md 技能导航索引"""
