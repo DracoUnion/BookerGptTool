@@ -118,6 +118,16 @@ def trans_epub_file(args):
     slug = to_kebab(name)
     proj_dir = path.join(path.dirname(args.fname), slug)
     os.makedirs(proj_dir, exist_ok=True)
+    md_fnames = [
+        f for f in os.listdir(proj_dir)
+        if f.endswith('.md') and
+           f != 'README.md' and 
+           f != 'SUMMRY.md'
+    ]
+    if md_fnames:
+        print('已处理')
+        return
+
     meta_dir = path.join(proj_dir, 'asset')
     os.makedirs(meta_dir, exist_ok=True)
     meta_fname = path.join(meta_dir, 'meta.yaml')
