@@ -15,7 +15,7 @@ class SKUType(Enum):
     RELATIONAL = "relational"    # 关系型：标签树、派系网络、术语表
 
 def generate_claude_skills(
-    skills: list[Dict[str, str]],
+    skills: List[Dict[str, str]],
     zip_fname: str,
 ):
     """
