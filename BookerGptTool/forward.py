@@ -4,6 +4,10 @@ import yaml
 import requests
 import random
 from os import path
+import logging
+from .util import get_console_logger
+
+logger = get_console_logger(__name__, logging.INFO)
 
 def forward(args):
     keys = yaml.safe_load(
@@ -23,6 +27,9 @@ def forward(args):
             data['temperature'] = 0.6
         stream = data.get('stream', False)
         url = key['base_url'] + '/chat/completions'
+        logger.info(f'url: {url}')
+        logger.info(f'headers: {hdrs}')
+        logger.info(f'data: {data}')
         r = requests.post(
             url,
             json=data,
@@ -30,8 +37,11 @@ def forward(args):
             stream=stream,
             timeout=(args.conn_timeout, args.read_timeout),
         )
+        logger.info(f'{url} {r.status_code}')
         if not stream:
-            return jsonify(r.json()), r.status_code
+            j = r.json()
+            logger.info(f'reply: {j}')
+            return jsonify(j), r.status_code
         
         # 流式：使用生成器转发 SSE 事件
         def generate():
@@ -39,7 +49,9 @@ def forward(args):
             for line in r.iter_lines(decode_unicode=False):
                 if line:  # 跳过空行
                     # OpenAI 的 SSE 格式为 "data: {...}"，每块后有两个换行
-                    yield line.decode('utf-8') + "\n\n"
+                    line.decode('utf-8')
+                    logger.info(f'line: {line}')
+                    yield line + "\n\n"
 
         return Response(generate(), mimetype="text/event-stream")
 
