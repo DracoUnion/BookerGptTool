@@ -32,7 +32,7 @@ TYPE_PMT_MAP = {
 }
 
 # 领域同义词库：值 → 标准化标签
-DOMAIN_SYNONYMS: dict[str, str] = {
+DOMAIN_SYNONYMS: Dict[str, str] = {
     # 保险领域
     "保险": "保险", "insurance": "保险", "保障": "保险",
     "理赔": "保险·理赔", "赔付": "保险·理赔", "claims": "保险·理赔",
@@ -71,13 +71,13 @@ def parse_raw_skill(raw_skill: str) -> Optional[Dict[str, str]]:
         skill['trigger'] = "通用知识查询"
     return skill
 
-def normalize_skills_tags(skills: List[Dict[str, str]]) -> dict[str, str]:
+def normalize_skills_tags(skills: List[Dict[str, str]]) -> Dict[str, str]:
     """
     批量归一化所有 Skill 的 domain 标签。
 
     返回原始 → 归一化的映射表。
     """
-    tag_map: dict[str, str] = {}
+    tag_map: Dict[str, str] = {}
     for skill in skills:
         ori = skill.get('domain', '')
         norm = DOMAIN_SYNONYMS.get(ori.lower(), ori)
