@@ -331,7 +331,7 @@ def pdf_ocr_file(args):
     name_cn = ''
     if args.clean:
         full_text = clean_md_llm(full_text, args)
-        name_cn = trans_title(args.fname[:-4], args)
+        name_cn = trans_title(name, args)
         full_text = f'# {name_cn}\n\n{full_text}'
 
     print(f'[7] 修正目录')
@@ -344,7 +344,6 @@ def pdf_ocr_file(args):
     open(md_fname, 'w', encoding='utf8').write(full_text)
     if args.mkdir:
         print(f'[8] 写入 README.md')
-        name = args.fname[:-4]
         if not name_cn:
             name_cn = trans_title(name, args)
         readme = README_TMPL.replace('{name}', name).replace('{name_cn}', name_cn)
