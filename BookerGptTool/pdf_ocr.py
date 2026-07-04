@@ -190,8 +190,10 @@ def pdf_ocr_file(args):
         print('请提供PDF文件')
         return
     
-    slug = to_kebab(args.fname[:-4])
-    pj_dir = slug if args.mkdir else '.'
+    name = path.basename(args.fname)[:-4]
+    dir = path.dirname(args.fname)
+    slug = to_kebab(name)
+    pj_dir = path.join(dir, slug) if args.mkdir else dir
     os.makedirs(pj_dir, exist_ok=True)
     md_fname = (
         path.join(pj_dir, f'{slug}.md')
