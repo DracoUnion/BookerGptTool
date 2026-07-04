@@ -1,4 +1,5 @@
 from flask import Flask, request as req, jsonify, Response
+import json
 import traceback
 import yaml
 import requests
@@ -29,7 +30,7 @@ def forward(args):
         url = key['base_url'] + '/chat/completions'
         logger.info(f'url: {url}')
         logger.info(f'headers: {hdrs}')
-        logger.info(f'data: {data}')
+        logger.info(f'data: {json.dumps(data)[:500]}')
         r = requests.post(
             url,
             json=data,
@@ -39,9 +40,8 @@ def forward(args):
         )
         logger.info(f'{url} {r.status_code}')
         if not stream:
-            j = r.json()
-            logger.info(f'reply: {j}')
-            return jsonify(j), r.status_code
+            logger.info(f'reply: {r.text[:500]}')
+            return jsonify(r.json()), r.status_code
         
         # 流式：使用生成器转发 SSE 事件
         def generate():
