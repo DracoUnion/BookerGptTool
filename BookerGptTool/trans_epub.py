@@ -36,7 +36,7 @@ def fix_toc(full_text, meta: Meta, args, write_callback):
             pass
     return full_text
 
-def trunc_text(text, limit=500):
+def trunc_text(text, limit=50):
     return (
         text[:limit] + '...'
         if len(text) > limit
