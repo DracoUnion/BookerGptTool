@@ -58,8 +58,8 @@ def split_chs(md, args):
                 'after': [],
             })
     for it in titles:
-        st = min(0, it['no'] - 10)
-        ed = max(len(lines) - 1, it['no'] + 10)
+        st = max(0, it['no'] - 10)
+        ed = min(len(lines) - 1, it['no'] + 10)
         for i in range(st, it['no']):
             it['before'].append(trunc_text(lines[i]))
         for i in range(it['no'] + 1, ed + 1):
