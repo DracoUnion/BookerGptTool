@@ -8,10 +8,10 @@ import yaml
 import functools
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-import json_repair as json
+import json
 from imgyaso.quant import pngquant
 from .trans_epub_pmt import *
-from .util import ask_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks, split_md_lines, ext_cont_block
+from .util import ask_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks, split_md_lines, ext_cont_block, ext_code_block
 from .fmt import fmt_zh, fmt_publisher
 from .md2skill_chunker import chunk_markdown
 from .clean_heading import clean_md_llm
@@ -36,13 +36,47 @@ def fix_toc(full_text, meta: Meta, args, write_callback):
             pass
     return full_text
 
-def split_chs(md):
+def trunc_text(text, limit=500):
+    return (
+        text[:limit] + '...'
+        if len(text) > limit
+        else text
+    )
+
+def split_chs(md, args):
     lines = md.split('\n')
+    titles = []
     in_code = False
     for i, l in enumerate(lines):
         if '```' in l:
             in_code = not in_code
-        elif not in_code and l.startswith('# ') and i != 0:
+        elif not in_code and re.search(r'^#+ ', l):
+            titles.append({
+                'no': i, 
+                'title': re.sub(r'^#+ ', '', l),
+                'before': [],
+                'after': [],
+            })
+    for it in titles:
+        st = min(0, it['no'] - 10)
+        ed = max(len(lines) - 1, it['no'] + 10)
+        for i in range(st, it['no']):
+            it['before'].append(trunc_text(lines[i]))
+        for i in range(it['no'] + 1, ed + 1):
+            it['after'].append(trunc_text(lines[i]))
+
+    ques = TOC_EXT_PMT.replace('{titles}', json.dumps(titles, ensure_ascii=False))
+    parse_output = lambda s: parse_obj_as(List[TocExtResult],
+        json.loads(ext_code_block(s))
+    )
+    res: List[TocExtResult] = ask_chatgpt_retry(
+        ques, args.model, args.temp, 
+        args.retry, args.max_tokens,
+        parse_output=parse_output,
+    )
+    title_nos = set(it['no'] for it in res if it['no'] != 0)
+    for i, l in enumerate(lines):
+        if i in title_nos:
             lines[i] = '[split/]' + l
     return '\n'.join(lines).split('[split/]')
 

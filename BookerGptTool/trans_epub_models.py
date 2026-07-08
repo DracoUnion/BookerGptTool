@@ -12,3 +12,7 @@ class Chunk(BaseModel):
     fmt: str = ''
     trans : str = ''
     toc: List[List[str]] = []
+
+class TocExtResult(BaseModel):
+    no: int
+    reason: str
