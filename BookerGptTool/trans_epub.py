@@ -74,7 +74,7 @@ def split_chs(md, args):
         args.retry, args.max_tokens,
         parse_output=parse_output,
     )
-    title_nos = set(it['no'] for it in res if it['no'] != 0)
+    title_nos = set(it.no for it in res if it.no != 0)
     for i, l in enumerate(lines):
         if i in title_nos:
             lines[i] = '[split/]' + l
