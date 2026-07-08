@@ -262,7 +262,7 @@ def trans_epub_file(args):
     if path.isfile(chs_fname):
         chs = yaml.safe_load(open(chs_fname, encoding='utf8').read())
     else:
-        chs = split_chs(md) if args.split else [md]
+        chs = split_chs(md, args) if args.split else [md]
         open(chs_fname, 'w', encoding='utf8').write(yaml.safe_dump(chs, allow_unicode=True))
     
     l = len(str(len(chs)))
