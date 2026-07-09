@@ -161,12 +161,12 @@ def get_msgs_text(msgs):
     for m in msgs[::-1]:
         cont = m.get('content')
         if isinstance(cont, str):
-            return m['content']
+            return ensure_utf8(m['content'])
         elif isinstance(cont, list):
             for it in m['content']:
                 tp = it.get('type')
                 if tp == 'text':
-                    return it['text']
+                    return ensure_utf8(it['text'])
     return ''
 
 def repl_ins_token(msgs):
@@ -219,6 +219,9 @@ def call_llm_retry(
             print(f'OpenAI retry {i+1}')
             traceback.print_exc()
             if i == retry - 1: raise ex
+
+def ensure_utf8(text: str) -> str:
+    return text.encode('utf8', 'ignore').decode('utf8', 'ignore')
 
 def call_llm(
     msgs, model_name, temp=0, 
