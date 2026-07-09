@@ -246,11 +246,7 @@ def call_llm(
         'include_reasoning': think,
         'reasoning': {"effort": "medium" if think else "none"},
         'thinking': {"type": "enabled" if think else "disabled"},
-    }
-    if think:
-        extra_body.update({
-            "reasoning_effort": "medium" if think else "none",
-        })
+    } if not openai.no_extra_body else None
 
     res = client.chat.completions.create(
         messages=msgs,
@@ -278,6 +274,7 @@ def set_openai_props(args):
     openai.base_url = args.host
     openai.user_agent = args.user_agent
     openai.stream = args.stream
+    openai.no_extra_body = args.no_extra_body
 
 def collect_stream_content(resp):
     content = []
