@@ -226,7 +226,7 @@ def call_llm(
 ):
     # 改变指令符号的形式，避免模型出错
     msgs = repl_ins_token(msgs)
-    print(f'ques: {json.dumps(get_msgs_text(msgs), ensure_ascii=False)}')
+    print(f'ques: {get_msgs_text(msgs)}')
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
@@ -266,7 +266,7 @@ def call_llm(
     # 还原指令格式
     ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
     ans = re.sub(r'<think>[\s\S]+?</think>', '', ans)
-    print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
+    print(f'ans: {ans}')
     return ans
 
 def set_openai_props(args):
