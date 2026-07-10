@@ -165,7 +165,8 @@ def trans_epub_file(args):
     meta_dir = path.join(proj_dir, 'asset')
     os.makedirs(meta_dir, exist_ok=True)
     meta_fname = path.join(meta_dir, 'meta.yaml')
-    if path.isfile(meta_fname):
+    if path.isfile(meta_fname) and \
+       path.getsize(meta_fname) != 0:
         meta = yaml.safe_load(open(meta_fname, encoding='utf8').read())
         meta = Meta(**meta)
     else:
@@ -207,7 +208,8 @@ def trans_epub_file(args):
         
     print('[4] 排版和翻译')
     chunk_fname = path.join(meta_dir, 'chunks.yaml')
-    if path.isfile(chunk_fname):
+    if path.isfile(chunk_fname) and \
+       path.getsize(chunk_fname) != 0:
         chunks = yaml.safe_load(open(chunk_fname, encoding='utf8').read())
         chunks = parse_obj_as(List[Chunk], chunks)
     else:
