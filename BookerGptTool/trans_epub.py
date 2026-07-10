@@ -177,7 +177,8 @@ def trans_epub_file(args):
 
     print('[2] 转换 html 和 md')
     html_fname = path.join(meta_dir, 'all.html')
-    if path.isfile(html_fname):
+    if path.isfile(html_fname) and \
+       path.getsize(html_fname) != 0:
         html = open(html_fname, encoding='utf8').read()
     else:
         epub = open(args.fname, 'rb').read()
@@ -186,7 +187,8 @@ def trans_epub_file(args):
         open(html_fname, 'w', encoding='utf8').write(html)
     
     md_fname = path.join(meta_dir, 'all.md')
-    if path.isfile(md_fname):
+    if path.isfile(md_fname) and \
+       path.getsize(md_fname) != 0:
         md = open(md_fname, encoding='utf8').read()
     else:
         md = tomd(html)
@@ -261,7 +263,8 @@ def trans_epub_file(args):
 
     print('[6] 分章节')
     chs_fname = path.join(meta_dir, 'chs.yaml')
-    if path.isfile(chs_fname):
+    if path.isfile(chs_fname) and \
+       path.getsize(chs_fname) != 0:
         chs = yaml.safe_load(open(chs_fname, encoding='utf8').read())
     else:
         chs = split_chs(md, args) if args.split else [md]
