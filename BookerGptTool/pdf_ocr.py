@@ -215,7 +215,8 @@ def pdf_ocr_file(args):
         else args.fname[:-4] + '.yaml'
     )
     print(f'[2] 初始化 {yaml_fname}')
-    if path.isfile(yaml_fname):
+    if path.isfile(yaml_fname) and \
+       path.getsize(yaml_fname) != 0:
         res = yaml.safe_load(open(yaml_fname, encoding='utf8').read())
         res = Meta(**res)
         pages = res.pages
