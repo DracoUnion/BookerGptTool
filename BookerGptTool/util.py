@@ -161,12 +161,12 @@ def get_msgs_text(msgs):
     for m in msgs[::-1]:
         cont = m.get('content')
         if isinstance(cont, str):
-            return ensure_utf8(m['content'])
+            return m['content']
         elif isinstance(cont, list):
             for it in m['content']:
                 tp = it.get('type')
                 if tp == 'text':
-                    return ensure_utf8(it['text'])
+                    return it['text']
     return ''
 
 def repl_ins_token(msgs):
@@ -174,12 +174,14 @@ def repl_ins_token(msgs):
     for m in msgs:
         cont = m.get('content')
         if isinstance(cont, str):
-            m['content'] = repl_ins_token_re(m['content'])
+            m['content'] = ensure_utf8(
+                repl_ins_token_re(m['content']))
         elif isinstance(cont, list):
             for it in m['content']:
                 tp = it.get('type')
                 if tp == 'text':
-                    it['text'] = repl_ins_token_re(it['text'])
+                    it['text'] = ensure_utf8(
+                        repl_ins_token_re(it['text']))
     return msgs
 
 def ask_chatgpt_retry(
