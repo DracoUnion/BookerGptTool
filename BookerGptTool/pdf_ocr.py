@@ -16,6 +16,7 @@ import cv2
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import json
+import json_repair
 from imgyaso.quant import pngquant
 from pydantic import BaseModel
 from .clean_heading import clean_md_llm
@@ -79,7 +80,7 @@ def tr_ocr_page(img, pages: List[Page], idx, args, write_callback):
     print(f'[3] 识别页码 {idx + 1}')
 
     parse_output = lambda ans: OCRResult(
-        **json.loads(ext_code_block(ans))
+        **json_repair.loads(ext_code_block(ans))
     )
     res: OCRResult = call_vlm_retry(
         img, OCR_PMT, 
