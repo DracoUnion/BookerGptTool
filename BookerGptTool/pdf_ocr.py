@@ -15,7 +15,7 @@ import functools
 import cv2
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-import json_repair as json
+import json
 from imgyaso.quant import pngquant
 from pydantic import BaseModel
 from .clean_heading import clean_md_llm
