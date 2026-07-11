@@ -447,5 +447,5 @@ def ngram_coverage(src: str, gen: str, n: int = 3) -> float:
     all_ = len(gen_set)
     return inter / all_ if all_ else 0.0
 
-ext_code_block = lambda s: re.search(r'```\w*([\s\S]+?)```', s).group(1)
-ext_cont_block = lambda s: re.search(r'\[content\]([\s\S]+?)\[/content\]', s).group(1)
+ext_code_block = lambda s: re.search(r'```\w*([\s\S]+)```', s).group(1)
+ext_cont_block = lambda s: re.search(r'\[content\]([\s\S]+)\[/content\]', s).group(1)
