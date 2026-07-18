@@ -32,7 +32,7 @@ def main():
     parser.add_argument("-m", "--model", default=openai_model, help="model name")
     parser.add_argument("-k", "--key", default=openai_key, help="OpenAI API key")
     parser.add_argument("-r", "--retry", type=int, default=1_000_000, help="times of retry")
-    parser.add_argument("-tp", "--temp", type=float, default=1e-2, help="temperature")
+    parser.add_argument("-tp", "--temp", type=float, default=1, help="temperature")
     parser.add_argument("-mt", "--max-tokens", type=int, default=None, help="max tokens")
     parser.add_argument("-H", "--host", default=openai_url, help="api host")
     parser.add_argument("--emb", default=os.environ.get('EMB_MODEL_PATH', 'moka-ai/m3e-base'), help="emb model path")
