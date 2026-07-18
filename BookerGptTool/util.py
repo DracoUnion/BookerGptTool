@@ -158,7 +158,6 @@ def call_vlm_retry(
         max_tokens=args.max_tokens,
         extra_body=args.extra_body,
         parse_output=parse_output,
-        parse_output=parse_output,
     )
 
 def get_msgs_text(msgs):
