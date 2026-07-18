@@ -44,7 +44,7 @@ def main():
     parser.add_argument("-vm", "--vmodel", default=openai_vmodel, help="vision model name")
     parser.add_argument("-ua", "--user-agent", default='claude-cli/2.1.41 (external, cli)', help="HTTP User-Agent Header")
     parser.add_argument("-st", "--stream", action='store_true' , help="stream mode")
-    parser.add_argument("-ne", "--no-extra-body", action='store_true' , help="no extra body")
+    parser.add_argument("-eb", "--extra-body", help="extra body")
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
     
