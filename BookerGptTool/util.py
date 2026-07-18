@@ -150,6 +150,7 @@ def call_vlm_retry(
     }]
     return call_llm_retry(
         msgs, model_name, 
+        retry=args.retry,
         temp=args.temp, 
         top_p=args.top_p,
         frequency_penalty=args.frequency_penalty,
@@ -196,6 +197,7 @@ def ask_chatgpt_retry(
     }]
     return call_llm_retry(
         msgs, model_name, 
+        retry=args.retry,
         temp=args.temp, 
         top_p=args.top_p,
         frequency_penalty=args.frequency_penalty,
