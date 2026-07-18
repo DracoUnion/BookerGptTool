@@ -34,7 +34,6 @@ def main():
     parser.add_argument("-r", "--retry", type=int, default=1_000_000, help="times of retry")
     parser.add_argument("--temp", type=float, default=1, help="temperature")
     parser.add_argument("-tp", "--top-p", type=float, help="top p")
-    parser.add_argument("-tk", "--top-k", type=int, help="top k")
     parser.add_argument("-fp", "--frequency-penalty", type=float, help="frequency penalty")
     parser.add_argument("-pp", "--presence-penalty", type=float, help="presence penalty")
     parser.add_argument("-mt", "--max-tokens", type=int, default=None, help="max tokens")
