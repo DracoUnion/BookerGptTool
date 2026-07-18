@@ -236,10 +236,6 @@ def call_llm(
         base_url=openai.base_url,
         api_key=openai.api_key,
         default_headers={'User-Agent': openai.user_agent},
-        http_client=httpx.Client(
-            proxies=openai.proxy,
-            transport=httpx.HTTPTransport(local_address="0.0.0.0"),
-        ),
     )
     extra_body = {
         "chat_template_kwargs": {"enable_thinking": think},
@@ -272,7 +268,6 @@ def call_llm(
 
 def set_openai_props(args):
     openai.api_key = args.key
-    openai.proxy = args.proxy
     openai.base_url = args.host
     openai.user_agent = args.user_agent
     openai.stream = args.stream
