@@ -112,7 +112,7 @@ def tr_trans(g, args, totrans_id_map, write_callback=None):
     for i in range(args.retry):
         shuffle_group(g)    
         en = '\n'.join('-   ' + en for en in g['ens'])
-        ans = openai_trans(en, args.prompt, args.model, args.temp, args.retry, args.max_tokens)
+        ans = openai_trans(en, args.prompt, args.model, args)
         zhs = re.findall(r'^\-\x20{3}(.+?)$', ans, flags=re.M)
         if len(g['ids']) == len(zhs):
             break
@@ -184,5 +184,5 @@ def trans_yaml_handle(args):
 def trans_handle(args):
     print(args)
     set_openai_props(args)
-    ans = openai_trans(args.en, args.prompt, args.model, args.temp, args.retry, args.max_tokens)
+    ans = openai_trans(args.en, args.prompt, args.model, args)
     
