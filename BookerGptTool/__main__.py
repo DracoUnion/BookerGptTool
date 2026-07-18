@@ -32,7 +32,7 @@ def main():
     parser.add_argument("-m", "--model", default=openai_model, help="model name")
     parser.add_argument("-k", "--key", default=openai_key, help="OpenAI API key")
     parser.add_argument("-r", "--retry", type=int, default=1_000_000, help="times of retry")
-    parser.add_argument("--temp", type=float, default=1, help="temperature")
+    parser.add_argument("-tm", "--temp", type=float, default=1, help="temperature")
     parser.add_argument("-tp", "--top-p", type=float, help="top p")
     parser.add_argument("-fp", "--frequency-penalty", type=float, help="frequency penalty")
     parser.add_argument("-pp", "--presence-penalty", type=float, help="presence penalty")
