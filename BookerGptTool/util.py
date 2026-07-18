@@ -214,8 +214,14 @@ def call_llm_retry(
     for i in range(retry):
         try:
             res =  call_llm(
-                msgs, model_name, temp, 
-                max_tokens, think,
+                msgs, model_name, 
+                temp=temp, 
+                top_p=top_p,
+                top_k=top_k,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                max_tokens=max_tokens,
+                extra_body=extra_body,
             )
             return (
                 parse_output(res) 
@@ -231,13 +237,12 @@ def ensure_utf8(text: str) -> str:
 
 def call_llm(
     msgs, model_name, *,
-    retry=10, temp=None, 
+    temp=None, 
     top_p=None, top_k=None,
     frequency_penalty=None,
     presence_penalty=None,
     max_tokens=None,
     extra_body=None,
-    parse_output=None,
 ):
     # 改变指令符号的形式，避免模型出错
     msgs = repl_ins_token(msgs)
