@@ -202,9 +202,13 @@ def ask_chatgpt_retry(
     )
 
 def call_llm_retry(
-    msgs, model_name, 
-    temp=0, retry=10, 
-    max_tokens=None, think=False,
+    msgs, model_name, *,
+    retry=10, temp=None, 
+    top_p=None, top_k=None,
+    frequency_penalty=None,
+    presence_penalty=None,
+    max_tokens=None,
+    extra_body=None,
     parse_output=None,
 ):
     for i in range(retry):
@@ -226,30 +230,33 @@ def ensure_utf8(text: str) -> str:
     return text.encode('utf8', 'ignore').decode('utf8', 'ignore')
 
 def call_llm(
-    msgs, model_name, temp=0, 
-    max_tokens=None, think=False
+    msgs, model_name, *,
+    retry=10, temp=None, 
+    top_p=None, top_k=None,
+    frequency_penalty=None,
+    presence_penalty=None,
+    max_tokens=None,
+    extra_body=None,
+    parse_output=None,
 ):
     # 改变指令符号的形式，避免模型出错
     msgs = repl_ins_token(msgs)
+    if isinstance(extra_body, str):
+        extra_body = json.loads(extra_body)
     print(f'ques: {json.dumps(get_msgs_text(msgs), ensure_ascii=False)}')
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
         default_headers={'User-Agent': openai.user_agent},
     )
-    extra_body = {
-        "chat_template_kwargs": {"enable_thinking": think},
-        "enable_thinking": think,
-        "think": think,
-        'include_reasoning': think,
-        'reasoning': {"effort": "medium" if think else "none"},
-        'thinking': {"type": "enabled" if think else "disabled"},
-    } if not openai.no_extra_body else None
-
     res = client.chat.completions.create(
         messages=msgs,
         model=model_name,
         temperature=temp,
+        top_p=top_p,
+        top_k=top_k,
+        frequency_penalty=frequency_penalty,
+        presence_penalty=presence_penalty,
         max_tokens=max_tokens,
         extra_body=extra_body,
         stream=openai.stream,
