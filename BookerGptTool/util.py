@@ -271,7 +271,6 @@ def set_openai_props(args):
     openai.base_url = args.host
     openai.user_agent = args.user_agent
     openai.stream = args.stream
-    openai.no_extra_body = args.no_extra_body
 
 def collect_stream_content(resp):
     content = []
