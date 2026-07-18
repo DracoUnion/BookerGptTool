@@ -37,7 +37,6 @@ def main():
     parser.add_argument("-tk", "--top-k", type=int, help="top k")
     parser.add_argument("-fp", "--frequency-penalty", type=float, help="frequency penalty")
     parser.add_argument("-pp", "--presence-penalty", type=float, help="presence penalty")
-    parser.add_argument("-rp", "--repetition-penalty", type=float, help="repetition penalty")
     parser.add_argument("-mt", "--max-tokens", type=int, default=None, help="max tokens")
     parser.add_argument("-H", "--host", default=openai_url, help="api host")
     parser.add_argument("--emb", default=os.environ.get('EMB_MODEL_PATH', 'moka-ai/m3e-base'), help="emb model path")

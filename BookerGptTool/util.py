@@ -132,9 +132,7 @@ def fix_lists(ans):
     return ans
 
 def call_vlm_retry(
-    img, ques, model_name, 
-    temp=0, retry=10, 
-    max_tokens=None, think=False,
+    img, ques, model_name, args,
     parse_output=None,
 ):
     img_base64 = base64.b64encode(img).decode('ascii')
@@ -152,9 +150,15 @@ def call_vlm_retry(
     }]
     return call_llm_retry(
         msgs, model_name, 
-        temp, retry, 
-        max_tokens, think,
-        parse_output,
+        temp=args.temp, 
+        top_p=args.top_p,
+        top_k=args.top_k,
+        frequency_penalty=args.frequency_penalty,
+        presence_penalty=args.presence_penalty,
+        max_tokens=args.max_tokens,
+        extra_body=args.extra_body,
+        parse_output=parse_output,
+        parse_output=parse_output,
     )
 
 def get_msgs_text(msgs):
@@ -185,9 +189,7 @@ def repl_ins_token(msgs):
     return msgs
 
 def ask_chatgpt_retry(
-    ques, model_name, 
-    temp=0, retry=10, 
-    max_tokens=None, think=False,
+    ques, model_name, args,
     parse_output=None,
 ):
     msgs = [{
@@ -196,9 +198,14 @@ def ask_chatgpt_retry(
     }]
     return call_llm_retry(
         msgs, model_name, 
-        temp, retry, 
-        max_tokens, think,
-        parse_output,
+        temp=args.temp, 
+        top_p=args.top_p,
+        top_k=args.top_k,
+        frequency_penalty=args.frequency_penalty,
+        presence_penalty=args.presence_penalty,
+        max_tokens=args.max_tokens,
+        extra_body=args.extra_body,
+        parse_output=parse_output,
     )
 
 def call_llm_retry(
