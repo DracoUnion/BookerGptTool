@@ -24,7 +24,7 @@ def fix_toc(full_text, meta: Meta, args, write_callback):
     else:
         toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
         ques = TOC_PMT.replace('{text}', '\n'.join(toc))
-        ans =  ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans =  ask_chatgpt_retry(ques, args.model, args)
         toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
         meta.toc = toc
         write_callback()
@@ -70,8 +70,7 @@ def split_chs(md, args):
         json.loads(ext_code_block(s))
     )
     res: List[TocExtResult] = ask_chatgpt_retry(
-        ques, args.model, args.temp, 
-        args.retry, args.max_tokens,
+        ques, args.model, args, 
         parse_output=parse_output,
     )
     title_nos = set(it.no for it in res if it.no != 0)
@@ -88,8 +87,7 @@ def tr_fmt_trans(chunks: List[Chunk], idx, args, write_callback):
     if not fmt:
         ques = FMT_PMT.replace('{text}', raw)
         fmt = ask_chatgpt_retry(
-            ques, args.model, args.temp, 
-            args.retry, args.max_tokens,
+            ques, args.model, args, 
             parse_output=ext_cont_block,
         )
         chunks[idx].fmt = fmt
@@ -97,8 +95,7 @@ def tr_fmt_trans(chunks: List[Chunk], idx, args, write_callback):
     if not trans:
         ques = TRANS_BODY_PMT.replace('{text}', fmt)
         trans = ask_chatgpt_retry(
-            ques, args.model, args.temp, 
-            args.retry, args.max_tokens,
+            ques, args.model, args, 
             parse_output=ext_cont_block,
         )
         chunks[idx].trans = fmt_zh(trans)
@@ -171,7 +168,7 @@ def trans_epub_file(args):
         meta = Meta(**meta)
     else:
         ques = TRANS_TITLE_PMT.replace('{text}', name)
-        name_cn = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        name_cn = ask_chatgpt_retry(ques, args.model, args)
         meta = Meta(name=name, slug=slug, name_cn=name_cn)
         open(meta_fname, 'w', encoding='utf8').write(yaml.safe_dump(meta.dict()))
 

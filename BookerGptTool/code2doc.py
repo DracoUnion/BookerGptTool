@@ -84,8 +84,7 @@ def process_file(args):
         **json.loads(ext_code_block(s))
     )
     ovvw: OverviewResult = ask_chatgpt_retry(
-        ques, args.model, args.temp, 
-        args.retry, args.max_tokens,
+        ques, args.model, args, 
         parse_output=parse_output,
     )
     desc = ovvw.desc
@@ -106,8 +105,7 @@ def process_file(args):
         **json.loads(ext_code_block(s))
     )
     jvars: VarFieldExtResult = ask_chatgpt_retry(
-        ques, args.model, args.temp, 
-        args.retry, args.max_tokens,
+        ques, args.model, args, 
         parse_output=parse_output,
     )
     vars_flds_md = build_vars_flds_md(jvars)
@@ -125,8 +123,7 @@ def process_file(args):
         ques = FUNC_MTD_EXT_PMT.replace('{code}', code) \
             .replace('{func}', func_name)
         ans = ask_chatgpt_retry(
-            ques, args.model, args.temp, 
-            args.retry, args.max_tokens,
+            ques, args.model, args, 
             parse_output=ext_cont_block,
         )
         func_md_dict[func_name] = ans
@@ -138,24 +135,21 @@ def process_file(args):
     print(f'[4] 分析关键组件')
     ques = KEY_CMPN_PMT.replace('{code}', code)
     key_comp = ask_chatgpt_retry(
-        ques, args.model, args.temp, 
-        args.retry, args.max_tokens,
+        ques, args.model, args,
         parse_output=ext_cont_block,
     )
     
     print(f'[5] 分析改机建议')
     ques = ADVC_PMT.replace('{code}', code)
     advc = ask_chatgpt_retry(
-        ques, args.model, args.temp, 
-        args.retry, args.max_tokens,
+        ques, args.model, args,
         parse_output=ext_cont_block,
     )
 
     print(f'[6] 其它')
     ques = ETC_PMT.replace('{code}', code)
     etc = ask_chatgpt_retry(
-        ques, args.model, args.temp, 
-        args.retry, args.max_tokens,
+        ques, args.model, args,
         parse_output=ext_cont_block,
     )
 

@@ -72,8 +72,7 @@ def check_details(details: List[Detail], code_desc: List[CodeDescItemResult], fn
             List[Detail], json_repair.loads(ext_code_block(s))
         )
         details: List[Detail] = ask_chatgpt_retry(
-            ques, args.model, args.temp, 
-            args.retry, args.max_tokens,
+            ques, args.model, args, 
             parse_output=parse_output,
         )
         sorted(details, key=lambda it: it.no)
@@ -108,8 +107,7 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
         .replace('{code}', code_str) \
         .replace('{i}', str(idx + 1))
     body = ask_chatgpt_retry(
-        ques, args.model, args.temp, 
-        args.retry, args.max_tokens,
+        ques, args.model, args, 
         parse_output=ext_cont_block,
     )
     bodies[idx] = body
@@ -119,8 +117,7 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
     for _ in range(args.check):
         ques = BODY_CHK_PMT.replace('{body}', body)
         cmt = ask_chatgpt_retry(
-            ques, args.model, args.temp, 
-            args.retry, args.max_tokens,
+            ques, args.model, args, 
             parse_output=ext_cont_block,
         )
         if "[PERFECT/]" in cmt:
@@ -133,8 +130,7 @@ def tr_gen_body(outline_chs, details, idx, bodies, fname, args):
             .replace('{comment}', cmt) \
             .replace('{code}', code_str)
         body = ask_chatgpt_retry(
-            ques, args.model, args.temp, 
-            args.retry, args.max_tokens,
+            ques, args.model, args, 
             parse_output=ext_cont_block,
         )
         bodies[idx] = body
@@ -163,8 +159,7 @@ def tr_gen_detail(outline_chs: List[OutlineChapterResult], idx, details: List[De
         **json_repair.loads(ext_code_block(s))
     )
     detail: SrcAnlsDetailResult = ask_chatgpt_retry(
-        ques, args.model, args.temp, 
-        args.retry, args.max_tokens,
+        ques, args.model, args, 
         parse_output=parse_output,
     )
     details[idx] = Detail(**details[idx], **detail.dict())
@@ -178,8 +173,7 @@ def tr_gen_detail(outline_chs: List[OutlineChapterResult], idx, details: List[De
         **json_repair.loads(ext_code_block(s))
     )
     spec_detail: RestDetailResult = ask_chatgpt_retry(
-        ques, args.model, args.temp, 
-        args.retry, args.max_tokens,
+        ques, args.model, args, 
         parse_output=parse_output,
     )
     details[idx] = Detail(**details[idx], **spec_detail.dict())
@@ -196,8 +190,7 @@ def gen_outline(fnames, code_desc: List[CodeDescItemResult], args) -> OutlineRes
         **json_repair.loads(ext_code_block(s))
     )
     outline: OutlineResult = ask_chatgpt_retry(
-        ques, args.model, args.temp, 
-        args.retry, args.max_tokens,
+        ques, args.model, args, 
         parse_output=parse_output,
     )
     
@@ -221,8 +214,7 @@ def gen_outline(fnames, code_desc: List[CodeDescItemResult], args) -> OutlineRes
             .replace('{readme}', readme) \
             .replace('{rest_fnames}', '\n'.join(rest_fnames))
         outline = ask_chatgpt_retry(
-            ques, args.model, args.temp, 
-            args.retry, args.max_tokens,
+            ques, args.model, args, 
             parse_output=parse_output,
         )
 
@@ -239,8 +231,7 @@ def tr_gen_code_desc(res: List[CodeDescItemResult], idx, args, write_callback):
         **json_repair.loads(ext_code_block(s))
     )
     descs: ClsFuncExtResult = ask_chatgpt_retry(
-        ques, args.model, args.temp, 
-        args.retry, args.max_tokens,
+        ques, args.model, args, 
         parse_output=parse_output,
     )
     res[idx] = CodeDescItemResult(file=fname, **descs.dict())

@@ -154,19 +154,19 @@ if (condVar > someVal) {console.log("xxx")}
 def tr_fmt_group_multi(text, res, idx, args):
     for i in range(args.round):
         ques = CRTC_PMT.replace('{text}', text)
-        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args)
         crtc = ans.replace('[content]', '').replace('[/content]', '').strip()
         if '[TEXT_PERFECT/]' in crtc:
             res[idx] = text
             break
         ques = FIX_PMT.replace('{text}', text).replace('{crtc}', crtc)
-        ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans = ask_chatgpt_retry(ques, args.model, args)
         text = ans.replace('[content]', '').replace('[/content]', '').strip()
         res[idx] = text
 
 def tr_fmt_group(text, res, idx, args):
     ques = FMT_PMT.replace('{text}', text)
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args)
     ans = ans.replace('[content]', '').replace('[/content]', '')
     res[idx] = ans
 

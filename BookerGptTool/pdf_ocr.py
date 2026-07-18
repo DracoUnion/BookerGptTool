@@ -85,9 +85,8 @@ def tr_ocr_page(img, pages: List[Page], idx, args, write_callback):
     res: OCRResult = call_vlm_retry(
         img, OCR_PMT, 
         model_name=args.vmodel, 
-        temp=args.temp, 
-        retry=args.retry, 
-        max_tokens=args.max_tokens, parse_output=parse_output,
+        args=args, 
+        parse_output=parse_output,
     )
     pages[idx].md = ocr_res2md(res)
     write_callback()
@@ -101,7 +100,7 @@ def tr_merge_group(groups: List[Group], idx, args, write_callback):
 
     ques = MERGE_PMT.replace('{prev}', prev) \
         .replace('{next}', next)
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args)
     merge = ans.replace('```', '').strip()
     groups[idx].merge = int(merge == 'true')
     write_callback()
@@ -131,16 +130,14 @@ def tr_group_page(groups: List[Group], idx, args, write_callback):
     print(f'[5] 处理页面合并 {idx}')
     text = '\n\n'.join(groups[idx].raw)
     ques = POSTPROC_PMT.replace('{text}', text)
-    ans = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    ans = ask_chatgpt_retry(ques, args.model, args)
     groups[idx].md = ans
     write_callback()
     if args.trans:
         ques = TRANS_BODY_PMT.replace(
             '{text}', groups[idx].md)
         ans = ask_chatgpt_retry(
-            ques, args.model, 
-            args.temp, args.retry, 
-            args.max_tokens,
+            ques, args.model, args,
             parse_output=ext_cont_block,
         )
         groups[idx].mdcn = ans
@@ -368,7 +365,7 @@ def fix_toc(full_text, res: Meta, args, write_callback):
     else:
         toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
         ques = TOC_PMT.replace('{text}', '\n'.join(toc))
-        ans =  ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+        ans =  ask_chatgpt_retry(ques, args.model, args)
         toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
         res.toc = toc
         write_callback()
@@ -394,5 +391,5 @@ def mkgroups(pages: List[Page], args) -> List[Group]:
 
 def trans_title(title, args):
     ques = TRANS_TITLE_PMT.replace('{text}', title)
-    title_cn = ask_chatgpt_retry(ques, args.model, args.temp, args.retry, args.max_tokens)
+    title_cn = ask_chatgpt_retry(ques, args.model, args)
     return title_cn

@@ -62,8 +62,7 @@ def clean_md_llm(md, args, nlines=3000):
         **json_repair.loads(ext_code_block(s))
     )
     res: CleanHeadingResult = ask_chatgpt_retry(
-        ques, args.model, args.temp, 
-        args.retry, args.max_tokens,
+        ques, args.model, args, 
         parse_output=parse_output,
     )
 
