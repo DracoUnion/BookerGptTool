@@ -40,3 +40,11 @@ class FusionOutput(BaseModel):
     divergence_points: List[DivergencePoint]
     rating_distribution: Dict[str, int]
     merged_risks: List[str]
+
+
+class OrchestratorResult(BaseModel):
+    """多报告协调器的完整输出"""
+    fused_data: FusionOutput
+    bull_history: List[str]
+    bear_history: List[str]
+    final_verdict: str

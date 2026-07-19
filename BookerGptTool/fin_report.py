@@ -13,6 +13,7 @@ from .fin_report_models import (
     ResearcherOutput,
     DivergencePoint,
     FusionOutput,
+    OrchestratorResult,
 )
 
 from .fin_report_pmt import (
@@ -255,7 +256,7 @@ class MultiReportOrchestrator:
         self.bear = BearAgent(api_base, api_key, model, temperature=0.7, retry=retry, stream=stream)
         self.judge = JudgeAgent(api_base, api_key, model, temperature=0.2, retry=retry, stream=stream)
 
-    def process(self, reports: List[str]) -> Dict[str, Any]:
+    def process(self, reports: List[str]) -> OrchestratorResult:
         """
         处理多份研报，返回最终裁决报告和中间结果。
         """
@@ -292,12 +293,12 @@ class MultiReportOrchestrator:
         logger.info("生成最终裁决...")
         final_verdict = self.judge.judge(fused_data, bull_history, bear_history)
 
-        return {
-            "fused_data": fused_data.model_dump(),
-            "bull_history": bull_history,
-            "bear_history": bear_history,
-            "final_verdict": final_verdict
-        }
+        return OrchestratorResult(
+            fused_data=fused_data,
+            bull_history=bull_history,
+            bear_history=bear_history,
+            final_verdict=final_verdict,
+        )
 
     def _parallel_extract(self, reports: List[str]) -> List[ResearcherOutput]:
         """使用线程池并行提取"""
@@ -361,4 +362,4 @@ def fin_report_handle(args):
     print("\n" + "="*60)
     print("📊 最终裁决报告")
     print("="*60)
-    print(result["final_verdict"])
+    print(result.final_verdict)
