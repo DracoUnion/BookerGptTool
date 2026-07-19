@@ -62,6 +62,7 @@ class BaseAgent:
         ]
         for attempt in range(1, self.retry + 1):
             try:
+                logger.info(f'ques: {user_prompt}')
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
@@ -69,6 +70,7 @@ class BaseAgent:
                     max_tokens=max_tokens or self.max_tokens,
                 )
                 oup = response.choices[0].message.content
+                logger.info(f"ans: {oup}")
                 if parse_output:
                     oup = parse_output(oup)
                 return oup
@@ -334,7 +336,7 @@ def fin_report_handle(args):
         return
 
     reports = [
-        read_pdf_text(open(f, 'rb'))
+        read_pdf_text(open(f, 'rb').read())
         for f in fnames
     ]
 
