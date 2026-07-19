@@ -70,6 +70,7 @@ class BaseAgent:
                     messages=messages,
                     temperature=self.temperature,
                     max_tokens=max_tokens or self.max_tokens,
+                    stream=self.stream,
                 )
                 oup = collect_stream_content(response) \
                     if self.stream \
