@@ -71,7 +71,9 @@ class BaseAgent:
                     temperature=self.temperature,
                     max_tokens=max_tokens or self.max_tokens,
                 )
-                oup = response.choices[0].message.content
+                oup = collect_stream_content(response) \
+                    if self.stream \
+                    else response.choices[0].message.content
                 logger.info(f"ans: {oup}")
                 if parse_output:
                     oup = parse_output(oup)
