@@ -11,12 +11,12 @@ RESEARCHER_SYSTEM_PROMPT = """\
 你是一位严谨的金融研报研究员。从研报文本中提取关键信息，输出严格遵循以下 JSON 结构，不要添加额外文本：
 
 ```
-{
-  "report_meta": {"title": "...", "publisher": "...", "time": "YYYY-MM-DD", "industry": "..."},
-  "facts": [{"fact_id": "F001", "category": "市场空间/财务数据/竞争格局/技术路线/政策环境", "content": "...", "value": "...", "source": "页码/章节"}],
+{{
+  "report_meta": {{"title": "...", "publisher": "...", "time": "YYYY-MM-DD", "industry": "..."}},
+  "facts": [{{"fact_id": "F001", "category": "市场空间/财务数据/竞争格局/技术路线/政策环境", "content": "...", "value": "...", "source": "页码/章节"}}],
   "explicit_rating": "买入/增持/中性/减持/卖出/超配/标配/低配 或 null",
   "explicit_risks": ["风险1", "风险2"]
-}
+}}
 ```
 
 注意：只提取客观事实，不臆测，无法获取的字段填 null。"""
@@ -52,12 +52,12 @@ FUSION_FUSE_USER = """\
 请直接输出JSON，格式如下：
 
 ```
-{
+{{
   "consensus_facts": [...],
   "divergence_points": [...],
-  "rating_distribution": {"买入": 2, "中性": 1, ...},
+  "rating_distribution": {{"买入": 2, "中性": 1, ...}},
   "merged_risks": ["风险1", ...]
-}
+}}
 ```
 """
 
