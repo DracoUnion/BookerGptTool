@@ -10,7 +10,7 @@ import time
 from typing import List, Dict, Any, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
-from .util import ext_code_block, ext_cont_block, collect_stream_content
+from .util import ext_code_block, ext_cont_block, collect_stream_content, call_llm_retry, set_openai_props
 
 from .fin_report_pmt import (
     RESEARCHER_SYSTEM_PROMPT,
@@ -48,7 +48,6 @@ class BaseAgent:
     def __init__(self, api_base: str, api_key: str, model: str,
                  temperature: float = 0.0, max_tokens: int = 2000, 
                  retry: int = 3, stream: bool = False,):
-        self.client = OpenAI(base_url=api_base, api_key=api_key)
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -62,31 +61,13 @@ class BaseAgent:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        for attempt in range(1, self.retry + 1):
-            try:
-                logger.info(f'ques: {json.dumps(user_prompt, ensure_ascii=False)}')
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    temperature=self.temperature,
-                    max_tokens=max_tokens or self.max_tokens,
-                    stream=self.stream,
-                )
-                oup = collect_stream_content(response) \
-                    if self.stream \
-                    else response.choices[0].message.content
-                logger.info(f"ans: {json.dumps(oup, ensure_ascii=False)}")
-                if parse_output:
-                    oup = parse_output(oup)
-                return oup
-            except Exception as e:
-                logger.warning(f"{self.__class__.__name__} 第 {attempt}/{self.retry} 次调用失败: {e}")
-                if attempt < self.retry:
-                    wait = 2 ** attempt  # 指数退避: 2s, 4s, 8s ...
-                    logger.info(f"{self.__class__.__name__} {wait}s 后重试...")
-                    time.sleep(wait)
-                else:
-                    raise
+        return call_llm_retry(
+            messages, self.model,
+            retry=self.retry,
+            temp=self.temperature,
+            max_tokens=max_tokens or self.max_tokens,
+            parse_output=parse_output,
+        )
 
 
 # ===================== 1. 研究员 Agent (单份提取) =====================
@@ -330,7 +311,8 @@ class MultiReportOrchestrator:
 
 
 def fin_report_handle(args):
-
+    print(args)
+    set_openai_props(args)
     if path.isfile(args.fname):
         fnames = [args.fname]
     else:
