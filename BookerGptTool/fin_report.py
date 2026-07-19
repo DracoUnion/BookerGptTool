@@ -326,6 +326,16 @@ class MultiReportOrchestrator:
 def fin_report_handle(args):
     print(args)
     set_openai_props(args)
+
+    ofname = (
+        args.fname[:-4] + 'final_verdict.md'
+        if path.isfile(args.fname)
+        else path.join(args.fname, 'final_verdict.md')
+    )
+    if path.isfile(ofname):
+        print('PDF 已处理')
+        return
+
     if path.isfile(args.fname):
         fnames = [args.fname]
     else:
@@ -363,3 +373,5 @@ def fin_report_handle(args):
     print("📊 最终裁决报告")
     print("="*60)
     print(result.final_verdict)
+
+    open(ofname, 'w', encoding='utf8').write(result.final_verdict)
