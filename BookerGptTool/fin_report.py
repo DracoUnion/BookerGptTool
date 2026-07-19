@@ -64,7 +64,7 @@ class BaseAgent:
         ]
         for attempt in range(1, self.retry + 1):
             try:
-                logger.info(f'ques: {user_prompt}')
+                logger.info(f'ques: {json.dumps(user_prompt, ensure_ascii=False)}')
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
@@ -75,7 +75,7 @@ class BaseAgent:
                 oup = collect_stream_content(response) \
                     if self.stream \
                     else response.choices[0].message.content
-                logger.info(f"ans: {oup}")
+                logger.info(f"ans: {json.dumps(oup, ensure_ascii=False)}")
                 if parse_output:
                     oup = parse_output(oup)
                 return oup
