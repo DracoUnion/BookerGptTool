@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
@@ -43,31 +44,57 @@ def safe_json_parse(text: str) -> dict:
         return {}
 
 
-# ===================== 1. 研究员 Agent (单份提取) =====================
-class ResearcherAgent:
-    """单份研报提取，返回结构化 JSON"""
+# ===================== 基类 =====================
+class BaseAgent:
+    """所有智能体的基类，封装通用的初始化和 LLM 调用逻辑"""
 
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.0, max_tokens: int = 2000):
+    def __init__(self, api_base: str, api_key: str, model: str,
+                 temperature: float = 0.0, max_tokens: int = 2000, retry: int = 3):
         self.client = OpenAI(base_url=api_base, api_key=api_key)
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.retry = retry
 
+    def _call(self, system_prompt: str, user_prompt: str,
+              max_tokens: Optional[int] = None) -> str:
+        """调用 LLM，返回原始文本响应，失败时自动重试"""
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        for attempt in range(1, self.retry + 1):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=max_tokens or self.max_tokens,
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                logger.warning(f"{self.__class__.__name__} 第 {attempt}/{self.retry} 次调用失败: {e}")
+                if attempt < self.retry:
+                    wait = 2 ** attempt  # 指数退避: 2s, 4s, 8s ...
+                    logger.info(f"{self.__class__.__name__} {wait}s 后重试...")
+                    time.sleep(wait)
+        logger.error(f"{self.__class__.__name__} {self.retry} 次调用均失败")
+        return ""
+
+
+# ===================== 1. 研究员 Agent (单份提取) =====================
+class ResearcherAgent(BaseAgent):
+    """单份研报提取，返回结构化 JSON"""
+
+    def __init__(self, api_base: str, api_key: str, model: str,
+                 temperature: float = 0.0, max_tokens: int = 2000):
+        super().__init__(api_base, api_key, model, temperature, max_tokens)
         self.system_prompt = RESEARCHER_SYSTEM_PROMPT
 
     def extract(self, report_text: str) -> Dict[str, Any]:
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": RESEARCHER_EXTRACT_USER.format(report_text=report_text)}
-        ]
+        user_prompt = RESEARCHER_EXTRACT_USER.format(report_text=report_text)
+        raw = self._call(self.system_prompt, user_prompt)
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens
-            )
-            raw = response.choices[0].message.content
             cleaned = clean_json(raw)
             result = json.loads(cleaned)
             if "report_meta" not in result or "facts" not in result:
@@ -75,18 +102,15 @@ class ResearcherAgent:
             return result
         except Exception as e:
             logger.error(f"提取失败: {e}")
-            # 返回空结构以便下游处理
             return {"report_meta": {}, "facts": [], "explicit_rating": None, "explicit_risks": []}
 
 
 # ===================== 2. 融合仲裁官 (合并多份结果) =====================
-class FusionAgent:
+class FusionAgent(BaseAgent):
     """合并多份研报的提取结果，生成共识、分歧、评级分布、风险并集"""
 
     def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.0):
-        self.client = OpenAI(base_url=api_base, api_key=api_key)
-        self.model = model
-        self.temperature = temperature
+        super().__init__(api_base, api_key, model, temperature, max_tokens=3000)
 
     def fuse(self, extraction_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         # 收集所有事实、评级、风险
@@ -112,23 +136,9 @@ class FusionAgent:
 
         # 用 LLM 进行智能合并
         facts_json = json.dumps(all_facts, ensure_ascii=False, indent=2)
-        prompt = FUSION_FUSE_USER.format(facts_json=facts_json)
-        messages = [
-            {"role": "system", "content": FUSION_SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
-        ]
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-                max_tokens=3000
-            )
-            raw = response.choices[0].message.content
-            fused = safe_json_parse(raw)
-        except Exception as e:
-            logger.error(f"融合LLM调用失败: {e}")
-            fused = {}
+        user_prompt = FUSION_FUSE_USER.format(facts_json=facts_json)
+        raw = self._call(FUSION_SYSTEM_PROMPT, user_prompt)
+        fused = safe_json_parse(raw) if raw else {}
 
         # 确保字段存在
         fused.setdefault("consensus_facts", all_facts)  # 降级：全部作为共识
@@ -139,95 +149,55 @@ class FusionAgent:
 
 
 # ===================== 3. 多方与空方 Agent =====================
-class BullAgent:
+class BullAgent(BaseAgent):
     """生成看多立场，并能够反驳对方"""
 
     def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7):
-        self.client = OpenAI(base_url=api_base, api_key=api_key)
-        self.model = model
-        self.temperature = temperature
-
-    def _call(self, prompt: str) -> str:
-        messages = [
-            {"role": "system", "content": BULL_SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
-        ]
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-                max_tokens=2000
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            logger.error(f"BullAgent 调用失败: {e}")
-            return ""
+        super().__init__(api_base, api_key, model, temperature)
 
     def generate_initial(self, fused_data: Dict[str, Any]) -> str:
-        prompt = BULL_INITIAL_USER.format(
+        user_prompt = BULL_INITIAL_USER.format(
             consensus_facts=json.dumps(fused_data.get('consensus_facts', []), ensure_ascii=False, indent=2),
             divergence_points=json.dumps(fused_data.get('divergence_points', []), ensure_ascii=False, indent=2),
             rating_distribution=fused_data.get('rating_distribution', {}),
             merged_risks=fused_data.get('merged_risks', []),
         )
-        return self._call(prompt)
+        return self._call(BULL_SYSTEM_PROMPT, user_prompt)
 
     def rebut(self, fused_data: Dict[str, Any], opponent_argument: str) -> str:
-        prompt = BULL_REBUT_USER.format(opponent_argument=opponent_argument)
-        return self._call(prompt)
+        user_prompt = BULL_REBUT_USER.format(opponent_argument=opponent_argument)
+        return self._call(BULL_SYSTEM_PROMPT, user_prompt)
 
 
-class BearAgent:
+class BearAgent(BaseAgent):
     """生成看空立场，并能够反驳对方"""
 
     def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7):
-        self.client = OpenAI(base_url=api_base, api_key=api_key)
-        self.model = model
-        self.temperature = temperature
-
-    def _call(self, prompt: str) -> str:
-        messages = [
-            {"role": "system", "content": BEAR_SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
-        ]
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-                max_tokens=2000
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            logger.error(f"BearAgent 调用失败: {e}")
-            return ""
+        super().__init__(api_base, api_key, model, temperature)
 
     def generate_initial(self, fused_data: Dict[str, Any]) -> str:
-        prompt = BEAR_INITIAL_USER.format(
+        user_prompt = BEAR_INITIAL_USER.format(
             consensus_facts=json.dumps(fused_data.get('consensus_facts', []), ensure_ascii=False, indent=2),
             divergence_points=json.dumps(fused_data.get('divergence_points', []), ensure_ascii=False, indent=2),
             rating_distribution=fused_data.get('rating_distribution', {}),
             merged_risks=fused_data.get('merged_risks', []),
         )
-        return self._call(prompt)
+        return self._call(BEAR_SYSTEM_PROMPT, user_prompt)
 
     def rebut(self, fused_data: Dict[str, Any], opponent_argument: str) -> str:
-        prompt = BEAR_REBUT_USER.format(opponent_argument=opponent_argument)
-        return self._call(prompt)
+        user_prompt = BEAR_REBUT_USER.format(opponent_argument=opponent_argument)
+        return self._call(BEAR_SYSTEM_PROMPT, user_prompt)
 
 
 # ===================== 4. 裁判 Agent =====================
-class JudgeAgent:
+class JudgeAgent(BaseAgent):
     """综合所有辩论，给出最终裁决"""
 
     def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.2):
-        self.client = OpenAI(base_url=api_base, api_key=api_key)
-        self.model = model
-        self.temperature = temperature
+        super().__init__(api_base, api_key, model, temperature, max_tokens=3000)
 
     def judge(self, fused_data: Dict[str, Any], bull_history: List[str], bear_history: List[str]) -> str:
-        prompt = JUDGE_USER.format(
+        user_prompt = JUDGE_USER.format(
             consensus_facts=json.dumps(fused_data.get('consensus_facts', []), ensure_ascii=False, indent=2),
             divergence_points=json.dumps(fused_data.get('divergence_points', []), ensure_ascii=False, indent=2),
             rating_distribution=fused_data.get('rating_distribution', {}),
@@ -235,21 +205,8 @@ class JudgeAgent:
             bull_history=chr(10).join(bull_history),
             bear_history=chr(10).join(bear_history),
         )
-        messages = [
-            {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
-        ]
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-                max_tokens=3000
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            logger.error(f"JudgeAgent 调用失败: {e}")
-            return "裁决失败，请检查API配置。"
+        raw = self._call(JUDGE_SYSTEM_PROMPT, user_prompt)
+        return raw if raw else "裁决失败，请检查API配置。"
 
 
 # ===================== 5. 协调器 (Orchestrator) =====================
