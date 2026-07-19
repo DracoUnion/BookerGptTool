@@ -313,7 +313,12 @@ class MultiReportOrchestrator:
                 except Exception as e:
                     logger.error(f"研报 {idx+1} 提取失败: {e}")
                     # 填充空结果以保持数量一致
-                    results.append(ResearcherOutput())
+                    results.append(ResearcherOutput(
+                        report_meta=ReportMeta(title=None, publisher=None, time=None, industry=None),
+                        facts=[],
+                        explicit_rating=None,
+                        explicit_risks=[],
+                    ))
         return results
 
 
