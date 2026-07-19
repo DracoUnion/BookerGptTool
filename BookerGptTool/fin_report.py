@@ -10,7 +10,7 @@ import time
 from typing import List, Dict, Any, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
-from .util import ext_code_block, ext_cont_block
+from .util import ext_code_block, ext_cont_block, collect_stream_content
 
 from .fin_report_pmt import (
     RESEARCHER_SYSTEM_PROMPT,
@@ -46,12 +46,14 @@ class BaseAgent:
     """所有智能体的基类，封装通用的初始化和 LLM 调用逻辑"""
 
     def __init__(self, api_base: str, api_key: str, model: str,
-                 temperature: float = 0.0, max_tokens: int = 2000, retry: int = 3):
+                 temperature: float = 0.0, max_tokens: int = 2000, 
+                 retry: int = 3, stream: bool = False,):
         self.client = OpenAI(base_url=api_base, api_key=api_key)
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.retry = retry
+        self.stream = stream
 
     def _call(self, system_prompt: str, user_prompt: str,
               max_tokens: Optional[int] = None, parse_output: Callable = None) -> str:
@@ -88,9 +90,8 @@ class BaseAgent:
 class ResearcherAgent(BaseAgent):
     """单份研报提取，返回结构化 JSON"""
 
-    def __init__(self, api_base: str, api_key: str, model: str,
-                 temperature: float = 0.0, max_tokens: int = 2000):
-        super().__init__(api_base, api_key, model, temperature, max_tokens)
+    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
+        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
         self.system_prompt = RESEARCHER_SYSTEM_PROMPT
 
     def extract(self, report_text: str) -> Dict[str, Any]:
@@ -106,8 +107,8 @@ class ResearcherAgent(BaseAgent):
 class FusionAgent(BaseAgent):
     """合并多份研报的提取结果，生成共识、分歧、评级分布、风险并集"""
 
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.0):
-        super().__init__(api_base, api_key, model, temperature, max_tokens=3000)
+    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
+        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
     def fuse(self, extraction_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         # 收集所有事实、评级、风险
@@ -151,8 +152,8 @@ class FusionAgent(BaseAgent):
 class BullAgent(BaseAgent):
     """生成看多立场，并能够反驳对方"""
 
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7):
-        super().__init__(api_base, api_key, model, temperature)
+    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
+        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
     def generate_initial(self, fused_data: Dict[str, Any]) -> str:
         user_prompt = BULL_INITIAL_USER.format(
@@ -177,8 +178,8 @@ class BullAgent(BaseAgent):
 class BearAgent(BaseAgent):
     """生成看空立场，并能够反驳对方"""
 
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7):
-        super().__init__(api_base, api_key, model, temperature)
+    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
+        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
     def generate_initial(self, fused_data: Dict[str, Any]) -> str:
         user_prompt = BEAR_INITIAL_USER.format(
@@ -204,8 +205,8 @@ class BearAgent(BaseAgent):
 class JudgeAgent(BaseAgent):
     """综合所有辩论，给出最终裁决"""
 
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.2):
-        super().__init__(api_base, api_key, model, temperature, max_tokens=3000)
+    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
+        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
     def judge(self, fused_data: Dict[str, Any], bull_history: List[str], bear_history: List[str]) -> str:
         user_prompt = JUDGE_USER.format(
@@ -241,19 +242,23 @@ class MultiReportOrchestrator:
         model: str,
         debate_rounds: int = 3,
         max_workers: int = 5,
+        retry: int = 3,
+        stream: bool = False,
     ):
         self.api_base = api_base
         self.api_key = api_key
         self.model = model
         self.debate_rounds = debate_rounds
         self.max_workers = max_workers
+        self.retry = retry
+        self.stream = stream
 
         # 初始化各个Agent
-        self.researcher = ResearcherAgent(api_base, api_key, model, temperature=0.0)
-        self.fusion = FusionAgent(api_base, api_key, model, temperature=0.1)
-        self.bull = BullAgent(api_base, api_key, model, temperature=0.7)
-        self.bear = BearAgent(api_base, api_key, model, temperature=0.7)
-        self.judge = JudgeAgent(api_base, api_key, model, temperature=0.2)
+        self.researcher = ResearcherAgent(api_base, api_key, model, temperature=0.0, retry=retry, stream=stream)
+        self.fusion = FusionAgent(api_base, api_key, model, temperature=0.1, retry=retry, stream=stream)
+        self.bull = BullAgent(api_base, api_key, model, temperature=0.7, retry=retry, stream=stream)
+        self.bear = BearAgent(api_base, api_key, model, temperature=0.7, retry=retry, stream=stream)
+        self.judge = JudgeAgent(api_base, api_key, model, temperature=0.2, retry=retry, stream=stream)
 
     def process(self, reports: List[str]) -> Dict[str, Any]:
         """
