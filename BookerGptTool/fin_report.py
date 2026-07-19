@@ -353,6 +353,8 @@ def fin_report_handle(args):
         model=args.model,
         debate_rounds=args.rounds,
         max_workers=args.threads,
+        retry=args.retry,
+        stream=args.stream,
     )
 
     result = orchestrator.process(reports)
