@@ -3,6 +3,7 @@ import sys
 import os
 from . import __version__
 from .trans import *
+from .fin_report import *
 from .code2doc import *
 from .code2book import *
 from .shengcai import *
@@ -192,6 +193,13 @@ def main():
     forward_parser.add_argument("-rt", "--read-timeout", type=int, default=600, help="")
     forward_parser.add_argument("-D", "--debug", action='store_true', help="")
     forward_parser.set_defaults(func=forward)
+
+    fin_report_parser = subparsers.add_parser("fin-report", help="translate epub")
+    fin_report_parser.add_argument("fname", help="epub file name")
+    fin_report_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    fin_report_parser.add_argument("-r", "--rounds", type=int, default=3, help="debate rounds")
+    fin_report_parser.set_defaults(func=fin_report_handle)
+
 
     args = parser.parse_args()
     args.func(args)
