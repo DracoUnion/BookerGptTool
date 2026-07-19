@@ -99,9 +99,11 @@ class ResearcherAgent(BaseAgent):
 
     def extract(self, report_text: str) -> Dict[str, Any]:
         user_prompt = RESEARCHER_EXTRACT_USER.format(report_text=report_text)
+        parse_output = lambda s: \
+            json.dumps(ext_code_block(s))
         res = self._call(
             self.system_prompt, user_prompt,
-            parse_output=ext_code_block,
+            parse_output=parse_output,
         )
         return res
 
