@@ -6,8 +6,9 @@ import time
 from typing import List, Dict, Any, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
+from .util import ext_code_block, ext_cont_block
 
-from fin_report_pmt import (
+from .fin_report_pmt import (
     RESEARCHER_SYSTEM_PROMPT,
     RESEARCHER_EXTRACT_USER,
     FUSION_SYSTEM_PROMPT,
@@ -96,16 +97,11 @@ class ResearcherAgent(BaseAgent):
 
     def extract(self, report_text: str) -> Dict[str, Any]:
         user_prompt = RESEARCHER_EXTRACT_USER.format(report_text=report_text)
-        raw = self._call(self.system_prompt, user_prompt)
-        try:
-            cleaned = clean_json(raw)
-            result = json.loads(cleaned)
-            if "report_meta" not in result or "facts" not in result:
-                raise ValueError("缺少必要字段")
-            return result
-        except Exception as e:
-            logger.error(f"提取失败: {e}")
-            return {"report_meta": {}, "facts": [], "explicit_rating": None, "explicit_risks": []}
+        res = self._call(
+            self.system_prompt, user_prompt,
+            parse_output=ext_code_block,
+        )
+        return res
 
 
 # ===================== 2. 融合仲裁官 (合并多份结果) =====================
@@ -165,11 +161,17 @@ class BullAgent(BaseAgent):
             rating_distribution=fused_data.get('rating_distribution', {}),
             merged_risks=fused_data.get('merged_risks', []),
         )
-        return self._call(BULL_SYSTEM_PROMPT, user_prompt)
+        return self._call(
+            BULL_SYSTEM_PROMPT, user_prompt,
+            parse_output=ext_cont_block,
+        )
 
     def rebut(self, fused_data: Dict[str, Any], opponent_argument: str) -> str:
         user_prompt = BULL_REBUT_USER.format(opponent_argument=opponent_argument)
-        return self._call(BULL_SYSTEM_PROMPT, user_prompt)
+        return self._call(
+            BULL_SYSTEM_PROMPT, user_prompt,
+            parse_output=ext_cont_block,
+        )
 
 
 class BearAgent(BaseAgent):
@@ -185,11 +187,17 @@ class BearAgent(BaseAgent):
             rating_distribution=fused_data.get('rating_distribution', {}),
             merged_risks=fused_data.get('merged_risks', []),
         )
-        return self._call(BEAR_SYSTEM_PROMPT, user_prompt)
+        return self._call(
+            BEAR_SYSTEM_PROMPT, user_prompt,
+            parse_output=ext_cont_block,
+        )
 
     def rebut(self, fused_data: Dict[str, Any], opponent_argument: str) -> str:
         user_prompt = BEAR_REBUT_USER.format(opponent_argument=opponent_argument)
-        return self._call(BEAR_SYSTEM_PROMPT, user_prompt)
+        return self._call(
+            BEAR_SYSTEM_PROMPT, user_prompt,
+            parse_output=ext_cont_block,
+        )
 
 
 # ===================== 4. 裁判 Agent =====================
@@ -208,7 +216,10 @@ class JudgeAgent(BaseAgent):
             bull_history=chr(10).join(bull_history),
             bear_history=chr(10).join(bear_history),
         )
-        raw = self._call(JUDGE_SYSTEM_PROMPT, user_prompt)
+        raw = self._call(
+            JUDGE_SYSTEM_PROMPT, user_prompt,
+            parse_output=ext_cont_block,
+        )
         return raw if raw else "裁决失败，请检查API配置。"
 
 
