@@ -2,15 +2,18 @@ from io import BytesIO
 import fitz
 from os import path
 import os
-import asyncio
 import json
 import logging
-import re
-import time
 from typing import List, Dict, Any, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from openai import OpenAI
-from .util import ext_code_block, ext_cont_block, collect_stream_content, call_llm_retry, set_openai_props
+from .util import ext_code_block, ext_cont_block, call_llm_retry, set_openai_props
+from .fin_report_models import (
+    ReportMeta,
+    Fact,
+    ResearcherOutput,
+    DivergencePoint,
+    FusionOutput,
+)
 
 from .fin_report_pmt import (
     RESEARCHER_SYSTEM_PROMPT,
@@ -81,10 +84,10 @@ class ResearcherAgent(BaseAgent):
         super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
         self.system_prompt = RESEARCHER_SYSTEM_PROMPT
 
-    def extract(self, report_text: str) -> Dict[str, Any]:
+    def extract(self, report_text: str) -> ResearcherOutput:
         user_prompt = RESEARCHER_EXTRACT_USER.format(report_text=report_text)
         parse_output = lambda s: \
-            json.loads(ext_code_block(s))
+            ResearcherOutput.model_validate_json(ext_code_block(s))
         res = self._call(
             self.system_prompt, user_prompt,
             parse_output=parse_output,
@@ -99,43 +102,44 @@ class FusionAgent(BaseAgent):
     def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
         super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
-    def fuse(self, extraction_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def fuse(self, extraction_results: List[ResearcherOutput]) -> FusionOutput:
         # 收集所有事实、评级、风险
         all_facts = []
         rating_list = []
         risk_set = set()
         for res in extraction_results:
-            all_facts.extend(res.get("facts", []))
-            rating = res.get("explicit_rating")
+            all_facts.extend(res.facts)
+            rating = res.explicit_rating
             if rating and rating != "null":
                 rating_list.append(rating)
-            risks = res.get("explicit_risks", [])
-            risk_set.update(risks)
+            risk_set.update(res.explicit_risks)
 
         # 如果没有事实，直接返回空融合
         if not all_facts:
-            return {
-                "consensus_facts": [],
-                "divergence_points": [],
-                "rating_distribution": {},
-                "merged_risks": list(risk_set)
-            }
+            return FusionOutput(
+                consensus_facts=[],
+                divergence_points=[],
+                rating_distribution={},
+                merged_risks=list(risk_set),
+            )
 
         # 用 LLM 进行智能合并
-        facts_json = json.dumps(all_facts, ensure_ascii=False, indent=2)
+        facts_json = json.dumps([f.model_dump() for f in all_facts], ensure_ascii=False, indent=2)
         user_prompt = FUSION_FUSE_USER.format(facts_json=facts_json)
         parse_output = lambda s: \
-            json.loads(ext_code_block(s))
+            FusionOutput.model_validate_json(ext_code_block(s))
         fused = self._call(
             FUSION_SYSTEM_PROMPT, user_prompt,
             parse_output=parse_output,
         )
 
         # 确保字段存在
-        fused.setdefault("consensus_facts", all_facts)  # 降级：全部作为共识
-        fused.setdefault("divergence_points", [])
-        fused.setdefault("rating_distribution", {r: rating_list.count(r) for r in set(rating_list)})
-        fused.setdefault("merged_risks", list(risk_set))
+        if not fused.consensus_facts:
+            fused.consensus_facts = all_facts  # 降级：全部作为共识
+        if not fused.rating_distribution:
+            fused.rating_distribution = {r: rating_list.count(r) for r in set(rating_list)}
+        if not fused.merged_risks:
+            fused.merged_risks = list(risk_set)
         return fused
 
 
@@ -146,19 +150,19 @@ class BullAgent(BaseAgent):
     def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
         super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
-    def generate_initial(self, fused_data: Dict[str, Any]) -> str:
+    def generate_initial(self, fused_data: FusionOutput) -> str:
         user_prompt = BULL_INITIAL_USER.format(
-            consensus_facts=json.dumps(fused_data.get('consensus_facts', []), ensure_ascii=False, indent=2),
-            divergence_points=json.dumps(fused_data.get('divergence_points', []), ensure_ascii=False, indent=2),
-            rating_distribution=fused_data.get('rating_distribution', {}),
-            merged_risks=fused_data.get('merged_risks', []),
+            consensus_facts=json.dumps([f.model_dump() for f in fused_data.consensus_facts], ensure_ascii=False, indent=2),
+            divergence_points=json.dumps([d.model_dump() for d in fused_data.divergence_points], ensure_ascii=False, indent=2),
+            rating_distribution=fused_data.rating_distribution,
+            merged_risks=fused_data.merged_risks,
         )
         return self._call(
             BULL_SYSTEM_PROMPT, user_prompt,
             parse_output=ext_cont_block,
         )
 
-    def rebut(self, fused_data: Dict[str, Any], opponent_argument: str) -> str:
+    def rebut(self, fused_data: FusionOutput, opponent_argument: str) -> str:
         user_prompt = BULL_REBUT_USER.format(opponent_argument=opponent_argument)
         return self._call(
             BULL_SYSTEM_PROMPT, user_prompt,
@@ -172,19 +176,19 @@ class BearAgent(BaseAgent):
     def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
         super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
-    def generate_initial(self, fused_data: Dict[str, Any]) -> str:
+    def generate_initial(self, fused_data: FusionOutput) -> str:
         user_prompt = BEAR_INITIAL_USER.format(
-            consensus_facts=json.dumps(fused_data.get('consensus_facts', []), ensure_ascii=False, indent=2),
-            divergence_points=json.dumps(fused_data.get('divergence_points', []), ensure_ascii=False, indent=2),
-            rating_distribution=fused_data.get('rating_distribution', {}),
-            merged_risks=fused_data.get('merged_risks', []),
+            consensus_facts=json.dumps([f.model_dump() for f in fused_data.consensus_facts], ensure_ascii=False, indent=2),
+            divergence_points=json.dumps([d.model_dump() for d in fused_data.divergence_points], ensure_ascii=False, indent=2),
+            rating_distribution=fused_data.rating_distribution,
+            merged_risks=fused_data.merged_risks,
         )
         return self._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
             parse_output=ext_cont_block,
         )
 
-    def rebut(self, fused_data: Dict[str, Any], opponent_argument: str) -> str:
+    def rebut(self, fused_data: FusionOutput, opponent_argument: str) -> str:
         user_prompt = BEAR_REBUT_USER.format(opponent_argument=opponent_argument)
         return self._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
@@ -199,12 +203,12 @@ class JudgeAgent(BaseAgent):
     def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
         super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
-    def judge(self, fused_data: Dict[str, Any], bull_history: List[str], bear_history: List[str]) -> str:
+    def judge(self, fused_data: FusionOutput, bull_history: List[str], bear_history: List[str]) -> str:
         user_prompt = JUDGE_USER.format(
-            consensus_facts=json.dumps(fused_data.get('consensus_facts', []), ensure_ascii=False, indent=2),
-            divergence_points=json.dumps(fused_data.get('divergence_points', []), ensure_ascii=False, indent=2),
-            rating_distribution=fused_data.get('rating_distribution', {}),
-            merged_risks=fused_data.get('merged_risks', []),
+            consensus_facts=json.dumps([f.model_dump() for f in fused_data.consensus_facts], ensure_ascii=False, indent=2),
+            divergence_points=json.dumps([d.model_dump() for d in fused_data.divergence_points], ensure_ascii=False, indent=2),
+            rating_distribution=fused_data.rating_distribution,
+            merged_risks=fused_data.merged_risks,
             bull_history=chr(10).join(bull_history),
             bear_history=chr(10).join(bear_history),
         )
@@ -289,13 +293,13 @@ class MultiReportOrchestrator:
         final_verdict = self.judge.judge(fused_data, bull_history, bear_history)
 
         return {
-            "fused_data": fused_data,
+            "fused_data": fused_data.model_dump(),
             "bull_history": bull_history,
             "bear_history": bear_history,
             "final_verdict": final_verdict
         }
 
-    def _parallel_extract(self, reports: List[str]) -> List[Dict[str, Any]]:
+    def _parallel_extract(self, reports: List[str]) -> List[ResearcherOutput]:
         """使用线程池并行提取"""
         results = []
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
@@ -309,7 +313,7 @@ class MultiReportOrchestrator:
                 except Exception as e:
                     logger.error(f"研报 {idx+1} 提取失败: {e}")
                     # 填充空结果以保持数量一致
-                    results.append({"report_meta": {}, "facts": [], "explicit_rating": None, "explicit_risks": []})
+                    results.append(ResearcherOutput())
         return results
 
 
