@@ -140,9 +140,11 @@ class FusionAgent(BaseAgent):
         # 用 LLM 进行智能合并
         facts_json = json.dumps(all_facts, ensure_ascii=False, indent=2)
         user_prompt = FUSION_FUSE_USER.format(facts_json=facts_json)
+        parse_output = lambda s: \
+            json.loads(ext_code_block(s))
         fused = self._call(
             FUSION_SYSTEM_PROMPT, user_prompt,
-            parse_output=ext_code_block,
+            parse_output=parse_output,
         )
 
         # 确保字段存在
