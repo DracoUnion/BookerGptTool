@@ -6,6 +6,21 @@ from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 
+from fin_report_pmt import (
+    RESEARCHER_SYSTEM_PROMPT,
+    RESEARCHER_EXTRACT_USER,
+    FUSION_SYSTEM_PROMPT,
+    FUSION_FUSE_USER,
+    BULL_SYSTEM_PROMPT,
+    BULL_INITIAL_USER,
+    BULL_REBUT_USER,
+    BEAR_SYSTEM_PROMPT,
+    BEAR_INITIAL_USER,
+    BEAR_REBUT_USER,
+    JUDGE_SYSTEM_PROMPT,
+    JUDGE_USER,
+)
+
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -38,21 +53,12 @@ class ResearcherAgent:
         self.temperature = temperature
         self.max_tokens = max_tokens
 
-        self.system_prompt = """
-你是一位严谨的金融研报研究员。从研报文本中提取关键信息，输出严格遵循以下 JSON 结构，不要添加额外文本：
-{
-  "report_meta": {"title": "...", "publisher": "...", "time": "YYYY-MM-DD", "industry": "..."},
-  "facts": [{"fact_id": "F001", "category": "市场空间/财务数据/竞争格局/技术路线/政策环境", "content": "...", "value": "...", "source": "页码/章节"}],
-  "explicit_rating": "买入/增持/中性/减持/卖出/超配/标配/低配 或 null",
-  "explicit_risks": ["风险1", "风险2"]
-}
-注意：只提取客观事实，不臆测，无法获取的字段填 null。
-"""
+        self.system_prompt = RESEARCHER_SYSTEM_PROMPT
 
     def extract(self, report_text: str) -> Dict[str, Any]:
         messages = [
             {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": f"请分析以下研报全文并输出JSON：\n\n{report_text}"}
+            {"role": "user", "content": RESEARCHER_EXTRACT_USER.format(report_text=report_text)}
         ]
         try:
             response = self.client.chat.completions.create(
@@ -106,30 +112,9 @@ class FusionAgent:
 
         # 用 LLM 进行智能合并
         facts_json = json.dumps(all_facts, ensure_ascii=False, indent=2)
-        prompt = f"""
-你是一位客观的金融信息融合专家。给定多份研报提取的事实列表（可能包含重复或矛盾），请完成以下任务：
-
-1. 识别出所有机构公认的**共识事实**（内容相同或高度相似，去重后保留最完整表述），输出为 consensus_facts 列表（格式与事实相同）。
-2. 识别出**分歧点**（对同一主题的不同判断），输出为 divergence_points 列表，每个元素包含：
-   - topic: 分歧主题
-   - bull_view: 乐观方的观点及引用的事实ID（如有）
-   - bear_view: 悲观方的观点及引用的事实ID（如有）
-3. 统计评级分布：rating_distribution 字典。
-4. 合并所有风险：merged_risks 列表（去重）。
-
-输入事实列表：
-{facts_json}
-
-请直接输出JSON，格式如下：
-{{
-  "consensus_facts": [...],
-  "divergence_points": [...],
-  "rating_distribution": {{"买入": 2, "中性": 1, ...}},
-  "merged_risks": ["风险1", ...]
-}}
-"""
+        prompt = FUSION_FUSE_USER.format(facts_json=facts_json)
         messages = [
-            {"role": "system", "content": "你是一个数据融合助手，只输出JSON。"},
+            {"role": "system", "content": FUSION_SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ]
         try:
@@ -164,7 +149,7 @@ class BullAgent:
 
     def _call(self, prompt: str) -> str:
         messages = [
-            {"role": "system", "content": "你是一个专业的投资分析师。"},
+            {"role": "system", "content": BULL_SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ]
         try:
@@ -180,29 +165,16 @@ class BullAgent:
             return ""
 
     def generate_initial(self, fused_data: Dict[str, Any]) -> str:
-        prompt = f"""
-你是一位乐观的买方基金经理。基于以下融合数据生成看多立场报告。
-数据：
-共识事实：{json.dumps(fused_data.get('consensus_facts', []), ensure_ascii=False, indent=2)}
-分歧点：{json.dumps(fused_data.get('divergence_points', []), ensure_ascii=False, indent=2)}
-评级分布：{fused_data.get('rating_distribution', {})}
-风险列表：{fused_data.get('merged_risks', [])}
-
-请输出"多方立场 (Bull Case)"，包含：
-1. 核心结论
-2. 支撑论据（每条引用事实ID或共识事实内容）
-3. 对风险的反驳（说明为何这些风险可控或已price-in）
-"""
+        prompt = BULL_INITIAL_USER.format(
+            consensus_facts=json.dumps(fused_data.get('consensus_facts', []), ensure_ascii=False, indent=2),
+            divergence_points=json.dumps(fused_data.get('divergence_points', []), ensure_ascii=False, indent=2),
+            rating_distribution=fused_data.get('rating_distribution', {}),
+            merged_risks=fused_data.get('merged_risks', []),
+        )
         return self._call(prompt)
 
     def rebut(self, fused_data: Dict[str, Any], opponent_argument: str) -> str:
-        prompt = f"""
-你是一位乐观的买方基金经理。对方（空方）提出了以下论点：
-{opponent_argument}
-
-基于融合数据（同上），请针对对方论点进行逐条反驳，同时加强自己的看多立场。
-输出"多方反驳"报告。
-"""
+        prompt = BULL_REBUT_USER.format(opponent_argument=opponent_argument)
         return self._call(prompt)
 
 
@@ -216,7 +188,7 @@ class BearAgent:
 
     def _call(self, prompt: str) -> str:
         messages = [
-            {"role": "system", "content": "你是一个谨慎的风险分析师。"},
+            {"role": "system", "content": BEAR_SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ]
         try:
@@ -232,29 +204,16 @@ class BearAgent:
             return ""
 
     def generate_initial(self, fused_data: Dict[str, Any]) -> str:
-        prompt = f"""
-你是一位谨慎的风控专家。基于以下融合数据生成看空立场报告。
-数据：
-共识事实：{json.dumps(fused_data.get('consensus_facts', []), ensure_ascii=False, indent=2)}
-分歧点：{json.dumps(fused_data.get('divergence_points', []), ensure_ascii=False, indent=2)}
-评级分布：{fused_data.get('rating_distribution', {})}
-风险列表：{fused_data.get('merged_risks', [])}
-
-请输出"空方立场 (Bear Case)"，包含：
-1. 核心顾虑
-2. 风险论据（引用事实ID，指出乐观方忽略的盲区）
-3. 对乐观预期的质疑（为何可能无法实现）
-"""
+        prompt = BEAR_INITIAL_USER.format(
+            consensus_facts=json.dumps(fused_data.get('consensus_facts', []), ensure_ascii=False, indent=2),
+            divergence_points=json.dumps(fused_data.get('divergence_points', []), ensure_ascii=False, indent=2),
+            rating_distribution=fused_data.get('rating_distribution', {}),
+            merged_risks=fused_data.get('merged_risks', []),
+        )
         return self._call(prompt)
 
     def rebut(self, fused_data: Dict[str, Any], opponent_argument: str) -> str:
-        prompt = f"""
-你是一位谨慎的风控专家。对方（多方）提出了以下论点：
-{opponent_argument}
-
-请针对对方论点进行逐条反驳，指出其假设的脆弱性或数据解读的片面性，同时加强自己的看空立场。
-输出"空方反驳"报告。
-"""
+        prompt = BEAR_REBUT_USER.format(opponent_argument=opponent_argument)
         return self._call(prompt)
 
 
@@ -268,31 +227,16 @@ class JudgeAgent:
         self.temperature = temperature
 
     def judge(self, fused_data: Dict[str, Any], bull_history: List[str], bear_history: List[str]) -> str:
-        prompt = f"""
-你是一位经验丰富的首席投资官。请基于以下所有材料，做出最终投资裁决。
-
-融合数据：
-共识事实：{json.dumps(fused_data.get('consensus_facts', []), ensure_ascii=False, indent=2)}
-分歧点：{json.dumps(fused_data.get('divergence_points', []), ensure_ascii=False, indent=2)}
-评级分布：{fused_data.get('rating_distribution', {})}
-风险列表：{fused_data.get('merged_risks', [])}
-
-多方全部发言：
-{chr(10).join(bull_history)}
-
-空方全部发言：
-{chr(10).join(bear_history)}
-
-请输出最终投资裁决报告，格式如下：
-### 📊 最终投资裁决报告
-**1. 综合评级：【买入/增持/中性/减持/卖出】**
-**2. 核心投资逻辑：**（基于事实，200字内）
-**3. 关键假设与催化剂：**（何种情况下观点升级或下调）
-**4. 主要风险（空方观点的有效保留）：**（列出）
-**5. 与原始研报评级的一致性：**（一致/修正/逆转及理由）
-"""
+        prompt = JUDGE_USER.format(
+            consensus_facts=json.dumps(fused_data.get('consensus_facts', []), ensure_ascii=False, indent=2),
+            divergence_points=json.dumps(fused_data.get('divergence_points', []), ensure_ascii=False, indent=2),
+            rating_distribution=fused_data.get('rating_distribution', {}),
+            merged_risks=fused_data.get('merged_risks', []),
+            bull_history=chr(10).join(bull_history),
+            bear_history=chr(10).join(bear_history),
+        )
         messages = [
-            {"role": "system", "content": "你是一个客观、理性的首席投资官。"},
+            {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ]
         try:
