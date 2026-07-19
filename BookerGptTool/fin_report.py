@@ -3,7 +3,7 @@ import json
 import logging
 import re
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 
@@ -57,7 +57,7 @@ class BaseAgent:
         self.retry = retry
 
     def _call(self, system_prompt: str, user_prompt: str,
-              max_tokens: Optional[int] = None) -> str:
+              max_tokens: Optional[int] = None, parse_output: Callable = None) -> str:
         """调用 LLM，返回原始文本响应，失败时自动重试"""
         messages = [
             {"role": "system", "content": system_prompt},
@@ -71,15 +71,18 @@ class BaseAgent:
                     temperature=self.temperature,
                     max_tokens=max_tokens or self.max_tokens,
                 )
-                return response.choices[0].message.content
+                oup = response.choices[0].message.content
+                if parse_output:
+                    oup = parse_output(oup)
+                return oup
             except Exception as e:
                 logger.warning(f"{self.__class__.__name__} 第 {attempt}/{self.retry} 次调用失败: {e}")
                 if attempt < self.retry:
                     wait = 2 ** attempt  # 指数退避: 2s, 4s, 8s ...
                     logger.info(f"{self.__class__.__name__} {wait}s 后重试...")
                     time.sleep(wait)
-        logger.error(f"{self.__class__.__name__} {self.retry} 次调用均失败")
-        return ""
+                else:
+                    raise
 
 
 # ===================== 1. 研究员 Agent (单份提取) =====================
