@@ -1,3 +1,7 @@
+from io import BytesIO
+import fitz
+from os import path
+import os
 import asyncio
 import json
 import logging
@@ -29,20 +33,12 @@ logger = logging.getLogger(__name__)
 
 
 # ===================== 工具函数 =====================
-def clean_json(text: str) -> str:
-    """移除 Markdown 代码块标记，提取 JSON"""
-    pattern = r"```(?:json)?\s*(\{.*?\})\s*```"
-    m = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-    return m.group(1) if m else text
-
-
-def safe_json_parse(text: str) -> dict:
-    """安全解析 JSON，失败时返回空字典"""
-    try:
-        return json.loads(clean_json(text))
-    except json.JSONDecodeError:
-        logger.error(f"JSON 解析失败，原始内容: {text[:200]}...")
-        return {}
+def read_pdf_text(data):
+    pdf: fitz.Document = fitz.open('pdf', BytesIO(data))
+    cont = '\n\n'.join([
+        pg.get_text() for pg in pdf
+    ])
+    return cont
 
 
 # ===================== 基类 =====================
@@ -136,8 +132,10 @@ class FusionAgent(BaseAgent):
         # 用 LLM 进行智能合并
         facts_json = json.dumps(all_facts, ensure_ascii=False, indent=2)
         user_prompt = FUSION_FUSE_USER.format(facts_json=facts_json)
-        raw = self._call(FUSION_SYSTEM_PROMPT, user_prompt)
-        fused = safe_json_parse(raw) if raw else {}
+        fused = self._call(
+            FUSION_SYSTEM_PROMPT, user_prompt,
+            parse_output=ext_code_block,
+        )
 
         # 确保字段存在
         fused.setdefault("consensus_facts", all_facts)  # 降级：全部作为共识
@@ -317,47 +315,35 @@ class MultiReportOrchestrator:
         return results
 
 
-# ===================== 使用示例 =====================
-if __name__ == "__main__":
-    # 配置你的 API（支持自定义 base_url）
-    API_BASE = "http://localhost:8000/v1"   # 替换为你的地址
-    API_KEY = "sk-xxx"
-    MODEL = "Qwen/Qwen2.5-7B-Instruct"
+def fin_report_handle(args):
 
-    # 模拟多份研报文本（实际从文件读取）
-    report1 = """
-    报告名称：2026年新能源汽车行业深度
-    发布机构：中信证券
-    发布时间：2026-07-15
-    2025年全球新能源汽车销量1800万辆，同比+35%。预计2026年突破2400万辆。
-    评级：强于大市。
-    风险：欧美贸易政策、碳酸锂价格波动。
-    """
-    report2 = """
-    报告名称：新能源汽车2026年中展望
-    发布机构：华泰证券
-    发布时间：2026-07-10
-    2025年全球新能源车销量1820万辆，增长34%。预计2026年2350万辆，渗透率27%。
-    评级：增持。
-    风险：技术路线切换、竞争加剧。
-    """
-    report3 = """
-    报告名称：新能源车行业风险警示
-    发布机构：海通证券
-    发布时间：2026-06-28
-    指出当前估值偏高，销量增速可能放缓至20%以下。
-    评级：中性。
-    风险：补贴退坡、库存高企。
-    """
+    if path.isfile(args.fname):
+        fnames = [args.fname]
+    else:
+        fnames = [
+            path.join(args.fname, f)
+            for f in os.listdir(args.fname)
+        ]
 
-    reports = [report1, report2, report3]
+    fnames = [
+        f for f in fnames if f.endswith('.pdf')
+    ]
+
+    if not fnames:
+        print('请提供 PDF 文件或目录')
+        return
+
+    reports = [
+        read_pdf_text(open(f, 'rb'))
+        for f in fnames
+    ]
 
     orchestrator = MultiReportOrchestrator(
-        api_base=API_BASE,
-        api_key=API_KEY,
-        model=MODEL,
-        debate_rounds=2,
-        max_workers=3
+        api_base=args.host,
+        api_key=args.key,
+        model=args.model,
+        debate_rounds=args.rounds,
+        max_workers=args.threads,
     )
 
     result = orchestrator.process(reports)
