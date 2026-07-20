@@ -243,18 +243,35 @@ class MultiReportOrchestrator:
 
         # ---------- 第二步：融合 ----------
         logger.info("融合提取结果...")
-        fused_data = self.fusion.fuse(extraction_results)
+        fused_fname = path.join(self.proj_dir, 'fused.json')
+        if path.isfile(fused_fname):
+            fused_data = json.loads(open(fused_fname, encoding='utf8').read())
+            fused_data = FusionOutput(**fused_data)
+        else:
+            fused_data = self.fusion.fuse(extraction_results)
+            open(fused_fname, 'w', encoding='utf8') \
+                .write(fused_data.model_dump_json())
 
         # ---------- 第三步：多空初始立场 ----------
         logger.info("生成初始立场...")
-        bull_initial = self.bull.generate_initial(fused_data)
-        bear_initial = self.bear.generate_initial(fused_data)
+        his_fname = path.join(self.proj_dir, 'history.json')
+        if(path.isfile(his_fname)):
+            history = json.loads(open(his_fname, encoding='utf8').read())
+            bull_history, bear_history = history['bull'], history['bear']
+        else:
+            bull_initial = self.bull.generate_initial(fused_data)
+            bear_initial = self.bear.generate_initial(fused_data)
 
-        bull_history = [bull_initial]
-        bear_history = [bear_initial]
+            bull_history = [bull_initial]
+            bear_history = [bear_initial]
+            open(his_fname, 'w', encoding='utf8') \
+                .write(json.dumps({
+                    'bull': bull_history, 
+                    'bear': bear_history
+                }))
 
         # ---------- 第四步：多轮辩论 ----------
-        for round_idx in range(self.debate_rounds):
+        for round_idx in range(len(bull_history), self.debate_rounds):
             logger.info(f"辩论第 {round_idx+1} 轮...")
             # 空方反驳多方最新观点
             bear_rebut = self.bear.rebut(fused_data, bull_history[-1])
@@ -262,10 +279,20 @@ class MultiReportOrchestrator:
             # 多方反驳空方最新观点
             bull_rebut = self.bull.rebut(fused_data, bear_history[-1])
             bull_history.append(bull_rebut)
+            open(his_fname, 'w', encoding='utf8') \
+                .write(json.dumps({
+                    'bull': bull_history, 
+                    'bear': bear_history
+                }))
 
         # ---------- 第五步：裁决 ----------
         logger.info("生成最终裁决...")
-        final_verdict = self.judge.judge(fused_data, bull_history, bear_history)
+        final_fname = path.join(self.proj_dir, 'final.md')
+        if path.isfile(final_fname):
+            final_verdict = open(final_fname, encoding='utf8').read()
+        else:
+            final_verdict = self.judge.judge(fused_data, bull_history, bear_history)
+            open(final_fname, 'w', encoding='utf8').write(final_verdict)
 
         return OrchestratorResult(
             fused_data=fused_data,
