@@ -315,7 +315,7 @@ class MultiReportOrchestrator:
                 ResearcherOutput(
                     report_meta=ReportMeta(
                         title='', publisher='',
-                        time='', industry=''m
+                        time='', industry='',
                     ),
                     facts=[],
                     explicit_rating='',
