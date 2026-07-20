@@ -313,7 +313,10 @@ class MultiReportOrchestrator:
         else:
             results = [
                 ResearcherOutput(
-                    report_meta=ReportMeta(),
+                    report_meta=ReportMeta(
+                        title='', publisher='',
+                        time='', industry=''m
+                    ),
                     facts=[],
                     explicit_rating='',
                     explicit_risks=[],
