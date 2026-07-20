@@ -53,7 +53,7 @@ def read_pdf_text(data):
 class ResearcherAgent(BaseAgent):
     """单份研报提取，返回结构化 JSON"""
 
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
+    def __init__(self, proj_dir, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
         super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
         self.system_prompt = RESEARCHER_SYSTEM_PROMPT
 
@@ -72,7 +72,7 @@ class ResearcherAgent(BaseAgent):
 class FusionAgent(BaseAgent):
     """合并多份研报的提取结果，生成共识、分歧、评级分布、风险并集"""
 
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
+    def __init__(self, proj_dir, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
         super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
     def fuse(self, extraction_results: List[ResearcherOutput]) -> FusionOutput:
@@ -120,7 +120,7 @@ class FusionAgent(BaseAgent):
 class BullAgent(BaseAgent):
     """生成看多立场，并能够反驳对方"""
 
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
+    def __init__(self, proj_dir, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
         super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
     def generate_initial(self, fused_data: FusionOutput) -> str:
@@ -146,7 +146,7 @@ class BullAgent(BaseAgent):
 class BearAgent(BaseAgent):
     """生成看空立场，并能够反驳对方"""
 
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
+    def __init__(self, proj_dir, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
         super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
     def generate_initial(self, fused_data: FusionOutput) -> str:
@@ -173,7 +173,7 @@ class BearAgent(BaseAgent):
 class JudgeAgent(BaseAgent):
     """综合所有辩论，给出最终裁决"""
 
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
+    def __init__(self, proj_dir, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
         super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
     def judge(self, fused_data: FusionOutput, bull_history: List[str], bear_history: List[str]) -> str:
@@ -205,6 +205,7 @@ class MultiReportOrchestrator:
 
     def __init__(
         self,
+        proj_dir,
         api_base: str,
         api_key: str,
         model: str,
@@ -213,6 +214,7 @@ class MultiReportOrchestrator:
         retry: int = 3,
         stream: bool = False,
     ):
+        self.proj_dir = proj_dir
         self.api_base = api_base
         self.api_key = api_key
         self.model = model
@@ -222,11 +224,11 @@ class MultiReportOrchestrator:
         self.stream = stream
 
         # 初始化各个Agent
-        self.researcher = ResearcherAgent(api_base, api_key, model, temperature=0.0, retry=retry, stream=stream)
-        self.fusion = FusionAgent(api_base, api_key, model, temperature=0.1, retry=retry, stream=stream)
-        self.bull = BullAgent(api_base, api_key, model, temperature=0.7, retry=retry, stream=stream)
-        self.bear = BearAgent(api_base, api_key, model, temperature=0.7, retry=retry, stream=stream)
-        self.judge = JudgeAgent(api_base, api_key, model, temperature=0.2, retry=retry, stream=stream)
+        self.researcher = ResearcherAgent(proj_dir, api_base, api_key, model, temperature=0.0, retry=retry, stream=stream)
+        self.fusion = FusionAgent(proj_dir, api_base, api_key, model, temperature=0.1, retry=retry, stream=stream)
+        self.bull = BullAgent(proj_dir, api_base, api_key, model, temperature=0.7, retry=retry, stream=stream)
+        self.bear = BearAgent(proj_dir, api_base, api_key, model, temperature=0.7, retry=retry, stream=stream)
+        self.judge = JudgeAgent(proj_dir, api_base, api_key, model, temperature=0.2, retry=retry, stream=stream)
 
     def process(self, reports: List[str]) -> OrchestratorResult:
         """
@@ -323,12 +325,20 @@ def fin_report_handle(args):
         print('PDF 已处理')
         return
 
+    proj_dir = (
+        args.fname[:-4] + '_md2kg'
+        if path.isfile(args.fname) 
+        else path.join(args.fname, 'md2kg')
+    )
+    os.makedirs(proj_dir, exist_ok=True)
+
     reports = [
         read_pdf_text(open(f, 'rb').read())
         for f in fnames
     ]
 
     orchestrator = MultiReportOrchestrator(
+        proj_dir=proj_dir,
         api_base=args.host,
         api_key=args.key,
         model=args.model,
