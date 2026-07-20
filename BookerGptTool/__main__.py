@@ -196,13 +196,13 @@ def main():
     forward_parser.set_defaults(func=forward)
 
     fin_report_parser = subparsers.add_parser("fin-report", help="make financial report")
-    fin_report_parser.add_argument("fname", help="epub file name")
+    fin_report_parser.add_argument("fname", help="PDF file name")
     fin_report_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
     fin_report_parser.add_argument("-rd", "--rounds", type=int, default=3, help="debate rounds")
     fin_report_parser.set_defaults(func=fin_report_handle)
 
     md2kg_parser = subparsers.add_parser("md2kg", help="md2kg")
-    md2kg_parser.add_argument("fname", help="epub file name")
+    md2kg_parser.add_argument("fname", help="MD file name")
     md2kg_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
     md2kg_parser.set_defaults(func=md2kg_handle)
 
