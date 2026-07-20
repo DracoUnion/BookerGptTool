@@ -326,9 +326,9 @@ def fin_report_handle(args):
         return
 
     proj_dir = (
-        args.fname[:-4] + '_md2kg'
+        args.fname[:-4] + '_fin_report'
         if path.isfile(args.fname) 
-        else path.join(args.fname, 'md2kg')
+        else path.join(args.fname, 'fin_report')
     )
     os.makedirs(proj_dir, exist_ok=True)
 
