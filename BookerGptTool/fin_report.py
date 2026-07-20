@@ -299,15 +299,6 @@ def fin_report_handle(args):
     print(args)
     set_openai_props(args)
 
-    ofname = (
-        args.fname[:-4] + 'final_verdict.md'
-        if path.isfile(args.fname)
-        else path.join(args.fname, 'final_verdict.md')
-    )
-    if path.isfile(ofname):
-        print('PDF 已处理')
-        return
-
     if path.isfile(args.fname):
         fnames = [args.fname]
     else:
@@ -319,9 +310,17 @@ def fin_report_handle(args):
     fnames = [
         f for f in fnames if f.endswith('.pdf')
     ]
-
     if not fnames:
         print('请提供 PDF 文件或目录')
+        return
+
+    ofname = (
+        args.fname[:-4] + '_report.md'
+        if path.isfile(args.fname)
+        else path.join(args.fname, 'report.md')
+    )
+    if path.isfile(ofname):
+        print('PDF 已处理')
         return
 
     reports = [

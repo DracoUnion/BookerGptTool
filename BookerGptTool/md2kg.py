@@ -159,16 +159,6 @@ def md2kg_handle(args):
     print(args)
     set_openai_props(args)
 
-    # 确定输出文件路径
-    ofname = (
-        args.fname[:-3] + '_kg.md'
-        if path.isfile(args.fname)
-        else path.join(args.fname, 'kg_output.md')
-    )
-    if path.isfile(ofname):
-        print('已处理过，跳过')
-        return
-
     # 读取输入文本
     if path.isfile(args.fname):
         fnames = [args.fname]
@@ -180,6 +170,16 @@ def md2kg_handle(args):
     fnames = [f for f in fnames if f.endswith('.md')]
     if not fnames:
         print('请提供 MD 文件或目录')
+        return
+
+    # 确定输出文件路径
+    ofname = (
+        args.fname[:-3] + '.cyp'
+        if path.isfile(args.fname)
+        else path.join(args.fname, 'kg.cyp')
+    )
+    if path.isfile(ofname):
+        print('MD 已处理过，跳过')
         return
 
     text = '\n\n'.join(
