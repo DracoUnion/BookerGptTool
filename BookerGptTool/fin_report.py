@@ -4,6 +4,7 @@ from os import path
 import os
 import json
 import logging
+from pydantic import parse_obj_as
 from typing import List, Dict, Any, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from .util import ext_code_block, ext_cont_block, call_llm_retry, set_openai_props
@@ -303,15 +304,38 @@ class MultiReportOrchestrator:
 
     def _parallel_extract(self, reports: List[str]) -> List[ResearcherOutput]:
         """使用线程池并行提取"""
-        results = []
+        res_fname = path.join(self.proj_dir, 'research,json')
+        if path.isfile(res_fname):
+            results = parse_obj_as(
+                List[ResearcherOutput],
+                json.loads(open(res_fname, encoding='utf8').read())
+            )
+        else:
+            results = [
+                ResearcherOutput(
+                    report_meta=ReportMeta(),
+                    facts=[],
+                    explicit_rating='',
+                    explicit_risks=[],
+                )
+                for _ in range(len(reports))
+            ]
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_idx = {executor.submit(self.researcher.extract, text): i for i, text in enumerate(reports)}
+            future_to_idx = {
+                executor.submit(self.researcher.extract, text): i 
+                for i, text in enumerate(reports)
+                if not results[i].facts
+            }
             for future in as_completed(future_to_idx):
                 idx = future_to_idx[future]
                 try:
                     res = future.result(timeout=60)
-                    results.append(res)
+                    results[idx] = res
                     logger.info(f"研报 {idx+1} 提取成功")
+                    open(res_fname, 'w', encoding='utf8') \
+                        .write(json.dumps([
+                            it.model_dump() for it in results
+                        ]))
                 except Exception as e:
                     logger.error(f"研报 {idx+1} 提取失败: {e}")
                     # 填充空结果以保持数量一致
