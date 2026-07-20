@@ -204,6 +204,8 @@ def main():
     md2kg_parser = subparsers.add_parser("md2kg", help="md2kg")
     md2kg_parser.add_argument("fname", help="MD file name")
     md2kg_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    md2kg_parser.add_argument("-th", "--threshold", type=float, default=0.6,
+                             help="integration threshold for evaluation (default: 0.6)")
     md2kg_parser.set_defaults(func=md2kg_handle)
 
     args = parser.parse_args()

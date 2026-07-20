@@ -62,3 +62,58 @@ class ResolvedGraph(BaseModel):
     entities: List[GlobalEntity]
     relationships: List[GlobalRelation]
     resolution_log: List[str]
+
+
+class AlignedEntity(BaseModel):
+    """Schema对齐后的实体"""
+    canonical_id: str
+    name: str
+    original_type: str
+    aligned_type: str
+    is_aligned: bool
+    confidence: float
+    reason: str = ""
+
+
+class AlignedRelation(BaseModel):
+    """Schema对齐后的关系"""
+    id: str
+    source: str
+    target: str
+    original_type: str
+    aligned_type: str
+    is_aligned: bool
+    confidence: float
+    reason: str = ""
+
+
+class SchemaAlignmentResult(BaseModel):
+    """Schema对齐结果"""
+    aligned_entities: List[AlignedEntity]
+    aligned_relations: List[AlignedRelation]
+    alignment_log: List[str]
+    unaligned_count: int
+
+
+class EvaluatedTriplet(BaseModel):
+    """评估后的三元组"""
+    id: str
+    source: str
+    target: str
+    relation_type: str
+    evidence: List[str]
+    confidence_score: float
+    clarity_score: float
+    relevance_score: float
+    overall_score: float
+    should_integrate: bool
+    rejection_reason: str = ""
+
+
+class EvaluationResult(BaseModel):
+    """评估结果"""
+    triplets: List[EvaluatedTriplet]
+    accepted_count: int
+    rejected_count: int
+    average_score: float
+    evaluation_log: List[str]

@@ -10,11 +10,15 @@ from .base_agent import BaseAgent
 from .md2kg_models import (
     Entity, Relation, EntityList, RelationList,
     GlobalEntity, GlobalRelation, ResolvedGraph,
+    AlignedEntity, AlignedRelation, SchemaAlignmentResult,
+    EvaluatedTriplet, EvaluationResult,
 )
 from .md2kg_pmt import (
     ENTITY_EXTRACTOR_SYSTEM_PROMPT, ENTITY_EXTRACTOR_USER_PROMPT,
     RELATION_EXTRACTOR_SYSTEM_PROMPT, RELATION_EXTRACTOR_USER_PROMPT,
     CONFLICT_RESOLVER_SYSTEM_PROMPT, CONFLICT_RESOLVER_USER_PROMPT,
+    SCHEMA_ALIGNER_SYSTEM_PROMPT, SCHEMA_ALIGNER_USER_PROMPT,
+    EVALUATOR_SYSTEM_PROMPT, EVALUATOR_USER_PROMPT,
 )
 
 # 配置日志
@@ -75,65 +79,150 @@ class ConflictResolver(BaseAgent):
         return self._call(CONFLICT_RESOLVER_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
 
+class SchemaAligner(BaseAgent):
+    """Schema对齐智能体 - 将提取的元素映射到现有Schema"""
+
+    def __init__(self, api_base: str, api_key: str, model: str,
+                 temperature: float = 0.0, retry: int = 3, stream: bool = False):
+        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
+
+    def run(self, resolved_graph: ResolvedGraph, target_schema: Dict[str, List[str]] = None) -> SchemaAlignmentResult:
+        """
+        对齐提取的实体和关系到目标Schema
+
+        Args:
+            resolved_graph: 冲突消解后的图谱
+            target_schema: 目标Schema定义，格式如:
+                {
+                    "entity_types": ["人物", "组织", "地点", "概念", "事件", "作品", "技术", "时间"],
+                    "relation_type": ["创建", "属于", "位于", "影响", "包含", "发表"]
+                }
+        """
+        # 默认Schema类型
+        if target_schema is None:
+            target_schema = {
+                "entity_types": ["人物", "组织", "地点", "概念", "事件", "作品", "技术", "时间"],
+                "relation_type": ["创建", "属于", "位于", "影响", "包含", "发表", "研究", "使用"]
+            }
+
+        entities_json = json.dumps(
+            [{"canonical_id": e.canonical_id, "name": e.name, "type": e.type}
+             for e in resolved_graph.entities],
+            indent=2, ensure_ascii=False
+        )
+        relations_json = json.dumps(
+            [{"id": r.id, "source": r.source, "target": r.target, "relation_type": r.relation_type}
+             for r in resolved_graph.relationships],
+            indent=2, ensure_ascii=False
+        )
+
+        user_prompt = SCHEMA_ALIGNER_USER_PROMPT.format(
+            entity_types=", ".join(target_schema["entity_types"]),
+            relation_types=", ".join(target_schema["relation_type"]),
+            entities_json=entities_json,
+            relations_json=relations_json
+        )
+        parse_output = lambda s: SchemaAlignmentResult.model_validate_json(ext_code_block(s))
+        return self._call(SCHEMA_ALIGNER_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
+
+
+class EvaluatorAgent(BaseAgent):
+    """评估智能体 - 多维度质量评估"""
+
+    def __init__(self, api_base: str, api_key: str, model: str,
+                 temperature: float = 0.0, retry: int = 3, stream: bool = False):
+        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
+
+    def run(self, resolved_graph: ResolvedGraph, integration_threshold: float = 0.6) -> EvaluationResult:
+        """
+        评估三元组质量
+
+        Args:
+            resolved_graph: 冲突消解后的图谱
+            integration_threshold: 集成阈值，默认0.6
+        """
+        triplets = []
+        for rel in resolved_graph.relationships:
+            triplets.append({
+                "id": rel.id,
+                "source": rel.source,
+                "target": rel.target,
+                "relation_type": rel.relation_type,
+                "evidence": rel.evidence,
+                "confidence": rel.confidence
+            })
+
+        triplets_json = json.dumps(triplets, indent=2, ensure_ascii=False)
+        user_prompt = EVALUATOR_USER_PROMPT.format(triplets_json=triplets_json)
+        parse_output = lambda s: EvaluationResult.model_validate_json(ext_code_block(s))
+        return self._call(EVALUATOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
+
+
 # ============================================================================
 # 3. 调度协调器（Orchestrator）
 # ============================================================================
 class KnowledgeGraphOrchestrator:
-    """协调整个流程：分块 → 并行抽取 → 冲突消解 → 输出"""
+    """协调整个流程：分块 → 并行抽取 → 冲突消解 → Schema对齐 → 评估 → 输出"""
+
     def __init__(self, api_base: str, api_key: str, model: str,
-                 max_workers: int = 5, retry: int = 3, stream: bool = False):
+                 max_workers: int = 5, retry: int = 3, stream: bool = False,
+                 integration_threshold: float = 0.6):
+        """
+        Args:
+            integration_threshold: 评估集成阈值，低于此值的三元组将被拒绝
+        """
         self.max_workers = max_workers
+        self.integration_threshold = integration_threshold
+
+        # 初始化智能体
         self.entity_extractor = EntityExtractor(api_base, api_key, model, retry=retry, stream=stream)
         self.relation_extractor = RelationExtractor(api_base, api_key, model, retry=retry, stream=stream)
         self.resolver = ConflictResolver(api_base, api_key, model, retry=retry, stream=stream)
+        self.schema_aligner = SchemaAligner(api_base, api_key, model, retry=retry, stream=stream)
+        self.evaluator = EvaluatorAgent(api_base, api_key, model, retry=retry, stream=stream)
 
-    def build_graph(self, chunks: List[Dict[str, Any]]) -> ResolvedGraph:
+    def build_graph(self, chunks: List[Dict[str, Any]], target_schema: Dict[str, List[str]] = None) -> Dict[str, Any]:
         """
-        chunks: 每个元素包含 'id', 'content', 'summary' (可选)
+        构建知识图谱
+
+        Args:
+            chunks: 每个元素包含 'id', 'content', 'summary' (可选)
+            target_schema: 目标Schema定义（可选）
+
+        Returns:
+            包含完整处理结果的字典
         """
         all_entity_lists = []
         all_relation_lists = []
 
-        # ----- 阶段2：并行抽取实体和关系 -----
+        # ----- 阶段1：并行抽取实体 -----
+        logger.info("阶段1：并行抽取实体...")
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = []
             for chunk in chunks:
                 chunk_id = chunk['id']
                 content = chunk['content']
                 summary = chunk.get('summary', '')
-                # 提交实体抽取任务
                 future_entity = executor.submit(
                     self.entity_extractor.run, content, chunk_id, summary
                 )
-                futures.append(('entity', future_entity, chunk_id))
-                # 提交关系抽取任务（需要先有实体？但我们可以先抽取实体，再抽取关系？）
-                # 但是关系抽取需要实体列表，所以不能完全并行。我们采用两阶段：先抽所有实体，再抽所有关系。
-                # 但我们可以让关系抽取也独立进行，不依赖本块的实体列表（让LLM自己识别）。
-                # 为了更准确，我们先并行抽取实体，然后等全部完成后，再并行抽取关系（需实体列表）。
-                # 但我们可以调整：关系抽取也直接基于文本，但带上已有实体列表（如果有）。
-                # 为简化，我们这里先只提交实体抽取，关系抽取放在下一步。
+                futures.append((future_entity, chunk_id))
 
-            # 收集所有实体抽取结果
-            for task_type, future, cid in futures:
-                if task_type == 'entity':
-                    try:
-                        entity_list = future.result()
-                        all_entity_lists.append(entity_list)
-                    except Exception as e:
-                        logger.error(f"实体抽取失败 (chunk {cid}): {e}")
+            for future, cid in futures:
+                try:
+                    entity_list = future.result()
+                    all_entity_lists.append(entity_list)
+                except Exception as e:
+                    logger.error(f"实体抽取失败 (chunk {cid}): {e}")
 
-        # 现在有了所有实体列表，我们可以并行抽取关系（每个块使用对应的实体列表）
-        # 但为了演示，我们可以再开一轮并行。实际项目中，可以将实体列表与块绑定，但这里简化。
-        # 我们将所有实体列表合并成一个大的列表传递给关系抽取？（不，关系抽取需要每个块对应的实体）
-        # 更合理：我们在分块时就把块与实体列表关联起来。这里我们重新遍历chunks，提取对应的实体列表（按顺序）
-        # 我们假设chunks顺序与all_entity_lists顺序一致（因为提交顺序一致）
+        # ----- 阶段2：并行抽取关系 -----
+        logger.info("阶段2：并行抽取关系...")
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures_rel = []
             for idx, chunk in enumerate(chunks):
                 chunk_id = chunk['id']
                 content = chunk['content']
                 summary = chunk.get('summary', '')
-                # 获取该块对应的实体列表
                 entity_list = all_entity_lists[idx] if idx < len(all_entity_lists) else EntityList(entities=[])
                 future_rel = executor.submit(
                     self.relation_extractor.run, content, chunk_id, entity_list, summary
@@ -148,8 +237,25 @@ class KnowledgeGraphOrchestrator:
                     logger.error(f"关系抽取失败 (chunk {cid}): {e}")
 
         # ----- 阶段3：冲突消解 -----
+        logger.info("阶段3：冲突消解...")
         resolved_graph = self.resolver.run(all_entity_lists, all_relation_lists)
-        return resolved_graph
+
+        # ----- 阶段4：Schema对齐 -----
+        logger.info("阶段4：Schema对齐...")
+        schema_alignment_result = self.schema_aligner.run(resolved_graph, target_schema)
+
+        # ----- 阶段5：质量评估 -----
+        logger.info("阶段5：质量评估...")
+        evaluation_result = self.evaluator.run(resolved_graph, self.integration_threshold)
+
+        # ----- 组装最终结果 -----
+        result = {
+            "resolved_graph": resolved_graph,
+            "schema_alignment": schema_alignment_result,
+            "evaluation": evaluation_result,
+        }
+
+        return result
 
 
 # ============================================================================
@@ -203,27 +309,53 @@ def md2kg_handle(args):
     orchestrator = KnowledgeGraphOrchestrator(
         api_base=args.host, api_key=args.key, model=args.model,
         max_workers=args.threads, retry=args.retry, stream=args.stream,
+        integration_threshold=getattr(args, 'threshold', 0.6),
     )
     result = orchestrator.build_graph(chunks)
+
+    # 提取结果
+    resolved_graph = result["resolved_graph"]
+    schema_alignment = result["schema_alignment"]
+    evaluation = result["evaluation"]
 
     # 输出结果
     lines = []
     lines.append("===== 全局实体 =====\n")
-    for ent in result.entities:
+    for ent in resolved_graph.entities:
         lines.append(f"{ent.canonical_id}: {ent.name} ({ent.type}) - {ent.description}")
 
     lines.append("\n===== 全局关系 =====\n")
-    for rel in result.relationships:
+    for rel in resolved_graph.relationships:
         lines.append(f"{rel.source} --[{rel.relation_type}]--> {rel.target} : {rel.evidence}")
 
     lines.append("\n===== 消解日志 =====\n")
-    for log_entry in result.resolution_log:
+    for log_entry in resolved_graph.resolution_log:
         lines.append(log_entry)
 
+    # Schema对齐结果
+    lines.append("\n===== Schema对齐结果 =====\n")
+    lines.append(f"对齐实体数: {len(schema_alignment.aligned_entities)}")
+    lines.append(f"对齐关系数: {len(schema_alignment.aligned_relations)}")
+    lines.append(f"未对齐数: {schema_alignment.unaligned_count}")
+    for log_entry in schema_alignment.alignment_log:
+        lines.append(log_entry)
+
+    # 评估结果
+    lines.append("\n===== 质量评估结果 =====\n")
+    lines.append(f"接受三元组数: {evaluation.accepted_count}")
+    lines.append(f"拒绝三元组数: {evaluation.rejected_count}")
+    lines.append(f"平均分数: {evaluation.average_score:.2f}")
+    for log_entry in evaluation.evaluation_log:
+        lines.append(log_entry)
+
+    # 只输出通过评估的三元组
+    accepted_ids = {t.id for t in evaluation.triplets if t.should_integrate}
+    final_relations = [r for r in resolved_graph.relationships if r.id in accepted_ids]
+
     lines.append("\n===== Cypher 示例 =====\n")
-    for ent in result.entities:
+    for ent in resolved_graph.entities:
         lines.append(f"CREATE (n:{ent.type} {{id: '{ent.canonical_id}', name: '{ent.name}', description: '{ent.description}'}});")
-    for rel in result.relationships:
+    for rel in final_relations:
         lines.append(
             f"MATCH (a {{id: '{rel.source}'}}), (b {{id: '{rel.target}'}}) "
             f"CREATE (a)-[:{rel.relation_type.upper()} {{evidence: '{rel.evidence[0]}'}}]->(b);"
