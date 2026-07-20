@@ -11,6 +11,11 @@ from md2kg_models import (
     Entity, Relation, EntityList, RelationList,
     GlobalEntity, GlobalRelation, ResolvedGraph,
 )
+from md2kg_pmt import (
+    ENTITY_EXTRACTOR_SYSTEM_PROMPT, ENTITY_EXTRACTOR_USER_PROMPT,
+    RELATION_EXTRACTOR_SYSTEM_PROMPT, RELATION_EXTRACTOR_USER_PROMPT,
+    CONFLICT_RESOLVER_SYSTEM_PROMPT, CONFLICT_RESOLVER_USER_PROMPT,
+)
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -58,125 +63,37 @@ class BaseAgent:
 # ============================================================================
 class EntityExtractor(BaseAgent):
     """实体抽取智能体"""
-    SYSTEM_PROMPT = """
-你是一位知识图谱实体抽取专家。你的任务是从文本中识别所有重要实体并输出 JSON。
-
-输出格式必须严格遵循以下 JSON Schema：
-{
-  "entities": [
-    {
-      "id": "ent_001",
-      "name": "原文名称",
-      "canonical_name": "规范名称",
-      "type": "人物|组织|地点|概念|事件|作品|技术|时间",
-      "description": "简短描述",
-      "mentions": [{"chunk_id": "chunk_001", "text": "原文片段"}],
-      "confidence": 0.95
-    }
-  ]
-}
-注意：只输出 JSON，不要有其他文字。
-"""
 
     def run(self, chunk_text: str, chunk_id: str, context_summary: str = "") -> EntityList:
-        user_prompt = f"""
-文本块ID: {chunk_id}
-上下文摘要: {context_summary}
-文本内容:
-{chunk_text}
-
-请抽取其中所有重要实体。
-"""
-        return self._call_llm(self.SYSTEM_PROMPT, user_prompt, EntityList)
+        user_prompt = ENTITY_EXTRACTOR_USER_PROMPT.format(
+            chunk_id=chunk_id, context_summary=context_summary, chunk_text=chunk_text
+        )
+        return self._call_llm(ENTITY_EXTRACTOR_SYSTEM_PROMPT, user_prompt, EntityList)
 
 
 class RelationExtractor(BaseAgent):
     """关系抽取智能体"""
-    SYSTEM_PROMPT = """
-你是一位知识图谱关系抽取专家。你的任务是从文本中识别实体之间的语义关系，输出 JSON。
-
-输出格式：
-{
-  "relationships": [
-    {
-      "id": "rel_001",
-      "source_entity_id": "ent_001",
-      "source_entity_name": "张三",
-      "target_entity_id": "ent_002",
-      "target_entity_name": "相对论",
-      "relation_type": "created",
-      "relation_description": "提出了相对论",
-      "evidence": "原文句子",
-      "confidence": 0.92
-    }
-  ]
-}
-只输出 JSON。
-"""
 
     def run(self, chunk_text: str, chunk_id: str, entity_list: EntityList, context_summary: str = "") -> RelationList:
-        # 将已有实体列表传入，帮助关系抽取
         entity_context = "\n".join([f"{e.id}: {e.canonical_name} ({e.type})" for e in entity_list.entities])
-        user_prompt = f"""
-文本块ID: {chunk_id}
-上下文摘要: {context_summary}
-已知实体列表:
-{entity_context}
-
-文本内容:
-{chunk_text}
-
-请抽取实体之间的关系。
-"""
-        return self._call_llm(self.SYSTEM_PROMPT, user_prompt, RelationList)
+        user_prompt = RELATION_EXTRACTOR_USER_PROMPT.format(
+            chunk_id=chunk_id, context_summary=context_summary,
+            entity_context=entity_context, chunk_text=chunk_text
+        )
+        return self._call_llm(RELATION_EXTRACTOR_SYSTEM_PROMPT, user_prompt, RelationList)
 
 
 class ConflictResolver(BaseAgent):
     """冲突消解与全局融合智能体"""
-    SYSTEM_PROMPT = """
-你是一位知识融合专家。请合并多个文本块提取出的实体和关系，解决冲突和重复。
-
-输入为多个实体列表和关系列表，你需要：
-1. 合并同名或指向同一实体的不同表述（如"张三"与"张先生"）。
-2. 合并相同的关系（可能来自不同块），保留最完整的证据。
-3. 如果两个关系矛盾，选择置信度更高的并记录冲突。
-4. 输出全局实体列表和全局关系列表。
-
-输出格式：
-{
-  "entities": [
-    {
-      "canonical_id": "ent_global_001",
-      "name": "规范名称",
-      "type": "类型",
-      "description": "整合描述",
-      "merged_from": ["ent_001", "ent_005"],
-      "confidence": 0.95
-    }
-  ],
-  "relationships": [
-    {
-      "id": "rel_global_001",
-      "source": "ent_global_001",
-      "target": "ent_global_002",
-      "relation_type": "created",
-      "evidence": ["证据1", "证据2"],
-      "confidence": 0.93,
-      "conflicts_resolved": ["原关系 rel_003 与 rel_007 冲突，已选择较高置信度"]
-    }
-  ],
-  "resolution_log": ["操作记录"]
-}
-"""
 
     def run(self, all_entity_lists: List[EntityList], all_relation_lists: List[RelationList]) -> ResolvedGraph:
-        # 将所有抽取结果转为 JSON 字符串
         input_data = {
             "entity_lists": [el.dict() for el in all_entity_lists],
             "relation_lists": [rl.dict() for rl in all_relation_lists]
         }
-        user_prompt = f"请合并以下多个抽取结果：\n{json.dumps(input_data, indent=2, ensure_ascii=False)}"
-        return self._call_llm(self.SYSTEM_PROMPT, user_prompt, ResolvedGraph)
+        input_data_json = json.dumps(input_data, indent=2, ensure_ascii=False)
+        user_prompt = CONFLICT_RESOLVER_USER_PROMPT.format(input_data_json=input_data_json)
+        return self._call_llm(CONFLICT_RESOLVER_SYSTEM_PROMPT, user_prompt, ResolvedGraph)
 
 
 # ============================================================================
