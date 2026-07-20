@@ -1,9 +1,11 @@
 import json
 import logging
+import os
+from os import path
 from typing import List, Optional, Dict, Any, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from .util import call_llm_retry, ext_code_block
+from .util import call_llm_retry, ext_code_block, set_openai_props
 from .base_agent import BaseAgent
 from .md2kg_models import (
     Entity, Relation, EntityList, RelationList,
@@ -151,50 +153,82 @@ class KnowledgeGraphOrchestrator:
 
 
 # ============================================================================
-# 4. 使用示例
+# 4. 处理入口
 # ============================================================================
-if __name__ == "__main__":
-    import openai
-    openai.api_key = "your-api-key"
-    openai.base_url = "https://api.openai.com/v1"
+def md2kg_handle(args):
+    print(args)
+    set_openai_props(args)
 
-    # 模拟从书籍中切分出的文本块
-    sample_chunks = [
-        {
-            "id": "chunk_001",
-            "content": "张三是一位著名的物理学家，他在1905年提出了相对论。这一理论彻底改变了现代物理学。",
-            "summary": "介绍张三和相对论的提出"
-        },
-        {
-            "id": "chunk_002",
-            "content": "相对论对后来的量子力学产生了深远影响。爱因斯坦也曾对此表示赞赏。",
-            "summary": "相对论的影响"
-        }
-    ]
+    # 确定输出文件路径
+    ofname = (
+        args.fname[:-3] + '_kg.md'
+        if path.isfile(args.fname)
+        else path.join(args.fname, 'kg_output.md')
+    )
+    if path.isfile(ofname):
+        print('已处理过，跳过')
+        return
+
+    # 读取输入文本
+    if path.isfile(args.fname):
+        fnames = [args.fname]
+    elif path.isdir(args.fname):
+        fnames = [
+            path.join(args.fname, f)
+            for f in os.listdir(args.fname)
+        ]
+    fnames = [f for f in fnames if f.endswith('.md')]
+    if not fnames:
+        print('请提供 MD 文件或目录')
+        return
+
+    text = '\n\n'.join(
+        open(f, encoding='utf8').read()
+        for f in fnames
+    )
+    if not text.strip():
+        print('输入内容为空')
+        return
+
+    # 按段落切分为文本块
+    chunks = []
+    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+    for i, para in enumerate(paragraphs):
+        chunks.append({
+            "id": f"chunk_{i+1:03d}",
+            "content": para,
+            "summary": para[:100],
+        })
 
     orchestrator = KnowledgeGraphOrchestrator(
-        api_base=openai.base_url, api_key=openai.api_key, model="gpt-4",
-        max_workers=2
+        api_base=args.host, api_key=args.key, model=args.model,
+        max_workers=args.threads, retry=args.retry, stream=args.stream,
     )
-    result = orchestrator.build_graph(sample_chunks)
+    result = orchestrator.build_graph(chunks)
 
-    # 输出全局图谱
-    print("===== 全局实体 =====")
+    # 输出结果
+    lines = []
+    lines.append("===== 全局实体 =====\n")
     for ent in result.entities:
-        print(f"{ent.canonical_id}: {ent.name} ({ent.type}) - {ent.description}")
+        lines.append(f"{ent.canonical_id}: {ent.name} ({ent.type}) - {ent.description}")
 
-    print("\n===== 全局关系 =====")
+    lines.append("\n===== 全局关系 =====\n")
     for rel in result.relationships:
-        print(f"{rel.source} --[{rel.relation_type}]--> {rel.target} : {rel.evidence}")
+        lines.append(f"{rel.source} --[{rel.relation_type}]--> {rel.target} : {rel.evidence}")
 
-    print("\n===== 消解日志 =====")
-    for log in result.resolution_log:
-        print(log)
+    lines.append("\n===== 消解日志 =====\n")
+    for log_entry in result.resolution_log:
+        lines.append(log_entry)
 
-    # 可选：将结果导出为Neo4j Cypher（简单示例）
-    print("\n===== Cypher 示例 =====")
+    lines.append("\n===== Cypher 示例 =====\n")
     for ent in result.entities:
-        print(f"CREATE (n:{ent.type} {{id: '{ent.canonical_id}', name: '{ent.name}', description: '{ent.description}'}});")
+        lines.append(f"CREATE (n:{ent.type} {{id: '{ent.canonical_id}', name: '{ent.name}', description: '{ent.description}'}});")
     for rel in result.relationships:
-        print(f"MATCH (a {{id: '{rel.source}'}}), (b {{id: '{rel.target}'}}) "
-              f"CREATE (a)-[:{rel.relation_type.upper()} {{evidence: '{rel.evidence[0]}'}}]->(b);")
+        lines.append(
+            f"MATCH (a {{id: '{rel.source}'}}), (b {{id: '{rel.target}'}}) "
+            f"CREATE (a)-[:{rel.relation_type.upper()} {{evidence: '{rel.evidence[0]}'}}]->(b);"
+        )
+
+    output = '\n'.join(lines)
+    print(output)
+    open(ofname, 'w', encoding='utf8').write(output)
