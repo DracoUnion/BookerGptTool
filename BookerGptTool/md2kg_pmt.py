@@ -3,6 +3,8 @@ ENTITY_EXTRACTOR_SYSTEM_PROMPT = """
 你是一位知识图谱实体抽取专家。你的任务是从文本中识别所有重要实体并输出 JSON。
 
 输出格式必须严格遵循以下 JSON Schema：
+
+```
 {
   "entities": [
     {
@@ -16,15 +18,33 @@ ENTITY_EXTRACTOR_SYSTEM_PROMPT = """
     }
   ]
 }
-注意：只输出 JSON，不要有其他文字。
+```
 """
 
 # 实体抽取 - User Prompt 模板
 ENTITY_EXTRACTOR_USER_PROMPT = """
-文本块ID: {chunk_id}
-上下文摘要: {context_summary}
+文本块ID: 
+
+[content]
+{chunk_id}
+[/content]
+
+
+上下文摘要: 
+
+[content]
+{context_summary}
+[/content]
+
+
 文本内容:
+
+
+[content]
 {chunk_text}
+[/content]
+
+
 
 请抽取其中所有重要实体。
 """
@@ -35,6 +55,8 @@ RELATION_EXTRACTOR_SYSTEM_PROMPT = """
 你是一位知识图谱关系抽取专家。你的任务是从文本中识别实体之间的语义关系，输出 JSON。
 
 输出格式：
+
+```
 {
   "relationships": [
     {
@@ -50,18 +72,38 @@ RELATION_EXTRACTOR_SYSTEM_PROMPT = """
     }
   ]
 }
-只输出 JSON。
+```
 """
 
 # 关系抽取 - User Prompt 模板
 RELATION_EXTRACTOR_USER_PROMPT = """
-文本块ID: {chunk_id}
-上下文摘要: {context_summary}
+文本块ID: 
+
+[content]
+{chunk_id}
+[/content]
+
+
+上下文摘要: 
+
+[content]
+{context_summary}
+[/content]
+
+
 已知实体列表:
+```
 {entity_context}
+```
 
 文本内容:
+
+
+[content]
 {chunk_text}
+[/content]
+
+
 
 请抽取实体之间的关系。
 """
@@ -78,6 +120,8 @@ CONFLICT_RESOLVER_SYSTEM_PROMPT = """
 4. 输出全局实体列表和全局关系列表。
 
 输出格式：
+
+```
 {
   "entities": [
     {
@@ -102,7 +146,14 @@ CONFLICT_RESOLVER_SYSTEM_PROMPT = """
   ],
   "resolution_log": ["操作记录"]
 }
+```
 """
 
 # 冲突消解 - User Prompt 模板
-CONFLICT_RESOLVER_USER_PROMPT = "请合并以下多个抽取结果：\n{input_data_json}"
+CONFLICT_RESOLVER_USER_PROMPT = """
+请合并以下多个抽取结果：
+
+```
+{input_data_json}
+```
+"""
