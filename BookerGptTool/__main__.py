@@ -4,6 +4,7 @@ import os
 from . import __version__
 from .trans import *
 from .fin_report import *
+from .md2kg import *
 from .code2doc import *
 from .code2book import *
 from .shengcai import *
@@ -194,12 +195,16 @@ def main():
     forward_parser.add_argument("-D", "--debug", action='store_true', help="")
     forward_parser.set_defaults(func=forward)
 
-    fin_report_parser = subparsers.add_parser("fin-report", help="translate epub")
+    fin_report_parser = subparsers.add_parser("fin-report", help="make financial report")
     fin_report_parser.add_argument("fname", help="epub file name")
     fin_report_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
-    fin_report_parser.add_argument("-r", "--rounds", type=int, default=3, help="debate rounds")
+    fin_report_parser.add_argument("-rd", "--rounds", type=int, default=3, help="debate rounds")
     fin_report_parser.set_defaults(func=fin_report_handle)
 
+    md2kg_parser = subparsers.add_parser("md2kg", help="md2kg")
+    md2kg_parser.add_argument("fname", help="epub file name")
+    md2kg_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    md2kg_parser.set_defaults(func=md2kg_handle)
 
     args = parser.parse_args()
     args.func(args)
