@@ -1,17 +1,15 @@
 import json
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from pydantic import BaseModel
-from openai import OpenAI
-
-from config import OPENAI_API_KEY, OPENAI_MODEL
-from md2kg_models import (
+from .util import call_llm_retry, ext_code_block
+from .base_agent import BaseAgent
+from .md2kg_models import (
     Entity, Relation, EntityList, RelationList,
     GlobalEntity, GlobalRelation, ResolvedGraph,
 )
-from md2kg_pmt import (
+from .md2kg_pmt import (
     ENTITY_EXTRACTOR_SYSTEM_PROMPT, ENTITY_EXTRACTOR_USER_PROMPT,
     RELATION_EXTRACTOR_SYSTEM_PROMPT, RELATION_EXTRACTOR_USER_PROMPT,
     CONFLICT_RESOLVER_SYSTEM_PROMPT, CONFLICT_RESOLVER_USER_PROMPT,
@@ -23,56 +21,29 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
-# 1. 基础智能体（Agent）抽象类
-# ============================================================================
-class BaseAgent:
-    """所有智能体的基类，封装 OpenAI 调用与 JSON 校验"""
-    def __init__(self, model: str = OPENAI_MODEL, temperature: float = 0.0):
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
-        self.model = model
-        self.temperature = temperature
-
-    def _call_llm(self, system_prompt: str, user_prompt: str, response_model: BaseModel) -> BaseModel:
-        """
-        调用 OpenAI 的 ChatCompletion，强制返回 JSON，并用 Pydantic 解析。
-        """
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-        # 要求模型返回 JSON 对象
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=self.temperature,
-            response_format={"type": "json_object"}  # 仅当模型支持时可用
-        )
-        content = response.choices[0].message.content
-        logger.info(f"LLM raw output: {content[:200]}...")  # 截断日志
-        try:
-            data = json.loads(content)
-            # 使用 Pydantic 解析并校验
-            return response_model.parse_obj(data)
-        except Exception as e:
-            logger.error(f"Failed to parse response: {e}\nRaw: {content}")
-            raise
-
-
-# ============================================================================
-# 2. 具体智能体实现
+# 1. 具体智能体实现
 # ============================================================================
 class EntityExtractor(BaseAgent):
     """实体抽取智能体"""
+
+    def __init__(self, api_base: str, api_key: str, model: str,
+                 temperature: float = 0.0, retry: int = 3, stream: bool = False):
+        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
     def run(self, chunk_text: str, chunk_id: str, context_summary: str = "") -> EntityList:
         user_prompt = ENTITY_EXTRACTOR_USER_PROMPT.format(
             chunk_id=chunk_id, context_summary=context_summary, chunk_text=chunk_text
         )
-        return self._call_llm(ENTITY_EXTRACTOR_SYSTEM_PROMPT, user_prompt, EntityList)
+        parse_output = lambda s: EntityList.model_validate_json(ext_code_block(s))
+        return self._call(ENTITY_EXTRACTOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
 
 class RelationExtractor(BaseAgent):
     """关系抽取智能体"""
+
+    def __init__(self, api_base: str, api_key: str, model: str,
+                 temperature: float = 0.0, retry: int = 3, stream: bool = False):
+        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
     def run(self, chunk_text: str, chunk_id: str, entity_list: EntityList, context_summary: str = "") -> RelationList:
         entity_context = "\n".join([f"{e.id}: {e.canonical_name} ({e.type})" for e in entity_list.entities])
@@ -80,20 +51,26 @@ class RelationExtractor(BaseAgent):
             chunk_id=chunk_id, context_summary=context_summary,
             entity_context=entity_context, chunk_text=chunk_text
         )
-        return self._call_llm(RELATION_EXTRACTOR_SYSTEM_PROMPT, user_prompt, RelationList)
+        parse_output = lambda s: RelationList.model_validate_json(ext_code_block(s))
+        return self._call(RELATION_EXTRACTOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
 
 class ConflictResolver(BaseAgent):
     """冲突消解与全局融合智能体"""
 
+    def __init__(self, api_base: str, api_key: str, model: str,
+                 temperature: float = 0.0, retry: int = 3, stream: bool = False):
+        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
+
     def run(self, all_entity_lists: List[EntityList], all_relation_lists: List[RelationList]) -> ResolvedGraph:
         input_data = {
-            "entity_lists": [el.dict() for el in all_entity_lists],
-            "relation_lists": [rl.dict() for rl in all_relation_lists]
+            "entity_lists": [el.model_dump() for el in all_entity_lists],
+            "relation_lists": [rl.model_dump() for rl in all_relation_lists]
         }
         input_data_json = json.dumps(input_data, indent=2, ensure_ascii=False)
         user_prompt = CONFLICT_RESOLVER_USER_PROMPT.format(input_data_json=input_data_json)
-        return self._call_llm(CONFLICT_RESOLVER_SYSTEM_PROMPT, user_prompt, ResolvedGraph)
+        parse_output = lambda s: ResolvedGraph.model_validate_json(ext_code_block(s))
+        return self._call(CONFLICT_RESOLVER_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
 
 # ============================================================================
@@ -101,11 +78,12 @@ class ConflictResolver(BaseAgent):
 # ============================================================================
 class KnowledgeGraphOrchestrator:
     """协调整个流程：分块 → 并行抽取 → 冲突消解 → 输出"""
-    def __init__(self, max_workers: int = 5):
+    def __init__(self, api_base: str, api_key: str, model: str,
+                 max_workers: int = 5, retry: int = 3, stream: bool = False):
         self.max_workers = max_workers
-        self.entity_extractor = EntityExtractor()
-        self.relation_extractor = RelationExtractor()
-        self.resolver = ConflictResolver()
+        self.entity_extractor = EntityExtractor(api_base, api_key, model, retry=retry, stream=stream)
+        self.relation_extractor = RelationExtractor(api_base, api_key, model, retry=retry, stream=stream)
+        self.resolver = ConflictResolver(api_base, api_key, model, retry=retry, stream=stream)
 
     def build_graph(self, chunks: List[Dict[str, Any]]) -> ResolvedGraph:
         """
@@ -176,6 +154,10 @@ class KnowledgeGraphOrchestrator:
 # 4. 使用示例
 # ============================================================================
 if __name__ == "__main__":
+    import openai
+    openai.api_key = "your-api-key"
+    openai.base_url = "https://api.openai.com/v1"
+
     # 模拟从书籍中切分出的文本块
     sample_chunks = [
         {
@@ -190,7 +172,10 @@ if __name__ == "__main__":
         }
     ]
 
-    orchestrator = KnowledgeGraphOrchestrator(max_workers=2)
+    orchestrator = KnowledgeGraphOrchestrator(
+        api_base=openai.base_url, api_key=openai.api_key, model="gpt-4",
+        max_workers=2
+    )
     result = orchestrator.build_graph(sample_chunks)
 
     # 输出全局图谱
