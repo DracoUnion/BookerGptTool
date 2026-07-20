@@ -29,26 +29,20 @@ ENTITY_EXTRACTOR_USER_PROMPT = """
 {chunk_id}
 [/content]
 
-
 上下文摘要: 
 
 [content]
 {context_summary}
 [/content]
 
-
 文本内容:
-
 
 [content]
 {chunk_text}
 [/content]
 
-
-
 请抽取其中所有重要实体。
 """
-
 
 # 关系抽取 - System Prompt
 RELATION_EXTRACTOR_SYSTEM_PROMPT = """
@@ -83,13 +77,11 @@ RELATION_EXTRACTOR_USER_PROMPT = """
 {chunk_id}
 [/content]
 
-
 上下文摘要: 
 
 [content]
 {context_summary}
 [/content]
-
 
 已知实体列表:
 ```
@@ -98,16 +90,12 @@ RELATION_EXTRACTOR_USER_PROMPT = """
 
 文本内容:
 
-
 [content]
 {chunk_text}
 [/content]
 
-
-
 请抽取实体之间的关系。
 """
-
 
 # 冲突消解 - System Prompt
 CONFLICT_RESOLVER_SYSTEM_PROMPT = """
