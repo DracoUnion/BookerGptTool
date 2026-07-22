@@ -108,7 +108,7 @@ class TransEpubDispatcher:
         logger.info(args)
         set_openai_props(args)
         if not args.fname.endswith('.epub'):
-            logger.info('请提供EPUB文件')
+            logger.fatal('请提供EPUB文件')
             return
 
         p = self._resolve_paths(args)
@@ -120,7 +120,7 @@ class TransEpubDispatcher:
                f != 'SUMMRY.md'
         ]
         if md_fnames:
-            logger.info('已处理')
+            logger.warn('已处理')
             return
 
         meta = self._init_meta(
