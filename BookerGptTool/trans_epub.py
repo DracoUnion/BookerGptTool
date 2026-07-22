@@ -278,7 +278,8 @@ class TransEpubDispatcher:
             chs = yaml.safe_load(open(chs_fname, encoding='utf8').read())
         else:
             chs = self._split_chs(md) if self.args.split else [md]
-            self._write_yaml(chs_fname, chs)
+            with open(chs_fname, 'w', encoding='utf8') as f:
+                f.write(yaml.safe_dump(chs, allow_unicode=True))
         return chs
 
     def _write_chapters(self, proj_dir, slug, chs):
