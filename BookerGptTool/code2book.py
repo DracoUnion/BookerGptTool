@@ -413,21 +413,18 @@ class Code2BookOrchestrator:
     # ── 步骤 5：生成正文 ──────────────────────────────────
 
     def _tr_gen_body(
-        self, outline_chs, details: List[Detail], idx: int,
-        bodies: List[str], fname: str,
-    ):
+        self, outline_chs, detail: Detail, idx: int, fname: str,
+    ) -> Tuple[int, str]:
         print(f'[5] 编写第{idx+1}章正文')
         code_fnames = [
             c.file
-            for u in details[idx].units
+            for u in detail.units
             for c in u.code
         ]
         code_dict = self._read_code_dict(code_fnames)
         code_str = self._code_to_str(code_dict)
 
-        body = self.agent.gen_body(idx, details[idx], outline_chs, code_str)
-        bodies[idx] = body
-        open(fname, 'w', encoding='utf8').write(body)
+        body = self.agent.gen_body(idx, detail, outline_chs, code_str)
 
         # 校验正文
         print(f'[5] 校验正文 {idx + 1}')
@@ -438,9 +435,10 @@ class Code2BookOrchestrator:
                 break
             print(f'[5] 正文 {idx + 1} 校验未通过')
             print(cmt)
-            body = self.agent.fix_body(details[idx], body, cmt, code_str)
-            bodies[idx] = body
-            open(fname, 'w', encoding='utf8').write(body)
+            body = self.agent.fix_body(detail, body, cmt, code_str)
+
+        return idx, body
+
 
     def step_gen_bodies(
         self, outline_chs, details: List[Detail],
@@ -457,12 +455,15 @@ class Code2BookOrchestrator:
             bodies.append('')
             h = self.pool.submit(
                 self._tr_gen_body, outline_chs,
-                details, i, bodies, body_fname,
+                detail, i, body_fname,
             )
             hdls.append(h)
 
-        for h in hdls:
-            h.result()
+        for h in as_completed(hdls):
+            idx, body = h.result()
+            bodies[idx] = body
+            body_fname = path.join(self.pj_dir, f'body_{idx+1}.md')
+            open(body_fname, 'w', encoding='utf8').write(body)
 
         return bodies
 
