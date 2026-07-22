@@ -106,7 +106,7 @@ class PdfOcrAgent:
         ans = ask_chatgpt_retry(ques, self.args.model, self.args)
         return re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
 
-    def title(self, title: str) -> str:
+    def trans_title(self, title: str) -> str:
         ques = TRANS_TITLE_PMT.replace('{text}', title)
         return ask_chatgpt_retry(ques, self.args.model, self.args)
 
@@ -382,7 +382,7 @@ class PDFOcrOrchestrator:
         name_cn = ''
         if self.args.clean:
             full_text = clean_md_llm(full_text, self.args)
-            name_cn = self.agent.title(title=name)
+            name_cn = self.agent.trans_title(title=name)
             full_text = f'# {name_cn}\n\n{full_text}'
 
         return full_text, name_cn
@@ -421,7 +421,7 @@ class PDFOcrOrchestrator:
 
         if self.args.mkdir:
             if not name_cn:
-                name_cn = self.agent.title(title=name)
+                name_cn = self.agent.trans_title(title=name)
 
             logger.info('[8] 写入 README.md')
             readme = README_TMPL \
