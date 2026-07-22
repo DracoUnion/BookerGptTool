@@ -23,14 +23,79 @@ from .clean_heading import clean_md_llm
 from .pdf_ocr_pmt import *
 from .pdf_ocr_models import *
 from .util import (
-    call_vlm_retry, 
-    ask_chatgpt_retry, 
-    set_openai_props, 
-    extname, 
+    call_vlm_retry,
+    ask_chatgpt_retry,
+    set_openai_props,
+    extname,
     to_kebab,
     ext_code_block,
     ext_cont_block,
 )
+
+
+class Agent:
+    """LLM Agent 基类，封装一次 LLM 调用。"""
+    def __init__(self, args):
+        self.args = args
+
+    def run(self, **kwargs):
+        raise NotImplementedError
+
+
+class OCRAgent(Agent):
+    """VLM 图像识别 Agent，将图片转为结构化 OCR 结果。"""
+    def run(self, img):
+        parse_output = lambda ans: OCRResult(
+            **json_repair.loads(ext_code_block(ans))
+        )
+        return call_vlm_retry(
+            img, OCR_PMT,
+            model_name=self.args.vmodel,
+            args=self.args,
+            parse_output=parse_output,
+        )
+
+
+class MergeAgent(Agent):
+    """判断两页的首尾是否属于同一段落。"""
+    def run(self, prev_line, next_line):
+        ques = MERGE_PMT.replace('{prev}', prev_line) \
+            .replace('{next}', next_line)
+        ans = ask_chatgpt_retry(ques, self.args.model, self.args)
+        merge_str = ans.replace('```', '').strip()
+        return int(merge_str == 'true')
+
+
+class PostProcAgent(Agent):
+    """OCR 后处理 Agent，纠正错误、合并跨页段落、识别标题。"""
+    def run(self, text):
+        ques = POSTPROC_PMT.replace('{text}', text)
+        return ask_chatgpt_retry(ques, self.args.model, self.args)
+
+
+class TranslateAgent(Agent):
+    """英译中 Agent，将 Markdown 正文翻译为中文。"""
+    def run(self, text):
+        ques = TRANS_BODY_PMT.replace('{text}', text)
+        return ask_chatgpt_retry(
+            ques, self.args.model, self.args,
+            parse_output=ext_cont_block,
+        )
+
+
+class TOCAgent(Agent):
+    """目录修复 Agent，修正 OCR 目录的层级和错字。"""
+    def run(self, toc_text):
+        ques = TOC_PMT.replace('{text}', toc_text)
+        ans = ask_chatgpt_retry(ques, self.args.model, self.args)
+        return re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
+
+
+class TitleAgent(Agent):
+    """标题翻译 Agent，将英文书名翻译为中文。"""
+    def run(self, title):
+        ques = TRANS_TITLE_PMT.replace('{text}', title)
+        return ask_chatgpt_retry(ques, self.args.model, self.args)
 
 def corp_img(img, bbox):
     xmin, ymin, xmax, ymax = bbox
@@ -76,33 +141,19 @@ def ocr_res2md(r: OCRResult):
         or '<!-- no content -->'
     
 
-def tr_ocr_page(img, pages: List[Page], idx, args, write_callback):
+def tr_ocr_page(img, pages: List[Page], idx, agent: OCRAgent, write_callback):
     print(f'[3] 识别页码 {idx + 1}')
-
-    parse_output = lambda ans: OCRResult(
-        **json_repair.loads(ext_code_block(ans))
-    )
-    res: OCRResult = call_vlm_retry(
-        img, OCR_PMT, 
-        model_name=args.vmodel, 
-        args=args, 
-        parse_output=parse_output,
-    )
+    res: OCRResult = agent.run(img=img)
     pages[idx].md = ocr_res2md(res)
     write_callback()
 
-def tr_merge_group(groups: List[Group], idx, args, write_callback):
+def tr_merge_group(groups: List[Group], idx, agent: MergeAgent, write_callback):
     print(f'[6] 处理分组合并 {idx + 1}')
     prev_line = groups[idx - 1].mdcn.strip()
     next_line = groups[idx].mdcn.strip()
     prev = re.search(r'^.+?\Z', prev_line, flags=re.M).group()
     next = re.search(r'\A.+?$', next_line, flags=re.M).group()
-
-    ques = MERGE_PMT.replace('{prev}', prev) \
-        .replace('{next}', next)
-    ans = ask_chatgpt_retry(ques, args.model, args)
-    merge = ans.replace('```', '').strip()
-    groups[idx].merge = int(merge == 'true')
+    groups[idx].merge = agent.run(prev_line=prev, next_line=next)
     write_callback()
     
 
@@ -126,21 +177,13 @@ def tr_proc_img(img, pages: List[Page], idx, img_dir, pdf_hash, write_callback):
         write_callback()
     pages[idx].img_proc = True
 
-def tr_group_page(groups: List[Group], idx, args, write_callback):
+def tr_group_page(groups: List[Group], idx, post_proc_agent: PostProcAgent, translate_agent: TranslateAgent, write_callback):
     print(f'[5] 处理页面合并 {idx}')
     text = '\n\n'.join(groups[idx].raw)
-    ques = POSTPROC_PMT.replace('{text}', text)
-    ans = ask_chatgpt_retry(ques, args.model, args)
-    groups[idx].md = ans
+    groups[idx].md = post_proc_agent.run(text=text)
     write_callback()
-    if args.trans:
-        ques = TRANS_BODY_PMT.replace(
-            '{text}', groups[idx].md)
-        ans = ask_chatgpt_retry(
-            ques, args.model, args,
-            parse_output=ext_cont_block,
-        )
-        groups[idx].mdcn = ans
+    if translate_agent:
+        groups[idx].mdcn = translate_agent.run(text=groups[idx].md)
     else:
         groups[idx].mdcn = groups[idx].md
     write_callback()
@@ -187,7 +230,7 @@ def pdf_ocr_file(args):
     if not args.fname.endswith('.pdf'):
         print('请提供PDF文件')
         return
-    
+
     name = path.basename(args.fname)[:-4]
     dir = path.dirname(args.fname)
     slug = to_kebab(name)
@@ -208,8 +251,8 @@ def pdf_ocr_file(args):
     doc: fitz.Document = fitz.open('pdf', BytesIO(pdf))
 
     yaml_fname = (
-        path.join(pj_dir, 'meta.yaml') 
-        if args.mkdir 
+        path.join(pj_dir, 'meta.yaml')
+        if args.mkdir
         else args.fname[:-4] + '.yaml'
     )
     print(f'[2] 初始化 {yaml_fname}')
@@ -224,6 +267,14 @@ def pdf_ocr_file(args):
         open(yaml_fname, 'w', encoding='utf8') \
                 .write(yaml.safe_dump(res.dict(), allow_unicode=True))
 
+    # 创建所有 Agent
+    ocr_agent = OCRAgent(args)
+    merge_agent = MergeAgent(args)
+    post_proc_agent = PostProcAgent(args)
+    translate_agent = TranslateAgent(args) if args.trans else None
+    toc_agent = TOCAgent(args)
+    title_agent = TitleAgent(args)
+
     print(f'[3] 识别图像')
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
@@ -237,25 +288,22 @@ def pdf_ocr_file(args):
                     else res.dict()
                 )
                 f.write(yaml.safe_dump(obj, allow_unicode=True))
-    
+
     for i, g in enumerate(res.pages):
         if g.md: continue
         pgno = g.pgno
         img = doc[pgno].get_pixmap(dpi=args.dpi).pil_tobytes('png')
         h = pool.submit(
-            tr_ocr_page, 
-            img, res.pages, i, args,
+            tr_ocr_page,
+            img, res.pages, i, ocr_agent,
             functools.partial(write_callback_mdl, yaml_fname, res),
         )
         hdls.append(h)
-        # if len(hdls) > args.threads:
-        #     for h in hdls: h.result()
-        #     hdls = []
-    for h in hdls: 
+    for h in hdls:
         h.result()
     hdls = []
 
-        
+
     print(f'[4] 处理图片')
     img_dir = (
         path.join(pj_dir, 'img')
@@ -268,16 +316,13 @@ def pdf_ocr_file(args):
         pgno = g.pgno
         img = doc[pgno].get_pixmap(dpi=args.dpi).pil_tobytes('png')
         h = pool.submit(
-            tr_proc_img, 
+            tr_proc_img,
             img, res.pages, i, img_dir, pdf_hash,
             functools.partial(write_callback_mdl, yaml_fname, res),
         )
         hdls.append(h)
-        # if len(hdls) > args.threads:
-        #     for h in hdls: h.result()
-        #     hdls = []
 
-    for h in hdls: 
+    for h in hdls:
         h.result()
     hdls = []
 
@@ -291,14 +336,12 @@ def pdf_ocr_file(args):
     for i, g in enumerate(res.groups):
         if g.md and g.mdcn: continue
         h = pool.submit(
-            tr_group_page, res.groups, i, args,
+            tr_group_page, res.groups, i,
+            post_proc_agent, translate_agent,
             functools.partial(write_callback_mdl, yaml_fname, res),
         )
         hdls.append(h)
-        # if len(hdls) > args.threads:
-        #     for h in hdls: h.result()
-        #     hdls = []
-    for h in hdls: 
+    for h in hdls:
         h.result()
     hdls = []
 
@@ -308,16 +351,13 @@ def pdf_ocr_file(args):
         if i == 0: continue
         if g.merge != -1: continue
         h = pool.submit(
-            tr_merge_group, 
-            res.groups, i, args,
+            tr_merge_group,
+            res.groups, i, merge_agent,
             functools.partial(write_callback_mdl, yaml_fname, res),
         )
         hdls.append(h)
-        # if len(hdls) > args.threads:
-        #     for h in hdls: h.result()
-        #     hdls = []
 
-    for h in hdls: 
+    for h in hdls:
         h.result()
     hdls = []
 
@@ -330,21 +370,21 @@ def pdf_ocr_file(args):
     name_cn = ''
     if args.clean:
         full_text = clean_md_llm(full_text, args)
-        name_cn = trans_title(name, args)
+        name_cn = trans_title(name, title_agent)
         full_text = f'# {name_cn}\n\n{full_text}'
 
     print(f'[7] 修正目录')
     full_text = fix_toc(
-        full_text, res, args,
+        full_text, res, toc_agent,
         functools.partial(write_callback_mdl, yaml_fname, res),
     )
-    
+
     print(f'[8] 写入 {md_fname}')
     open(md_fname, 'w', encoding='utf8').write(full_text)
     if args.mkdir:
         print(f'[8] 写入 README.md')
         if not name_cn:
-            name_cn = trans_title(name, args)
+            name_cn = trans_title(name, title_agent)
         readme = README_TMPL.replace('{name}', name).replace('{name_cn}', name_cn)
         readme_fname = path.join(pj_dir, 'README.md')
         open(readme_fname, 'w', encoding='utf8').write(readme)
@@ -353,20 +393,18 @@ def pdf_ocr_file(args):
             f'+   [{name_cn}](README.md)',
             f'+   [{name_cn}]({slug}.md)',
         ]
-        summary = '\n'.join(toc)   
+        summary = '\n'.join(toc)
         summary_fname = path.join(pj_dir, 'SUMMARY.md')
         open(summary_fname, 'w', encoding='utf8').write(summary)
 
     print(f'[*] 处理完毕')
 
-def fix_toc(full_text, res: Meta, args, write_callback):
+def fix_toc(full_text, res: Meta, agent: TOCAgent, write_callback):
     if res.toc:
         toc = res.toc
     else:
         toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
-        ques = TOC_PMT.replace('{text}', '\n'.join(toc))
-        ans =  ask_chatgpt_retry(ques, args.model, args)
-        toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
+        toc = agent.run(toc_text='\n'.join(toc))
         res.toc = toc
         write_callback()
     for lvl, title in toc:
@@ -389,7 +427,5 @@ def mkgroups(pages: List[Page], args) -> List[Group]:
     groups = [g for g in groups if g.raw]
     return groups
 
-def trans_title(title, args):
-    ques = TRANS_TITLE_PMT.replace('{text}', title)
-    title_cn = ask_chatgpt_retry(ques, args.model, args)
-    return title_cn
+def trans_title(title, agent: TitleAgent):
+    return agent.run(title=title)
