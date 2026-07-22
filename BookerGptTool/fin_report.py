@@ -5,10 +5,9 @@ import os
 import json
 import logging
 from pydantic import parse_obj_as
-from typing import List
+from typing import List, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from .util import ext_code_block, ext_cont_block, call_llm_retry, set_openai_props
-from .base_agent import BaseAgent
 from .fin_report_models import (
     ReportMeta,
     Fact,
@@ -57,17 +56,33 @@ class FinReportAgent:
     """封装所有 LLM 调用的智能体类。"""
 
     def __init__(self, api_base: str, api_key: str, model: str, retry: int = 3, stream: bool = False):
-        self._researcher = BaseAgent(api_base, api_key, model, temperature=0.0, retry=retry, stream=stream)
-        self._fusion = BaseAgent(api_base, api_key, model, temperature=0.1, retry=retry, stream=stream)
-        self._debate = BaseAgent(api_base, api_key, model, temperature=0.7, retry=retry, stream=stream)
-        self._judge = BaseAgent(api_base, api_key, model, temperature=0.2, retry=retry, stream=stream)
+        self.model = model
+        self.max_tokens = 2000
+        self.retry = retry
+        self.stream = stream
+
+    def _call(self, system_prompt: str, user_prompt: str,
+              temperature: float = 0.0, max_tokens: Optional[int] = None,
+              parse_output: Callable = None) -> str:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        return call_llm_retry(
+            messages, self.model,
+            retry=self.retry,
+            temp=temperature,
+            max_tokens=max_tokens or self.max_tokens,
+            parse_output=parse_output,
+        )
 
     def extract(self, report_text: str) -> ResearcherOutput:
         user_prompt = RESEARCHER_EXTRACT_USER.format(report_text=report_text)
         parse_output = lambda s: \
             ResearcherOutput.model_validate_json(ext_code_block(s))
-        return self._researcher._call(
+        return self._call(
             RESEARCHER_SYSTEM_PROMPT, user_prompt,
+            temperature=0.0,
             parse_output=parse_output,
         )
 
@@ -94,8 +109,9 @@ class FinReportAgent:
         user_prompt = FUSION_FUSE_USER.format(facts_json=facts_json)
         parse_output = lambda s: \
             FusionOutput.model_validate_json(ext_code_block(s))
-        fused = self._fusion._call(
+        fused = self._call(
             FUSION_SYSTEM_PROMPT, user_prompt,
+            temperature=0.1,
             parse_output=parse_output,
         )
 
@@ -114,15 +130,17 @@ class FinReportAgent:
             rating_distribution=fused_data.rating_distribution,
             merged_risks=fused_data.merged_risks,
         )
-        return self._debate._call(
+        return self._call(
             BULL_SYSTEM_PROMPT, user_prompt,
+            temperature=0.7,
             parse_output=ext_cont_block,
         )
 
     def bull_rebut(self, fused_data: FusionOutput, opponent_argument: str) -> str:
         user_prompt = BULL_REBUT_USER.format(opponent_argument=opponent_argument)
-        return self._debate._call(
+        return self._call(
             BULL_SYSTEM_PROMPT, user_prompt,
+            temperature=0.7,
             parse_output=ext_cont_block,
         )
 
@@ -133,15 +151,17 @@ class FinReportAgent:
             rating_distribution=fused_data.rating_distribution,
             merged_risks=fused_data.merged_risks,
         )
-        return self._debate._call(
+        return self._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
+            temperature=0.7,
             parse_output=ext_cont_block,
         )
 
     def bear_rebut(self, fused_data: FusionOutput, opponent_argument: str) -> str:
         user_prompt = BEAR_REBUT_USER.format(opponent_argument=opponent_argument)
-        return self._debate._call(
+        return self._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
+            temperature=0.7,
             parse_output=ext_cont_block,
         )
 
@@ -154,8 +174,9 @@ class FinReportAgent:
             bull_history=chr(10).join(bull_history),
             bear_history=chr(10).join(bear_history),
         )
-        raw = self._judge._call(
+        raw = self._call(
             JUDGE_SYSTEM_PROMPT, user_prompt,
+            temperature=0.2,
             parse_output=ext_cont_block,
         )
         return raw if raw else "裁决失败，请检查API配置。"
