@@ -41,6 +41,7 @@ class Agent:
     """LLM Agent 基类，封装一次 LLM 调用。"""
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
+        set_openai_props(args)
 
     def run(self, **kwargs: Any) -> Any:
         raise NotImplementedError
@@ -171,7 +172,8 @@ class PDFOcrOrchestrator:
         self.title_agent: TitleAgent = TitleAgent(args)
 
         # ── 线程池基础设施 ──
-        self.pool: Optional[ThreadPoolExecutor] = None
+        self.pool: Optional[ThreadPoolExecutor] = \
+            ThreadPoolExecutor(self.args.threads)
         self._hdls: List[Future] = []
 
     # ── 线程池工具 ────────────────────────────────
@@ -460,48 +462,34 @@ class PDFOcrOrchestrator:
     # ── 主流程 ─────────────────────────────────────
 
     def run(self) -> None:
-        set_openai_props(self.args)
-        if not self.args.fname.endswith('.pdf'):
-            print('请提供PDF文件')
-            return
+        # 1. 加载 PDF
+        doc, pdf_hash = self.load_pdf()
 
-        os.makedirs(self.pj_dir, exist_ok=True)
-        if path.isfile(self.md_fname):
-            print('PDF 已处理')
-            return
+        # 2. 初始化 meta
+        res = self.init_meta(doc)
 
-        self.pool = ThreadPoolExecutor(self.args.threads)
-        try:
-            # 1. 加载 PDF
-            doc, pdf_hash = self.load_pdf()
+        # 3. OCR 识别
+        self.ocr_pages(doc, res)
 
-            # 2. 初始化 meta
-            res = self.init_meta(doc)
+        # 4. 处理图片
+        self.process_images(doc, res, pdf_hash)
 
-            # 3. OCR 识别
-            self.ocr_pages(doc, res)
+        # 5. 分组 + 后处理 + 翻译
+        self.group_pages(res)
 
-            # 4. 处理图片
-            self.process_images(doc, res, pdf_hash)
+        # 6. 组间合并
+        self.merge_groups(res)
 
-            # 5. 分组 + 后处理 + 翻译
-            self.group_pages(res)
+        # 7. 拼接全文
+        full_text, name_cn = self.build_full_text(res)
 
-            # 6. 组间合并
-            self.merge_groups(res)
+        # 8. 修正目录
+        full_text = self.fix_toc(full_text, res)
 
-            # 7. 拼接全文
-            full_text, name_cn = self.build_full_text(res)
+        # 9. 写入文件
+        self.write_output(full_text, name_cn)
 
-            # 8. 修正目录
-            full_text = self.fix_toc(full_text, res)
-
-            # 9. 写入文件
-            self.write_output(full_text, name_cn)
-
-            print('[*] 处理完毕')
-        finally:
-            self.pool.shutdown(wait=False)
+        print('[*] 处理完毕')
 
 
 # ── 模块级工具函数 ────────────────────────────────
@@ -553,6 +541,14 @@ def pdf_ocr(args: argparse.Namespace) -> None:
 
 def pdf_ocr_file_safe(args: argparse.Namespace) -> None:
     try:
-        PDFOcrOrchestrator(args).run()
+        if not args.fname.endswith('.pdf'):
+            print('请提供PDF文件')
+            return
+        o = PDFOcrOrchestrator(args)
+        os.makedirs(o.pj_dir, exist_ok=True)
+        if path.isfile(o.md_fname):
+            print('PDF 已处理')
+            return
+        o.run()
     except:
         traceback.print_exc()
