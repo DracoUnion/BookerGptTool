@@ -44,19 +44,14 @@ logger = logging.getLogger(__name__)
 # ── Agent 类 ─────────────────────────────────────
 
 
-class Agent:
-    """LLM Agent 基类，封装一次 LLM 调用。"""
+class PdfOcrAgent:
+    """封装所有 LLM 调用的智能体类。"""
+
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         set_openai_props(args)
 
-    def run(self, **kwargs: Any) -> Any:
-        raise NotImplementedError
-
-
-class OCRAgent(Agent):
-    """VLM 图像识别 Agent，将图片转为结构化 OCR 结果。"""
-    def run(self, img: bytes) -> str:
+    def ocr(self, img: bytes) -> str:
         parse_output = lambda ans: OCRResult(
             **json_repair.loads(ext_code_block(ans))
         )
@@ -69,7 +64,6 @@ class OCRAgent(Agent):
         return self._res2md(res)
 
     def _res2md(self, r: OCRResult) -> str:
-        """将 OCRResult 转为 Markdown 文本。"""
         mds = []
         for seg in r.contents:
             if seg.type == 'image':
@@ -89,45 +83,30 @@ class OCRAgent(Agent):
         return '\n\n'.join(mds).strip() \
             or '<!-- no content -->'
 
-
-class MergeAgent(Agent):
-    """判断两页的首尾是否属于同一段落。"""
-    def run(self, prev_line: str, next_line: str) -> int:
+    def merge(self, prev_line: str, next_line: str) -> int:
         ques = MERGE_PMT.replace('{prev}', prev_line) \
             .replace('{next}', next_line)
         ans = ask_chatgpt_retry(ques, self.args.model, self.args)
         merge_str = ans.replace('```', '').strip()
         return int(merge_str == 'true')
 
-
-class PostProcAgent(Agent):
-    """OCR 后处理 Agent，纠正错误、合并跨页段落、识别标题。"""
-    def run(self, text: str) -> str:
+    def post_proc(self, text: str) -> str:
         ques = POSTPROC_PMT.replace('{text}', text)
         return ask_chatgpt_retry(ques, self.args.model, self.args)
 
-
-class TranslateAgent(Agent):
-    """英译中 Agent，将 Markdown 正文翻译为中文。"""
-    def run(self, text: str) -> str:
+    def translate(self, text: str) -> str:
         ques = TRANS_BODY_PMT.replace('{text}', text)
         return ask_chatgpt_retry(
             ques, self.args.model, self.args,
             parse_output=ext_cont_block,
         )
 
-
-class TOCAgent(Agent):
-    """目录修复 Agent，修正 OCR 目录的层级和错字。"""
-    def run(self, toc_text: str) -> List[List[str]]:
+    def fix_toc(self, toc_text: str) -> List[List[str]]:
         ques = TOC_PMT.replace('{text}', toc_text)
         ans = ask_chatgpt_retry(ques, self.args.model, self.args)
         return re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
 
-
-class TitleAgent(Agent):
-    """标题翻译 Agent，将英文书名翻译为中文。"""
-    def run(self, title: str) -> str:
+    def title(self, title: str) -> str:
         ques = TRANS_TITLE_PMT.replace('{text}', title)
         return ask_chatgpt_retry(ques, self.args.model, self.args)
 
@@ -146,15 +125,8 @@ class PDFOcrOrchestrator:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
 
-        # ── Agents ──
-        self.ocr_agent: OCRAgent = OCRAgent(args)
-        self.merge_agent: MergeAgent = MergeAgent(args)
-        self.post_proc_agent: PostProcAgent = PostProcAgent(args)
-        self.translate_agent: Optional[TranslateAgent] = (
-            TranslateAgent(args) if args.trans else None
-        )
-        self.toc_agent: TOCAgent = TOCAgent(args)
-        self.title_agent: TitleAgent = TitleAgent(args)
+        # ── Agent ──
+        self.agent: PdfOcrAgent = PdfOcrAgent(args)
 
         # ── 线程池基础设施 ──
         self.pool: Optional[ThreadPoolExecutor] = \
@@ -242,7 +214,7 @@ class PDFOcrOrchestrator:
 
     def _tr_ocr_page(self, img: bytes, page: Page) -> None:
         logger.info(f'[3] 识别页码 {page.pgno + 1}')
-        page.md = self.ocr_agent.run(img=img)
+        page.md = self.agent.ocr(img=img)
 
     def _tr_proc_img(
         self, img: bytes, page: Page, img_dir: str, pdf_hash: str
@@ -276,11 +248,9 @@ class PDFOcrOrchestrator:
     def _tr_group_page(self, group: Group) -> None:
         logger.info(f'[5] 处理页面合并')
         text = '\n\n'.join(group.raw)
-        group.md = self.post_proc_agent.run(text=text)
-        if self.translate_agent:
-            group.mdcn = self.translate_agent.run(
-                text=group.md,
-            )
+        group.md = self.agent.post_proc(text=text)
+        if self.args.trans:
+            group.mdcn = self.agent.translate(text=group.md)
         else:
             group.mdcn = group.md
 
@@ -290,7 +260,7 @@ class PDFOcrOrchestrator:
         next_line = group.mdcn.strip()
         prev = re.search(r'^.+?\Z', prev_line, flags=re.M).group()
         next = re.search(r'\A.+?$', next_line, flags=re.M).group()
-        group.merge = self.merge_agent.run(
+        group.merge = self.agent.merge(
             prev_line=prev, next_line=next,
         )
 
@@ -412,7 +382,7 @@ class PDFOcrOrchestrator:
         name_cn = ''
         if self.args.clean:
             full_text = clean_md_llm(full_text, self.args)
-            name_cn = self.title_agent.run(title=name)
+            name_cn = self.agent.title(title=name)
             full_text = f'# {name_cn}\n\n{full_text}'
 
         return full_text, name_cn
@@ -424,7 +394,7 @@ class PDFOcrOrchestrator:
             toc = res.toc
         else:
             toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
-            toc = self.toc_agent.run(toc_text='\n'.join(toc))
+            toc = self.agent.fix_toc(toc_text='\n'.join(toc))
             res.toc = toc
             self._write_yaml(res, yaml_fname)
         for lvl, title in toc:
@@ -451,9 +421,7 @@ class PDFOcrOrchestrator:
 
         if self.args.mkdir:
             if not name_cn:
-                name_cn = self.title_agent.run(
-                    title=name
-                )
+                name_cn = self.agent.title(title=name)
 
             logger.info('[8] 写入 README.md')
             readme = README_TMPL \
