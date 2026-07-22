@@ -15,7 +15,7 @@ import fitz
 import functools
 import cv2
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, Iterator, List, Optional, Tuple
 import json
 import json_repair
 from imgyaso.quant import pngquant
@@ -181,10 +181,14 @@ class PDFOcrOrchestrator:
         h = self.pool.submit(fn, *args, **kwargs)
         self._hdls.append(h)
 
-    def _drain(self) -> None:
-        """等待所有已提交任务完成并清空。"""
+    def _drain(self, on_done: Optional[Callable] = None) -> None:
+        """等待所有已提交任务完成并清空。
+        on_done: 每个子线程完成后在主线程中调用的回调。
+        """
         for h in as_completed(self._hdls):
             h.result()
+            if on_done:
+                on_done()
         self._hdls = []
 
     # ── 主线程写入 ──────────────────────────────────
@@ -330,8 +334,7 @@ class PDFOcrOrchestrator:
                 self._tr_ocr_page,
                 img, g,
             )
-        self._drain()
-        self._write_meta(res)
+        self._drain(lambda: self._write_meta(res))
 
     def process_images(
         self, doc: fitz.Document, res: Meta, pdf_hash: str
@@ -351,8 +354,7 @@ class PDFOcrOrchestrator:
                 img, g,
                 self.img_dir, pdf_hash,
             )
-        self._drain()
-        self._write_meta(res)
+        self._drain(lambda: self._write_meta(res))
 
     def group_pages(self, res: Meta) -> None:
         """[5] 按长度分组，后处理 + 翻译。填充 res.groups。"""
@@ -366,8 +368,7 @@ class PDFOcrOrchestrator:
                 self._tr_group_page,
                 g,
             )
-        self._drain()
-        self._write_meta(res)
+        self._drain(lambda: self._write_meta(res))
 
     def merge_groups(self, res: Meta) -> None:
         """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge。"""
@@ -382,8 +383,7 @@ class PDFOcrOrchestrator:
                 self._tr_merge_group,
                 res.groups[i - 1], g,
             )
-        self._drain()
-        self._write_meta(res)
+        self._drain(lambda: self._write_meta(res))
 
     def build_full_text(self, res: Meta) -> Tuple[str, str]:
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
