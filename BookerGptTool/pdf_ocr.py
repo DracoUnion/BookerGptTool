@@ -472,6 +472,10 @@ class PDFOcrOrchestrator:
     # ── 主流程 ─────────────────────────────────────
 
     def run(self) -> None:
+        if not self.args.fname.endswith('.pdf'):
+            print('请提供PDF文件')
+            return
+
         paths = self._resolve_paths(self.args)
         name = paths['name']
         slug = paths['slug']
@@ -479,6 +483,11 @@ class PDFOcrOrchestrator:
         md_fname = paths['md_fname']
         yaml_fname = paths['yaml_fname']
         img_dir = paths['img_dir']
+
+        os.makedirs(pj_dir, exist_ok=True)
+        if path.isfile(md_fname):
+            print('PDF 已处理')
+            return
 
         # 1. 加载 PDF
         doc, pdf_hash = self.load_pdf()
@@ -559,15 +568,6 @@ def pdf_ocr(args: argparse.Namespace) -> None:
 
 def pdf_ocr_file_safe(args: argparse.Namespace) -> None:
     try:
-        if not args.fname.endswith('.pdf'):
-            print('请提供PDF文件')
-            return
-        o = PDFOcrOrchestrator(args)
-        paths = PDFOcrOrchestrator._resolve_paths(args)
-        os.makedirs(paths['pj_dir'], exist_ok=True)
-        if path.isfile(paths['md_fname']):
-            print('PDF 已处理')
-            return
-        o.run()
+        PDFOcrOrchestrator(args).run()
     except:
         traceback.print_exc()
