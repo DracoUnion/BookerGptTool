@@ -14,7 +14,7 @@ import yaml
 import fitz
 import functools
 import cv2
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from typing import Any, Callable, List, Optional, Tuple
 import json
 import json_repair
@@ -183,7 +183,7 @@ class PDFOcrOrchestrator:
 
     def _drain(self) -> None:
         """等待所有已提交任务完成并清空。"""
-        for h in self._hdls:
+        for h in as_completed(self._hdls):
             h.result()
         self._hdls = []
 
