@@ -249,7 +249,7 @@ class Code2BookOrchestrator:
             if it.desc:
                 continue
             h = self.pool.submit(
-                self._tr_gen_code_desc, code_desc[i].file, i)
+                self._tr_gen_code_desc, it.file, i)
             hdls.append(h)
         for h in as_completed(hdls):
             idx, code_desc_i = h.result()
@@ -260,9 +260,17 @@ class Code2BookOrchestrator:
 
     # ── 步骤 3：生成大纲 ──────────────────────────────────
 
-    def _gen_outline_core(
+    def step_gen_outline(
         self, fnames: List[str], code_desc: List[CodeDescItemResult],
     ) -> OutlineResult:
+        print('[3] 生成大纲')
+        outline_fname = path.join(self.pj_dir, 'outline.yaml')
+
+        if path.isfile(outline_fname):
+            outline = yaml.safe_load(
+                open(outline_fname, encoding='utf8').read())
+            return OutlineResult(**outline)
+
         readme = open(path.join(self.args.dir, 'README.md'), encoding='utf8').read()
         outline = self.agent.gen_outline(fnames, code_desc, readme)
 
@@ -286,22 +294,7 @@ class Code2BookOrchestrator:
                 '\n'.join(rest_fnames),
             )
 
-        return outline
-
-    def step_gen_outline(
-        self, fnames: List[str], code_desc: List[CodeDescItemResult],
-    ) -> OutlineResult:
-        print('[3] 生成大纲')
-        outline_fname = path.join(self.pj_dir, 'outline.yaml')
-
-        if path.isfile(outline_fname):
-            outline = yaml.safe_load(
-                open(outline_fname, encoding='utf8').read())
-            return OutlineResult(**outline)
-
-        outline = self._gen_outline_core(fnames, code_desc)
-        open(outline_fname, 'w', encoding='utf8') \
-            .write(yaml.safe_dump(outline.dict(), allow_unicode=True))
+        self._write_yaml(outline_fname, outline)
         return outline
 
     # ── 步骤 4：生成细纲 ──────────────────────────────────
