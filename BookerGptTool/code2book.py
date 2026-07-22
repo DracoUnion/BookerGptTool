@@ -71,9 +71,10 @@ class Code2BookAgent:
         )
 
     def gen_src_anls_detail(
-        self, idx: int, outline_str: str, code_str: str,
+        self, idx: int, outline_chs: List[OutlineResult], code_str: str,
     ) -> SrcAnlsDetailResult:
         """生成第 idx 章细纲的源码解析部分。"""
+        outline_str = json.dumps(outline_chs, ensure_ascii=False)
         ques = SRC_ANLS_DETAIL_PMT.replace('{i}', str(idx + 1)) \
             .replace('{outline}', outline_str) \
             .replace('{code}', code_str)
@@ -86,9 +87,10 @@ class Code2BookAgent:
         )
 
     def gen_rest_detail(
-        self, idx: int, detail_str: str, outline_str: str, code_str: str,
+        self, idx: int, detail: Detail, outline_str: str, code_str: str,
     ) -> RestDetailResult:
         """生成第 idx 章细纲的剩余部分（学习目标、类比、练习等）。"""
+        detail_str = json.dumps(detail, ensure_ascii=False)
         ques = REST_DETAIL_PMT.replace('{detail}', detail_str) \
             .replace('{outline}', outline_str) \
             .replace('{i}', str(idx + 1)) \
@@ -102,13 +104,17 @@ class Code2BookAgent:
         )
 
     def fix_details(
-        self, details_str: str, struct: str,
-        code_desc_str: str, readme: str, rest_funcs: str,
+        self, details: List[Detail], fnames: List[str],
+        code_desc: List[CodeDescItemResult], readme: str, rest_funcs: str,
     ) -> List[Detail]:
         """校验细纲未覆盖所有函数时，补充缺少的函数重写细纲。"""
+        details_str = json.dumps(
+            [d.dict() for d in details], ensure_ascii=False)
+        fnames_li = '\n'.join(fnames)
+        code_desc_str = json.dumps([d.dict() for d in code_desc], ensure_ascii=False)
         ques = DETAIL_FIX_PMT \
             .replace('{details}', details_str) \
-            .replace('{struct}', struct) \
+            .replace('{struct}', fnames_li) \
             .replace('{code_desc}', code_desc_str) \
             .replace('{readme}', readme) \
             .replace('{rest_funcs}', rest_funcs)
@@ -186,10 +192,6 @@ class Code2BookOrchestrator:
                 )
                 f.write(yaml.safe_dump(data, allow_unicode=True))
 
-    def _write_detail_yaml(self, fname, details, idx):
-        with self.lock:
-            with open(fname, 'w', encoding='utf8') as f:
-                f.write(yaml.safe_dump(details[idx].dict(), allow_unicode=True))
 
     # ── 文件探索 ────────────────────────────────────────────
 
@@ -304,7 +306,7 @@ class Code2BookOrchestrator:
 
     # ── 步骤 4：生成细纲 ──────────────────────────────────
 
-    def _tr_gen_detail(self, outline_chs, idx: int, details: List[Detail]):
+    def _tr_gen_detail(self, outline_chs, idx: int) -> Tuple[int, Detail]:
         print(f'[4] 编写第{idx+1}章细纲')
         code_fnames = [
             f for pt in outline_chs[idx].nodes
@@ -312,16 +314,13 @@ class Code2BookOrchestrator:
         ]
         code_dict = self._read_code_dict(code_fnames)
         code_str = self._code_to_str(code_dict)
-        outline_str = json.dumps(outline_chs, ensure_ascii=False)
 
         # 源码解析部分
         detail_result = self.agent.gen_src_anls_detail(idx, outline_str, code_str)
-        details[idx] = Detail(**details[idx], **detail_result.dict())
-
         # 剩余部分
-        detail_str = json.dumps(details[idx], ensure_ascii=False)
-        rest_result = self.agent.gen_rest_detail(idx, detail_str, outline_str, code_str)
-        details[idx] = Detail(**details[idx], **rest_result.dict())
+        rest_result = self.agent.gen_rest_detail(idx, details[idx], outline_str, code_str)
+        
+        return Detail(**detail_result.dict(), **rest_result.dict())
 
     def step_gen_details(
         self, outline_chs, code_desc: List[CodeDescItemResult],
@@ -339,16 +338,15 @@ class Code2BookOrchestrator:
                 continue
             details.append(Detail())
             h = self.pool.submit(
-                self._tr_gen_detail, outline_chs, i, details)
+                self._tr_gen_detail, outline_chs, i)
             hdls.append(h)
 
-        for h in hdls:
-            h.result()
-
-        # 持久化
-        for i, d in enumerate(details):
+        for h in as_completed(hdls):
+            idx, detail = h.result()
+            details[idx] = detail
+            # 持久化
             detail_fname = path.join(self.pj_dir, f'detail_{i+1}.yaml')
-            self._write_detail_yaml(detail_fname, details, i)
+            self._write_yaml(detail_fname, details[i])
 
         return details
 
@@ -366,8 +364,6 @@ class Code2BookOrchestrator:
         for i, d in enumerate(details):
             d.no = i + 1
 
-        fnames_li = '\n'.join(fnames)
-        code_desc_str = json.dumps([d.dict() for d in code_desc], ensure_ascii=False)
         readme = open(path.join(self.args.dir, 'README.md'), encoding='utf8').read()
         total_funcs = [
             cd.file + ':' + fn.name
@@ -402,18 +398,15 @@ class Code2BookOrchestrator:
                 break
             print('[4] 细纲校验未通过')
             print('\n'.join(rest_funcs))
-            details_str = json.dumps(
-                [d.dict() for d in details], ensure_ascii=False)
             details = self.agent.fix_details(
-                details_str, fnames_li, code_desc_str, readme,
+                details, fnames, code_desc, readme,
                 '\n'.join(rest_funcs),
             )
             sorted(details, key=lambda it: it.no)
             for i, d in enumerate(details):
                 d.fixed = True
                 detail_fname = path.join(self.pj_dir, f'detail_{i+1}.yaml')
-                open(detail_fname, 'w', encoding='utf8') \
-                    .write(yaml.safe_dump(d.dict(), allow_unicode=True))
+                self._write_yaml(detail_fname. d)
 
         return details
 
