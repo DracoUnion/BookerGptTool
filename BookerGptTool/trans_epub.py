@@ -12,7 +12,9 @@ from .util import set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_tit
 from .fmt import fmt_zh, fmt_publisher
 from .clean_heading import clean_md_llm
 from .trans_epub_models import *
-from .trans_epub_agent import EpubTranslatorAgent
+from .trans_epub_agent import (
+    EpubTranslatorAgent
+)
 
 logging.basicConfig(
     level=logging.INFO, 
