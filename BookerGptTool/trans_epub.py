@@ -164,18 +164,13 @@ class TransEpubDispatcher:
             data = pngquant(data)
             open(ifname, 'wb').write(data)
 
-    def _tr_fmt_trans(self, chunks, idx, write_callback):
-        print(f'[4] 处理分块 {idx+1}')
-        raw = chunks[idx].raw
-        fmt = chunks[idx].fmt
-        trans = chunks[idx].trans
-        if not fmt:
-            fmt = self.agent.format_text(raw)
-            chunks[idx].fmt = fmt
+    def _tr_fmt_trans(self, chunk: Chunk, write_callback):
+        print(f'[4] 处理分块')
+        if not chunk.fmt:
+            chunk.fmt = self.agent.format_text(chunk.raw)
             write_callback()
-        if not trans:
-            trans = self.agent.translate_body(fmt)
-            chunks[idx].trans = fmt_zh(trans)
+        if not chunk.trans:
+            chunk.trans = fmt_zh(self.agent.translate_body(chunk.fmt))
             write_callback()
 
     def _format_translate(self, meta_dir, md):
@@ -209,7 +204,7 @@ class TransEpubDispatcher:
                 continue
             h = pool.submit(
                     self._tr_fmt_trans,
-                    chunks, idx,
+                    c,
                     functools.partial(write_callback_mdl, chunk_fname, chunks),
                 )
             hdls.append(h)
