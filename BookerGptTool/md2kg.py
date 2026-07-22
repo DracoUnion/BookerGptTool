@@ -6,7 +6,6 @@ from typing import List, Optional, Dict, Any, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .util import call_llm_retry, ext_code_block, set_openai_props
-from .base_agent import BaseAgent
 from .md2kg_models import (
     Entity, Relation, EntityList, RelationList,
     GlobalEntity, GlobalRelation, ResolvedGraph,
@@ -29,12 +28,31 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # 1. 统一智能体
 # ============================================================================
-class Md2KgAgent(BaseAgent):
+class Md2KgAgent:
     """统一知识图谱智能体"""
 
     def __init__(self, api_base: str, api_key: str, model: str,
-                 temperature: float = 0.0, retry: int = 3, stream: bool = False):
-        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
+                 temperature: float = 0.0, max_tokens: int = 2000,
+                 retry: int = 3, stream: bool = False):
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.retry = retry
+        self.stream = stream
+
+    def _call(self, system_prompt: str, user_prompt: str,
+              max_tokens: Optional[int] = None, parse_output: Callable = None) -> str:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        return call_llm_retry(
+            messages, self.model,
+            retry=self.retry,
+            temp=self.temperature,
+            max_tokens=max_tokens or self.max_tokens,
+            parse_output=parse_output,
+        )
 
     def extract_entities(self, chunk_text: str, chunk_id: str, context_summary: str = "") -> EntityList:
         user_prompt = ENTITY_EXTRACTOR_USER_PROMPT.format(
