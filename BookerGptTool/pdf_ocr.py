@@ -296,10 +296,7 @@ class PDFOcrOrchestrator:
             return Meta(**res)
         pages = [Page(pgno=i) for i in range(len(doc))]
         res = Meta(pages=pages)
-        open(yaml_fname, 'w', encoding='utf8') \
-            .write(yaml.safe_dump(
-                res.dict(), allow_unicode=True
-            ))
+        self._write_yaml(res, yaml_fname)
         return res
 
     def ocr_pages(
