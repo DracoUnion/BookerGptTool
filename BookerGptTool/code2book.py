@@ -87,10 +87,11 @@ class Code2BookAgent:
         )
 
     def gen_rest_detail(
-        self, idx: int, detail: Detail, outline_str: str, code_str: str,
+        self, idx: int, detail: Detail, outline_chs: str, code_str: str,
     ) -> RestDetailResult:
         """生成第 idx 章细纲的剩余部分（学习目标、类比、练习等）。"""
         detail_str = json.dumps(detail, ensure_ascii=False)
+        outline_str = json.dumps(outline_chs, ensure_ascii=False)
         ques = REST_DETAIL_PMT.replace('{detail}', detail_str) \
             .replace('{outline}', outline_str) \
             .replace('{i}', str(idx + 1)) \
@@ -309,9 +310,9 @@ class Code2BookOrchestrator:
         code_str = self._code_to_str(code_dict)
 
         # 源码解析部分
-        detail_result = self.agent.gen_src_anls_detail(idx, outline_str, code_str)
+        detail_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_str)
         # 剩余部分
-        rest_result = self.agent.gen_rest_detail(idx, details[idx], outline_str, code_str)
+        rest_result = self.agent.gen_rest_detail(idx, detail_result, outline_chs, code_str)
         
         return Detail(**detail_result.dict(), **rest_result.dict())
 
