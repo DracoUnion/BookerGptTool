@@ -35,9 +35,11 @@ class Code2BookAgent:
         )
 
     def gen_outline(
-        self, fnames_li: str, code_desc_str: str, readme: str,
+        self, fnames: List[str], code_desc: List[CodeDescItemResult], readme: str,
     ) -> OutlineResult:
         """根据项目结构和源码描述生成书籍大纲。"""
+        fnames_li = '\n'.join(fnames)
+        code_desc_str = json.dumps([d.dict() for d in code_desc], ensure_ascii=False)
         ques = OUTLINE_PMT.replace('{struct}', fnames_li) \
             .replace('{code_desc}', code_desc_str) \
             .replace('{readme}', readme)
@@ -260,11 +262,8 @@ class Code2BookOrchestrator:
     def _gen_outline_core(
         self, fnames: List[str], code_desc: List[CodeDescItemResult],
     ) -> OutlineResult:
-        fnames_li = '\n'.join(fnames)
-        code_desc_str = json.dumps([d.dict() for d in code_desc], ensure_ascii=False)
         readme = open(path.join(self.args.dir, 'README.md'), encoding='utf8').read()
-
-        outline = self.agent.gen_outline(fnames_li, code_desc_str, readme)
+        outline = self.agent.gen_outline(fnames, code_desc, readme)
 
         # 校验源码文件完整覆盖
         for _ in range(self.args.check):
@@ -282,7 +281,7 @@ class Code2BookOrchestrator:
             print('[3] 校验未通过')
             print('\n'.join(rest_fnames))
             outline = self.agent.fix_outline(
-                outline, fnames_li, code_desc_str, readme,
+                outline, fnames, code_desc, readme,
                 '\n'.join(rest_fnames),
             )
 
