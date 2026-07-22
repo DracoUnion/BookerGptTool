@@ -1,30 +1,27 @@
 import copy
 import traceback
 import os
-from io import BytesIO
 from os import path
 import re
 import yaml
 import functools
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-import json
 from imgyaso.quant import pngquant
 from .trans_epub_pmt import *
-from .util import ask_chatgpt_retry, set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks, split_md_lines, ext_cont_block, ext_code_block
+from .util import set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks, split_md_lines
 from .fmt import fmt_zh, fmt_publisher
-from .md2skill_chunker import chunk_markdown
 from .clean_heading import clean_md_llm
 from .trans_epub_models import *
+from .trans_epub_agent import EpubTranslatorAgent
 
 
-def fix_toc(full_text, meta: Meta, args, write_callback):
+def fix_toc(full_text, meta: Meta, agent: EpubTranslatorAgent, write_callback):
     if meta.toc:
         toc = meta.toc
     else:
         toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
-        ques = TOC_PMT.replace('{text}', '\n'.join(toc))
-        ans =  ask_chatgpt_retry(ques, args.model, args)
+        ans = agent.fix_toc('\n'.join(toc))
         toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
         meta.toc = toc
         write_callback()
@@ -43,7 +40,7 @@ def trunc_text(text, limit=50):
         else text
     )
 
-def split_chs(md, args):
+def split_chs(md, agent: EpubTranslatorAgent):
     lines = md.split('\n')
     titles = []
     in_code = False
@@ -52,7 +49,7 @@ def split_chs(md, args):
             in_code = not in_code
         elif not in_code and re.search(r'^#+ ', l):
             titles.append({
-                'no': i, 
+                'no': i,
                 'title': re.sub(r'^#+ ', '', l),
                 'before': [],
                 'after': [],
@@ -65,39 +62,24 @@ def split_chs(md, args):
         for i in range(it['no'] + 1, ed + 1):
             it['after'].append(trunc_text(lines[i]))
 
-    ques = TOC_EXT_PMT.replace('{titles}', json.dumps(titles, ensure_ascii=False))
-    parse_output = lambda s: parse_obj_as(List[TocExtResult],
-        json.loads(ext_code_block(s))
-    )
-    res: List[TocExtResult] = ask_chatgpt_retry(
-        ques, args.model, args, 
-        parse_output=parse_output,
-    )
+    res: List[TocExtResult] = agent.extract_chapter_toc(titles)
     title_nos = set(it.no for it in res if it.no != 0)
     for i, l in enumerate(lines):
         if i in title_nos:
             lines[i] = '[split/]' + l
     return '\n'.join(lines).split('[split/]')
 
-def tr_fmt_trans(chunks: List[Chunk], idx, args, write_callback):
+def tr_fmt_trans(chunks: List[Chunk], idx, agent: EpubTranslatorAgent, write_callback):
     print(f'[4] 处理分块 {idx+1}')
     raw = chunks[idx].raw
     fmt = chunks[idx].fmt
     trans = chunks[idx].trans
     if not fmt:
-        ques = FMT_PMT.replace('{text}', raw)
-        fmt = ask_chatgpt_retry(
-            ques, args.model, args, 
-            parse_output=ext_cont_block,
-        )
+        fmt = agent.format_text(raw)
         chunks[idx].fmt = fmt
         write_callback()
     if not trans:
-        ques = TRANS_BODY_PMT.replace('{text}', fmt)
-        trans = ask_chatgpt_retry(
-            ques, args.model, args, 
-            parse_output=ext_cont_block,
-        )
+        trans = agent.translate_body(fmt)
         chunks[idx].trans = fmt_zh(trans)
         write_callback()
 
@@ -140,6 +122,7 @@ def trans_epub_file_safe(args):
 def trans_epub_file(args):
     print(args)
     set_openai_props(args)
+    agent = EpubTranslatorAgent(args)
     if not args.fname.endswith('.epub'):
         print('请提供EPUB文件')
         return
@@ -167,8 +150,7 @@ def trans_epub_file(args):
         meta = yaml.safe_load(open(meta_fname, encoding='utf8').read())
         meta = Meta(**meta)
     else:
-        ques = TRANS_TITLE_PMT.replace('{text}', name)
-        name_cn = ask_chatgpt_retry(ques, args.model, args)
+        name_cn = agent.translate_title(name)
         meta = Meta(name=name, slug=slug, name_cn=name_cn)
         open(meta_fname, 'w', encoding='utf8').write(yaml.safe_dump(meta.dict()))
 
@@ -234,8 +216,8 @@ def trans_epub_file(args):
         if c.fmt and c.trans:
             continue
         h = pool.submit(
-                tr_fmt_trans, 
-                chunks, idx, args,
+                tr_fmt_trans,
+                chunks, idx, agent,
                 functools.partial(write_callback_mdl, chunk_fname, chunks),
             )
         hdls.append(h)
@@ -254,7 +236,7 @@ def trans_epub_file(args):
         md = clean_md_llm(md, args)
         md = f'# {name_cn}\n\n{md}'
     md = fix_toc(
-        md, meta, args, 
+        md, meta, agent,
         functools.partial(write_callback_mdl, meta_fname, meta),
     )
 
@@ -264,7 +246,7 @@ def trans_epub_file(args):
        path.getsize(chs_fname) != 0:
         chs = yaml.safe_load(open(chs_fname, encoding='utf8').read())
     else:
-        chs = split_chs(md, args) if args.split else [md]
+        chs = split_chs(md, agent) if args.split else [md]
         open(chs_fname, 'w', encoding='utf8').write(yaml.safe_dump(chs, allow_unicode=True))
     
     l = len(str(len(chs)))
