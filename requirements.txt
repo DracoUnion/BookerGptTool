@@ -11,3 +11,4 @@ numpy
 pillow
 sentence-transformers
 flask
+ebooklib

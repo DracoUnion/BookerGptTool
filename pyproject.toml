@@ -46,6 +46,7 @@ dependencies = [
     "pillow",
     "sentence-transformers",
     "flask",
+    "ebooklib",
 ]
 
 [project.urls]
