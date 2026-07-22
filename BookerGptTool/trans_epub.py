@@ -46,35 +46,6 @@ def trunc_text(text, limit=50):
         else text
     )
 
-def split_chs(md, agent: EpubTranslatorAgent):
-    lines = md.split('\n')
-    titles = []
-    in_code = False
-    for i, l in enumerate(lines):
-        if '```' in l:
-            in_code = not in_code
-        elif not in_code and re.search(r'^#+ ', l):
-            titles.append({
-                'no': i,
-                'title': re.sub(r'^#+ ', '', l),
-                'before': [],
-                'after': [],
-            })
-    for it in titles:
-        st = max(0, it['no'] - 10)
-        ed = min(len(lines) - 1, it['no'] + 10)
-        for i in range(st, it['no']):
-            it['before'].append(trunc_text(lines[i]))
-        for i in range(it['no'] + 1, ed + 1):
-            it['after'].append(trunc_text(lines[i]))
-
-    res: List[TocExtResult] = agent.extract_chapter_toc(titles)
-    title_nos = set(it.no for it in res if it.no != 0)
-    for i, l in enumerate(lines):
-        if i in title_nos:
-            lines[i] = '[split/]' + l
-    return '\n'.join(lines).split('[split/]')
-
 
 
 class TransEpubDispatcher:
@@ -242,13 +213,42 @@ class TransEpubDispatcher:
         )
         return md
 
+    def _split_chs(self, md):
+        lines = md.split('\n')
+        titles = []
+        in_code = False
+        for i, l in enumerate(lines):
+            if '```' in l:
+                in_code = not in_code
+            elif not in_code and re.search(r'^#+ ', l):
+                titles.append({
+                    'no': i,
+                    'title': re.sub(r'^#+ ', '', l),
+                    'before': [],
+                    'after': [],
+                })
+        for it in titles:
+            st = max(0, it['no'] - 10)
+            ed = min(len(lines) - 1, it['no'] + 10)
+            for i in range(st, it['no']):
+                it['before'].append(trunc_text(lines[i]))
+            for i in range(it['no'] + 1, ed + 1):
+                it['after'].append(trunc_text(lines[i]))
+
+        res: List[TocExtResult] = self.agent.extract_chapter_toc(titles)
+        title_nos = set(it.no for it in res if it.no != 0)
+        for i, l in enumerate(lines):
+            if i in title_nos:
+                lines[i] = '[split/]' + l
+        return '\n'.join(lines).split('[split/]')
+
     def _split_chapters(self, chs_fname, md):
         logger.info('[6] 分章节')
         if path.isfile(chs_fname) and \
            path.getsize(chs_fname) != 0:
             chs = yaml.safe_load(open(chs_fname, encoding='utf8').read())
         else:
-            chs = split_chs(md, self.agent) if self.args.split else [md]
+            chs = self._split_chs(md) if self.args.split else [md]
             open(chs_fname, 'w', encoding='utf8').write(yaml.safe_dump(chs, allow_unicode=True))
         return chs
 
