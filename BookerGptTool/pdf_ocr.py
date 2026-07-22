@@ -327,16 +327,16 @@ class PDFOcrOrchestrator:
         """[4] 裁切并保存页面中的插图。原地填充 pages.md/img_proc。"""
         logger.info('[4] 处理图片')
         os.makedirs(img_dir, exist_ok=True)
-        for i, g in enumerate(res.pages):
-            if g.img_proc:
+        for i, pg in enumerate(res.pages):
+            if pg.img_proc:
                 continue
-            pgno = g.pgno
+            pgno = pg.pgno
             img = doc[pgno] \
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
             self._submit(
                 self._tr_proc_img,
-                img, g,
+                img, pg,
                 img_dir, pdf_hash,
             )
         self._drain(lambda: self._write_yaml(res, yaml_fname))
