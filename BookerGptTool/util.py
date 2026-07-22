@@ -21,6 +21,12 @@ import tempfile
 import uuid
 from typing import *
 
+logging.basicConfig(
+    level=logging.INFO, 
+    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 def d(name):
     DIR = path.dirname(path.abspath(__file__))
     return path.join(DIR, name)
@@ -94,7 +100,7 @@ def request_retry(method, url, retry=10, check_status=False, **kw):
         except KeyboardInterrupt as e:
             raise e
         except Exception as e:
-            print(f'{url} retry {i}')
+            logger.info(f'{url} retry {i}')
             if i == retry - 1: raise e
 
 def reform_paras_mdcn(text, size=1500):
@@ -220,7 +226,7 @@ def call_llm_retry(
                 if parse_output else res
             )
         except Exception as ex:
-            print(f'OpenAI retry {i+1}')
+            logger.info(f'OpenAI retry {i+1}')
             traceback.print_exc()
             if i == retry - 1: raise ex
 
@@ -240,7 +246,7 @@ def call_llm(
     msgs = repl_ins_token(msgs)
     if isinstance(extra_body, str):
         extra_body = json.loads(extra_body)
-    print(f'ques: {json.dumps(get_msgs_text(msgs), ensure_ascii=False)}')
+    logger.info(f'ques: {json.dumps(get_msgs_text(msgs), ensure_ascii=False)}')
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
@@ -266,7 +272,7 @@ def call_llm(
     # 还原指令格式
     ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
     ans = re.sub(r'<think>[\s\S]+?</think>', '', ans)
-    print(f'ans: {json.dumps(ans, ensure_ascii=False)}')
+    logger.info(f'ans: {json.dumps(ans, ensure_ascii=False)}')
     return ans
 
 def set_openai_props(args):
@@ -281,7 +287,7 @@ def collect_stream_content(resp):
         if chunk.choices and chunk.choices[0].delta.content:
             pt = chunk.choices[0].delta.content
             content.append(pt)
-            print(f'stream: {json.dumps(pt, ensure_ascii=False)}')
+            logger.info(f'stream: {json.dumps(pt, ensure_ascii=False)}')
     return ''.join(content)
 
 def extname(fname):
@@ -385,9 +391,9 @@ def call_glmocr_retry(img, retry=10):
                 raise requests.HTTPError(f'HTTP {res.status_code}: {res.text}')
             break
         except Exception as ex:
-            print(f'GLM retry {i+1}: {str(ex)}')
+            logger.info(f'GLM retry {i+1}: {str(ex)}')
             if i == retry - 1: raise ex
-    print(res.text)
+    logger.info(res.text)
     return json.loads(res.text)['md_results']
 
 def group_chunks(chunks, limit=8000):
