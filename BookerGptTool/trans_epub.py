@@ -185,7 +185,7 @@ class TransEpubDispatcher:
         if not chunk.trans:
             chunk.trans = fmt_zh(self.agent.translate_body(chunk.fmt))
 
-    def _write_yaml(self, fname, res):
+    def _write_yaml(self, fname, obj):
         if isinstance(obj, BaseModel):
             obj = obj.dict()
         elif isinstance(obj, list):
