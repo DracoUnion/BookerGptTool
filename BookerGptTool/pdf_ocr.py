@@ -152,6 +152,8 @@ class PDFOcrOrchestrator:
         self.lock = Lock()
         self._hdls = []
 
+    # ── 线程池工具 ────────────────────────────────
+
     def _submit(self, fn, *args, **kwargs):
         """提交线程池任务。"""
         h = self.pool.submit(fn, *args, **kwargs)
@@ -162,6 +164,150 @@ class PDFOcrOrchestrator:
         for h in self._hdls:
             h.result()
         self._hdls = []
+
+    # ── 回调工厂 ──────────────────────────────────
+
+    def _make_write_cb(self, res):
+        """创建线程安全的 meta 写回回调，捕获当前 res。"""
+        lock = self.lock
+        yaml_fname = self.yaml_fname
+
+        def write_meta():
+            with lock:
+                with open(yaml_fname, 'w', encoding='utf8') as f:
+                    obj = (
+                        [r.dict() for r in res]
+                        if isinstance(res, list)
+                        else res.dict()
+                    )
+                    f.write(
+                        yaml.safe_dump(obj, allow_unicode=True)
+                    )
+
+        return write_meta
+
+    # ── 线程池任务 ────────────────────────────────
+
+    def _ocr_res2md(self, r: OCRResult):
+        mds = []
+        for seg in r.contents:
+            if seg.type == 'image':
+                bbox = seg.bbox
+                md = f'![](bbox={bbox})'
+            elif seg.type == 'title':
+                md = '# ' + seg.markdown
+            elif seg.type == 'list':
+                md = '+   ' + seg.markdown
+            elif seg.type == 'code':
+                md = '```\n' + seg.markdown + '\n```'
+            elif seg.type == 'quote':
+                md = '> ' + seg.markdown
+            else:
+                md = seg.markdown
+            mds.append(md)
+        return '\n\n'.join(mds).strip() \
+            or '<!-- no content -->'
+
+    def _corp_img(self, img, bbox):
+        xmin, ymin, xmax, ymax = bbox
+        fmt_bytes = isinstance(img, bytes)
+        if fmt_bytes:
+            img = cv2.imdecode(
+                np.frombuffer(img, np.uint8),
+                cv2.IMREAD_UNCHANGED
+            )
+        h, w = img.shape[0], img.shape[1]
+        xmin = int(w * xmin)
+        xmax = int(w * xmax)
+        ymin = int(h * ymin)
+        ymax = int(h * ymax)
+        img_pt = img[ymin:ymax + 1, xmin: xmax + 1]
+        if 0 in img_pt.shape:
+            img_pt = np.full([1, 1, 3], 255, np.uint8)
+        if fmt_bytes:
+            img_pt = bytes(cv2.imencode(
+                '.png', img_pt,
+                [cv2.IMWRITE_PNG_COMPRESSION, 9]
+            )[1])
+        return img_pt
+
+    def _tr_ocr_page(self, img, pages, idx, write_callback):
+        print(f'[3] 识别页码 {idx + 1}')
+        res: OCRResult = self.ocr_agent.run(img=img)
+        pages[idx].md = self._ocr_res2md(res)
+        write_callback()
+
+    def _tr_proc_img(self, img, pages, idx, img_dir, pdf_hash, write_callback):
+        print(f'[4] 处理图像 {idx}')
+        md = pages[idx].md
+        pgno = pages[idx].pgno
+        img_links = re.findall(r'!\[\]\(.+?\)', md)
+        for j, link in enumerate(img_links):
+            m = re.search(
+                r'bbox=\[(\d+\.\d+),\x20(\d+\.\d+),'
+                r'\x20(\d+\.\d+),\x20(\d+\.\d+)\]',
+                link,
+            )
+            if not m:
+                continue
+            bbox = [
+                float(m.group(1)), float(m.group(2)),
+                float(m.group(3)), float(m.group(4)),
+            ]
+            img_pt = self._corp_img(img, bbox)
+            img_pt = pngquant(img_pt)
+            img_fname = f'{pdf_hash}_{pgno}_{j}.png'
+            img_ffname = path.join(img_dir, img_fname)
+            print(f'[5] {img_ffname}')
+            open(img_ffname, 'wb').write(img_pt)
+            md = md.replace(link, f'![](img/{img_fname})')
+            pages[idx].md = md
+            write_callback()
+        pages[idx].img_proc = True
+
+    def _tr_group_page(self, groups, idx, write_callback):
+        print(f'[5] 处理页面合并 {idx}')
+        text = '\n\n'.join(groups[idx].raw)
+        groups[idx].md = self.post_proc_agent.run(text=text)
+        write_callback()
+        if self.translate_agent:
+            groups[idx].mdcn = self.translate_agent.run(
+                text=groups[idx].md,
+            )
+        else:
+            groups[idx].mdcn = groups[idx].md
+        write_callback()
+
+    def _tr_merge_group(self, groups, idx, write_callback):
+        print(f'[6] 处理分组合并 {idx + 1}')
+        prev_line = groups[idx - 1].mdcn.strip()
+        next_line = groups[idx].mdcn.strip()
+        prev = re.search(r'^.+?\Z', prev_line, flags=re.M).group()
+        next = re.search(r'\A.+?$', next_line, flags=re.M).group()
+        groups[idx].merge = self.merge_agent.run(
+            prev_line=prev, next_line=next,
+        )
+        write_callback()
+
+    def _fix_toc(self, full_text, res, write_callback):
+        if res.toc:
+            toc = res.toc
+        else:
+            toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
+            toc = self.toc_agent.run(toc_text='\n'.join(toc))
+            res.toc = toc
+            write_callback()
+        for lvl, title in toc:
+            print(f'[7] {lvl} {title}')
+            try:
+                full_text = re.sub(
+                    r'^#+\x20+' + re.escape(title) + '$',
+                    f'{lvl} {title}',
+                    full_text, flags=re.M,
+                )
+            except re.error:
+                pass
+        return full_text
 
     # ── 流水线各步骤 ──────────────────────────────
     #
@@ -213,9 +359,8 @@ class PDFOcrOrchestrator:
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
             self._submit(
-                tr_ocr_page,
-                res.pages, i,
-                self.ocr_agent, cb,
+                self._tr_ocr_page,
+                img, res.pages, i, cb,
             )
         self._drain()
 
@@ -232,8 +377,8 @@ class PDFOcrOrchestrator:
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
             self._submit(
-                tr_proc_img,
-                res.pages, i,
+                self._tr_proc_img,
+                img, res.pages, i,
                 self.img_dir, pdf_hash, cb,
             )
         self._drain()
@@ -248,10 +393,8 @@ class PDFOcrOrchestrator:
             if g.md and g.mdcn:
                 continue
             self._submit(
-                tr_group_page,
-                res.groups, i,
-                self.post_proc_agent,
-                self.translate_agent, cb,
+                self._tr_group_page,
+                res.groups, i, cb,
             )
         self._drain()
 
@@ -266,9 +409,8 @@ class PDFOcrOrchestrator:
             if g.merge != -1:
                 continue
             self._submit(
-                tr_merge_group,
-                res.groups, i,
-                self.merge_agent, cb,
+                self._tr_merge_group,
+                res.groups, i, cb,
             )
         self._drain()
 
@@ -292,9 +434,8 @@ class PDFOcrOrchestrator:
     def fix_toc(self, full_text, res):
         """[7] 修正目录层级。返回修正后的 full_text。"""
         print('[7] 修正目录')
-        return _fix_toc(
-            full_text, res,
-            self.toc_agent, self._make_write_cb(res),
+        return self._fix_toc(
+            full_text, res, self._make_write_cb(res),
         )
 
     def write_output(self, full_text, name_cn):
@@ -329,27 +470,6 @@ class PDFOcrOrchestrator:
             )
             open(summary_fname, 'w', encoding='utf8') \
                 .write('\n'.join(toc))
-
-    # ── 回调工厂 ──────────────────────────────────
-
-    def _make_write_cb(self, res):
-        """创建线程安全的 meta 写回回调，捕获当前 res。"""
-        lock = self.lock
-        yaml_fname = self.yaml_fname
-
-        def write_meta():
-            with lock:
-                with open(yaml_fname, 'w', encoding='utf8') as f:
-                    obj = (
-                        [r.dict() for r in res]
-                        if isinstance(res, list)
-                        else res.dict()
-                    )
-                    f.write(
-                        yaml.safe_dump(obj, allow_unicode=True)
-                    )
-
-        return write_meta
 
     # ── 主流程 ─────────────────────────────────────
 
@@ -399,148 +519,6 @@ class PDFOcrOrchestrator:
 
 
 # ── 模块级工具函数 ────────────────────────────────
-
-
-def corp_img(img, bbox):
-    xmin, ymin, xmax, ymax = bbox
-    fmt_bytes = isinstance(img, bytes)
-    if fmt_bytes:
-        img = cv2.imdecode(
-            np.frombuffer(img, np.uint8),
-            cv2.IMREAD_UNCHANGED
-        )
-    h, w = img.shape[0], img.shape[1]
-    xmin = int(w * xmin)
-    xmax = int(w * xmax)
-    ymin = int(h * ymin)
-    ymax = int(h * ymax)
-    img_pt = img[ymin:ymax + 1, xmin: xmax + 1]
-    if 0 in img_pt.shape:
-        img_pt = np.full([1, 1, 3], 255, np.uint8)
-    if fmt_bytes:
-        img_pt = bytes(cv2.imencode(
-            '.png', img_pt,
-            [cv2.IMWRITE_PNG_COMPRESSION , 9]
-        )[1])
-    return img_pt
-
-
-def ocr_res2md(r: OCRResult):
-    mds = []
-    for seg in r.contents:
-        if seg.type == 'image':
-            bbox = seg.bbox
-            md = f'![](bbox={bbox})'
-        elif seg.type == 'title':
-            md = '# ' + seg.markdown
-        elif seg.type == 'list':
-            md = '+   ' + seg.markdown
-        elif seg.type == 'code':
-            md = '```\n' + seg.markdown + '\n```'
-        elif seg.type == 'quote':
-            md = '> ' + seg.markdown
-        else:
-            md = seg.markdown
-        mds.append(md)
-    return '\n\n'.join(mds).strip() \
-        or '<!-- no content -->'
-
-
-def tr_ocr_page(
-    img, pages: List[Page], idx,
-    agent: OCRAgent, write_callback,
-):
-    print(f'[3] 识别页码 {idx + 1}')
-    res: OCRResult = agent.run(img=img)
-    pages[idx].md = ocr_res2md(res)
-    write_callback()
-
-
-def tr_merge_group(
-    groups: List[Group], idx,
-    agent: MergeAgent, write_callback,
-):
-    print(f'[6] 处理分组合并 {idx + 1}')
-    prev_line = groups[idx - 1].mdcn.strip()
-    next_line = groups[idx].mdcn.strip()
-    prev = re.search(r'^.+?\Z', prev_line, flags=re.M).group()
-    next = re.search(r'\A.+?$', next_line, flags=re.M).group()
-    groups[idx].merge = agent.run(
-        prev_line=prev, next_line=next,
-    )
-    write_callback()
-
-
-def tr_proc_img(
-    img, pages: List[Page], idx,
-    img_dir, pdf_hash, write_callback,
-):
-    print(f'[4] 处理图像 {idx}')
-    md = pages[idx].md
-    pgno = pages[idx].pgno
-    img_links = re.findall(r'!\[\]\(.+?\)', md)
-    for j, link in enumerate(img_links):
-        m = re.search(
-            r'bbox=\[(\d+\.\d+),\x20(\d+\.\d+),'
-            r'\x20(\d+\.\d+),\x20(\d+\.\d+)\]',
-            link,
-        )
-        if not m:
-            continue
-        bbox = [
-            float(m.group(1)), float(m.group(2)),
-            float(m.group(3)), float(m.group(4)),
-        ]
-        img_pt = corp_img(img, bbox)
-        img_pt = pngquant(img_pt)
-        img_fname = f'{pdf_hash}_{pgno}_{j}.png'
-        img_ffname = path.join(img_dir, img_fname)
-        print(f'[5] {img_ffname}')
-        open(img_ffname, 'wb').write(img_pt)
-        md = md.replace(link, f'![](img/{img_fname})')
-        pages[idx].md = md
-        write_callback()
-    pages[idx].img_proc = True
-
-
-def tr_group_page(
-    groups: List[Group], idx,
-    post_proc_agent: PostProcAgent,
-    translate_agent: TranslateAgent,
-    write_callback,
-):
-    print(f'[5] 处理页面合并 {idx}')
-    text = '\n\n'.join(groups[idx].raw)
-    groups[idx].md = post_proc_agent.run(text=text)
-    write_callback()
-    if translate_agent:
-        groups[idx].mdcn = translate_agent.run(
-            text=groups[idx].md,
-        )
-    else:
-        groups[idx].mdcn = groups[idx].md
-    write_callback()
-
-
-def _fix_toc(full_text, res: Meta, agent: TOCAgent, write_callback):
-    if res.toc:
-        toc = res.toc
-    else:
-        toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
-        toc = agent.run(toc_text='\n'.join(toc))
-        res.toc = toc
-        write_callback()
-    for lvl, title in toc:
-        print(f'[7] {lvl} {title}')
-        try:
-            full_text = re.sub(
-                r'^#+\x20+' + re.escape(title) + '$',
-                f'{lvl} {title}',
-                full_text, flags=re.M,
-            )
-        except re.error:
-            pass
-    return full_text
 
 
 def mkgroups(pages: List[Page], args) -> List[Group]:
