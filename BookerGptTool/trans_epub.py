@@ -6,7 +6,6 @@ import re
 import yaml
 import functools
 from concurrent.futures import ThreadPoolExecutor
-from threading import Lock
 from imgyaso.quant import pngquant
 from .trans_epub_pmt import *
 from .util import set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks, split_md_lines
@@ -173,6 +172,15 @@ class TransEpubDispatcher:
             chunk.trans = fmt_zh(self.agent.translate_body(chunk.fmt))
             write_callback()
 
+    def _write_yaml(self, fname, res):
+        with open(fname, 'w', encoding='utf8') as f:
+            obj = (
+                [r.dict() for r in res]
+                if isinstance(res, list)
+                else res.dict()
+            )
+            f.write(yaml.safe_dump(obj, allow_unicode=True))
+
     def _format_translate(self, meta_dir, md):
         print('[4] 排版和翻译')
         chunk_fname = path.join(meta_dir, 'chunks.yaml')
@@ -188,24 +196,14 @@ class TransEpubDispatcher:
 
         pool = ThreadPoolExecutor(self.args.threads)
         hdls = []
-        lock = Lock()
-        def write_callback_mdl(fname, res):
-            with lock:
-                with open(fname, 'w', encoding='utf8') as f:
-                    obj = (
-                        [r.dict() for r in res]
-                        if isinstance(res, list)
-                        else res.dict()
-                    )
-                    f.write(yaml.safe_dump(obj, allow_unicode=True))
 
-        for idx, c in enumerate(chunks):
+        for c in chunks:
             if c.fmt and c.trans:
                 continue
             h = pool.submit(
                     self._tr_fmt_trans,
                     c,
-                    functools.partial(write_callback_mdl, chunk_fname, chunks),
+                    functools.partial(self._write_yaml, chunk_fname, chunks),
                 )
             hdls.append(h)
 
@@ -220,19 +218,9 @@ class TransEpubDispatcher:
             name_cn = meta.name_cn
             md = clean_md_llm(md, self.args)
             md = f'# {name_cn}\n\n{md}'
-        lock = Lock()
-        def write_callback_mdl(fname, res):
-            with lock:
-                with open(fname, 'w', encoding='utf8') as f:
-                    obj = (
-                        [r.dict() for r in res]
-                        if isinstance(res, list)
-                        else res.dict()
-                    )
-                    f.write(yaml.safe_dump(obj, allow_unicode=True))
         md = fix_toc(
             md, meta, self.agent,
-            functools.partial(write_callback_mdl, meta_fname, meta),
+            functools.partial(self._write_yaml, meta_fname, meta),
         )
         return md
 
