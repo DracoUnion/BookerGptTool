@@ -5,7 +5,7 @@ import yaml
 import json_repair
 import json
 import functools
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from typing import List
 from pydantic import parse_obj_as
@@ -218,12 +218,11 @@ class Code2BookOrchestrator:
 
     # ── 步骤 2：生成源码文件描述 ──────────────────────────
 
-    def _tr_gen_code_desc(self, res: List[CodeDescItemResult], idx: int):
-        fname = res[idx].file
+    def _tr_gen_code_desc(self, fname: str, idx: int) -> Tuple[int, CodeDescItemResult]:
         print(f'[2] 生成描述 {fname}')
         code = self._read_code(fname)
         descs = self.agent.gen_code_desc(fname, code)
-        res[idx] = CodeDescItemResult(file=fname, **descs.dict())
+        return idx, CodeDescItemResult(file=fname, **descs.dict())
 
     def step_gen_code_desc(self, fnames: List[str]) -> List[CodeDescItemResult]:
         print('[2] 生成源码文件描述')
@@ -248,12 +247,13 @@ class Code2BookOrchestrator:
             if it.desc:
                 continue
             h = self.pool.submit(
-                self._tr_gen_code_desc, code_desc, i)
+                self._tr_gen_code_desc, code_desc[i].file, i)
             hdls.append(h)
-        for h in hdls:
-            h.result()
+        for h in as_completed(hdls):
+            idx, code_desc_i = h.result()
+            code_desc[idx] == code_desc_i
+            self._write_yaml(code_desc_fname, code_desc)
 
-        self._write_yaml(code_desc_fname, code_desc)
         return code_desc
 
     # ── 步骤 3：生成大纲 ──────────────────────────────────
