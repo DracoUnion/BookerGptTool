@@ -163,14 +163,12 @@ class TransEpubDispatcher:
             data = pngquant(data)
             open(ifname, 'wb').write(data)
 
-    def _tr_fmt_trans(self, chunk: Chunk, write_callback):
+    def _tr_fmt_trans(self, chunk: Chunk):
         print(f'[4] 处理分块')
         if not chunk.fmt:
             chunk.fmt = self.agent.format_text(chunk.raw)
-            write_callback()
         if not chunk.trans:
             chunk.trans = fmt_zh(self.agent.translate_body(chunk.fmt))
-            write_callback()
 
     def _write_yaml(self, fname, res):
         with open(fname, 'w', encoding='utf8') as f:
@@ -203,12 +201,12 @@ class TransEpubDispatcher:
             h = pool.submit(
                     self._tr_fmt_trans,
                     c,
-                    functools.partial(self._write_yaml, chunk_fname, chunks),
                 )
             hdls.append(h)
 
         for h in hdls:
             h.result()
+        self._write_yaml(chunk_fname, chunks)
         return chunks
 
     def _fix_toc(self, chunks, meta, meta_fname):
