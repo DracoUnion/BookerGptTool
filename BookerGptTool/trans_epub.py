@@ -5,7 +5,7 @@ from os import path
 import re
 import yaml
 import functools
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from imgyaso.quant import pngquant
 from .trans_epub_pmt import *
 from .util import set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks, split_md_lines
@@ -198,15 +198,12 @@ class TransEpubDispatcher:
         for c in chunks:
             if c.fmt and c.trans:
                 continue
-            h = pool.submit(
-                    self._tr_fmt_trans,
-                    c,
-                )
+            h = pool.submit(self._tr_fmt_trans, c)
             hdls.append(h)
 
-        for h in hdls:
+        for h in as_completed(hdls):
             h.result()
-        self._write_yaml(chunk_fname, chunks)
+            self._write_yaml(chunk_fname, chunks)
         return chunks
 
     def _fix_toc(self, chunks, meta, meta_fname):
