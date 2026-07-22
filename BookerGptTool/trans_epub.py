@@ -5,7 +5,6 @@ import logging
 from os import path
 import re
 import yaml
-import functools
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from imgyaso.quant import pngquant
 from .trans_epub_pmt import *
@@ -21,23 +20,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-def fix_toc(full_text, meta: Meta, agent: EpubTranslatorAgent, write_callback):
-    if meta.toc:
-        toc = meta.toc
-    else:
-        toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
-        ans = agent.fix_toc('\n'.join(toc))
-        toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
-        meta.toc = toc
-        write_callback()
-    for lvl, title in toc:
-        logger.info(f'[7] {lvl} {title}')
-        try:
-            full_text = re.sub(r'^#+\x20+' + re.escape(title) + '$', f'{lvl} {title}', full_text, flags=re.M)
-        except re.error:
-            pass
-    return full_text
 
 def trunc_text(text, limit=50):
     return (
@@ -206,10 +188,20 @@ class TransEpubDispatcher:
             name_cn = meta.name_cn
             md = clean_md_llm(md, self.args)
             md = f'# {name_cn}\n\n{md}'
-        md = fix_toc(
-            md, meta, self.agent,
-            functools.partial(self._write_yaml, meta_fname, meta),
-        )
+        if meta.toc:
+            toc = meta.toc
+        else:
+            toc = re.findall(r'^#+\x20+.+?$', md, re.M)
+            ans = self.agent.fix_toc('\n'.join(toc))
+            toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
+            meta.toc = toc
+            self._write_yaml(meta_fname, meta)
+        for lvl, title in toc:
+            logger.info(f'[7] {lvl} {title}')
+            try:
+                md = re.sub(r'^#+\x20+' + re.escape(title) + '$', f'{lvl} {title}', md, flags=re.M)
+            except re.error:
+                pass
         return md
 
     def _split_chs(self, md):
