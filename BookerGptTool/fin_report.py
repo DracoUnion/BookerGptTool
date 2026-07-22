@@ -5,7 +5,7 @@ import os
 import json
 import logging
 from pydantic import parse_obj_as
-from typing import List, Dict, Any, Optional, Callable
+from typing import List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from .util import ext_code_block, ext_cont_block, call_llm_retry, set_openai_props
 from .base_agent import BaseAgent
@@ -50,34 +50,28 @@ def read_pdf_text(data):
     return cont
 
 
-# ===================== 1. 研究员 Agent (单份提取) =====================
-class ResearcherAgent(BaseAgent):
-    """单份研报提取，返回结构化 JSON"""
+# ===================== Agent =====================
 
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
-        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
-        self.system_prompt = RESEARCHER_SYSTEM_PROMPT
+
+class FinReportAgent:
+    """封装所有 LLM 调用的智能体类。"""
+
+    def __init__(self, api_base: str, api_key: str, model: str, retry: int = 3, stream: bool = False):
+        self._researcher = BaseAgent(api_base, api_key, model, temperature=0.0, retry=retry, stream=stream)
+        self._fusion = BaseAgent(api_base, api_key, model, temperature=0.1, retry=retry, stream=stream)
+        self._debate = BaseAgent(api_base, api_key, model, temperature=0.7, retry=retry, stream=stream)
+        self._judge = BaseAgent(api_base, api_key, model, temperature=0.2, retry=retry, stream=stream)
 
     def extract(self, report_text: str) -> ResearcherOutput:
         user_prompt = RESEARCHER_EXTRACT_USER.format(report_text=report_text)
         parse_output = lambda s: \
             ResearcherOutput.model_validate_json(ext_code_block(s))
-        res = self._call(
-            self.system_prompt, user_prompt,
+        return self._researcher._call(
+            RESEARCHER_SYSTEM_PROMPT, user_prompt,
             parse_output=parse_output,
         )
-        return res
-
-
-# ===================== 2. 融合仲裁官 (合并多份结果) =====================
-class FusionAgent(BaseAgent):
-    """合并多份研报的提取结果，生成共识、分歧、评级分布、风险并集"""
-
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
-        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
     def fuse(self, extraction_results: List[ResearcherOutput]) -> FusionOutput:
-        # 收集所有事实、评级、风险
         all_facts = []
         rating_list = []
         risk_set = set()
@@ -88,7 +82,6 @@ class FusionAgent(BaseAgent):
                 rating_list.append(rating)
             risk_set.update(res.explicit_risks)
 
-        # 如果没有事实，直接返回空融合
         if not all_facts:
             return FusionOutput(
                 consensus_facts=[],
@@ -97,85 +90,60 @@ class FusionAgent(BaseAgent):
                 merged_risks=list(risk_set),
             )
 
-        # 用 LLM 进行智能合并
         facts_json = json.dumps([f.model_dump() for f in all_facts], ensure_ascii=False, indent=2)
         user_prompt = FUSION_FUSE_USER.format(facts_json=facts_json)
         parse_output = lambda s: \
             FusionOutput.model_validate_json(ext_code_block(s))
-        fused = self._call(
+        fused = self._fusion._call(
             FUSION_SYSTEM_PROMPT, user_prompt,
             parse_output=parse_output,
         )
 
-        # 确保字段存在
         if not fused.consensus_facts:
-            fused.consensus_facts = all_facts  # 降级：全部作为共识
+            fused.consensus_facts = all_facts
         if not fused.rating_distribution:
             fused.rating_distribution = {r: rating_list.count(r) for r in set(rating_list)}
         if not fused.merged_risks:
             fused.merged_risks = list(risk_set)
         return fused
 
-
-# ===================== 3. 多方与空方 Agent =====================
-class BullAgent(BaseAgent):
-    """生成看多立场，并能够反驳对方"""
-
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
-        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
-
-    def generate_initial(self, fused_data: FusionOutput) -> str:
+    def bull_initial(self, fused_data: FusionOutput) -> str:
         user_prompt = BULL_INITIAL_USER.format(
             consensus_facts=json.dumps([f.model_dump() for f in fused_data.consensus_facts], ensure_ascii=False, indent=2),
             divergence_points=json.dumps([d.model_dump() for d in fused_data.divergence_points], ensure_ascii=False, indent=2),
             rating_distribution=fused_data.rating_distribution,
             merged_risks=fused_data.merged_risks,
         )
-        return self._call(
+        return self._debate._call(
             BULL_SYSTEM_PROMPT, user_prompt,
             parse_output=ext_cont_block,
         )
 
-    def rebut(self, fused_data: FusionOutput, opponent_argument: str) -> str:
+    def bull_rebut(self, fused_data: FusionOutput, opponent_argument: str) -> str:
         user_prompt = BULL_REBUT_USER.format(opponent_argument=opponent_argument)
-        return self._call(
+        return self._debate._call(
             BULL_SYSTEM_PROMPT, user_prompt,
             parse_output=ext_cont_block,
         )
 
-
-class BearAgent(BaseAgent):
-    """生成看空立场，并能够反驳对方"""
-
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
-        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
-
-    def generate_initial(self, fused_data: FusionOutput) -> str:
+    def bear_initial(self, fused_data: FusionOutput) -> str:
         user_prompt = BEAR_INITIAL_USER.format(
             consensus_facts=json.dumps([f.model_dump() for f in fused_data.consensus_facts], ensure_ascii=False, indent=2),
             divergence_points=json.dumps([d.model_dump() for d in fused_data.divergence_points], ensure_ascii=False, indent=2),
             rating_distribution=fused_data.rating_distribution,
             merged_risks=fused_data.merged_risks,
         )
-        return self._call(
+        return self._debate._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
             parse_output=ext_cont_block,
         )
 
-    def rebut(self, fused_data: FusionOutput, opponent_argument: str) -> str:
+    def bear_rebut(self, fused_data: FusionOutput, opponent_argument: str) -> str:
         user_prompt = BEAR_REBUT_USER.format(opponent_argument=opponent_argument)
-        return self._call(
+        return self._debate._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
             parse_output=ext_cont_block,
         )
-
-
-# ===================== 4. 裁判 Agent =====================
-class JudgeAgent(BaseAgent):
-    """综合所有辩论，给出最终裁决"""
-
-    def __init__(self, api_base: str, api_key: str, model: str, temperature: float = 0.7, retry: int = 3, stream: bool = False):
-        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
     def judge(self, fused_data: FusionOutput, bull_history: List[str], bear_history: List[str]) -> str:
         user_prompt = JUDGE_USER.format(
@@ -186,7 +154,7 @@ class JudgeAgent(BaseAgent):
             bull_history=chr(10).join(bull_history),
             bear_history=chr(10).join(bear_history),
         )
-        raw = self._call(
+        raw = self._judge._call(
             JUDGE_SYSTEM_PROMPT, user_prompt,
             parse_output=ext_cont_block,
         )
@@ -224,12 +192,8 @@ class MultiReportOrchestrator:
         self.retry = retry
         self.stream = stream
 
-        # 初始化各个Agent
-        self.researcher = ResearcherAgent(api_base, api_key, model, temperature=0.0, retry=retry, stream=stream)
-        self.fusion = FusionAgent(api_base, api_key, model, temperature=0.1, retry=retry, stream=stream)
-        self.bull = BullAgent(api_base, api_key, model, temperature=0.7, retry=retry, stream=stream)
-        self.bear = BearAgent(api_base, api_key, model, temperature=0.7, retry=retry, stream=stream)
-        self.judge = JudgeAgent(api_base, api_key, model, temperature=0.2, retry=retry, stream=stream)
+        # 初始化 Agent
+        self.agent = FinReportAgent(api_base, api_key, model, retry=retry, stream=stream)
 
     def process(self, reports: List[str]) -> OrchestratorResult:
         """
@@ -249,7 +213,7 @@ class MultiReportOrchestrator:
             fused_data = json.loads(open(fused_fname, encoding='utf8').read())
             fused_data = FusionOutput(**fused_data)
         else:
-            fused_data = self.fusion.fuse(extraction_results)
+            fused_data = self.agent.fuse(extraction_results)
             open(fused_fname, 'w', encoding='utf8') \
                 .write(fused_data.model_dump_json())
 
@@ -260,8 +224,8 @@ class MultiReportOrchestrator:
             history = json.loads(open(his_fname, encoding='utf8').read())
             bull_history, bear_history = history['bull'], history['bear']
         else:
-            bull_initial = self.bull.generate_initial(fused_data)
-            bear_initial = self.bear.generate_initial(fused_data)
+            bull_initial = self.agent.bull_initial(fused_data)
+            bear_initial = self.agent.bear_initial(fused_data)
 
             bull_history = [bull_initial]
             bear_history = [bear_initial]
@@ -275,10 +239,10 @@ class MultiReportOrchestrator:
         for round_idx in range(len(bull_history), self.debate_rounds):
             logger.info(f"辩论第 {round_idx+1} 轮...")
             # 空方反驳多方最新观点
-            bear_rebut = self.bear.rebut(fused_data, bull_history[-1])
+            bear_rebut = self.agent.bear_rebut(fused_data, bull_history[-1])
             bear_history.append(bear_rebut)
             # 多方反驳空方最新观点
-            bull_rebut = self.bull.rebut(fused_data, bear_history[-1])
+            bull_rebut = self.agent.bull_rebut(fused_data, bear_history[-1])
             bull_history.append(bull_rebut)
             open(his_fname, 'w', encoding='utf8') \
                 .write(json.dumps({
@@ -292,7 +256,7 @@ class MultiReportOrchestrator:
         if path.isfile(final_fname):
             final_verdict = open(final_fname, encoding='utf8').read()
         else:
-            final_verdict = self.judge.judge(fused_data, bull_history, bear_history)
+            final_verdict = self.agent.judge(fused_data, bull_history, bear_history)
             open(final_fname, 'w', encoding='utf8').write(final_verdict)
 
         return OrchestratorResult(
@@ -325,7 +289,7 @@ class MultiReportOrchestrator:
             ]
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             future_to_idx = {
-                executor.submit(self.researcher.extract, text): i 
+                executor.submit(self.agent.extract, text): i 
                 for i, text in enumerate(reports)
                 if not results[i].facts
             }
