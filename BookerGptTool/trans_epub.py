@@ -186,15 +186,14 @@ class TransEpubDispatcher:
             chunk.trans = fmt_zh(self.agent.translate_body(chunk.fmt))
 
     def _write_yaml(self, fname, res):
+        if isinstance(obj, BaseModel):
+            obj = obj.dict()
+        elif isinstance(obj, list):
+            obj = [
+                it.dict() if isinstance(it, BaseModel) else it
+                for it in obj
+            ]
         with open(fname, 'w', encoding='utf8') as f:
-            obj = (
-                [
-                    r.dict() if isinstance(r, BaseModel) else r 
-                    for r in res
-                ]
-                if isinstance(res, list)
-                else res.dict()
-            )
             f.write(yaml.safe_dump(obj, allow_unicode=True))
 
     def _format_translate(self, chunk_fname, md):
