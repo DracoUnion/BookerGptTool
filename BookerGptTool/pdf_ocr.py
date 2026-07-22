@@ -277,26 +277,6 @@ class PDFOcrOrchestrator:
             prev_line=prev, next_line=next,
         )
 
-    def _fix_toc(self, full_text: str, res: Meta) -> str:
-        if res.toc:
-            toc = res.toc
-        else:
-            toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
-            toc = self.toc_agent.run(toc_text='\n'.join(toc))
-            res.toc = toc
-            self._write_meta(res)
-        for lvl, title in toc:
-            print(f'[7] {lvl} {title}')
-            try:
-                full_text = re.sub(
-                    r'^#+\x20+' + re.escape(title) + '$',
-                    f'{lvl} {title}',
-                    full_text, flags=re.M,
-                )
-            except re.error:
-                pass
-        return full_text
-
     # ── 流水线各步骤 ──────────────────────────────
     #
     # 数据流：
@@ -424,7 +404,24 @@ class PDFOcrOrchestrator:
     def fix_toc(self, full_text: str, res: Meta) -> str:
         """[7] 修正目录层级。返回修正后的 full_text。"""
         print('[7] 修正目录')
-        return self._fix_toc(full_text, res)
+        if res.toc:
+            toc = res.toc
+        else:
+            toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
+            toc = self.toc_agent.run(toc_text='\n'.join(toc))
+            res.toc = toc
+            self._write_meta(res)
+        for lvl, title in toc:
+            print(f'[7] {lvl} {title}')
+            try:
+                full_text = re.sub(
+                    r'^#+\x20+' + re.escape(title) + '$',
+                    f'{lvl} {title}',
+                    full_text, flags=re.M,
+                )
+            except re.error:
+                pass
+        return full_text
 
     def write_output(self, full_text: str, name_cn: str) -> None:
         """[8] 写入 md / README / SUMMARY。"""
