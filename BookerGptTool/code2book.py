@@ -18,8 +18,8 @@ from .code2book_models import *
 class Code2BookAgent:
     """封装所有 LLM 调用，每个方法对应一个独立的 prompt 调用。"""
 
-    def __init__(self, model: str, args):
-        self.model = model
+    def __init__(self, args):
+        self.model = args.model
         self.args = args
 
     def gen_code_desc(self, fname: str, code: str) -> ClsFuncExtResult:
@@ -50,10 +50,11 @@ class Code2BookAgent:
         )
 
     def fix_outline(
-        self, outline_str: str, fnames_li: str,
+        self, outline: OutlineResult, fnames_li: str,
         code_desc_str: str, readme: str, rest_fnames: str,
     ) -> OutlineResult:
         """校验大纲未覆盖所有文件时，补充缺少的源码文件重写大纲。"""
+        outline_str = json.dumps(outline.dict(), ensure_ascii=False)
         ques = OUTLINE_FIX_PMT.replace('{struct}', fnames_li) \
             .replace('{code_desc}', code_desc_str) \
             .replace('{readme}', readme) \
@@ -118,9 +119,11 @@ class Code2BookAgent:
         )
 
     def gen_body(
-        self, idx: int, detail_str: str, outline_str: str, code_str: str,
+        self, idx: int, detail: Detail, outline_chs: List[OutlineResult], code_str: str,
     ) -> str:
         """根据大纲和细纲生成第 idx 章正文。"""
+        outline_str = json.dumps(outline_chs, ensure_ascii=False)
+        detail_str = json.dumps(detail.dict(), ensure_ascii=False)
         ques = BODY_PMT.replace('{detail}', detail_str) \
             .replace('{outline}', outline_str) \
             .replace('{code}', code_str) \
@@ -164,7 +167,7 @@ class Code2BookOrchestrator:
 
     def __init__(self, args):
         self.args = args
-        self.agent = Code2BookAgent(args.model, args)
+        self.agent = Code2BookAgent( args)
         self.pj_dir = path.abspath(args.dir) + '_code2book'
         self.pool = ThreadPoolExecutor(args.threads)
         self.lock = Lock()
@@ -213,7 +216,7 @@ class Code2BookOrchestrator:
 
     # ── 步骤 2：生成源码文件描述 ──────────────────────────
 
-    def _gen_code_desc(self, res: List[CodeDescItemResult], idx: int):
+    def _tr_gen_code_desc(self, res: List[CodeDescItemResult], idx: int):
         fname = res[idx].file
         print(f'[2] 生成描述 {fname}')
         code = self._read_code(fname)
@@ -244,7 +247,7 @@ class Code2BookOrchestrator:
             if it.desc:
                 continue
             h = self.pool.submit(
-                self._gen_code_desc, code_desc, i)
+                self._tr_gen_code_desc, code_desc, i)
             hdls.append(h)
         for h in hdls:
             h.result()
@@ -278,9 +281,8 @@ class Code2BookOrchestrator:
                 break
             print('[3] 校验未通过')
             print('\n'.join(rest_fnames))
-            outline_str = json.dumps(outline.dict(), ensure_ascii=False)
             outline = self.agent.fix_outline(
-                outline_str, fnames_li, code_desc_str, readme,
+                outline, fnames_li, code_desc_str, readme,
                 '\n'.join(rest_fnames),
             )
 
@@ -304,7 +306,7 @@ class Code2BookOrchestrator:
 
     # ── 步骤 4：生成细纲 ──────────────────────────────────
 
-    def _gen_detail(self, outline_chs, idx: int, details: List[Detail]):
+    def _tr_gen_detail(self, outline_chs, idx: int, details: List[Detail]):
         print(f'[4] 编写第{idx+1}章细纲')
         code_fnames = [
             f for pt in outline_chs[idx].nodes
@@ -339,7 +341,7 @@ class Code2BookOrchestrator:
                 continue
             details.append(Detail())
             h = self.pool.submit(
-                self._gen_detail, outline_chs, i, details)
+                self._tr_gen_detail, outline_chs, i, details)
             hdls.append(h)
 
         for h in hdls:
@@ -359,7 +361,7 @@ class Code2BookOrchestrator:
         code_desc: List[CodeDescItemResult],
         fnames: List[str],
     ) -> List[Detail]:
-        fixed = all(d.get('fixed', False) for d in details)
+        fixed = all(d.fixed for d in details)
         if fixed:
             print('[4] 细纲校验通过')
             return details
@@ -419,23 +421,20 @@ class Code2BookOrchestrator:
 
     # ── 步骤 5：生成正文 ──────────────────────────────────
 
-    def _gen_body(
+    def _tr_gen_body(
         self, outline_chs, details: List[Detail], idx: int,
         bodies: List[str], fname: str,
     ):
         print(f'[5] 编写第{idx+1}章正文')
-        details_parsed = parse_obj_as(List[Detail], details)
         code_fnames = [
             c.file
-            for u in details_parsed[idx].units
+            for u in details[idx].units
             for c in u.code
         ]
         code_dict = self._read_code_dict(code_fnames)
         code_str = self._code_to_str(code_dict)
-        outline_str = json.dumps(outline_chs, ensure_ascii=False)
-        detail_str = json.dumps(details[idx].dict(), ensure_ascii=False)
 
-        body = self.agent.gen_body(idx, detail_str, outline_str, code_str)
+        body = self.agent.gen_body(idx, details[idx], outline_chs, code_str)
         bodies[idx] = body
         open(fname, 'w', encoding='utf8').write(body)
 
@@ -448,7 +447,7 @@ class Code2BookOrchestrator:
                 break
             print(f'[5] 正文 {idx + 1} 校验未通过')
             print(cmt)
-            body = self.agent.fix_body(detail_str, body, cmt, code_str)
+            body = self.agent.fix_body(details[idx], body, cmt, code_str)
             bodies[idx] = body
             open(fname, 'w', encoding='utf8').write(body)
 
@@ -466,7 +465,7 @@ class Code2BookOrchestrator:
                 continue
             bodies.append('')
             h = self.pool.submit(
-                self._gen_body, outline_chs,
+                self._tr_gen_body, outline_chs,
                 details, i, bodies, body_fname,
             )
             hdls.append(h)
