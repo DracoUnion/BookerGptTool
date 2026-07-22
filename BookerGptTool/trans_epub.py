@@ -33,6 +33,7 @@ def trunc_text(text, limit=50):
 class EpubTranslatorAgent:
     def __init__(self, args):
         self.args = args
+        set_openai_props(args)
 
     def translate_title(self, text: str) -> str:
         ques = TRANS_TITLE_PMT.replace('{text}', text)
@@ -97,7 +98,6 @@ class TransEpubDispatcher:
     def run(self):
         args = self.args
         logger.info(args)
-        set_openai_props(args)
         if not args.fname.endswith('.epub'):
             logger.fatal('请提供EPUB文件')
             return
