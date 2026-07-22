@@ -181,7 +181,10 @@ class PDFOcrOrchestrator:
         """在主线程中将 meta 写回 yaml 文件。"""
         with open(yaml_fname, 'w', encoding='utf8') as f:
             obj = (
-                [r.dict() for r in res]
+                [
+                    r.dict() if isinstance(r, BaseModel) else r 
+                    for r in res
+                ]
                 if isinstance(res, list)
                 else res.dict()
             )
