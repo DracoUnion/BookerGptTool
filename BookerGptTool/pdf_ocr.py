@@ -14,7 +14,6 @@ import fitz
 import functools
 import cv2
 from concurrent.futures import ThreadPoolExecutor
-from threading import Lock
 import json
 import json_repair
 from imgyaso.quant import pngquant
@@ -149,7 +148,6 @@ class PDFOcrOrchestrator:
 
         # ── 线程池基础设施 ──
         self.pool: ThreadPoolExecutor = None
-        self.lock = Lock()
         self._hdls = []
 
     # ── 线程池工具 ────────────────────────────────
@@ -165,26 +163,17 @@ class PDFOcrOrchestrator:
             h.result()
         self._hdls = []
 
-    # ── 回调工厂 ──────────────────────────────────
+    # ── 主线程写入 ──────────────────────────────────
 
-    def _make_write_cb(self, res):
-        """创建线程安全的 meta 写回回调，捕获当前 res。"""
-        lock = self.lock
-        yaml_fname = self.yaml_fname
-
-        def write_meta():
-            with lock:
-                with open(yaml_fname, 'w', encoding='utf8') as f:
-                    obj = (
-                        [r.dict() for r in res]
-                        if isinstance(res, list)
-                        else res.dict()
-                    )
-                    f.write(
-                        yaml.safe_dump(obj, allow_unicode=True)
-                    )
-
-        return write_meta
+    def _write_meta(self, res):
+        """在主线程中将 meta 写回 yaml 文件。"""
+        with open(self.yaml_fname, 'w', encoding='utf8') as f:
+            obj = (
+                [r.dict() for r in res]
+                if isinstance(res, list)
+                else res.dict()
+            )
+            f.write(yaml.safe_dump(obj, allow_unicode=True))
 
     # ── 线程池任务 ────────────────────────────────
 
@@ -231,13 +220,12 @@ class PDFOcrOrchestrator:
             )[1])
         return img_pt
 
-    def _tr_ocr_page(self, img, page, write_callback):
+    def _tr_ocr_page(self, img, page):
         print(f'[3] 识别页码 {page.pgno + 1}')
         res: OCRResult = self.ocr_agent.run(img=img)
         page.md = self._ocr_res2md(res)
-        write_callback()
 
-    def _tr_proc_img(self, img, page, img_dir, pdf_hash, write_callback):
+    def _tr_proc_img(self, img, page, img_dir, pdf_hash):
         print(f'[4] 处理图像 {page.pgno}')
         md = page.md
         pgno = page.pgno
@@ -262,23 +250,20 @@ class PDFOcrOrchestrator:
             open(img_ffname, 'wb').write(img_pt)
             md = md.replace(link, f'![](img/{img_fname})')
             page.md = md
-            write_callback()
         page.img_proc = True
 
-    def _tr_group_page(self, group, write_callback):
+    def _tr_group_page(self, group):
         print(f'[5] 处理页面合并')
         text = '\n\n'.join(group.raw)
         group.md = self.post_proc_agent.run(text=text)
-        write_callback()
         if self.translate_agent:
             group.mdcn = self.translate_agent.run(
                 text=group.md,
             )
         else:
             group.mdcn = group.md
-        write_callback()
 
-    def _tr_merge_group(self, prev_group, group, write_callback):
+    def _tr_merge_group(self, prev_group, group):
         print(f'[6] 处理分组合并')
         prev_line = prev_group.mdcn.strip()
         next_line = group.mdcn.strip()
@@ -287,16 +272,15 @@ class PDFOcrOrchestrator:
         group.merge = self.merge_agent.run(
             prev_line=prev, next_line=next,
         )
-        write_callback()
 
-    def _fix_toc(self, full_text, res, write_callback):
+    def _fix_toc(self, full_text, res):
         if res.toc:
             toc = res.toc
         else:
             toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
             toc = self.toc_agent.run(toc_text='\n'.join(toc))
             res.toc = toc
-            write_callback()
+            self._write_meta(res)
         for lvl, title in toc:
             print(f'[7] {lvl} {title}')
             try:
@@ -350,7 +334,6 @@ class PDFOcrOrchestrator:
     def ocr_pages(self, doc, res):
         """[3] VLM 识别每页图像。原地填充 pages.md。"""
         print('[3] 识别图像')
-        cb = self._make_write_cb(res)
         for i, g in enumerate(res.pages):
             if g.md:
                 continue
@@ -360,15 +343,15 @@ class PDFOcrOrchestrator:
                 .pil_tobytes('png')
             self._submit(
                 self._tr_ocr_page,
-                img, g, cb,
+                img, g,
             )
         self._drain()
+        self._write_meta(res)
 
     def process_images(self, doc, res, pdf_hash):
         """[4] 裁切并保存页面中的插图。原地填充 pages.md/img_proc。"""
         print('[4] 处理图片')
         os.makedirs(self.img_dir, exist_ok=True)
-        cb = self._make_write_cb(res)
         for i, g in enumerate(res.pages):
             if g.img_proc:
                 continue
@@ -379,30 +362,30 @@ class PDFOcrOrchestrator:
             self._submit(
                 self._tr_proc_img,
                 img, g,
-                self.img_dir, pdf_hash, cb,
+                self.img_dir, pdf_hash,
             )
         self._drain()
+        self._write_meta(res)
 
     def group_pages(self, res):
         """[5] 按长度分组，后处理 + 翻译。填充 res.groups。"""
         print('[5] 处理页间合并')
         if not res.groups:
             res.groups = mkgroups(res.pages, self.args)
-        cb = self._make_write_cb(res)
         for i, g in enumerate(res.groups):
             if g.md and g.mdcn:
                 continue
             self._submit(
                 self._tr_group_page,
-                g, cb,
+                g,
             )
         self._drain()
+        self._write_meta(res)
 
     def merge_groups(self, res):
         """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge。"""
         print('[6] 处理组间合并')
         res.groups = [g for g in res.groups if g.mdcn]
-        cb = self._make_write_cb(res)
         for i, g in enumerate(res.groups):
             if i == 0:
                 continue
@@ -410,9 +393,10 @@ class PDFOcrOrchestrator:
                 continue
             self._submit(
                 self._tr_merge_group,
-                res.groups[i - 1], g, cb,
+                res.groups[i - 1], g,
             )
         self._drain()
+        self._write_meta(res)
 
     def build_full_text(self, res):
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
@@ -434,9 +418,7 @@ class PDFOcrOrchestrator:
     def fix_toc(self, full_text, res):
         """[7] 修正目录层级。返回修正后的 full_text。"""
         print('[7] 修正目录')
-        return self._fix_toc(
-            full_text, res, self._make_write_cb(res),
-        )
+        return self._fix_toc(full_text, res)
 
     def write_output(self, full_text, name_cn):
         """[8] 写入 md / README / SUMMARY。"""
