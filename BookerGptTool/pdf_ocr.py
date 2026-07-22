@@ -48,18 +48,19 @@ class Agent:
 
 class OCRAgent(Agent):
     """VLM 图像识别 Agent，将图片转为结构化 OCR 结果。"""
-    def run(self, img: bytes) -> OCRResult:
+    def run(self, img: bytes) -> str:
         parse_output = lambda ans: OCRResult(
             **json_repair.loads(ext_code_block(ans))
         )
-        return call_vlm_retry(
+        res: OCRResult = call_vlm_retry(
             img, OCR_PMT,
             model_name=self.args.vmodel,
             args=self.args,
             parse_output=parse_output,
         )
+        return self._res2md(res)
 
-    def res2md(self, r: OCRResult) -> str:
+    def _res2md(self, r: OCRResult) -> str:
         """将 OCRResult 转为 Markdown 文本。"""
         mds = []
         for seg in r.contents:
@@ -225,8 +226,7 @@ class PDFOcrOrchestrator:
 
     def _tr_ocr_page(self, img: bytes, page: Page) -> None:
         print(f'[3] 识别页码 {page.pgno + 1}')
-        res: OCRResult = self.ocr_agent.run(img=img)
-        page.md = self.ocr_agent.res2md(res)
+        page.md = self.ocr_agent.run(img=img)
 
     def _tr_proc_img(
         self, img: bytes, page: Page, img_dir: str, pdf_hash: str
