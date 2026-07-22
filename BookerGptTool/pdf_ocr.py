@@ -132,34 +132,12 @@ class PDFOcrOrchestrator:
     """编排整个 PDF OCR 流水线。
 
     流水线步骤之间通过参数和返回值传递数据，
-    实例属性仅存放配置（args / agents / 路径）和线程池基础设施。
+    实例属性仅存放 agents 和线程池基础设施，
+    所有路径由 run() 计算并通过参数传递。
     """
 
     def __init__(self, args: argparse.Namespace) -> None:
-        # ── 配置 ──
         self.args = args
-        self.name: str = path.basename(args.fname)[:-4]
-        self.slug: str = to_kebab(self.name)
-        self.dir: str = path.dirname(args.fname)
-        self.pj_dir: str = (
-            path.join(self.dir, self.slug)
-            if args.mkdir else self.dir
-        )
-        self.md_fname: str = (
-            path.join(self.pj_dir, f'{self.slug}.md')
-            if args.mkdir
-            else args.fname[:-4] + '.md'
-        )
-        self.yaml_fname: str = (
-            path.join(self.pj_dir, 'meta.yaml')
-            if args.mkdir
-            else args.fname[:-4] + '.yaml'
-        )
-        self.img_dir: str = (
-            path.join(self.pj_dir, 'img')
-            if args.mkdir
-            else args.fname[:-4] + '_imgs'
-        )
 
         # ── Agents ──
         self.ocr_agent: OCRAgent = OCRAgent(args)
@@ -175,6 +153,31 @@ class PDFOcrOrchestrator:
         self.pool: Optional[ThreadPoolExecutor] = \
             ThreadPoolExecutor(self.args.threads)
         self._hdls: List[Future] = []
+
+    @staticmethod
+    def _resolve_paths(args: argparse.Namespace) -> dict:
+        """根据 args 计算所有输出路径，返回字典。"""
+        name = path.basename(args.fname)[:-4]
+        slug = to_kebab(name)
+        d = path.dirname(args.fname)
+        pj_dir = path.join(d, slug) if args.mkdir else d
+        return {
+            'name': name,
+            'slug': slug,
+            'pj_dir': pj_dir,
+            'md_fname': (
+                path.join(pj_dir, f'{slug}.md')
+                if args.mkdir else args.fname[:-4] + '.md'
+            ),
+            'yaml_fname': (
+                path.join(pj_dir, 'meta.yaml')
+                if args.mkdir else args.fname[:-4] + '.yaml'
+            ),
+            'img_dir': (
+                path.join(pj_dir, 'img')
+                if args.mkdir else args.fname[:-4] + '_imgs'
+            ),
+        }
 
     # ── 线程池工具 ────────────────────────────────
 
@@ -195,9 +198,9 @@ class PDFOcrOrchestrator:
 
     # ── 主线程写入 ──────────────────────────────────
 
-    def _write_yaml(self, res: Meta) -> None:
+    def _write_yaml(self, res: Meta, yaml_fname: str) -> None:
         """在主线程中将 meta 写回 yaml 文件。"""
-        with open(self.yaml_fname, 'w', encoding='utf8') as f:
+        with open(yaml_fname, 'w', encoding='utf8') as f:
             obj = (
                 [r.dict() for r in res]
                 if isinstance(res, list)
@@ -305,24 +308,26 @@ class PDFOcrOrchestrator:
         doc = fitz.open('pdf', BytesIO(pdf))
         return doc, pdf_hash
 
-    def init_meta(self, doc: fitz.Document) -> Meta:
+    def init_meta(self, doc: fitz.Document, yaml_fname: str) -> Meta:
         """[2] 加载或初始化 meta.yaml。返回 Meta。"""
-        print(f'[2] 初始化 {self.yaml_fname}')
-        if path.isfile(self.yaml_fname) and \
-           path.getsize(self.yaml_fname) != 0:
+        print(f'[2] 初始化 {yaml_fname}')
+        if path.isfile(yaml_fname) and \
+           path.getsize(yaml_fname) != 0:
             res = yaml.safe_load(
-                open(self.yaml_fname, encoding='utf8').read()
+                open(yaml_fname, encoding='utf8').read()
             )
             return Meta(**res)
         pages = [Page(pgno=i) for i in range(len(doc))]
         res = Meta(pages=pages)
-        open(self.yaml_fname, 'w', encoding='utf8') \
+        open(yaml_fname, 'w', encoding='utf8') \
             .write(yaml.safe_dump(
                 res.dict(), allow_unicode=True
             ))
         return res
 
-    def ocr_pages(self, doc: fitz.Document, res: Meta) -> None:
+    def ocr_pages(
+        self, doc: fitz.Document, res: Meta, yaml_fname: str
+    ) -> None:
         """[3] VLM 识别每页图像。原地填充 pages.md。"""
         print('[3] 识别图像')
         for i, g in enumerate(res.pages):
@@ -336,14 +341,15 @@ class PDFOcrOrchestrator:
                 self._tr_ocr_page,
                 img, g,
             )
-        self._drain(lambda: self._write_yaml(res))
+        self._drain(lambda: self._write_yaml(res, yaml_fname))
 
     def process_images(
-        self, doc: fitz.Document, res: Meta, pdf_hash: str
+        self, doc: fitz.Document, res: Meta, pdf_hash: str,
+        img_dir: str, yaml_fname: str,
     ) -> None:
         """[4] 裁切并保存页面中的插图。原地填充 pages.md/img_proc。"""
         print('[4] 处理图片')
-        os.makedirs(self.img_dir, exist_ok=True)
+        os.makedirs(img_dir, exist_ok=True)
         for i, g in enumerate(res.pages):
             if g.img_proc:
                 continue
@@ -354,11 +360,11 @@ class PDFOcrOrchestrator:
             self._submit(
                 self._tr_proc_img,
                 img, g,
-                self.img_dir, pdf_hash,
+                img_dir, pdf_hash,
             )
-        self._drain(lambda: self._write_yaml(res))
+        self._drain(lambda: self._write_yaml(res, yaml_fname))
 
-    def group_pages(self, res: Meta) -> None:
+    def group_pages(self, res: Meta, yaml_fname: str) -> None:
         """[5] 按长度分组，后处理 + 翻译。填充 res.groups。"""
         print('[5] 处理页间合并')
         if not res.groups:
@@ -370,9 +376,9 @@ class PDFOcrOrchestrator:
                 self._tr_group_page,
                 g,
             )
-        self._drain(lambda: self._write_yaml(res))
+        self._drain(lambda: self._write_yaml(res, yaml_fname))
 
-    def merge_groups(self, res: Meta) -> None:
+    def merge_groups(self, res: Meta, yaml_fname: str) -> None:
         """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge。"""
         print('[6] 处理组间合并')
         res.groups = [g for g in res.groups if g.mdcn]
@@ -385,9 +391,9 @@ class PDFOcrOrchestrator:
                 self._tr_merge_group,
                 res.groups[i - 1], g,
             )
-        self._drain(lambda: self._write_yaml(res))
+        self._drain(lambda: self._write_yaml(res, yaml_fname))
 
-    def build_full_text(self, res: Meta) -> Tuple[str, str]:
+    def build_full_text(self, res: Meta, name: str) -> Tuple[str, str]:
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
         full_text = ''
         for i, g in enumerate(res.groups):
@@ -399,12 +405,12 @@ class PDFOcrOrchestrator:
         name_cn = ''
         if self.args.clean:
             full_text = clean_md_llm(full_text, self.args)
-            name_cn = self.title_agent.run(title=self.name)
+            name_cn = self.title_agent.run(title=name)
             full_text = f'# {name_cn}\n\n{full_text}'
 
         return full_text, name_cn
 
-    def fix_toc(self, full_text: str, res: Meta) -> str:
+    def fix_toc(self, full_text: str, res: Meta, yaml_fname: str) -> str:
         """[7] 修正目录层级。返回修正后的 full_text。"""
         print('[7] 修正目录')
         if res.toc:
@@ -413,7 +419,7 @@ class PDFOcrOrchestrator:
             toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
             toc = self.toc_agent.run(toc_text='\n'.join(toc))
             res.toc = toc
-            self._write_yaml(res)
+            self._write_yaml(res, yaml_fname)
         for lvl, title in toc:
             print(f'[7] {lvl} {title}')
             try:
@@ -426,24 +432,28 @@ class PDFOcrOrchestrator:
                 pass
         return full_text
 
-    def write_output(self, full_text: str, name_cn: str) -> None:
+    def write_output(
+        self, full_text: str, name_cn: str,
+        md_fname: str, pj_dir: str, slug: str,
+        name: str,
+    ) -> None:
         """[8] 写入 md / README / SUMMARY。"""
-        print(f'[8] 写入 {self.md_fname}')
-        open(self.md_fname, 'w', encoding='utf8') \
+        print(f'[8] 写入 {md_fname}')
+        open(md_fname, 'w', encoding='utf8') \
             .write(full_text)
 
         if self.args.mkdir:
             if not name_cn:
                 name_cn = self.title_agent.run(
-                    title=self.name
+                    title=name
                 )
 
             print('[8] 写入 README.md')
             readme = README_TMPL \
-                .replace('{name}', self.name) \
+                .replace('{name}', name) \
                 .replace('{name_cn}', name_cn)
             readme_fname = path.join(
-                self.pj_dir, 'README.md'
+                pj_dir, 'README.md'
             )
             open(readme_fname, 'w', encoding='utf8') \
                 .write(readme)
@@ -451,10 +461,10 @@ class PDFOcrOrchestrator:
             print('[8] 写入 SUMMARY.md')
             toc = [
                 f'+   [{name_cn}](README.md)',
-                f'+   [{name_cn}]({self.slug}.md)',
+                f'+   [{name_cn}]({slug}.md)',
             ]
             summary_fname = path.join(
-                self.pj_dir, 'SUMMARY.md'
+                pj_dir, 'SUMMARY.md'
             )
             open(summary_fname, 'w', encoding='utf8') \
                 .write('\n'.join(toc))
@@ -462,32 +472,40 @@ class PDFOcrOrchestrator:
     # ── 主流程 ─────────────────────────────────────
 
     def run(self) -> None:
+        paths = self._resolve_paths(self.args)
+        name = paths['name']
+        slug = paths['slug']
+        pj_dir = paths['pj_dir']
+        md_fname = paths['md_fname']
+        yaml_fname = paths['yaml_fname']
+        img_dir = paths['img_dir']
+
         # 1. 加载 PDF
         doc, pdf_hash = self.load_pdf()
 
         # 2. 初始化 meta
-        res = self.init_meta(doc)
+        res = self.init_meta(doc, yaml_fname)
 
         # 3. OCR 识别
-        self.ocr_pages(doc, res)
+        self.ocr_pages(doc, res, yaml_fname)
 
         # 4. 处理图片
-        self.process_images(doc, res, pdf_hash)
+        self.process_images(doc, res, pdf_hash, img_dir, yaml_fname)
 
         # 5. 分组 + 后处理 + 翻译
-        self.group_pages(res)
+        self.group_pages(res, yaml_fname)
 
         # 6. 组间合并
-        self.merge_groups(res)
+        self.merge_groups(res, yaml_fname)
 
         # 7. 拼接全文
-        full_text, name_cn = self.build_full_text(res)
+        full_text, name_cn = self.build_full_text(res, name)
 
         # 8. 修正目录
-        full_text = self.fix_toc(full_text, res)
+        full_text = self.fix_toc(full_text, res, yaml_fname)
 
         # 9. 写入文件
-        self.write_output(full_text, name_cn)
+        self.write_output(full_text, name_cn, md_fname, pj_dir, slug, name)
 
         print('[*] 处理完毕')
 
@@ -545,8 +563,9 @@ def pdf_ocr_file_safe(args: argparse.Namespace) -> None:
             print('请提供PDF文件')
             return
         o = PDFOcrOrchestrator(args)
-        os.makedirs(o.pj_dir, exist_ok=True)
-        if path.isfile(o.md_fname):
+        paths = PDFOcrOrchestrator._resolve_paths(args)
+        os.makedirs(paths['pj_dir'], exist_ok=True)
+        if path.isfile(paths['md_fname']):
             print('PDF 已处理')
             return
         o.run()
