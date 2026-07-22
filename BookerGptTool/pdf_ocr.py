@@ -307,16 +307,16 @@ class PDFOcrOrchestrator:
     ) -> None:
         """[3] VLM 识别每页图像。原地填充 pages.md。"""
         logger.info('[3] 识别图像')
-        for i, g in enumerate(res.pages):
-            if g.md:
+        for i, pg in enumerate(res.pages):
+            if pg.md:
                 continue
-            pgno = g.pgno
+            pgno = pg.pgno
             img = doc[pgno] \
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
             self._submit(
                 self._tr_ocr_page,
-                img, g,
+                img, pg,
             )
         self._drain(lambda: self._write_yaml(res, yaml_fname))
 
