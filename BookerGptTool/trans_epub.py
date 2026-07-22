@@ -91,10 +91,10 @@ class TransEpubDispatcher:
         self._export_images(proj_dir)
         chunks = self._format_translate(meta_dir, md)
         md = self._fix_toc(chunks, meta, meta_fname)
-        chs, slug, l = self._split_chapters(meta_dir, md, slug)
-        self._write_chapters(proj_dir, chs, slug, l)
+        chs = self._split_chapters(meta_dir, md)
+        self._write_chapters(proj_dir, chs, slug)
         self._gen_readme(proj_dir, name, meta)
-        self._gen_summary(proj_dir, chs, slug, l, meta)
+        self._gen_summary(proj_dir, chs, slug, meta)
         print('[*] 完成')
 
     def _init_meta(self):
@@ -224,7 +224,7 @@ class TransEpubDispatcher:
         )
         return md
 
-    def _split_chapters(self, meta_dir, md, slug):
+    def _split_chapters(self, meta_dir, md):
         print('[6] 分章节')
         chs_fname = path.join(meta_dir, 'chs.yaml')
         if path.isfile(chs_fname) and \
@@ -233,10 +233,11 @@ class TransEpubDispatcher:
         else:
             chs = split_chs(md, self.agent) if self.args.split else [md]
             open(chs_fname, 'w', encoding='utf8').write(yaml.safe_dump(chs, allow_unicode=True))
-        l = len(str(len(chs)))
-        return chs, slug, l
 
-    def _write_chapters(self, proj_dir, chs, slug, l):
+        return chs
+
+    def _write_chapters(self, proj_dir, chs, slug):
+        l = len(str(len(chs)))
         for i, c in enumerate(chs):
             ch_fname = path.join(proj_dir, slug + '_' + str(i).zfill(l) + '.md')
             print(f'[5] {ch_fname}')
@@ -248,8 +249,9 @@ class TransEpubDispatcher:
         readme_fname = path.join(proj_dir, 'README.md')
         open(readme_fname, 'w', encoding='utf8').write(readme)
 
-    def _gen_summary(self, proj_dir, chs, slug, l, meta):
+    def _gen_summary(self, proj_dir, chs, slug, meta):
         print('[8] 生成 summary')
+        l = len(str(len(chs)))
         toc = [f'+   [{meta.name_cn}](README.md)']
         for i, ch in enumerate(chs):
             title, _ = get_md_title(ch)
