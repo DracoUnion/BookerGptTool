@@ -231,16 +231,16 @@ class PDFOcrOrchestrator:
             )[1])
         return img_pt
 
-    def _tr_ocr_page(self, img, pages, idx, write_callback):
-        print(f'[3] 识别页码 {idx + 1}')
+    def _tr_ocr_page(self, img, page, write_callback):
+        print(f'[3] 识别页码 {page.pgno + 1}')
         res: OCRResult = self.ocr_agent.run(img=img)
-        pages[idx].md = self._ocr_res2md(res)
+        page.md = self._ocr_res2md(res)
         write_callback()
 
-    def _tr_proc_img(self, img, pages, idx, img_dir, pdf_hash, write_callback):
-        print(f'[4] 处理图像 {idx}')
-        md = pages[idx].md
-        pgno = pages[idx].pgno
+    def _tr_proc_img(self, img, page, img_dir, pdf_hash, write_callback):
+        print(f'[4] 处理图像 {page.pgno}')
+        md = page.md
+        pgno = page.pgno
         img_links = re.findall(r'!\[\]\(.+?\)', md)
         for j, link in enumerate(img_links):
             m = re.search(
@@ -261,30 +261,30 @@ class PDFOcrOrchestrator:
             print(f'[5] {img_ffname}')
             open(img_ffname, 'wb').write(img_pt)
             md = md.replace(link, f'![](img/{img_fname})')
-            pages[idx].md = md
+            page.md = md
             write_callback()
-        pages[idx].img_proc = True
+        page.img_proc = True
 
-    def _tr_group_page(self, groups, idx, write_callback):
-        print(f'[5] 处理页面合并 {idx}')
-        text = '\n\n'.join(groups[idx].raw)
-        groups[idx].md = self.post_proc_agent.run(text=text)
+    def _tr_group_page(self, group, write_callback):
+        print(f'[5] 处理页面合并')
+        text = '\n\n'.join(group.raw)
+        group.md = self.post_proc_agent.run(text=text)
         write_callback()
         if self.translate_agent:
-            groups[idx].mdcn = self.translate_agent.run(
-                text=groups[idx].md,
+            group.mdcn = self.translate_agent.run(
+                text=group.md,
             )
         else:
-            groups[idx].mdcn = groups[idx].md
+            group.mdcn = group.md
         write_callback()
 
-    def _tr_merge_group(self, groups, idx, write_callback):
-        print(f'[6] 处理分组合并 {idx + 1}')
-        prev_line = groups[idx - 1].mdcn.strip()
-        next_line = groups[idx].mdcn.strip()
+    def _tr_merge_group(self, prev_group, group, write_callback):
+        print(f'[6] 处理分组合并')
+        prev_line = prev_group.mdcn.strip()
+        next_line = group.mdcn.strip()
         prev = re.search(r'^.+?\Z', prev_line, flags=re.M).group()
         next = re.search(r'\A.+?$', next_line, flags=re.M).group()
-        groups[idx].merge = self.merge_agent.run(
+        group.merge = self.merge_agent.run(
             prev_line=prev, next_line=next,
         )
         write_callback()
@@ -360,7 +360,7 @@ class PDFOcrOrchestrator:
                 .pil_tobytes('png')
             self._submit(
                 self._tr_ocr_page,
-                img, res.pages, i, cb,
+                img, g, cb,
             )
         self._drain()
 
@@ -378,7 +378,7 @@ class PDFOcrOrchestrator:
                 .pil_tobytes('png')
             self._submit(
                 self._tr_proc_img,
-                img, res.pages, i,
+                img, g,
                 self.img_dir, pdf_hash, cb,
             )
         self._drain()
@@ -394,7 +394,7 @@ class PDFOcrOrchestrator:
                 continue
             self._submit(
                 self._tr_group_page,
-                res.groups, i, cb,
+                g, cb,
             )
         self._drain()
 
@@ -410,7 +410,7 @@ class PDFOcrOrchestrator:
                 continue
             self._submit(
                 self._tr_merge_group,
-                res.groups, i, cb,
+                res.groups[i - 1], g, cb,
             )
         self._drain()
 
