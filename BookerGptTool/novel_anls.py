@@ -1,7 +1,7 @@
 import os
 import json
 import re
-from typing import List, Optional, Dict, Any, Type, Union
+from typing import List, Optional, Dict, Any, Type, Literal
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Semaphore
 from abc import ABC, abstractmethod
