@@ -1,4 +1,5 @@
 import argparse
+import logging
 import traceback
 import copy
 import requests
@@ -32,6 +33,12 @@ from .util import (
     ext_code_block,
     ext_cont_block,
 )
+
+logging.basicConfig(
+    level=logging.INFO, 
+    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 # ── Agent 类 ─────────────────────────────────────
@@ -234,13 +241,13 @@ class PDFOcrOrchestrator:
         return img_pt
 
     def _tr_ocr_page(self, img: bytes, page: Page) -> None:
-        print(f'[3] 识别页码 {page.pgno + 1}')
+        logger.info(f'[3] 识别页码 {page.pgno + 1}')
         page.md = self.ocr_agent.run(img=img)
 
     def _tr_proc_img(
         self, img: bytes, page: Page, img_dir: str, pdf_hash: str
     ) -> None:
-        print(f'[4] 处理图像 {page.pgno}')
+        logger.info(f'[4] 处理图像 {page.pgno}')
         md = page.md
         pgno = page.pgno
         img_links = re.findall(r'!\[\]\(.+?\)', md)
@@ -260,14 +267,14 @@ class PDFOcrOrchestrator:
             img_pt = pngquant(img_pt)
             img_fname = f'{pdf_hash}_{pgno}_{j}.png'
             img_ffname = path.join(img_dir, img_fname)
-            print(f'[5] {img_ffname}')
+            logger.info(f'[5] {img_ffname}')
             open(img_ffname, 'wb').write(img_pt)
             md = md.replace(link, f'![](img/{img_fname})')
             page.md = md
         page.img_proc = True
 
     def _tr_group_page(self, group: Group) -> None:
-        print(f'[5] 处理页面合并')
+        logger.info(f'[5] 处理页面合并')
         text = '\n\n'.join(group.raw)
         group.md = self.post_proc_agent.run(text=text)
         if self.translate_agent:
@@ -278,7 +285,7 @@ class PDFOcrOrchestrator:
             group.mdcn = group.md
 
     def _tr_merge_group(self, prev_group: Group, group: Group) -> None:
-        print(f'[6] 处理分组合并')
+        logger.info(f'[6] 处理分组合并')
         prev_line = prev_group.mdcn.strip()
         next_line = group.mdcn.strip()
         prev = re.search(r'^.+?\Z', prev_line, flags=re.M).group()
@@ -302,7 +309,7 @@ class PDFOcrOrchestrator:
 
     def load_pdf(self) -> Tuple[fitz.Document, str]:
         """[1] 加载 PDF 文件。返回 (doc, pdf_hash)。"""
-        print(f'[1] 加载 {self.args.fname}')
+        logger.info(f'[1] 加载 {self.args.fname}')
         pdf = open(self.args.fname, 'rb').read()
         pdf_hash = hashlib.md5(pdf).hexdigest()
         doc = fitz.open('pdf', BytesIO(pdf))
@@ -310,7 +317,7 @@ class PDFOcrOrchestrator:
 
     def init_meta(self, doc: fitz.Document, yaml_fname: str) -> Meta:
         """[2] 加载或初始化 meta.yaml。返回 Meta。"""
-        print(f'[2] 初始化 {yaml_fname}')
+        logger.info(f'[2] 初始化 {yaml_fname}')
         if path.isfile(yaml_fname) and \
            path.getsize(yaml_fname) != 0:
             res = yaml.safe_load(
@@ -329,7 +336,7 @@ class PDFOcrOrchestrator:
         self, doc: fitz.Document, res: Meta, yaml_fname: str
     ) -> None:
         """[3] VLM 识别每页图像。原地填充 pages.md。"""
-        print('[3] 识别图像')
+        logger.info('[3] 识别图像')
         for i, g in enumerate(res.pages):
             if g.md:
                 continue
@@ -348,7 +355,7 @@ class PDFOcrOrchestrator:
         img_dir: str, yaml_fname: str,
     ) -> None:
         """[4] 裁切并保存页面中的插图。原地填充 pages.md/img_proc。"""
-        print('[4] 处理图片')
+        logger.info('[4] 处理图片')
         os.makedirs(img_dir, exist_ok=True)
         for i, g in enumerate(res.pages):
             if g.img_proc:
@@ -366,7 +373,7 @@ class PDFOcrOrchestrator:
 
     def group_pages(self, res: Meta, yaml_fname: str) -> None:
         """[5] 按长度分组，后处理 + 翻译。填充 res.groups。"""
-        print('[5] 处理页间合并')
+        logger.info('[5] 处理页间合并')
         if not res.groups:
             res.groups = mkgroups(res.pages, self.args)
         for i, g in enumerate(res.groups):
@@ -380,7 +387,7 @@ class PDFOcrOrchestrator:
 
     def merge_groups(self, res: Meta, yaml_fname: str) -> None:
         """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge。"""
-        print('[6] 处理组间合并')
+        logger.info('[6] 处理组间合并')
         res.groups = [g for g in res.groups if g.mdcn]
         for i, g in enumerate(res.groups):
             if i == 0:
@@ -397,7 +404,7 @@ class PDFOcrOrchestrator:
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
         full_text = ''
         for i, g in enumerate(res.groups):
-            print(f'[6] 生成全文 {i}')
+            logger.info(f'[6] 生成全文 {i}')
             if g.merge != 1:
                 full_text += '\n\n'
             full_text += g.mdcn
@@ -412,7 +419,7 @@ class PDFOcrOrchestrator:
 
     def fix_toc(self, full_text: str, res: Meta, yaml_fname: str) -> str:
         """[7] 修正目录层级。返回修正后的 full_text。"""
-        print('[7] 修正目录')
+        logger.info('[7] 修正目录')
         if res.toc:
             toc = res.toc
         else:
@@ -421,7 +428,7 @@ class PDFOcrOrchestrator:
             res.toc = toc
             self._write_yaml(res, yaml_fname)
         for lvl, title in toc:
-            print(f'[7] {lvl} {title}')
+            logger.info(f'[7] {lvl} {title}')
             try:
                 full_text = re.sub(
                     r'^#+\x20+' + re.escape(title) + '$',
@@ -438,7 +445,7 @@ class PDFOcrOrchestrator:
         name: str,
     ) -> None:
         """[8] 写入 md / README / SUMMARY。"""
-        print(f'[8] 写入 {md_fname}')
+        logger.info(f'[8] 写入 {md_fname}')
         open(md_fname, 'w', encoding='utf8') \
             .write(full_text)
 
@@ -448,7 +455,7 @@ class PDFOcrOrchestrator:
                     title=name
                 )
 
-            print('[8] 写入 README.md')
+            logger.info('[8] 写入 README.md')
             readme = README_TMPL \
                 .replace('{name}', name) \
                 .replace('{name_cn}', name_cn)
@@ -458,7 +465,7 @@ class PDFOcrOrchestrator:
             open(readme_fname, 'w', encoding='utf8') \
                 .write(readme)
 
-            print('[8] 写入 SUMMARY.md')
+            logger.info('[8] 写入 SUMMARY.md')
             toc = [
                 f'+   [{name_cn}](README.md)',
                 f'+   [{name_cn}]({slug}.md)',
@@ -473,7 +480,7 @@ class PDFOcrOrchestrator:
 
     def run(self) -> None:
         if not self.args.fname.endswith('.pdf'):
-            print('请提供PDF文件')
+            logger.info('请提供PDF文件')
             return
 
         paths = self._resolve_paths(self.args)
@@ -486,7 +493,7 @@ class PDFOcrOrchestrator:
 
         os.makedirs(pj_dir, exist_ok=True)
         if path.isfile(md_fname):
-            print('PDF 已处理')
+            logger.info('PDF 已处理')
             return
 
         # 1. 加载 PDF
@@ -516,7 +523,7 @@ class PDFOcrOrchestrator:
         # 9. 写入文件
         self.write_output(full_text, name_cn, md_fname, pj_dir, slug, name)
 
-        print('[*] 处理完毕')
+        logger.info('[*] 处理完毕')
 
 
 # ── 模块级工具函数 ────────────────────────────────
@@ -548,7 +555,7 @@ def pdf_ocr(args: argparse.Namespace) -> None:
         ]
     fnames = [f for f in fnames if f.endswith('.pdf')]
     if not fnames:
-        print('请提供 PDF 或目录')
+        logger.info('请提供 PDF 或目录')
         return
 
     args.threads = max(
