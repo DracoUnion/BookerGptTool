@@ -69,19 +69,6 @@ def split_chs(md, agent: EpubTranslatorAgent):
             lines[i] = '[split/]' + l
     return '\n'.join(lines).split('[split/]')
 
-def tr_fmt_trans(chunks: List[Chunk], idx, agent: EpubTranslatorAgent, write_callback):
-    print(f'[4] 处理分块 {idx+1}')
-    raw = chunks[idx].raw
-    fmt = chunks[idx].fmt
-    trans = chunks[idx].trans
-    if not fmt:
-        fmt = agent.format_text(raw)
-        chunks[idx].fmt = fmt
-        write_callback()
-    if not trans:
-        trans = agent.translate_body(fmt)
-        chunks[idx].trans = fmt_zh(trans)
-        write_callback()
 
 
 class TransEpubDispatcher:
@@ -177,6 +164,20 @@ class TransEpubDispatcher:
             data = pngquant(data)
             open(ifname, 'wb').write(data)
 
+    def _tr_fmt_trans(self, chunks, idx, write_callback):
+        print(f'[4] 处理分块 {idx+1}')
+        raw = chunks[idx].raw
+        fmt = chunks[idx].fmt
+        trans = chunks[idx].trans
+        if not fmt:
+            fmt = self.agent.format_text(raw)
+            chunks[idx].fmt = fmt
+            write_callback()
+        if not trans:
+            trans = self.agent.translate_body(fmt)
+            chunks[idx].trans = fmt_zh(trans)
+            write_callback()
+
     def _format_translate(self, meta_dir, md):
         print('[4] 排版和翻译')
         chunk_fname = path.join(meta_dir, 'chunks.yaml')
@@ -207,8 +208,8 @@ class TransEpubDispatcher:
             if c.fmt and c.trans:
                 continue
             h = pool.submit(
-                    tr_fmt_trans,
-                    chunks, idx, self.agent,
+                    self._tr_fmt_trans,
+                    chunks, idx,
                     functools.partial(write_callback_mdl, chunk_fname, chunks),
                 )
             hdls.append(h)
