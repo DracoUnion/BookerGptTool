@@ -168,10 +168,10 @@ class PDFOcrOrchestrator:
     # 数据流：
     #   load_pdf  → (doc, pdf_hash)
     #   init_meta(doc) → res
-    #   ocr_pages(doc, res) → res  (原地修改 pages.md)
-    #   process_images(doc, res, pdf_hash) → res  (原地修改 pages.md / img_proc)
-    #   group_pages(res) → res  (填充 res.groups)
-    #   merge_groups(res) → res  (原地修改 groups.merge)
+    #   ocr_pages(doc, res)        — 原地修改 pages.md
+    #   process_images(doc, res, pdf_hash) — 原地修改 pages.md / img_proc
+    #   group_pages(res)           — 填充 res.groups
+    #   merge_groups(res)          — 原地修改 groups.merge
     #   build_full_text(res) → (full_text, name_cn)
     #   fix_toc(full_text, res) → full_text
     #   write_output(full_text, name_cn) → None
@@ -202,7 +202,7 @@ class PDFOcrOrchestrator:
         return res
 
     def ocr_pages(self, doc, res):
-        """[3] VLM 识别每页图像。原地填充 pages.md，返回 res。"""
+        """[3] VLM 识别每页图像。原地填充 pages.md。"""
         print('[3] 识别图像')
         cb = self._make_write_cb(res)
         for i, g in enumerate(res.pages):
@@ -218,10 +218,9 @@ class PDFOcrOrchestrator:
                 self.ocr_agent, cb,
             )
         self._drain()
-        return res
 
     def process_images(self, doc, res, pdf_hash):
-        """[4] 裁切并保存页面中的插图。原地填充 pages.md/img_proc，返回 res。"""
+        """[4] 裁切并保存页面中的插图。原地填充 pages.md/img_proc。"""
         print('[4] 处理图片')
         os.makedirs(self.img_dir, exist_ok=True)
         cb = self._make_write_cb(res)
@@ -238,10 +237,9 @@ class PDFOcrOrchestrator:
                 self.img_dir, pdf_hash, cb,
             )
         self._drain()
-        return res
 
     def group_pages(self, res):
-        """[5] 按长度分组，后处理 + 翻译。填充 res.groups，返回 res。"""
+        """[5] 按长度分组，后处理 + 翻译。填充 res.groups。"""
         print('[5] 处理页间合并')
         if not res.groups:
             res.groups = mkgroups(res.pages, self.args)
@@ -256,10 +254,9 @@ class PDFOcrOrchestrator:
                 self.translate_agent, cb,
             )
         self._drain()
-        return res
 
     def merge_groups(self, res):
-        """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge，返回 res。"""
+        """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge。"""
         print('[6] 处理组间合并')
         res.groups = [g for g in res.groups if g.mdcn]
         cb = self._make_write_cb(res)
@@ -274,7 +271,6 @@ class PDFOcrOrchestrator:
                 self.merge_agent, cb,
             )
         self._drain()
-        return res
 
     def build_full_text(self, res):
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
@@ -377,16 +373,16 @@ class PDFOcrOrchestrator:
             res = self.init_meta(doc)
 
             # 3. OCR 识别
-            res = self.ocr_pages(doc, res)
+            self.ocr_pages(doc, res)
 
             # 4. 处理图片
-            res = self.process_images(doc, res, pdf_hash)
+            self.process_images(doc, res, pdf_hash)
 
             # 5. 分组 + 后处理 + 翻译
-            res = self.group_pages(res)
+            self.group_pages(res)
 
             # 6. 组间合并
-            res = self.merge_groups(res)
+            self.merge_groups(res)
 
             # 7. 拼接全文
             full_text, name_cn = self.build_full_text(res)
