@@ -188,7 +188,10 @@ class TransEpubDispatcher:
     def _write_yaml(self, fname, res):
         with open(fname, 'w', encoding='utf8') as f:
             obj = (
-                [r.dict() for r in res]
+                [
+                    r.dict() if isinstance(r, BaseModel) else r 
+                    for r in res
+                ]
                 if isinstance(res, list)
                 else res.dict()
             )
@@ -278,8 +281,7 @@ class TransEpubDispatcher:
             chs = yaml.safe_load(open(chs_fname, encoding='utf8').read())
         else:
             chs = self._split_chs(md) if self.args.split else [md]
-            with open(chs_fname, 'w', encoding='utf8') as f:
-                f.write(yaml.safe_dump(chs, allow_unicode=True))
+            self._write_yaml(chs_fname, chs)
         return chs
 
     def _write_chapters(self, proj_dir, slug, chs):
