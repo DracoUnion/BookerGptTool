@@ -241,8 +241,7 @@ class Code2BookOrchestrator:
             )
             for f in fnames
         ]
-        open(code_desc_fname, 'w', encoding='utf8') \
-            .write(yaml.safe_dump([d.dict() for d in code_desc]))
+        self._write_yaml(code_desc_fname, code_desc)
 
         hdls = []
         for i, it in enumerate(code_desc):
