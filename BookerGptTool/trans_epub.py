@@ -183,8 +183,7 @@ class TransEpubDispatcher:
         else:
             groups = group_chunks(split_md_lines(md))
             chunks = [Chunk(raw=c) for c in groups]
-            open(chunk_fname, 'w',  encoding='utf8') \
-                .write(yaml.safe_dump([c.dict() for c in chunks], allow_unicode=True))
+            self._write_yaml(chunk_fname, chunks)
 
         pool = ThreadPoolExecutor(self.args.threads)
         hdls = []
@@ -249,7 +248,7 @@ class TransEpubDispatcher:
             chs = yaml.safe_load(open(chs_fname, encoding='utf8').read())
         else:
             chs = self._split_chs(md) if self.args.split else [md]
-            open(chs_fname, 'w', encoding='utf8').write(yaml.safe_dump(chs, allow_unicode=True))
+            self._write_yaml(chs_fname, chs)
         return chs
 
     def _write_chapters(self, proj_dir, slug, chs):
