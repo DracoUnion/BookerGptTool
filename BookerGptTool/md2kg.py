@@ -27,31 +27,23 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
-# 1. 具体智能体实现
+# 1. 统一智能体
 # ============================================================================
-class EntityExtractor(BaseAgent):
-    """实体抽取智能体"""
+class Md2KgAgent(BaseAgent):
+    """统一知识图谱智能体"""
 
     def __init__(self, api_base: str, api_key: str, model: str,
                  temperature: float = 0.0, retry: int = 3, stream: bool = False):
         super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
 
-    def run(self, chunk_text: str, chunk_id: str, context_summary: str = "") -> EntityList:
+    def extract_entities(self, chunk_text: str, chunk_id: str, context_summary: str = "") -> EntityList:
         user_prompt = ENTITY_EXTRACTOR_USER_PROMPT.format(
             chunk_id=chunk_id, context_summary=context_summary, chunk_text=chunk_text
         )
         parse_output = lambda s: EntityList.model_validate_json(ext_code_block(s))
         return self._call(ENTITY_EXTRACTOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
-
-class RelationExtractor(BaseAgent):
-    """关系抽取智能体"""
-
-    def __init__(self, api_base: str, api_key: str, model: str,
-                 temperature: float = 0.0, retry: int = 3, stream: bool = False):
-        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
-
-    def run(self, chunk_text: str, chunk_id: str, entity_list: EntityList, context_summary: str = "") -> RelationList:
+    def extract_relations(self, chunk_text: str, chunk_id: str, entity_list: EntityList, context_summary: str = "") -> RelationList:
         entity_context = "\n".join([f"{e.id}: {e.canonical_name} ({e.type})" for e in entity_list.entities])
         user_prompt = RELATION_EXTRACTOR_USER_PROMPT.format(
             chunk_id=chunk_id, context_summary=context_summary,
@@ -60,15 +52,7 @@ class RelationExtractor(BaseAgent):
         parse_output = lambda s: RelationList.model_validate_json(ext_code_block(s))
         return self._call(RELATION_EXTRACTOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
-
-class ConflictResolver(BaseAgent):
-    """冲突消解与全局融合智能体"""
-
-    def __init__(self, api_base: str, api_key: str, model: str,
-                 temperature: float = 0.0, retry: int = 3, stream: bool = False):
-        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
-
-    def run(self, all_entity_lists: List[EntityList], all_relation_lists: List[RelationList]) -> ResolvedGraph:
+    def resolve_conflicts(self, all_entity_lists: List[EntityList], all_relation_lists: List[RelationList]) -> ResolvedGraph:
         input_data = {
             "entity_lists": [el.model_dump() for el in all_entity_lists],
             "relation_lists": [rl.model_dump() for rl in all_relation_lists]
@@ -78,27 +62,7 @@ class ConflictResolver(BaseAgent):
         parse_output = lambda s: ResolvedGraph.model_validate_json(ext_code_block(s))
         return self._call(CONFLICT_RESOLVER_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
-
-class SchemaAligner(BaseAgent):
-    """Schema对齐智能体 - 将提取的元素映射到现有Schema"""
-
-    def __init__(self, api_base: str, api_key: str, model: str,
-                 temperature: float = 0.0, retry: int = 3, stream: bool = False):
-        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
-
-    def run(self, resolved_graph: ResolvedGraph, target_schema: Dict[str, List[str]] = None) -> SchemaAlignmentResult:
-        """
-        对齐提取的实体和关系到目标Schema
-
-        Args:
-            resolved_graph: 冲突消解后的图谱
-            target_schema: 目标Schema定义，格式如:
-                {
-                    "entity_types": ["人物", "组织", "地点", "概念", "事件", "作品", "技术", "时间"],
-                    "relation_type": ["创建", "属于", "位于", "影响", "包含", "发表"]
-                }
-        """
-        # 默认Schema类型
+    def align_schema(self, resolved_graph: ResolvedGraph, target_schema: Dict[str, List[str]] = None) -> SchemaAlignmentResult:
         if target_schema is None:
             target_schema = {
                 "entity_types": ["人物", "组织", "地点", "概念", "事件", "作品", "技术", "时间"],
@@ -125,22 +89,7 @@ class SchemaAligner(BaseAgent):
         parse_output = lambda s: SchemaAlignmentResult.model_validate_json(ext_code_block(s))
         return self._call(SCHEMA_ALIGNER_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
-
-class EvaluatorAgent(BaseAgent):
-    """评估智能体 - 多维度质量评估"""
-
-    def __init__(self, api_base: str, api_key: str, model: str,
-                 temperature: float = 0.0, retry: int = 3, stream: bool = False):
-        super().__init__(api_base, api_key, model, temperature, retry=retry, stream=stream)
-
-    def run(self, resolved_graph: ResolvedGraph, integration_threshold: float = 0.6) -> EvaluationResult:
-        """
-        评估三元组质量
-
-        Args:
-            resolved_graph: 冲突消解后的图谱
-            integration_threshold: 集成阈值，默认0.6
-        """
+    def evaluate(self, resolved_graph: ResolvedGraph, integration_threshold: float = 0.6) -> EvaluationResult:
         triplets = []
         for rel in resolved_graph.relationships:
             triplets.append({
@@ -175,11 +124,7 @@ class KnowledgeGraphOrchestrator:
         self.integration_threshold = integration_threshold
 
         # 初始化智能体
-        self.entity_extractor = EntityExtractor(api_base, api_key, model, retry=retry, stream=stream)
-        self.relation_extractor = RelationExtractor(api_base, api_key, model, retry=retry, stream=stream)
-        self.resolver = ConflictResolver(api_base, api_key, model, retry=retry, stream=stream)
-        self.schema_aligner = SchemaAligner(api_base, api_key, model, retry=retry, stream=stream)
-        self.evaluator = EvaluatorAgent(api_base, api_key, model, retry=retry, stream=stream)
+        self.agent = Md2KgAgent(api_base, api_key, model, retry=retry, stream=stream)
 
     def build_graph(self, chunks: List[Dict[str, Any]], target_schema: Dict[str, List[str]] = None) -> Dict[str, Any]:
         """
@@ -204,7 +149,7 @@ class KnowledgeGraphOrchestrator:
                 content = chunk['content']
                 summary = chunk.get('summary', '')
                 future_entity = executor.submit(
-                    self.entity_extractor.run, content, chunk_id, summary
+                    self.agent.extract_entities, content, chunk_id, summary
                 )
                 futures.append((future_entity, chunk_id))
 
@@ -225,7 +170,7 @@ class KnowledgeGraphOrchestrator:
                 summary = chunk.get('summary', '')
                 entity_list = all_entity_lists[idx] if idx < len(all_entity_lists) else EntityList(entities=[])
                 future_rel = executor.submit(
-                    self.relation_extractor.run, content, chunk_id, entity_list, summary
+                    self.agent.extract_relations, content, chunk_id, entity_list, summary
                 )
                 futures_rel.append((future_rel, chunk_id))
 
@@ -238,15 +183,15 @@ class KnowledgeGraphOrchestrator:
 
         # ----- 阶段3：冲突消解 -----
         logger.info("阶段3：冲突消解...")
-        resolved_graph = self.resolver.run(all_entity_lists, all_relation_lists)
+        resolved_graph = self.agent.resolve_conflicts(all_entity_lists, all_relation_lists)
 
         # ----- 阶段4：Schema对齐 -----
         logger.info("阶段4：Schema对齐...")
-        schema_alignment_result = self.schema_aligner.run(resolved_graph, target_schema)
+        schema_alignment_result = self.agent.align_schema(resolved_graph, target_schema)
 
         # ----- 阶段5：质量评估 -----
         logger.info("阶段5：质量评估...")
-        evaluation_result = self.evaluator.run(resolved_graph, self.integration_threshold)
+        evaluation_result = self.agent.evaluate(resolved_graph, self.integration_threshold)
 
         # ----- 组装最终结果 -----
         result = {
