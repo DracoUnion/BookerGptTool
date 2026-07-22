@@ -21,19 +21,6 @@ import tempfile
 import uuid
 from typing import *
 
-def get_console_logger(name, level):
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    # 创建控制台处理器
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    # 设置日志格式
-    formatter = logging.Formatter("[%(asctime)s][%(name)s][%(levelname)s] %(message)s")
-    console_handler.setFormatter(formatter)
-    # 将处理器添加到日志记录器
-    logger.addHandler(console_handler)
-    return logger
-
 def d(name):
     DIR = path.dirname(path.abspath(__file__))
     return path.join(DIR, name)

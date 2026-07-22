@@ -6,9 +6,12 @@ import requests
 import random
 from os import path
 import logging
-from .util import get_console_logger
 
-logger = get_console_logger(__name__, logging.INFO)
+logging.basicConfig(
+    level=logging.INFO, 
+    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 def forward(args):
     keys = yaml.safe_load(
