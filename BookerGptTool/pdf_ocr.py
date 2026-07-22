@@ -193,7 +193,7 @@ class PDFOcrOrchestrator:
 
     # ── 主线程写入 ──────────────────────────────────
 
-    def _write_meta(self, res: Meta) -> None:
+    def _write_yaml(self, res: Meta) -> None:
         """在主线程中将 meta 写回 yaml 文件。"""
         with open(self.yaml_fname, 'w', encoding='utf8') as f:
             obj = (
@@ -334,7 +334,7 @@ class PDFOcrOrchestrator:
                 self._tr_ocr_page,
                 img, g,
             )
-        self._drain(lambda: self._write_meta(res))
+        self._drain(lambda: self._write_yaml(res))
 
     def process_images(
         self, doc: fitz.Document, res: Meta, pdf_hash: str
@@ -354,7 +354,7 @@ class PDFOcrOrchestrator:
                 img, g,
                 self.img_dir, pdf_hash,
             )
-        self._drain(lambda: self._write_meta(res))
+        self._drain(lambda: self._write_yaml(res))
 
     def group_pages(self, res: Meta) -> None:
         """[5] 按长度分组，后处理 + 翻译。填充 res.groups。"""
@@ -368,7 +368,7 @@ class PDFOcrOrchestrator:
                 self._tr_group_page,
                 g,
             )
-        self._drain(lambda: self._write_meta(res))
+        self._drain(lambda: self._write_yaml(res))
 
     def merge_groups(self, res: Meta) -> None:
         """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge。"""
@@ -383,7 +383,7 @@ class PDFOcrOrchestrator:
                 self._tr_merge_group,
                 res.groups[i - 1], g,
             )
-        self._drain(lambda: self._write_meta(res))
+        self._drain(lambda: self._write_yaml(res))
 
     def build_full_text(self, res: Meta) -> Tuple[str, str]:
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
@@ -411,7 +411,7 @@ class PDFOcrOrchestrator:
             toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
             toc = self.toc_agent.run(toc_text='\n'.join(toc))
             res.toc = toc
-            self._write_meta(res)
+            self._write_yaml(res)
         for lvl, title in toc:
             print(f'[7] {lvl} {title}')
             try:
