@@ -59,6 +59,27 @@ class OCRAgent(Agent):
             parse_output=parse_output,
         )
 
+    def res2md(self, r: OCRResult) -> str:
+        """将 OCRResult 转为 Markdown 文本。"""
+        mds = []
+        for seg in r.contents:
+            if seg.type == 'image':
+                bbox = seg.bbox
+                md = f'![](bbox={bbox})'
+            elif seg.type == 'title':
+                md = '# ' + seg.markdown
+            elif seg.type == 'list':
+                md = '+   ' + seg.markdown
+            elif seg.type == 'code':
+                md = '```\n' + seg.markdown + '\n```'
+            elif seg.type == 'quote':
+                md = '> ' + seg.markdown
+            else:
+                md = seg.markdown
+            mds.append(md)
+        return '\n\n'.join(mds).strip() \
+            or '<!-- no content -->'
+
 
 class MergeAgent(Agent):
     """判断两页的首尾是否属于同一段落。"""
@@ -179,26 +200,6 @@ class PDFOcrOrchestrator:
 
     # ── 线程池任务 ────────────────────────────────
 
-    def _ocr_res2md(self, r: OCRResult) -> str:
-        mds = []
-        for seg in r.contents:
-            if seg.type == 'image':
-                bbox = seg.bbox
-                md = f'![](bbox={bbox})'
-            elif seg.type == 'title':
-                md = '# ' + seg.markdown
-            elif seg.type == 'list':
-                md = '+   ' + seg.markdown
-            elif seg.type == 'code':
-                md = '```\n' + seg.markdown + '\n```'
-            elif seg.type == 'quote':
-                md = '> ' + seg.markdown
-            else:
-                md = seg.markdown
-            mds.append(md)
-        return '\n\n'.join(mds).strip() \
-            or '<!-- no content -->'
-
     def _corp_img(self, img: bytes, bbox: List[float]) -> bytes:
         xmin, ymin, xmax, ymax = bbox
         fmt_bytes = isinstance(img, bytes)
@@ -225,7 +226,7 @@ class PDFOcrOrchestrator:
     def _tr_ocr_page(self, img: bytes, page: Page) -> None:
         print(f'[3] 识别页码 {page.pgno + 1}')
         res: OCRResult = self.ocr_agent.run(img=img)
-        page.md = self._ocr_res2md(res)
+        page.md = self.ocr_agent.res2md(res)
 
     def _tr_proc_img(
         self, img: bytes, page: Page, img_dir: str, pdf_hash: str
