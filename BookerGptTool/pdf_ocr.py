@@ -480,7 +480,7 @@ class PDFOcrOrchestrator:
 
     def run(self) -> None:
         if not self.args.fname.endswith('.pdf'):
-            logger.info('请提供PDF文件')
+            logger.fatal('请提供PDF文件')
             return
 
         paths = self._resolve_paths(self.args)
@@ -493,7 +493,7 @@ class PDFOcrOrchestrator:
 
         os.makedirs(pj_dir, exist_ok=True)
         if path.isfile(md_fname):
-            logger.info('PDF 已处理')
+            logger.warn('PDF 已处理')
             return
 
         # 1. 加载 PDF
