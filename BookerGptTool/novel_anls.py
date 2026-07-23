@@ -34,15 +34,10 @@ rate_limiter = Semaphore(RATE_LIMIT)
 class NovelAnlsAgent:
     """统一封装小说分析的结构化 LLM 调用。"""
 
-    def __init__(
-        self,
-        model: str = MODEL,
-        temperature: float = 0.3,
-        llm_client: Optional[OpenAI] = None,
-    ):
-        self.model = model
-        self.temperature = temperature
-        self.client = llm_client or client
+    def __init__(self, args):
+        self.model = getattr(args, 'model', MODEL)
+        self.temperature = getattr(args, 'temperature', 0.3)
+        self.client = client
 
     def _call(
         self,
@@ -142,19 +137,17 @@ def extract_text_from_epub(epub_path: str) -> List[Chapter]:
 class BookAnalyzerOrchestrator:
     """负责 EPUB 解析、阶段调度、结果汇总和报告保存。"""
 
-    def __init__(
-        self,
-        epub_path: str,
-        book_meta: Optional[BookMeta] = None,
-        max_workers_stage1: int = 8,
-        max_workers_stage2: int = 10,
-        agent: Optional[NovelAnlsAgent] = None,
-    ):
-        self.epub_path = epub_path
-        self.book_meta = book_meta or BookMeta()
-        self.max_workers_stage1 = max_workers_stage1
-        self.max_workers_stage2 = max_workers_stage2
-        self.agent = agent or NovelAnlsAgent()
+    def __init__(self, args):
+        self.args = args
+        self.epub_path = args.fname
+        self.book_meta = BookMeta(
+            book_title=getattr(args, 'book_title', None),
+            author=getattr(args, 'author', None),
+            blurb=getattr(args, 'blurb', None),
+        )
+        self.max_workers_stage1 = getattr(args, 'threads', 8)
+        self.max_workers_stage2 = getattr(args, 'threads', 10)
+        self.agent = NovelAnlsAgent(args)
 
         self.chapters: List[Chapter] = []
         self.summaries: List[ChapterSummary] = []
@@ -168,8 +161,9 @@ class BookAnalyzerOrchestrator:
             chapter_text=chapter.text,
         )
 
-    def _run_stage1(self, max_chapters: Optional[int] = None) -> None:
+    def _run_stage1(self) -> None:
         """执行阶段一：并行扫描所有章节。"""
+        max_chapters = getattr(self.args, 'max_chapters', None)
         target = self.chapters
         if max_chapters:
             target = target[:max_chapters]
@@ -289,14 +283,11 @@ class BookAnalyzerOrchestrator:
             json.dump(report.model_dump(mode="json"), file, ensure_ascii=False, indent=2)
         print(f"💾 完整报告已保存至: {output_path}")
 
-    def run_full_pipeline(
-        self,
-        max_chapters: Optional[int] = None,
-        output_path: str = "book_analysis_report.json",
-    ) -> BookAnalysisReport:
+    def run_full_pipeline(self) -> BookAnalysisReport:
         """全自动执行完整流程。"""
+        output_path = getattr(self.args, 'output', "book_analysis_report.json")
         self.load_chapters()
-        self._run_stage1(max_chapters=max_chapters)
+        self._run_stage1()
         self._run_stage2()
         self.save_report(output_path)
         return BookAnalysisReport(
@@ -306,8 +297,9 @@ class BookAnalyzerOrchestrator:
             modules=self.report,
         )
 
-    def print_summary(self, result: BookAnalysisReport) -> None:
+    def run(self) -> None:
         """打印分析结果摘要。"""
+        result = self.run_full_pipeline()
         print("\n🎉 拆解完成！")
         print(f"已生成 {len(result.modules)} 个模块")
         for module_name in result.modules.keys():
@@ -316,19 +308,5 @@ class BookAnalyzerOrchestrator:
 
 def novel_anls(args):
     """CLI 入口函数。"""
-    book_meta = BookMeta(
-        book_title=getattr(args, 'book_title', None),
-        author=getattr(args, 'author', None),
-        blurb=getattr(args, 'blurb', None),
-    )
-    orchestrator = BookAnalyzerOrchestrator(
-        epub_path=args.fname,
-        book_meta=book_meta,
-        max_workers_stage1=getattr(args, 'threads', 8),
-        max_workers_stage2=getattr(args, 'threads', 10),
-    )
-    result = orchestrator.run_full_pipeline(
-        max_chapters=getattr(args, 'max_chapters', None),
-        output_path=getattr(args, 'output', "book_analysis_report.json"),
-    )
-    orchestrator.print_summary(result)
+    orchestrator = BookAnalyzerOrchestrator(args)
+    orchestrator.run()
