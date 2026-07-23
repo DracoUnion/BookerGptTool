@@ -218,15 +218,15 @@ class KnowledgeGraphOrchestrator:
 
     def run(self) -> Dict[str, Any]:
         """执行输入读取、知识图谱构建和结果输出的完整流程。"""
-        print(self.args)
+        logger.info(self.args)
         fnames = self._get_input_files()
         if not fnames:
-            print('请提供 MD 文件或目录')
+            logger.info('请提供 MD 文件或目录')
             return {}
 
         ofname = self._get_output_fname()
         if path.isfile(ofname):
-            print('MD 已处理过，跳过')
+            logger.info('MD 已处理过，跳过')
             return {}
 
         text = '\n\n'.join(
@@ -234,13 +234,13 @@ class KnowledgeGraphOrchestrator:
             for fname in fnames
         )
         if not text.strip():
-            print('输入内容为空')
+            logger.info('输入内容为空')
             return {}
 
         chunks = self._build_chunks(text)
         result = self.build_graph(chunks)
         output = self._render_output(result)
-        print(output)
+        logger.info(output)
         open(ofname, 'w', encoding='utf8').write(output)
         return result
 
