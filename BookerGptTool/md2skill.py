@@ -302,14 +302,11 @@ class Md2SkillAgent:
         self.model = model
         self.args = args
 
-    def _call(self, prompt):
-        return ask_chatgpt_retry(prompt, self.model, self.args)
-
     def generate_schema(self, toc, preface) -> BookSchema:
         """Step 1: 从目录和前言推断知识结构 schema"""
         prompt = SCHEMA_PMT.replace('{toc}', toc) \
             .replace('{preface}', preface)
-        ans = self._call(prompt)
+        ans = ask_chatgpt_retry(prompt, self.model, self.args)
         schema_raw = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
         return BookSchema.model_validate(json.loads(schema_raw))
 
@@ -320,7 +317,7 @@ class Md2SkillAgent:
         prompt = get_pmt_by_type(book_type) \
             .replace('{content}', content) \
             .replace('{context}', context)
-        ans = self._call(prompt)
+        ans = ask_chatgpt_retry(prompt, self.model, self.args)
         raw_texts = ans.replace('[content]', '') \
             .replace('[/content]', '').split('[split/]')
         return [rs for rs in (parse_raw_skill(rt) for rt in raw_texts) if rs]
@@ -330,7 +327,7 @@ class Md2SkillAgent:
         text = '\n\n[split/]\n\n'.join([s.raw_text for s in cluster])
         prompt = REDUCE_PMT.replace('{count}', str(len(cluster))) \
             .replace('{skills}', text)
-        ans = self._call(prompt)
+        ans = ask_chatgpt_retry(prompt, self.model, self.args)
         merged_text = ans.replace('[content]', '') \
             .replace('[/content]', '')
         return parse_raw_skill(merged_text)
