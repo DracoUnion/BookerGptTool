@@ -31,14 +31,14 @@ logger = logging.getLogger(__name__)
 class Md2KgAgent:
     """统一知识图谱智能体"""
 
-    def __init__(self, api_base: str, api_key: str, model: str,
-                 temperature: float = 0.0, max_tokens: int = 2000,
-                 retry: int = 3, stream: bool = False):
-        self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.retry = retry
-        self.stream = stream
+    def __init__(self, args):
+        set_openai_props(args)
+        self.args = args
+        self.model = args.model
+        self.temperature = getattr(args, 'temp', 0.0)
+        self.max_tokens = getattr(args, 'max_tokens', 2000)
+        self.retry = getattr(args, 'retry', 3)
+        self.stream = getattr(args, 'stream', False)
 
     def _call(self, system_prompt: str, user_prompt: str,
               max_tokens: Optional[int] = None, parse_output: Callable = None) -> str:
@@ -131,18 +131,14 @@ class Md2KgAgent:
 class KnowledgeGraphOrchestrator:
     """协调整个流程：分块 → 并行抽取 → 冲突消解 → Schema对齐 → 评估 → 输出"""
 
-    def __init__(self, api_base: str, api_key: str, model: str,
-                 max_workers: int = 5, retry: int = 3, stream: bool = False,
-                 integration_threshold: float = 0.6):
-        """
-        Args:
-            integration_threshold: 评估集成阈值，低于此值的三元组将被拒绝
-        """
-        self.max_workers = max_workers
-        self.integration_threshold = integration_threshold
+    def __init__(self, args):
+        """根据命令行参数初始化编排器。"""
+        self.args = args
+        self.max_workers = getattr(args, 'threads', 5)
+        self.integration_threshold = getattr(args, 'threshold', 0.6)
 
         # 初始化智能体
-        self.agent = Md2KgAgent(api_base, api_key, model, retry=retry, stream=stream)
+        self.agent = Md2KgAgent(args)
 
     def build_graph(self, chunks: List[Dict[str, Any]], target_schema: Dict[str, List[str]] = None) -> Dict[str, Any]:
         """
@@ -226,7 +222,6 @@ class KnowledgeGraphOrchestrator:
 # ============================================================================
 def md2kg_handle(args):
     print(args)
-    set_openai_props(args)
 
     # 读取输入文本
     if path.isfile(args.fname):
@@ -269,11 +264,7 @@ def md2kg_handle(args):
             "summary": para[:100],
         })
 
-    orchestrator = KnowledgeGraphOrchestrator(
-        api_base=args.host, api_key=args.key, model=args.model,
-        max_workers=args.threads, retry=args.retry, stream=args.stream,
-        integration_threshold=getattr(args, 'threshold', 0.6),
-    )
+    orchestrator = KnowledgeGraphOrchestrator(args)
     result = orchestrator.build_graph(chunks)
 
     # 提取结果
