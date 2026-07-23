@@ -216,105 +216,139 @@ class KnowledgeGraphOrchestrator:
 
         return result
 
+    def run(self) -> Dict[str, Any]:
+        """执行输入读取、知识图谱构建和结果输出的完整流程。"""
+        print(self.args)
+        fnames = self._get_input_files()
+        if not fnames:
+            print('请提供 MD 文件或目录')
+            return {}
+
+        ofname = self._get_output_fname()
+        if path.isfile(ofname):
+            print('MD 已处理过，跳过')
+            return {}
+
+        text = '\n\n'.join(
+            open(fname, encoding='utf8').read()
+            for fname in fnames
+        )
+        if not text.strip():
+            print('输入内容为空')
+            return {}
+
+        chunks = self._build_chunks(text)
+        result = self.build_graph(chunks)
+        output = self._render_output(result)
+        print(output)
+        open(ofname, 'w', encoding='utf8').write(output)
+        return result
+
+    def _get_input_files(self) -> List[str]:
+        """获取待处理的 Markdown 文件。"""
+        if path.isfile(self.args.fname):
+            fnames = [self.args.fname]
+        elif path.isdir(self.args.fname):
+            fnames = [
+                path.join(self.args.fname, fname)
+                for fname in os.listdir(self.args.fname)
+            ]
+        else:
+            fnames = []
+        return [fname for fname in fnames if fname.endswith('.md')]
+
+    def _get_output_fname(self) -> str:
+        """根据输入路径确定知识图谱输出路径。"""
+        return (
+            self.args.fname[:-3] + '.cyp'
+            if path.isfile(self.args.fname)
+            else path.join(self.args.fname, 'kg.cyp')
+        )
+
+    @staticmethod
+    def _build_chunks(text: str) -> List[Dict[str, str]]:
+        """按段落切分文本块。"""
+        paragraphs = [
+            paragraph.strip()
+            for paragraph in text.split('\n\n')
+            if paragraph.strip()
+        ]
+        return [
+            {
+                "id": f"chunk_{index + 1:03d}",
+                "content": paragraph,
+                "summary": paragraph[:100],
+            }
+            for index, paragraph in enumerate(paragraphs)
+        ]
+
+    @staticmethod
+    def _render_output(result: Dict[str, Any]) -> str:
+        """将知识图谱结果渲染为报告和 Cypher 示例。"""
+        resolved_graph = result["resolved_graph"]
+        schema_alignment = result["schema_alignment"]
+        evaluation = result["evaluation"]
+
+        lines = ["===== 全局实体 =====\n"]
+        for entity in resolved_graph.entities:
+            lines.append(
+                f"{entity.canonical_id}: {entity.name} "
+                f"({entity.type}) - {entity.description}"
+            )
+
+        lines.append("\n===== 全局关系 =====\n")
+        for relation in resolved_graph.relationships:
+            lines.append(
+                f"{relation.source} --[{relation.relation_type}]--> "
+                f"{relation.target} : {relation.evidence}"
+            )
+
+        lines.append("\n===== 消解日志 =====\n")
+        lines.extend(resolved_graph.resolution_log)
+
+        lines.append("\n===== Schema对齐结果 =====\n")
+        lines.append(f"对齐实体数: {len(schema_alignment.aligned_entities)}")
+        lines.append(f"对齐关系数: {len(schema_alignment.aligned_relations)}")
+        lines.append(f"未对齐数: {schema_alignment.unaligned_count}")
+        lines.extend(schema_alignment.alignment_log)
+
+        lines.append("\n===== 质量评估结果 =====\n")
+        lines.append(f"接受三元组数: {evaluation.accepted_count}")
+        lines.append(f"拒绝三元组数: {evaluation.rejected_count}")
+        lines.append(f"平均分数: {evaluation.average_score:.2f}")
+        lines.extend(evaluation.evaluation_log)
+
+        accepted_ids = {
+            triplet.id
+            for triplet in evaluation.triplets
+            if triplet.should_integrate
+        }
+        final_relations = [
+            relation
+            for relation in resolved_graph.relationships
+            if relation.id in accepted_ids
+        ]
+
+        lines.append("\n===== Cypher 示例 =====\n")
+        for entity in resolved_graph.entities:
+            lines.append(
+                f"CREATE (n:{entity.type} {{id: '{entity.canonical_id}', "
+                f"name: '{entity.name}', description: '{entity.description}'}});"
+            )
+        for relation in final_relations:
+            lines.append(
+                f"MATCH (a {{id: '{relation.source}'}}), "
+                f"(b {{id: '{relation.target}'}}) "
+                f"CREATE (a)-[:{relation.relation_type.upper()} "
+                f"{{evidence: '{relation.evidence[0]}'}}]->(b);"
+            )
+
+        return '\n'.join(lines)
+
 
 # ============================================================================
 # 4. 处理入口
 # ============================================================================
 def md2kg_handle(args):
-    print(args)
-
-    # 读取输入文本
-    if path.isfile(args.fname):
-        fnames = [args.fname]
-    elif path.isdir(args.fname):
-        fnames = [
-            path.join(args.fname, f)
-            for f in os.listdir(args.fname)
-        ]
-    fnames = [f for f in fnames if f.endswith('.md')]
-    if not fnames:
-        print('请提供 MD 文件或目录')
-        return
-
-    # 确定输出文件路径
-    ofname = (
-        args.fname[:-3] + '.cyp'
-        if path.isfile(args.fname)
-        else path.join(args.fname, 'kg.cyp')
-    )
-    if path.isfile(ofname):
-        print('MD 已处理过，跳过')
-        return
-
-    text = '\n\n'.join(
-        open(f, encoding='utf8').read()
-        for f in fnames
-    )
-    if not text.strip():
-        print('输入内容为空')
-        return
-
-    # 按段落切分为文本块
-    chunks = []
-    paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
-    for i, para in enumerate(paragraphs):
-        chunks.append({
-            "id": f"chunk_{i+1:03d}",
-            "content": para,
-            "summary": para[:100],
-        })
-
-    orchestrator = KnowledgeGraphOrchestrator(args)
-    result = orchestrator.build_graph(chunks)
-
-    # 提取结果
-    resolved_graph = result["resolved_graph"]
-    schema_alignment = result["schema_alignment"]
-    evaluation = result["evaluation"]
-
-    # 输出结果
-    lines = []
-    lines.append("===== 全局实体 =====\n")
-    for ent in resolved_graph.entities:
-        lines.append(f"{ent.canonical_id}: {ent.name} ({ent.type}) - {ent.description}")
-
-    lines.append("\n===== 全局关系 =====\n")
-    for rel in resolved_graph.relationships:
-        lines.append(f"{rel.source} --[{rel.relation_type}]--> {rel.target} : {rel.evidence}")
-
-    lines.append("\n===== 消解日志 =====\n")
-    for log_entry in resolved_graph.resolution_log:
-        lines.append(log_entry)
-
-    # Schema对齐结果
-    lines.append("\n===== Schema对齐结果 =====\n")
-    lines.append(f"对齐实体数: {len(schema_alignment.aligned_entities)}")
-    lines.append(f"对齐关系数: {len(schema_alignment.aligned_relations)}")
-    lines.append(f"未对齐数: {schema_alignment.unaligned_count}")
-    for log_entry in schema_alignment.alignment_log:
-        lines.append(log_entry)
-
-    # 评估结果
-    lines.append("\n===== 质量评估结果 =====\n")
-    lines.append(f"接受三元组数: {evaluation.accepted_count}")
-    lines.append(f"拒绝三元组数: {evaluation.rejected_count}")
-    lines.append(f"平均分数: {evaluation.average_score:.2f}")
-    for log_entry in evaluation.evaluation_log:
-        lines.append(log_entry)
-
-    # 只输出通过评估的三元组
-    accepted_ids = {t.id for t in evaluation.triplets if t.should_integrate}
-    final_relations = [r for r in resolved_graph.relationships if r.id in accepted_ids]
-
-    lines.append("\n===== Cypher 示例 =====\n")
-    for ent in resolved_graph.entities:
-        lines.append(f"CREATE (n:{ent.type} {{id: '{ent.canonical_id}', name: '{ent.name}', description: '{ent.description}'}});")
-    for rel in final_relations:
-        lines.append(
-            f"MATCH (a {{id: '{rel.source}'}}), (b {{id: '{rel.target}'}}) "
-            f"CREATE (a)-[:{rel.relation_type.upper()} {{evidence: '{rel.evidence[0]}'}}]->(b);"
-        )
-
-    output = '\n'.join(lines)
-    print(output)
-    open(ofname, 'w', encoding='utf8').write(output)
+    """入口函数：创建编排器并运行完整流程。"""
+    return KnowledgeGraphOrchestrator(args).run()
