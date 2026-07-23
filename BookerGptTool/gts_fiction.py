@@ -15,6 +15,7 @@ class GtsFictionAgent:
     def __init__(self, model, args):
         self.model = model
         self.args = args
+        set_openai_props(self.args)
 
     def _call(self, prompt):
         return ask_chatgpt_retry(prompt, self.model, self.args)
@@ -130,6 +131,12 @@ class GtsFictionOrchestrator:
         return bodies
 
     def run(self):
+        print(self.args)
+
+        if self.args.out_dir is None:
+            self.args.out_dir = uuid.uuid4().hex
+        os.makedirs(self.args.out_dir, exist_ok=True)
+
         setting = self._step1_setting()
         roles = self._step2_roles(setting)
         outline = self._step3_outline(setting, roles)
@@ -140,12 +147,7 @@ class GtsFictionOrchestrator:
 
 
 def write_fiction(args):
-    print(args)
-    set_openai_props(args)
 
-    if args.out_dir is None:
-        args.out_dir = uuid.uuid4().hex
-    os.makedirs(args.out_dir, exist_ok=True)
 
     orchestrator = GtsFictionOrchestrator(args)
     orchestrator.run()
