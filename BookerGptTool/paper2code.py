@@ -145,14 +145,11 @@ class Paper2CodeOrchestrator:
         logger.info('[Planning] Configuration file generation')
         cfg_str = self._gen_config(paper, plan, flist_str, tasks_str)
 
-        task_data = json.loads(tasks_str)
-        tasks = task_data['task_list']
-        file_descs = task_data['file_descs']
         logic_anls_dict = self._generate_logic_analysis(
-            paper, plan, flist_str, tasks_str, cfg_str, tasks, file_descs,
+            paper, plan, flist_str, tasks_str, cfg_str,
         )
         self._generate_code(
-            paper, plan, flist_str, tasks_str, tasks,
+            paper, plan, flist_str, tasks_str, 
             logic_anls_dict,
         )
 
@@ -222,9 +219,11 @@ class Paper2CodeOrchestrator:
         flist_str: str,
         tasks_str: str,
         cfg_str: str,
-        tasks: list,
-        file_descs: dict,
     ) -> dict:
+        task_data = json.loads(tasks_str)
+        tasks = task_data['task_list']
+        file_descs = task_data['file_descs']
+
         logic_anls_dict = {}
         for fname in tasks:
             logger.info(f'[ANALYSIS] {fname}')
@@ -253,9 +252,11 @@ class Paper2CodeOrchestrator:
         plan: str,
         flist_str: str,
         tasks_str: str,
-        tasks: list,
         logic_anls_dict: dict,
     ):
+        task_data = json.loads(tasks_str)
+        tasks = task_data['task_list']
+
         code_dict = {}
         for fname in tasks:
             logger.info(f'[CODING] {fname}')
