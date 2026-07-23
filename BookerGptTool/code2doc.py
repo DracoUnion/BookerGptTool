@@ -108,12 +108,12 @@ class Code2DocOrchestrator:
         """分析单个源码文件并写出 Markdown 设计文档。"""
         fname = self.args.fname
         if extname(fname) not in SUPPORTED_EXTENSIONS:
-            logger.info(f'{fname} 代码类型不支持')
+            logger.fatal(f'{fname} 代码类型不支持')
             return
 
         ofname = fname + '.md'
         if path.isfile(ofname):
-            logger.info(f'{fname} 已存在')
+            logger.warn(f'{fname} 已存在')
             return
 
         logger.info(fname)
@@ -275,7 +275,7 @@ def code2doc_handle(args):
         ]
     fnames = [f for f in fnames if extname(f) in SUPPORTED_EXTENSIONS]
     if not fnames:
-        logger.info('请提供源码文件或目录')
+        logger.fatal('请提供源码文件或目录')
         return
 
     pool = ThreadPoolExecutor(args.threads)
