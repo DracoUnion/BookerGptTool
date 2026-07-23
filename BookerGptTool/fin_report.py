@@ -330,46 +330,56 @@ class MultiReportOrchestrator:
                     ))
         return results
 
+    def run(self) -> Optional[OrchestratorResult]:
+        """执行 PDF 读取、研报处理和最终报告输出。"""
+        print(self.args)
+        fnames = self._get_pdf_files()
+        if not fnames:
+            print('请提供 PDF 文件或目录')
+            return None
+
+        ofname = self._get_output_fname()
+        if path.isfile(ofname):
+            print('PDF 已处理')
+            return None
+
+        reports = [
+            read_pdf_text(open(fname, 'rb').read())
+            for fname in fnames
+        ]
+        result = self.process(reports)
+
+        print("\n" + "=" * 60)
+        print("📊 最终裁决报告")
+        print("=" * 60)
+        print(result.final_verdict)
+        open(ofname, 'w', encoding='utf8').write(result.final_verdict)
+        return result
+
+    def _get_pdf_files(self) -> List[str]:
+        """获取待处理的 PDF 文件列表。"""
+        if path.isfile(self.args.fname):
+            fnames = [self.args.fname]
+        elif path.isdir(self.args.fname):
+            fnames = [
+                path.join(self.args.fname, fname)
+                for fname in os.listdir(self.args.fname)
+            ]
+        else:
+            fnames = []
+        return [fname for fname in fnames if fname.endswith('.pdf')]
+
+    def _get_output_fname(self) -> str:
+        """根据输入路径确定最终报告路径。"""
+        return (
+            self.args.fname[:-4] + '_report.md'
+            if path.isfile(self.args.fname)
+            else path.join(self.args.fname, 'report.md')
+        )
+
+
+
 
 def fin_report_handle(args):
-    print(args)
-
-    if path.isfile(args.fname):
-        fnames = [args.fname]
-    else:
-        fnames = [
-            path.join(args.fname, f)
-            for f in os.listdir(args.fname)
-        ]
-
-    fnames = [
-        f for f in fnames if f.endswith('.pdf')
-    ]
-    if not fnames:
-        print('请提供 PDF 文件或目录')
-        return
-
-    ofname = (
-        args.fname[:-4] + '_report.md'
-        if path.isfile(args.fname)
-        else path.join(args.fname, 'report.md')
-    )
-    if path.isfile(ofname):
-        print('PDF 已处理')
-        return
-
-    reports = [
-        read_pdf_text(open(f, 'rb').read())
-        for f in fnames
-    ]
-
-    orchestrator = MultiReportOrchestrator(args)
-
-    result = orchestrator.process(reports)
-
-    print("\n" + "="*60)
-    print("📊 最终裁决报告")
-    print("="*60)
-    print(result.final_verdict)
-
-    open(ofname, 'w', encoding='utf8').write(result.final_verdict)
+    """入口函数：创建编排器并运行完整流程。"""
+    return MultiReportOrchestrator(args).run()
