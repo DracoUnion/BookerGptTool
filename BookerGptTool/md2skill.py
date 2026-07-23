@@ -52,6 +52,7 @@ DOMAIN_SYNONYMS: Dict[str, str] = {
     "投资": "金融·投资", "investment": "金融·投资",
 }
 
+
 def parse_raw_skill(raw_skill: str) -> Optional[Dict[str, str]]:
     RE_RAW_SKILL = r'---\n([\s\S]+?)\n---\n([\s\S]+)'
     m = re.search(RE_RAW_SKILL, raw_skill)
@@ -65,7 +66,7 @@ def parse_raw_skill(raw_skill: str) -> Optional[Dict[str, str]]:
     # 补全缺失字段
     if 'name' not in skill:
         first_line = skill['body'].split("\n")[0].strip("# ").strip()
-        skill["name"] = re.sub(r"[^a-zA-Z0-9\u4e00-\u9fff]+", "-", first_line).strip("-").lower()[:50]
+        skill["name"] = re.sub(r"[^a-zA-Z0-9一-鿿]+", "-", first_line).strip("-").lower()[:50]
     skill['slug'] = to_kebab(skill['name'])
     if 'trigger' not in skill:
         skill['trigger'] = "通用知识查询"
@@ -87,7 +88,7 @@ def normalize_skills_tags(skills: List[Dict[str, str]]) -> Dict[str, str]:
     return tag_map
 
 def cluster_skills(
-    skills: List[Dict[str, str]], 
+    skills: List[Dict[str, str]],
     emb_model_name: str,
     threshold: float = 0.88
 ) -> List[List[Dict[str, str]]]:
@@ -95,7 +96,7 @@ def cluster_skills(
 
     # 构建每个 Skill 的文本表示（trigger + body 前 500 字）
     texts = [
-        f"{s['trigger']} {s['body'][:500]}" 
+        f"{s['trigger']} {s['body'][:500]}"
         for s in skills
     ]
 
@@ -123,7 +124,7 @@ def cluster_skills(
             if sim >= threshold:
                 cluster.append(skills[j])
                 used[j] = True
-        
+
         clusters.append(cluster)
 
     return clusters
@@ -167,7 +168,7 @@ class SKUType(Enum):
 
 def classify_skill(skill: Dict[str, str]) -> SKUType:
     """对单个 Skill 进行 SKU 类型分类（纯规则）"""
-    
+
     text = f"{skill['name']} {skill['trigger']} {skill['body'][:500]}"
     scores =  {
         SKUType.FACTUAL: len(_FACTUAL_PATTERNS.findall(text)),
@@ -248,7 +249,7 @@ def check_hallucination(
     }
 
     # 提取 body 中的关键词（> 2 字中文词或英文单词）
-    cn_terms = set(re.findall(r"[\u4e00-\u9fff]{3,}", body)) - _CN_STOPWORDS
+    cn_terms = set(re.findall(r"[一-鿿]{3,}", body)) - _CN_STOPWORDS
     en_terms = set(
         w.lower()
         for w in re.findall(r"[A-Za-z]{4,}", body)
@@ -268,50 +269,11 @@ def check_hallucination(
 
     return True
 
-def tr_gen_raw_skill(tp, paras, idx, args, write_callback):
-    ques = get_pmt_by_type(tp) \
-        .replace('{content}', paras[idx]['content']) \
-        .replace('{context}', paras[idx]['context'])
-    ans = ask_chatgpt_retry(ques, args.model, args)
-    raw_skills = ans.replace('[content]', '') \
-        .replace('[/content]', '').split('[split/]')
-    raw_skills = [parse_raw_skill(rs) for rs in raw_skills]
-    '''
-    raw_skills = [
-        rs for rs in raw_skills 
-        if rs and check_hallucination(rs['body'], paras[idx]['content'])
-    ]
-    '''
-    raw_skills = [
-        rs for rs in raw_skills  if rs
-    ]
-    # 补充块序号、原始内容和上下文
-    for rs in raw_skills:
-        rs['chunk_idx'] = idx
-        rs['raw_context'] = paras[idx]['context']
-        rs['raw_content'] = paras[idx]['content']
-        print(f'[2] {rs["name"]}')
-    paras[idx]['raw_skills'] = raw_skills
-    paras[idx]['generated'] = True
-    write_callback()
-
-def tr_merge_cluster(
-    cluster: List[Dict[str, str]],
-    skills: List[str], idx: int, 
-    args: object, write_callback: Callable,
-):
-    text = '\n\n[split/]\n\n'.join([s['raw_text'] for s in cluster])
-    ques = REDUCE_PMT.replace('{count}', str(len(cluster))) \
-        .replace('{skills}', text)
-    ans = ask_chatgpt_retry(ques, args.model, args)
-    merged = ans.replace('[content]', '') \
-        .replace('[/content]', '')
-    new_skill = parse_raw_skill(merged)
-    # 取集群第一个的元信息
-    skills[idx] = cluster[0].copy()
-    skills[idx]['body'] = new_skill['body']
-    print(f'[3] {skills[idx]["name"]}')
-    write_callback()
+def to_kebab(name: str) -> str:
+    """将技能名转为 kebab-case slug"""
+    s = re.sub(r"[^\w\s一-鿿-]", "", name)
+    s = re.sub(r"[\s_]+", "-", s).strip("-").lower()
+    return s[:60] or "unnamed-skill"
 
 def ext_toc_preface(md, preface_len=3000):
     toc = '\n'.join(re.findall(r'^#+\s+.+?$', md, re.M))
@@ -320,133 +282,210 @@ def ext_toc_preface(md, preface_len=3000):
         preface +='\n\n[正文省略...]'
     return toc, preface
 
-def to_kebab(name: str) -> str:
-    """将技能名转为 kebab-case slug"""
-    s = re.sub(r"[^\w\s\u4e00-\u9fff-]", "", name)
-    s = re.sub(r"[\s_]+", "-", s).strip("-").lower()
-    return s[:60] or "unnamed-skill"
 
-def md2skill(args):
-    print(args)
-    set_openai_props(args)
-    if not args.fname.endswith('.md'):
-        print('请提供 MD 文件')
-        return
-    md = open(args.fname, encoding='utf8').read()
+class Md2SkillAgent:
+    """封装所有 LLM 调用，一个方法对应一次调用。"""
 
-    output_dir = args.fname[:-3] + '_md2skill'
-    os.makedirs(output_dir, exist_ok=True)
+    def __init__(self, model, args):
+        self.model = model
+        self.args = args
 
-    print(f'[1] 生成 SCHEMA')
-    schema_fname = path.join(output_dir, 'schema.yaml')
-    if path.isfile(schema_fname):
-        schema = yaml.safe_load(open(schema_fname, encoding='utf8').read())
-    else:
-        toc, preface = ext_toc_preface(md)
-        ques = SCHEMA_PMT.replace('{toc}', toc) \
+    def _call(self, prompt):
+        return ask_chatgpt_retry(prompt, self.model, self.args)
+
+    def generate_schema(self, toc, preface):
+        """Step 1: 从目录和前言推断知识结构 schema"""
+        prompt = SCHEMA_PMT.replace('{toc}', toc) \
             .replace('{preface}', preface)
-        ans = ask_chatgpt_retry(ques, args.model, args)
+        ans = self._call(prompt)
         schema = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-        schema = json.loads(schema)
-        open(schema_fname, 'w',  encoding='utf8') \
-            .write(yaml.safe_dump(schema))
-    
-    print(f'[2] 生成原始技能')
-    raw_skill_fname = path.join(output_dir, 'raw_skills.yaml')
-    if path.isfile(raw_skill_fname):
-        raw_skills = yaml.safe_load(
-            open(raw_skill_fname, encoding='utf8').read())
-    else:
+        return json.loads(schema)
+
+    def generate_raw_skills(self, book_type, content, context):
+        """Step 2: 从一个文本块中提取原始技能"""
+        prompt = get_pmt_by_type(book_type) \
+            .replace('{content}', content) \
+            .replace('{context}', context)
+        ans = self._call(prompt)
+        raw_skills = ans.replace('[content]', '') \
+            .replace('[/content]', '').split('[split/]')
+        return [parse_raw_skill(rs) for rs in raw_skills if parse_raw_skill(rs)]
+
+    def merge_cluster(self, cluster):
+        """Step 3: 将相似技能集群合并为一个"""
+        text = '\n\n[split/]\n\n'.join([s['raw_text'] for s in cluster])
+        prompt = REDUCE_PMT.replace('{count}', str(len(cluster))) \
+            .replace('{skills}', text)
+        ans = self._call(prompt)
+        merged = ans.replace('[content]', '') \
+            .replace('[/content]', '')
+        return parse_raw_skill(merged)
+
+
+class Md2SkillOrchestrator:
+    """编排整个 md2skill 流程：文件缓存、步骤调度、线程池。"""
+
+    def __init__(self, args):
+        self.args = args
+        self.agent = Md2SkillAgent(args.model, args)
+        self.lock = Lock()
+
+    def _write_yaml(self, fname, res):
+        with self.lock:
+            with open(fname, 'w', encoding='utf8') as f:
+                f.write(yaml.safe_dump(res, allow_unicode=True))
+
+    def _load_or_generate_yaml(self, fname, generator_fn):
+        """缓存模式：文件存在则直接读取，否则生成并保存。"""
+        if path.isfile(fname):
+            return yaml.safe_load(open(fname, encoding='utf8').read())
+        result = generator_fn()
+        open(fname, 'w', encoding='utf8').write(
+            yaml.safe_dump(result, allow_unicode=True))
+        return result
+
+    def _step1_schema(self, md):
+        print(f'[1] 生成 SCHEMA')
+        schema_fname = path.join(self.output_dir, 'schema.yaml')
+        return self._load_or_generate_yaml(schema_fname, lambda:
+            self.agent.generate_schema(*ext_toc_preface(md)))
+
+    def _step2_raw_skills(self, md, schema):
+        print(f'[2] 生成原始技能')
+        raw_skill_fname = path.join(self.output_dir, 'raw_skills.yaml')
+
+        if path.isfile(raw_skill_fname):
+            return yaml.safe_load(
+                open(raw_skill_fname, encoding='utf8').read())
+
         chunks = chunk_markdown(
-            md, path.basename(args.fname)[:-3]).chunks
+            md, path.basename(self.args.fname)[:-3]).chunks
         raw_skills = [{
-            'content': c.content, 
+            'content': c.content,
             'context': c.context,
             'raw_skills': [],
             'generated': False,
         } for c in chunks]
-        open(raw_skill_fname, 'w',  encoding='utf8') \
+        open(raw_skill_fname, 'w', encoding='utf8') \
             .write(yaml.safe_dump(raw_skills, allow_unicode=True))
-    
-    pool = ThreadPoolExecutor(args.threads)
-    hdls = []
 
-    lock = Lock()
-    def write_callback(fname, res):
-        with lock:
-            with open(fname, 'w',  encoding='utf8') as f:
-                f.write(yaml.safe_dump(res, allow_unicode=True))
+        pool = ThreadPoolExecutor(self.args.threads)
+        hdls = []
 
-    for i, p in enumerate(raw_skills):
-        if p.get('generated'): continue
-        h = pool.submit(
-            tr_gen_raw_skill, 
-            schema['book_type'],
-            raw_skills, i, args,
-            functools.partial(write_callback, raw_skill_fname, raw_skills),
-        )
-        hdls.append(h)
-        # if len(hdls) > args.threads:
-        #     for h in hdls: h.result()
-        #     hdls = []
-
-    for h in hdls:
-        h.result()
-    hdls = []
-
-    print(f'[3] 原始技能聚类')
-    clusters_fname = path.join(output_dir, 'clusters.yaml')
-    if path.isfile(clusters_fname):
-         clusters = yaml.safe_load(
-            open(clusters_fname, encoding='utf8').read())
-    else:
-        skills = [rs['raw_skills'] for rs in raw_skills]
-        skills = functools.reduce(lambda x, y: x + y, skills, [])
-        if not skills:
-            print(f'[3] 未找到任何技能，无法聚类')
-            return
-        clusters = cluster_skills(skills, args.emb)
-        open(clusters_fname, 'w',  encoding='utf8') \
-            .write(yaml.safe_dump(clusters, allow_unicode=True))
-
-
-    skills_fname = path.join(output_dir, 'skills.yaml')
-    if path.isfile(skills_fname):
-        skills = yaml.safe_load(
-            open(skills_fname, encoding='utf8').read())
-    else:
-        skills = [None for _ in range(len(clusters))]
-        for i, c in enumerate(clusters):
-            if len(c) == 1: 
-                skills[i] = c[0]
-                continue
+        for i, p in enumerate(raw_skills):
+            if p.get('generated'): continue
             h = pool.submit(
-                tr_merge_cluster,
-                c, skills, i, args,
-                functools.partial(write_callback, skills_fname, skills)
+                self._gen_raw_skill,
+                schema['book_type'], raw_skills, i,
+                raw_skill_fname,
             )
             hdls.append(h)
-            # if len(hdls) > args.threads:
-            #     for h in hdls: h.result()
-            #     hdls = []
-        
-        for h in hdls: h.result()
-        hdls = []
-            
-        skills = [s for s in skills if s]
-        open(skills_fname, 'w',  encoding='utf8') \
+
+        for h in hdls:
+            h.result()
+
+        return raw_skills
+
+    def _gen_raw_skill(self, book_type, raw_skills, idx, raw_skill_fname):
+        """线程内：生成单个 chunk 的原始技能并回写。"""
+        raw_skills[idx]['raw_skills'] = self.agent.generate_raw_skills(
+            book_type,
+            raw_skills[idx]['content'],
+            raw_skills[idx]['context'],
+        )
+        raw_skills[idx]['generated'] = True
+        for rs in raw_skills[idx]['raw_skills']:
+            print(f'[2] {rs["name"]}')
+        self._write_yaml(raw_skill_fname, raw_skills)
+
+    def _step3_clusters(self, raw_skills):
+        print(f'[3] 原始技能聚类')
+        clusters_fname = path.join(self.output_dir, 'clusters.yaml')
+
+        def build():
+            skills = [rs['raw_skills'] for rs in raw_skills]
+            skills = functools.reduce(lambda x, y: x + y, skills, [])
+            if not skills:
+                print(f'[3] 未找到任何技能，无法聚类')
+                return []
+            return cluster_skills(skills, self.args.emb)
+
+        return self._load_or_generate_yaml(clusters_fname, build)
+
+    def _step4_skills(self, clusters):
+        print(f'[4] 技能分类')
+        skills_fname = path.join(self.output_dir, 'skills.yaml')
+
+        if path.isfile(skills_fname):
+            skills = yaml.safe_load(
+                open(skills_fname, encoding='utf8').read())
+        else:
+            skills = [None for _ in range(len(clusters))]
+            pool = ThreadPoolExecutor(self.args.threads)
+            hdls = []
+
+            for i, c in enumerate(clusters):
+                if len(c) == 1:
+                    skills[i] = c[0]
+                    continue
+                h = pool.submit(
+                    self._merge_cluster, c, skills, i, skills_fname)
+                hdls.append(h)
+
+            for h in hdls:
+                h.result()
+
+            skills = [s for s in skills if s]
+            open(skills_fname, 'w', encoding='utf8') \
+                .write(yaml.safe_dump(skills, allow_unicode=True))
+
+        for s in skills:
+            print(f"[4] {s['name']}")
+            if s.get('type'): continue
+            s['type'] = classify_skill(s).value
+        open(skills_fname, 'w', encoding='utf8') \
             .write(yaml.safe_dump(skills, allow_unicode=True))
 
-    print(f'[4] 技能分类')
-    for s in skills:
-        print(f"[4] {s['name']}")
-        if s.get('type'): continue
-        s['type'] = classify_skill(s).value
-    open(skills_fname, 'w',  encoding='utf8') \
-        .write(yaml.safe_dump(skills, allow_unicode=True))
+        return skills
 
-    zip_fname = args.fname[:-3] + '.zip'
-    print(f'[5] 打包输出 {zip_fname}')
-    generate_claude_skills(skills, zip_fname)
+    def _merge_cluster(self, cluster, skills, idx, skills_fname):
+        """线程内：合并一个集群并回写。"""
+        merged = self.agent.merge_cluster(cluster)
+        if merged:
+            skills[idx] = cluster[0].copy()
+            skills[idx]['body'] = merged['body']
+            print(f'[3] {skills[idx]["name"]}')
+        self._write_yaml(skills_fname, skills)
 
-    print('[*] 完成')
+    def _step5_package(self, skills):
+        zip_fname = self.args.fname[:-3] + '.zip'
+        print(f'[5] 打包输出 {zip_fname}')
+        generate_claude_skills(skills, zip_fname)
+
+    def run(self):
+        print(self.args)
+
+        if not self.args.fname.endswith('.md'):
+            print('请提供 MD 文件')
+            return
+
+        md = open(self.args.fname, encoding='utf8').read()
+        self.output_dir = self.args.fname[:-3] + '_md2skill'
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        schema = self._step1_schema(md)
+        raw_skills = self._step2_raw_skills(md, schema)
+        clusters = self._step3_clusters(raw_skills)
+        if not clusters:
+            return
+        skills = self._step4_skills(clusters)
+        self._step5_package(skills)
+
+        print('[*] 完成')
+
+
+def md2skill(args):
+    print(args)
+    set_openai_props(args)
+    orchestrator = Md2SkillOrchestrator(args)
+    orchestrator.run()
