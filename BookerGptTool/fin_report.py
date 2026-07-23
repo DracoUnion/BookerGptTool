@@ -55,11 +55,13 @@ def read_pdf_text(data):
 class FinReportAgent:
     """封装所有 LLM 调用的智能体类。"""
 
-    def __init__(self, api_base: str, api_key: str, model: str, retry: int = 3, stream: bool = False):
-        self.model = model
-        self.max_tokens = 2000
-        self.retry = retry
-        self.stream = stream
+    def __init__(self, args):
+        set_openai_props(args)
+        self.args = args
+        self.model = args.model
+        self.max_tokens = getattr(args, 'max_tokens', None) or 2000
+        self.retry = getattr(args, 'retry', 3)
+        self.stream = getattr(args, 'stream', False)
 
     def _call(self, system_prompt: str, user_prompt: str,
               temperature: float = 0.0, max_tokens: Optional[int] = None,
@@ -193,28 +195,21 @@ class MultiReportOrchestrator:
     5. 裁决
     """
 
-    def __init__(
-        self,
-        proj_dir,
-        api_base: str,
-        api_key: str,
-        model: str,
-        debate_rounds: int = 3,
-        max_workers: int = 5,
-        retry: int = 3,
-        stream: bool = False,
-    ):
-        self.proj_dir = proj_dir
-        self.api_base = api_base
-        self.api_key = api_key
-        self.model = model
-        self.debate_rounds = debate_rounds
-        self.max_workers = max_workers
-        self.retry = retry
-        self.stream = stream
+    def __init__(self, args):
+        self.args = args
+        self.proj_dir = getattr(
+            args,
+            'proj_dir',
+            args.fname[:-4] + '_fin_report'
+            if path.isfile(args.fname)
+            else path.join(args.fname, 'fin_report'),
+        )
+        self.debate_rounds = getattr(args, 'rounds', 3)
+        self.max_workers = getattr(args, 'threads', 5)
+        os.makedirs(self.proj_dir, exist_ok=True)
 
         # 初始化 Agent
-        self.agent = FinReportAgent(api_base, api_key, model, retry=retry, stream=stream)
+        self.agent = FinReportAgent(args)
 
     def process(self, reports: List[str]) -> OrchestratorResult:
         """
@@ -338,7 +333,6 @@ class MultiReportOrchestrator:
 
 def fin_report_handle(args):
     print(args)
-    set_openai_props(args)
 
     if path.isfile(args.fname):
         fnames = [args.fname]
@@ -364,28 +358,12 @@ def fin_report_handle(args):
         print('PDF 已处理')
         return
 
-    proj_dir = (
-        args.fname[:-4] + '_fin_report'
-        if path.isfile(args.fname) 
-        else path.join(args.fname, 'fin_report')
-    )
-    os.makedirs(proj_dir, exist_ok=True)
-
     reports = [
         read_pdf_text(open(f, 'rb').read())
         for f in fnames
     ]
 
-    orchestrator = MultiReportOrchestrator(
-        proj_dir=proj_dir,
-        api_base=args.host,
-        api_key=args.key,
-        model=args.model,
-        debate_rounds=args.rounds,
-        max_workers=args.threads,
-        retry=args.retry,
-        stream=args.stream,
-    )
+    orchestrator = MultiReportOrchestrator(args)
 
     result = orchestrator.process(reports)
 
