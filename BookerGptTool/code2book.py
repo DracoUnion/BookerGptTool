@@ -142,9 +142,11 @@ class Code2BookAgent:
             parse_output=ext_cont_block,
         )
 
-    def check_body(self, body: str) -> str:
+    def check_body(self, body: str, detail: Detail) -> str:
         """校验正文是否符合格式规范，返回修改意见或 [PERFECT/]。"""
-        ques = BODY_CHK_PMT.replace('{body}', body)
+        detail_str = detail.json()
+        ques = BODY_CHK_PMT.replace('{body}', body) \
+            .replace('{detail}', detail_str)
         return ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
@@ -407,7 +409,7 @@ class Code2BookOrchestrator:
     # ── 步骤 5：生成正文 ──────────────────────────────────
 
     def _tr_gen_body(
-        self, outline_chs, detail: Detail, idx: int, fname: str,
+        self, outline_chs, detail: Detail, idx: int,
     ) -> Tuple[int, str]:
         print(f'[5] 编写第{idx+1}章正文')
         code_fnames = [
@@ -423,7 +425,7 @@ class Code2BookOrchestrator:
         # 校验正文
         print(f'[5] 校验正文 {idx + 1}')
         for _ in range(self.args.check):
-            cmt = self.agent.check_body(body)
+            cmt = self.agent.check_body(body, detail)
             if '[PERFECT/]' in cmt:
                 print(f'[5] 正文 {idx + 1} 校验完成')
                 break
@@ -441,7 +443,6 @@ class Code2BookOrchestrator:
         bodies: List[str] = []
         hdls = []
         for i, detail in enumerate(details):
-            body_fname = path.join(self.pj_dir, f'body_{i+1}.md')
             if path.isfile(body_fname):
                 body = open(body_fname, encoding='utf8').read()
                 bodies.append(body)
@@ -449,7 +450,7 @@ class Code2BookOrchestrator:
             bodies.append('')
             h = self.pool.submit(
                 self._tr_gen_body, outline_chs,
-                detail, i, body_fname,
+                detail, i,
             )
             hdls.append(h)
 
