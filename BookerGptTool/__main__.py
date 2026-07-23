@@ -214,7 +214,6 @@ def main():
     novel_anls_parser.add_argument("fname", help="EPUB file name")
     novel_anls_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
     novel_anls_parser.add_argument("-mc", "--max-chapters", type=int, default=None, help="max chapters to process")
-    novel_anls_parser.add_argument("-o", "--output", default="book_analysis_report.json", help="output file")
     novel_anls_parser.add_argument("--book-title", default=None, help="book title")
     novel_anls_parser.add_argument("--author", default=None, help="author name")
     novel_anls_parser.add_argument("--blurb", default=None, help="book blurb")

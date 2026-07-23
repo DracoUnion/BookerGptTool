@@ -245,7 +245,9 @@ class BookAnalyzerOrchestrator:
 
     def run_full_pipeline(self) -> BookAnalysisReport:
         """全自动执行完整流程。"""
-        output_path = getattr(self.args, 'output', "book_analysis_report.json")
+        output_path = self.epub_path[:-5] + '_book_anls.json' \
+            if self.epub_path.endswith('.epub') \
+            else self.epub_path + '_book_anls.json'
         self.load_chapters()
         self._run_stage1()
         self._run_stage2()
@@ -259,6 +261,9 @@ class BookAnalyzerOrchestrator:
 
     def run(self) -> None:
         """打印分析结果摘要。"""
+        if not self.epub_path.endswith('.epub'):
+            print('请提供 EPUB 文件')
+            return
         result = self.run_full_pipeline()
         print("\n🎉 拆解完成！")
         print(f"已生成 {len(result.modules)} 个模块")
