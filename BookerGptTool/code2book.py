@@ -34,6 +34,8 @@ class Code2BookAgent:
     def __init__(self, args):
         self.model = args.model
         self.args = args
+        set_openai_props(self.args)
+
 
     def gen_code_desc(self, fname: str, code: str) -> ClsFuncExtResult:
         """根据源码提取类、方法和全局函数描述。"""
@@ -479,7 +481,6 @@ class Code2BookOrchestrator:
 
     def run(self):
         logger.info(self.args)
-        set_openai_props(self.args)
         if not path.isdir(self.args.dir):
             logger.fatal('请提供项目目录！')
             return
