@@ -19,8 +19,11 @@ from .novel_anls_pmt import (
 )
 from .util import call_llm_retry, set_openai_props
 
+logging.basicConfig(
+    level=logging.INFO, 
+    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
+)
 logger = logging.getLogger(__name__)
-
 
 class NovelAnlsAgent:
     """统一封装小说分析的结构化 LLM 调用。"""
