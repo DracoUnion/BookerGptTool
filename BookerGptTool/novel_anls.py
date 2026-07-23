@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
@@ -17,6 +18,8 @@ from .novel_anls_pmt import (
     AGGREGATE_SYSTEM_PROMPT, AGGREGATE_PROMPT_MAP,
 )
 from .util import call_llm_retry, set_openai_props
+
+logger = logging.getLogger(__name__)
 
 
 class NovelAnlsAgent:
@@ -158,9 +161,9 @@ class BookAnalyzerOrchestrator:
         target = self.chapters
         if max_chapters:
             target = target[:max_chapters]
-            print(f"⚠️ 仅处理前 {max_chapters} 章（限制模式）")
+            logger.info(f"⚠️ 仅处理前 {max_chapters} 章（限制模式）")
 
-        print(
+        logger.info(
             f"🔍 阶段一：并行扫描（共 {len(target)} 章，"
             f"并发数 {self.max_workers_stage1}）..."
         )
@@ -179,7 +182,7 @@ class BookAnalyzerOrchestrator:
                     pbar.update(1)
 
         self.summaries = [results[index] for index in sorted(results.keys())]
-        print(f"✅ 阶段一完成，共 {len(self.summaries)} 份摘要")
+        logger.info(f"✅ 阶段一完成，共 {len(self.summaries)} 份摘要")
 
     def _aggregate_single_module(self, module_name: str) -> tuple:
         """单模块聚合任务（供线程池调用）。"""
@@ -199,11 +202,11 @@ class BookAnalyzerOrchestrator:
     def _run_stage2(self) -> None:
         """执行阶段二：并行聚合所有模块。"""
         if not self.summaries:
-            print("❌ 错误：没有章节摘要，请先执行阶段一")
+            logger.info("❌ 错误：没有章节摘要，请先执行阶段一")
             return
 
         module_names = list(MODULE_CLASS_MAP.keys())
-        print(
+        logger.info(
             f"🧩 阶段二：并行聚合（共 {len(module_names)} 个模块，"
             f"并发数 {self.max_workers_stage2}）..."
         )
@@ -223,13 +226,13 @@ class BookAnalyzerOrchestrator:
                     self.report[module_name] = data
                     pbar.update(1)
 
-        print("✅ 阶段二完成，全部模块聚合完毕")
+        logger.info("✅ 阶段二完成，全部模块聚合完毕")
 
     def load_chapters(self) -> None:
         """加载并解析 EPUB。"""
-        print(f"📖 正在解析 EPUB: {self.epub_path}")
+        logger.info(f"📖 正在解析 EPUB: {self.epub_path}")
         self.chapters = extract_text_from_epub(self.epub_path)
-        print(f"✅ 共解析出 {len(self.chapters)} 章")
+        logger.info(f"✅ 共解析出 {len(self.chapters)} 章")
 
     def save_report(self, output_path: str = "book_analysis_report.json") -> None:
         """保存最终报告。"""
@@ -241,7 +244,7 @@ class BookAnalyzerOrchestrator:
         )
         with open(output_path, "w", encoding="utf-8") as file:
             json.dump(report.model_dump(mode="json"), file, ensure_ascii=False, indent=2)
-        print(f"💾 完整报告已保存至: {output_path}")
+        logger.info(f"💾 完整报告已保存至: {output_path}")
 
     def run_full_pipeline(self) -> BookAnalysisReport:
         """全自动执行完整流程。"""
@@ -262,13 +265,13 @@ class BookAnalyzerOrchestrator:
     def run(self) -> None:
         """打印分析结果摘要。"""
         if not self.epub_path.endswith('.epub'):
-            print('请提供 EPUB 文件')
+            logger.info('请提供 EPUB 文件')
             return
         result = self.run_full_pipeline()
-        print("\n🎉 拆解完成！")
-        print(f"已生成 {len(result.modules)} 个模块")
+        logger.info("\n🎉 拆解完成！")
+        logger.info(f"已生成 {len(result.modules)} 个模块")
         for module_name in result.modules.keys():
-            print(f"  - {module_name}")
+            logger.info(f"  - {module_name}")
 
 
 def novel_anls(args):
