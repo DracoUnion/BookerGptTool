@@ -144,9 +144,9 @@ class BookAnalyzerOrchestrator:
         self.summaries: List[ChapterSummary] = []
         self.report: Dict[str, Any] = {}
 
-    def _scan_single_chapter(self, chapter: Chapter, idx: int) -> ChapterSummary:
+    def _scan_single_chapter(self, chapter: Chapter) -> ChapterSummary:
         """单章扫描任务（供线程池调用）。"""
-        return idx, self.agent.scan_chapter(
+        return chapter.index, self.agent.scan_chapter(
             chapter_index=chapter.index,
             chapter_title=chapter.title,
             chapter_text=chapter.text,
@@ -174,8 +174,8 @@ class BookAnalyzerOrchestrator:
             results = {}
             with tqdm(total=len(futures), desc="扫描进度") as pbar:
                 for future in as_completed(futures):
-                    idx, r = future.result()
-                    results[idx] = r
+                    idx, summary = future.result()
+                    results[idx] = summary
                     pbar.update(1)
 
         self.summaries = [results[index] for index in sorted(results.keys())]
