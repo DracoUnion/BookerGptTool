@@ -221,12 +221,12 @@ class KnowledgeGraphOrchestrator:
         logger.info(self.args)
         fnames = self._get_input_files()
         if not fnames:
-            logger.info('请提供 MD 文件或目录')
+            logger.fatal('请提供 MD 文件或目录')
             return {}
 
         ofname = self._get_output_fname()
         if path.isfile(ofname):
-            logger.info('MD 已处理过，跳过')
+            logger.warn('MD 已处理过，跳过')
             return {}
 
         text = '\n\n'.join(
@@ -234,7 +234,7 @@ class KnowledgeGraphOrchestrator:
             for fname in fnames
         )
         if not text.strip():
-            logger.info('输入内容为空')
+            logger.fatal('输入内容为空')
             return {}
 
         chunks = self._build_chunks(text)
