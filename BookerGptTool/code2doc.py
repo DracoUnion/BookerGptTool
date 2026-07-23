@@ -1,16 +1,26 @@
 import os
 import re
-import traceback
 import copy
 from concurrent.futures import ThreadPoolExecutor
 from os import path
-
+import logging
 import json_repair as json
 
-from .util import ask_chatgpt_retry, set_openai_props, ext_code_block, ext_cont_block, extname
+from .util import (
+    ask_chatgpt_retry,
+    set_openai_props,
+    ext_code_block,
+    ext_cont_block,
+    extname,
+)
 from .code2doc_pmt import *
 from .code2doc_models import *
 
+logging.basicConfig(
+    level=logging.INFO, 
+    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 SUPPORTED_EXTENSIONS = {
     'c', 'h', 'cpp', 'cxx', 'hpp',
@@ -98,24 +108,24 @@ class Code2DocOrchestrator:
         """分析单个源码文件并写出 Markdown 设计文档。"""
         fname = self.args.fname
         if extname(fname) not in SUPPORTED_EXTENSIONS:
-            print(f'{fname} 代码类型不支持')
+            logger.info(f'{fname} 代码类型不支持')
             return
 
         ofname = fname + '.md'
         if path.isfile(ofname):
-            print(f'{fname} 已存在')
+            logger.info(f'{fname} 已存在')
             return
 
-        print(fname)
+        logger.info(fname)
         code = open(fname, encoding='utf8').read()
 
-        print('[1] 处理大纲')
+        logger.info('[1] 处理大纲')
         ovvw = self.agent.gen_overview(code)
         desc = ovvw.desc
         process = '\n'.join(ovvw.process)
         structure = '\n'.join(ovvw.structure)
 
-        print('[2] 分析全局变量和类字段')
+        logger.info('[2] 分析全局变量和类字段')
         fields = [
             f'{class_info.name}.{field_name}'
             for class_info in ovvw.classes
@@ -125,7 +135,7 @@ class Code2DocOrchestrator:
         jvars = self.agent.gen_vars_fields(code, vars_fields)
         vars_fields_md = build_vars_flds_md(jvars)
 
-        print('[3] 分析全局函数和类方法')
+        logger.info('[3] 分析全局函数和类方法')
         methods = [
             f'{class_info.name}.{method_name}'
             for class_info in ovvw.classes
@@ -133,18 +143,18 @@ class Code2DocOrchestrator:
         ]
         func_md_dict = {}
         for func_name in ovvw.funcs + methods:
-            print(f'[3] 分析 {func_name}')
+            logger.info(f'[3] 分析 {func_name}')
             func_md_dict[func_name] = self.agent.gen_func_method(code, func_name)
 
         funcs_methods_md = '\n\n'.join(func_md_dict.values())
 
-        print('[4] 分析关键组件')
+        logger.info('[4] 分析关键组件')
         key_components = self.agent.gen_key_components(code)
 
-        print('[5] 分析改机建议')
+        logger.info('[5] 分析改机建议')
         advice = self.agent.gen_advice(code)
 
-        print('[6] 其它')
+        logger.info('[6] 其它')
         others = self.agent.gen_others(code)
 
         doc = self._build_document(
@@ -251,20 +261,7 @@ def process_file_safe(args):
     except KeyboardInterrupt:
         raise
     except Exception:
-        traceback.print_exc()
-
-
-def process_dir(args):
-    """并发处理目录中的所有文件。"""
-    handles = []
-    with ThreadPoolExecutor(max_workers=args.threads) as pool:
-        for base, _, fnames in os.walk(args.fname):
-            for fname in fnames:
-                file_args = copy.deepcopy(args)
-                file_args.fname = path.join(base, fname)
-                handles.append(pool.submit(process_file_safe, file_args))
-        for handle in handles:
-            handle.result()
+        logger.exception('处理文件失败')
 
 
 def code2doc_handle(args):
