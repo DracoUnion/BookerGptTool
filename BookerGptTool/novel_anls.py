@@ -1,3 +1,4 @@
+from os import path
 import json
 import logging
 import re
@@ -249,11 +250,8 @@ class BookAnalyzerOrchestrator:
             json.dump(report.model_dump(mode="json"), file, ensure_ascii=False, indent=2)
         logger.info(f"💾 完整报告已保存至: {output_path}")
 
-    def run_full_pipeline(self) -> BookAnalysisReport:
+    def run_full_pipeline(self, output_path: str) -> BookAnalysisReport:
         """全自动执行完整流程。"""
-        output_path = self.epub_path[:-5] + '_book_anls.json' \
-            if self.epub_path.endswith('.epub') \
-            else self.epub_path + '_book_anls.json'
         self.load_chapters()
         self._run_stage1()
         self._run_stage2()
@@ -268,9 +266,15 @@ class BookAnalyzerOrchestrator:
     def run(self) -> None:
         """打印分析结果摘要。"""
         if not self.epub_path.endswith('.epub'):
-            logger.info('请提供 EPUB 文件')
+            logger.fatal('请提供 EPUB 文件')
             return
-        result = self.run_full_pipeline()
+        output_path = self.epub_path[:-5] + '_book_anls.json' \
+            if self.epub_path.endswith('.epub') \
+            else self.epub_path + '_book_anls.json'
+        if path.isfile(output_path):
+            logger.warn('EPUb 已处理')
+            return
+        result = self.run_full_pipeline(output_path)
         logger.info("\n🎉 拆解完成！")
         logger.info(f"已生成 {len(result.modules)} 个模块")
         for module_name in result.modules.keys():
