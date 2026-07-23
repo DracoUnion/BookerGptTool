@@ -36,6 +36,8 @@ class Code2DocAgent:
     def __init__(self, args):
         self.args = args
         self.model = args.model
+        set_openai_props(self.args)
+
 
     def gen_overview(self, code: str) -> OverviewResult:
         """根据源码生成设计文档大纲。"""
