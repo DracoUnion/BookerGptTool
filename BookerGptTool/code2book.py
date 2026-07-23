@@ -4,15 +4,28 @@ from os import path
 import yaml
 import json_repair
 import json
+import logging
 import functools
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from typing import List
 from pydantic import parse_obj_as
 
-from .util import ask_chatgpt_retry, set_openai_props, extname, ext_code_block, ext_cont_block
+from .util import (
+    ask_chatgpt_retry,
+    set_openai_props,
+    extname,
+    ext_code_block,
+    ext_cont_block,
+)
 from .code2book_pmt import *
 from .code2book_models import *
+
+logging.basicConfig(
+    level=logging.INFO, 
+    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 class Code2BookAgent:
@@ -224,13 +237,13 @@ class Code2BookOrchestrator:
     # ── 步骤 2：生成源码文件描述 ──────────────────────────
 
     def _tr_gen_code_desc(self, fname: str, idx: int) -> Tuple[int, CodeDescItemResult]:
-        print(f'[2] 生成描述 {fname}')
+        logger.info(f'[2] 生成描述 {fname}')
         code = self._read_code(fname)
         descs = self.agent.gen_code_desc(fname, code)
         return idx, CodeDescItemResult(file=fname, **descs.dict())
 
     def step_gen_code_desc(self, fnames: List[str]) -> List[CodeDescItemResult]:
-        print('[2] 生成源码文件描述')
+        logger.info('[2] 生成源码文件描述')
         code_desc_fname = path.join(self.pj_dir, 'code_desc.yaml')
 
         if path.isfile(code_desc_fname):
@@ -266,7 +279,7 @@ class Code2BookOrchestrator:
     def step_gen_outline(
         self, fnames: List[str], code_desc: List[CodeDescItemResult],
     ) -> OutlineResult:
-        print('[3] 生成大纲')
+        logger.info('[3] 生成大纲')
         outline_fname = path.join(self.pj_dir, 'outline.yaml')
 
         if path.isfile(outline_fname):
@@ -288,10 +301,10 @@ class Code2BookOrchestrator:
             ]
             rest_fnames = list(set(fnames) - set(outline_fnames))
             if len(rest_fnames) == 0:
-                print('[3] 校验通过')
+                logger.info('[3] 校验通过')
                 break
-            print('[3] 校验未通过')
-            print('\n'.join(rest_fnames))
+            logger.info('[3] 校验未通过')
+            logger.info('\n'.join(rest_fnames))
             outline = self.agent.fix_outline(
                 outline, fnames, code_desc, readme,
                 '\n'.join(rest_fnames),
@@ -303,7 +316,7 @@ class Code2BookOrchestrator:
     # ── 步骤 4：生成细纲 ──────────────────────────────────
 
     def _tr_gen_detail(self, outline_chs, idx: int) -> Tuple[int, Detail]:
-        print(f'[4] 编写第{idx+1}章细纲')
+        logger.info(f'[4] 编写第{idx+1}章细纲')
         code_fnames = [
             f for pt in outline_chs[idx].nodes
               for f in pt.src
@@ -322,7 +335,7 @@ class Code2BookOrchestrator:
         self, outline_chs, code_desc: List[CodeDescItemResult],
         fnames: List[str],
     ) -> List[Detail]:
-        print('[4] 生成细纲')
+        logger.info('[4] 生成细纲')
         details: List[Detail] = []
         hdls = []
         for i, ch in enumerate(outline_chs):
@@ -355,7 +368,7 @@ class Code2BookOrchestrator:
     ) -> List[Detail]:
         fixed = all(d.fixed for d in details)
         if fixed:
-            print('[4] 细纲校验通过')
+            logger.info('[4] 细纲校验通过')
             return details
         for i, d in enumerate(details):
             d.no = i + 1
@@ -390,10 +403,10 @@ class Code2BookOrchestrator:
             ]
             rest_funcs = list(set(total_funcs) - set(exi_funcs))
             if len(rest_funcs) == 0:
-                print('[4] 细纲校验通过')
+                logger.info('[4] 细纲校验通过')
                 break
-            print('[4] 细纲校验未通过')
-            print('\n'.join(rest_funcs))
+            logger.info('[4] 细纲校验未通过')
+            logger.info('\n'.join(rest_funcs))
             details = self.agent.fix_details(
                 details, fnames, code_desc, readme,
                 '\n'.join(rest_funcs),
@@ -411,7 +424,7 @@ class Code2BookOrchestrator:
     def _tr_gen_body(
         self, outline_chs, detail: Detail, idx: int,
     ) -> Tuple[int, str]:
-        print(f'[5] 编写第{idx+1}章正文')
+        logger.info(f'[5] 编写第{idx+1}章正文')
         code_fnames = [
             c.file
             for u in detail.units
@@ -423,14 +436,14 @@ class Code2BookOrchestrator:
         body = self.agent.gen_body(idx, detail, outline_chs, code_str)
 
         # 校验正文
-        print(f'[5] 校验正文 {idx + 1}')
+        logger.info(f'[5] 校验正文 {idx + 1}')
         for _ in range(self.args.check):
             cmt = self.agent.check_body(body, detail)
             if '[PERFECT/]' in cmt:
-                print(f'[5] 正文 {idx + 1} 校验完成')
+                logger.info(f'[5] 正文 {idx + 1} 校验完成')
                 break
-            print(f'[5] 正文 {idx + 1} 校验未通过')
-            print(cmt)
+            logger.info(f'[5] 正文 {idx + 1} 校验未通过')
+            logger.info(cmt)
             body = self.agent.fix_body(detail, body, cmt, code_str)
 
         return idx, body
@@ -439,7 +452,7 @@ class Code2BookOrchestrator:
     def step_gen_bodies(
         self, outline_chs, details: List[Detail],
     ) -> List[str]:
-        print('[5] 生成正文')
+        logger.info('[5] 生成正文')
         bodies: List[str] = []
         hdls = []
         for i, detail in enumerate(details):
@@ -465,17 +478,17 @@ class Code2BookOrchestrator:
     # ── 主流程 ──────────────────────────────────────────────
 
     def run(self):
-        print(self.args)
+        logger.info(self.args)
         set_openai_props(self.args)
         if not path.isdir(self.args.dir):
-            print('请提供项目目录！')
+            logger.fatal('请提供项目目录！')
             return
         os.makedirs(self.pj_dir, exist_ok=True)
 
         # 1. 探索项目结构
-        print('[1] 探索项目结构')
+        logger.info('[1] 探索项目结构')
         fnames = self._discover_files()
-        print('\n'.join(fnames))
+        logger.info('\n'.join(fnames))
 
         # 2. 生成源码文件描述
         code_desc = self.step_gen_code_desc(fnames)
@@ -493,7 +506,7 @@ class Code2BookOrchestrator:
         # 5. 生成正文
         self.step_gen_bodies(outline_chs, details)
 
-        print('[*] 已完成')
+        logger.info('[*] 已完成')
 
 
 def code2book(args):
