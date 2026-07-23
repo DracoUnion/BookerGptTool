@@ -11,7 +11,7 @@ from ebooklib import epub
 from openai import OpenAI
 from tqdm import tqdm
 
-from .novel_anl_modelss import *
+from .novel_anls_models import *
 from .novel_anls_pmt import *
 
 
