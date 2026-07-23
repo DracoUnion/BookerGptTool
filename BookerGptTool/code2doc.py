@@ -7,7 +7,7 @@ from os import path
 
 import json_repair as json
 
-from .util import ask_chatgpt_retry, set_openai_props, ext_code_block, ext_cont_block
+from .util import ask_chatgpt_retry, set_openai_props, ext_code_block, ext_cont_block, extname
 from .code2doc_pmt import *
 from .code2doc_models import *
 
@@ -247,7 +247,7 @@ def extname(name):
 def process_file_safe(args):
     """处理单文件并隔离非中断异常。"""
     try:
-        process_file(args)
+        Code2DocOrchestrator(args).run()
     except KeyboardInterrupt:
         raise
     except Exception:
@@ -267,14 +267,26 @@ def process_dir(args):
             handle.result()
 
 
-def process_file(args):
-    Code2DocOrchestrator(args).run()
-
-
 def code2doc_handle(args):
     """入口函数：创建编排器并运行。"""
-    set_openai_props(args)
-    if path.isdir(args.fname):
-        process_dir(args)
+    if path.isfile(args.fname):
+        fnames = [args.fname]
     else:
-        process_file(args.fname)
+        fnames = [
+            path.join(args.fname, f)
+            for f in os.listdir(args.fname)
+        ]
+    fnames = [f for f in fnames if extname(f) in SUPPORTED_EXTENSIONS]
+    if not fnames:
+        logger.info('请提供源码文件或目录')
+        return
+
+    pool = ThreadPoolExecutor(args.threads)
+    hdls = []
+    for f in fnames:
+        args = copy.deepcopy(args)
+        args.fname = f
+        h = pool.submit(process_file_safe, args)
+        hdls.append(h)
+    for h in hdls:
+        h.result()
