@@ -144,9 +144,9 @@ class BookAnalyzerOrchestrator:
         self.summaries: List[ChapterSummary] = []
         self.report: Dict[str, Any] = {}
 
-    def _scan_single_chapter(self, chapter: Chapter) -> ChapterSummary:
+    def _scan_single_chapter(self, chapter: Chapter, idx: int) -> ChapterSummary:
         """单章扫描任务（供线程池调用）。"""
-        return self.agent.scan_chapter(
+        return idx, self.agent.scan_chapter(
             chapter_index=chapter.index,
             chapter_title=chapter.title,
             chapter_text=chapter.text,
@@ -165,40 +165,17 @@ class BookAnalyzerOrchestrator:
             f"并发数 {self.max_workers_stage1}）..."
         )
 
-        futures = {}
+        futures = []
         with ThreadPoolExecutor(max_workers=self.max_workers_stage1) as executor:
             for chapter in target:
                 future = executor.submit(self._scan_single_chapter, chapter)
-                futures[future] = chapter.index
+                futures.append(future)
 
             results = {}
             with tqdm(total=len(futures), desc="扫描进度") as pbar:
                 for future in as_completed(futures):
-                    index = futures[future]
-                    try:
-                        results[index] = future.result()
-                    except Exception as error:
-                        print(f"❌ 第 {index} 章扫描失败: {error}")
-                        results[index] = ChapterSummary(
-                            chapter=index,
-                            title=(
-                                self.chapters[index - 1].title
-                                if index <= len(self.chapters) else None
-                            ),
-                            summary="扫描失败",
-                            key_events=[],
-                            new_characters=[],
-                            character_updates=[],
-                            emotional_tone=5,
-                            chapter_end_hook=None,
-                            foreshadowing_planted=[],
-                            foreshadowing_payoff=[],
-                            conflict_level=5,
-                            word_count=(
-                                len(self.chapters[index - 1].text)
-                                if index <= len(self.chapters) else 0
-                            ),
-                        )
+                    idx, r = future.result()
+                    results[idx] = r
                     pbar.update(1)
 
         self.summaries = [results[index] for index in sorted(results.keys())]
