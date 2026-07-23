@@ -306,27 +306,29 @@ class BookAnalyzerOrchestrator:
             modules=self.report,
         )
 
+    def print_summary(self, result: BookAnalysisReport) -> None:
+        """打印分析结果摘要。"""
+        print("\n🎉 拆解完成！")
+        print(f"已生成 {len(result.modules)} 个模块")
+        for module_name in result.modules.keys():
+            print(f"  - {module_name}")
 
-if __name__ == "__main__":
+
+def novel_anls(args):
+    """CLI 入口函数。"""
     book_meta = BookMeta(
-        book_title="诡秘之主",
-        author="爱潜水的乌贼",
-        blurb="穿越到蒸汽与机械的诡异世界，成为占卜家...",
+        book_title=getattr(args, 'book_title', None),
+        author=getattr(args, 'author', None),
+        blurb=getattr(args, 'blurb', None),
     )
-
     orchestrator = BookAnalyzerOrchestrator(
-        epub_path="./books/example.epub",
+        epub_path=args.fname,
         book_meta=book_meta,
-        max_workers_stage1=8,
-        max_workers_stage2=10,
+        max_workers_stage1=getattr(args, 'threads', 8),
+        max_workers_stage2=getattr(args, 'threads', 10),
     )
-
     result = orchestrator.run_full_pipeline(
-        max_chapters=30,
-        output_path="./report.json",
+        max_chapters=getattr(args, 'max_chapters', None),
+        output_path=getattr(args, 'output', "book_analysis_report.json"),
     )
-
-    print("\n🎉 拆解完成！")
-    print(f"已生成 {len(result.modules)} 个模块")
-    for module_name in result.modules.keys():
-        print(f"  - {module_name}")
+    orchestrator.print_summary(result)
