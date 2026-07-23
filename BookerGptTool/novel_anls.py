@@ -4,8 +4,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 
 import json_repair as json_repair
-from bs4 import BeautifulSoup
 from ebooklib import epub
+from pyquery import PyQuery
 from tqdm import tqdm
 
 from .novel_anls_models import (
@@ -103,19 +103,17 @@ def extract_text_from_epub(epub_path: str) -> List[Chapter]:
             continue
 
         content = item.get_content().decode("utf-8", errors="ignore")
-        soup = BeautifulSoup(content, "lxml")
+        doc = PyQuery(content)
+        doc.remove('script, style')
 
-        for tag in soup(["script", "style"]):
-            tag.decompose()
-
-        text = soup.get_text(separator="\n", strip=True)
+        text = doc.text()
         text = re.sub(r"\n\s*\n", "\n\n", text).strip()
 
         if not text:
             continue
 
-        title_tag = soup.find(["h1", "h2", "h3"])
-        title = title_tag.get_text(strip=True) if title_tag else f"第{chapter_index}章"
+        title_el = doc('h1, h2, h3').first()
+        title = title_el.text().strip() if title_el else f"第{chapter_index}章"
 
         chapters.append(Chapter(
             index=chapter_index,
