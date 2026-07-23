@@ -1,14 +1,11 @@
 import json
-import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Semaphore
 from typing import Any, Dict, List, Optional
 
+import json_repair as json_repair
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
 from ebooklib import epub
-from openai import OpenAI
 from tqdm import tqdm
 
 from .novel_anls_models import (
@@ -19,25 +16,16 @@ from .novel_anls_pmt import (
     SCAN_SYSTEM_PROMPT, SCAN_PROMPT,
     AGGREGATE_SYSTEM_PROMPT, AGGREGATE_PROMPT_MAP,
 )
-
-
-load_dotenv()
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    base_url=os.getenv("OPENAI_BASE_URL"),
-)
-MODEL = os.getenv("MODEL_NAME", "gpt-4o-mini")
-RATE_LIMIT = int(os.getenv("RATE_LIMIT", "15"))
-rate_limiter = Semaphore(RATE_LIMIT)
+from .util import call_llm_retry, set_openai_props
 
 
 class NovelAnlsAgent:
     """统一封装小说分析的结构化 LLM 调用。"""
 
     def __init__(self, args):
-        self.model = getattr(args, 'model', MODEL)
-        self.temperature = getattr(args, 'temperature', 0.3)
-        self.client = client
+        self.args = args
+        self.model = args.model
+        set_openai_props(args)
 
     def _call(
         self,
@@ -45,18 +33,23 @@ class NovelAnlsAgent:
         response_model,
         system_prompt: str,
     ):
-        """发起一次结构化 LLM 调用并解析 Pydantic 响应。"""
-        with rate_limiter:
-            completion = self.client.beta.chat.completions.parse(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format=response_model,
-                temperature=self.temperature,
-            )
-        return completion.choices[0].message.parsed
+        """发起一次结构化 LLM 调用并解析 JSON 为 Pydantic 响应。"""
+        msgs = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        def parse(raw):
+            data = json_repair.loads(raw)
+            return response_model.model_validate(data)
+
+        return call_llm_retry(
+            msgs, self.model,
+            retry=self.args.retry,
+            temp=getattr(self.args, 'temp', 0.3),
+            max_tokens=self.args.max_tokens,
+            parse_output=parse,
+        )
 
     def scan_chapter(
         self,
