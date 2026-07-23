@@ -1,6 +1,37 @@
-from typing import Any, Dict, List, Literal, Optional, Type
+from typing import Any, Dict, List, Literal, Optional, Type, Union
 
 from pydantic import BaseModel, Field
+
+
+# ──── 基础数据模型 ────
+
+
+class Chapter(BaseModel):
+    """EPUB 解析出的单章"""
+
+    index: int = Field(description="章节序号（从 1 开始）")
+    title: str = Field(description="章节标题")
+    text: str = Field(description="章节正文")
+
+
+class BookMeta(BaseModel):
+    """书籍元信息"""
+
+    book_title: Optional[str] = None
+    author: Optional[str] = None
+    blurb: Optional[str] = None
+
+
+class BookAnalysisReport(BaseModel):
+    """完整分析报告"""
+
+    book_meta: BookMeta
+    total_chapters: int
+    chapter_summaries: List["ChapterSummary"] = Field(default_factory=list)
+    modules: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ──── 章节扫描模型 ────
 
 
 class CharacterBrief(BaseModel):

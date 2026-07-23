@@ -11,8 +11,14 @@ from ebooklib import epub
 from openai import OpenAI
 from tqdm import tqdm
 
-from .novel_anls_models import *
-from .novel_anls_pmt import *
+from .novel_anls_models import (
+    BookAnalysisReport, BookMeta, Chapter, ChapterSummary,
+    MODULE_CLASS_MAP,
+)
+from .novel_anls_pmt import (
+    SCAN_SYSTEM_PROMPT, SCAN_PROMPT,
+    AGGREGATE_SYSTEM_PROMPT, AGGREGATE_PROMPT_MAP,
+)
 
 
 load_dotenv()
@@ -79,7 +85,7 @@ class NovelAnlsAgent:
         self,
         module_name: str,
         summaries: List[ChapterSummary],
-        book_meta: Dict[str, str],
+        book_meta: BookMeta,
     ):
         """聚合指定模块，返回对应的 Pydantic 模型。"""
         prompt_template = AGGREGATE_PROMPT_MAP[module_name]
@@ -88,7 +94,7 @@ class NovelAnlsAgent:
                 [summary.model_dump() for summary in summaries],
                 ensure_ascii=False,
             ),
-            book_meta=json.dumps(book_meta, ensure_ascii=False),
+            book_meta=json.dumps(book_meta.model_dump(), ensure_ascii=False),
         )
         return self._call(
             user_prompt,
@@ -97,7 +103,7 @@ class NovelAnlsAgent:
         )
 
 
-def extract_text_from_epub(epub_path: str) -> List[Dict[str, Any]]:
+def extract_text_from_epub(epub_path: str) -> List[Chapter]:
     """解析 EPUB，按 spine 顺序提取章节。"""
     book = epub.read_epub(epub_path)
     chapters = []
@@ -123,11 +129,11 @@ def extract_text_from_epub(epub_path: str) -> List[Dict[str, Any]]:
         title_tag = soup.find(["h1", "h2", "h3"])
         title = title_tag.get_text(strip=True) if title_tag else f"第{chapter_index}章"
 
-        chapters.append({
-            "index": chapter_index,
-            "title": title,
-            "text": text,
-        })
+        chapters.append(Chapter(
+            index=chapter_index,
+            title=title,
+            text=text,
+        ))
         chapter_index += 1
 
     return chapters
@@ -139,31 +145,27 @@ class BookAnalyzerOrchestrator:
     def __init__(
         self,
         epub_path: str,
-        book_meta: Optional[Dict[str, str]] = None,
+        book_meta: Optional[BookMeta] = None,
         max_workers_stage1: int = 8,
         max_workers_stage2: int = 10,
         agent: Optional[NovelAnlsAgent] = None,
     ):
         self.epub_path = epub_path
-        self.book_meta = book_meta or {
-            "book_title": None,
-            "author": None,
-            "blurb": None,
-        }
+        self.book_meta = book_meta or BookMeta()
         self.max_workers_stage1 = max_workers_stage1
         self.max_workers_stage2 = max_workers_stage2
         self.agent = agent or NovelAnlsAgent()
 
-        self.chapters: List[Dict[str, Any]] = []
+        self.chapters: List[Chapter] = []
         self.summaries: List[ChapterSummary] = []
         self.report: Dict[str, Any] = {}
 
-    def _scan_single_chapter(self, chapter: Dict[str, Any]) -> ChapterSummary:
+    def _scan_single_chapter(self, chapter: Chapter) -> ChapterSummary:
         """单章扫描任务（供线程池调用）。"""
         return self.agent.scan_chapter(
-            chapter_index=chapter["index"],
-            chapter_title=chapter["title"],
-            chapter_text=chapter["text"],
+            chapter_index=chapter.index,
+            chapter_title=chapter.title,
+            chapter_text=chapter.text,
         )
 
     def _run_stage1(self, max_chapters: Optional[int] = None) -> None:
@@ -182,7 +184,7 @@ class BookAnalyzerOrchestrator:
         with ThreadPoolExecutor(max_workers=self.max_workers_stage1) as executor:
             for chapter in target:
                 future = executor.submit(self._scan_single_chapter, chapter)
-                futures[future] = chapter["index"]
+                futures[future] = chapter.index
 
             results = {}
             with tqdm(total=len(futures), desc="扫描进度") as pbar:
@@ -195,7 +197,7 @@ class BookAnalyzerOrchestrator:
                         results[index] = ChapterSummary(
                             chapter=index,
                             title=(
-                                self.chapters[index - 1]["title"]
+                                self.chapters[index - 1].title
                                 if index <= len(self.chapters) else None
                             ),
                             summary="扫描失败",
@@ -208,7 +210,7 @@ class BookAnalyzerOrchestrator:
                             foreshadowing_payoff=[],
                             conflict_level=5,
                             word_count=(
-                                len(self.chapters[index - 1]["text"])
+                                len(self.chapters[index - 1].text)
                                 if index <= len(self.chapters) else 0
                             ),
                         )
@@ -277,42 +279,40 @@ class BookAnalyzerOrchestrator:
 
     def save_report(self, output_path: str = "book_analysis_report.json") -> None:
         """保存最终报告。"""
-        final_output = {
-            "book_meta": self.book_meta,
-            "total_chapters": len(self.summaries),
-            "chapter_summaries": [
-                summary.model_dump() for summary in self.summaries
-            ],
-            "modules": self.report,
-        }
+        report = BookAnalysisReport(
+            book_meta=self.book_meta,
+            total_chapters=len(self.summaries),
+            chapter_summaries=self.summaries,
+            modules=self.report,
+        )
         with open(output_path, "w", encoding="utf-8") as file:
-            json.dump(final_output, file, ensure_ascii=False, indent=2)
+            json.dump(report.model_dump(mode="json"), file, ensure_ascii=False, indent=2)
         print(f"💾 完整报告已保存至: {output_path}")
 
     def run_full_pipeline(
         self,
         max_chapters: Optional[int] = None,
         output_path: str = "book_analysis_report.json",
-    ) -> Dict[str, Any]:
+    ) -> BookAnalysisReport:
         """全自动执行完整流程。"""
         self.load_chapters()
         self._run_stage1(max_chapters=max_chapters)
         self._run_stage2()
         self.save_report(output_path)
-        return {
-            "chapter_summaries": [
-                summary.model_dump() for summary in self.summaries
-            ],
-            "modules": self.report,
-        }
+        return BookAnalysisReport(
+            book_meta=self.book_meta,
+            total_chapters=len(self.summaries),
+            chapter_summaries=self.summaries,
+            modules=self.report,
+        )
 
 
 if __name__ == "__main__":
-    book_meta = {
-        "book_title": "诡秘之主",
-        "author": "爱潜水的乌贼",
-        "blurb": "穿越到蒸汽与机械的诡异世界，成为占卜家...",
-    }
+    book_meta = BookMeta(
+        book_title="诡秘之主",
+        author="爱潜水的乌贼",
+        blurb="穿越到蒸汽与机械的诡异世界，成为占卜家...",
+    )
 
     orchestrator = BookAnalyzerOrchestrator(
         epub_path="./books/example.epub",
@@ -327,6 +327,6 @@ if __name__ == "__main__":
     )
 
     print("\n🎉 拆解完成！")
-    print(f"已生成 {len(result['modules'])} 个模块")
-    for module_name in result["modules"].keys():
+    print(f"已生成 {len(result.modules)} 个模块")
+    for module_name in result.modules.keys():
         print(f"  - {module_name}")
