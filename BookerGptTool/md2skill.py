@@ -289,6 +289,7 @@ class Md2SkillAgent:
     def __init__(self, model, args):
         self.model = model
         self.args = args
+        set_openai_props(args)
 
     def _call(self, prompt):
         return ask_chatgpt_retry(prompt, self.model, self.args)
@@ -485,7 +486,5 @@ class Md2SkillOrchestrator:
 
 
 def md2skill(args):
-    print(args)
-    set_openai_props(args)
     orchestrator = Md2SkillOrchestrator(args)
     orchestrator.run()
