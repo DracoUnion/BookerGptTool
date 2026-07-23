@@ -134,16 +134,16 @@ class Paper2CodeOrchestrator:
         paper = self._load_paper()
 
         logger.info('[Planning] Overall plan')
-        plan = self._load_plan(paper)
+        plan = self._gen_plan(paper)
 
         logger.info('"[Planning] Architecture design')
-        flist_str = self._load_file_list(paper, plan)
+        flist_str = self._gen_file_list(paper, plan)
 
         logger.info('"[Planning] Logic design')
-        tasks_str = self._load_tasks(paper, plan, flist_str)
+        tasks_str = self._gen_tasks(paper, plan, flist_str)
 
         logger.info('[Planning] Configuration file generation')
-        cfg_str = self._load_config(paper, plan, flist_str, tasks_str)
+        cfg_str = self._gen_config(paper, plan, flist_str, tasks_str)
 
         task_data = json.loads(tasks_str)
         tasks = task_data['task_list']
@@ -173,7 +173,7 @@ class Paper2CodeOrchestrator:
             return paper
         raise ValueError('请提供 MD/TEX/TXT 文件或 ARXIV ID（arxiv:\\d+\\.\\d+）')
 
-    def _load_plan(self, paper: str) -> str:
+    def _gen_plan(self, paper: str) -> str:
         plan_fname = path.join(self.out, 'plan.md')
         if path.isfile(plan_fname):
             return open(plan_fname, encoding='utf8').read()
@@ -181,7 +181,7 @@ class Paper2CodeOrchestrator:
         open(plan_fname, 'w', encoding='utf8').write(plan)
         return plan
 
-    def _load_file_list(self, paper: str, plan: str) -> str:
+    def _gen_file_list(self, paper: str, plan: str) -> str:
         flist_fname = path.join(self.out, 'file_list.json')
         if path.isfile(flist_fname):
             return open(flist_fname, encoding='utf8').read()
@@ -190,7 +190,7 @@ class Paper2CodeOrchestrator:
         open(flist_fname, 'w', encoding='utf8').write(flist_str)
         return flist_str
 
-    def _load_tasks(self, paper: str, plan: str, flist_str: str) -> str:
+    def _gen_tasks(self, paper: str, plan: str, flist_str: str) -> str:
         tasks_fname = path.join(self.out, 'tasks.json')
         if path.isfile(tasks_fname):
             return open(tasks_fname, encoding='utf8').read()
@@ -199,7 +199,7 @@ class Paper2CodeOrchestrator:
         open(tasks_fname, 'w', encoding='utf8').write(tasks_str)
         return tasks_str
 
-    def _load_config(
+    def _gen_config(
         self,
         paper: str,
         plan: str,
