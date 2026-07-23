@@ -16,12 +16,14 @@ from .note import *
 from .paper2code import *
 from .pdf_ocr import *
 from .gts_fiction import *
+from .gts_fiction_pmt import DFT_WRITE_CMD, DFT_POLISH_CMD
 from .md2skill import *
 from .trans_epub import *
 from .fmt_chunk import *
 from .md2wiki import *
 from .clean_heading import *
 from .forward import *
+from .novel_anls import *
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -207,6 +209,16 @@ def main():
     md2kg_parser.add_argument("-th", "--threshold", type=float, default=0.6,
                              help="integration threshold for evaluation (default: 0.6)")
     md2kg_parser.set_defaults(func=md2kg_handle)
+
+    novel_anls_parser = subparsers.add_parser("novel-anls", help="analyze novel from epub")
+    novel_anls_parser.add_argument("fname", help="EPUB file name")
+    novel_anls_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    novel_anls_parser.add_argument("-mc", "--max-chapters", type=int, default=None, help="max chapters to process")
+    novel_anls_parser.add_argument("-o", "--output", default="book_analysis_report.json", help="output file")
+    novel_anls_parser.add_argument("--book-title", default=None, help="book title")
+    novel_anls_parser.add_argument("--author", default=None, help="author name")
+    novel_anls_parser.add_argument("--blurb", default=None, help="book blurb")
+    novel_anls_parser.set_defaults(func=novel_anls)
 
     args = parser.parse_args()
     args.func(args)

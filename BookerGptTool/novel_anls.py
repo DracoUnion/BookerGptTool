@@ -231,27 +231,19 @@ class BookAnalyzerOrchestrator:
             f"并发数 {self.max_workers_stage2}）..."
         )
 
-        futures = {}
+        futures = []
         with ThreadPoolExecutor(max_workers=self.max_workers_stage2) as executor:
             for module_name in module_names:
                 future = executor.submit(
                     self._aggregate_single_module,
                     module_name,
                 )
-                futures[future] = module_name
+                futures.append(future)
 
             with tqdm(total=len(futures), desc="聚合进度") as pbar:
                 for future in as_completed(futures):
-                    module_name = futures[future]
-                    try:
-                        result_module_name, data = future.result()
-                        self.report[result_module_name] = data
-                    except Exception as error:
-                        print(f"❌ 模块 [{module_name}] 聚合失败: {error}")
-                        self.report[module_name] = {
-                            "error": str(error),
-                            "module": module_name,
-                        }
+                    module_name, data = future.result()
+                    self.report[module_name] = data
                     pbar.update(1)
 
         print("✅ 阶段二完成，全部模块聚合完毕")
