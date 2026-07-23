@@ -3,6 +3,7 @@ import re
 import shutil
 import tarfile
 from io import BytesIO
+import logging
 from os import path
 
 import json_repair as json
@@ -12,6 +13,11 @@ from .paper2code_models import *
 from .paper2code_pmt import *
 from .util import ask_chatgpt_retry, ext_code_block, extname, set_openai_props
 
+logging.basicConfig(
+    level=logging.INFO, 
+    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 dft_hdrs = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -122,21 +128,21 @@ class Paper2CodeOrchestrator:
     def run(self):
         """运行完整的 paper2code 流程。"""
         os.makedirs(self.out, exist_ok=True)
-        print(self.args)
+        logger.info(self.args)
 
-        print('[Downloading] download arxiv paper')
+        logger.info('[Downloading] download arxiv paper')
         paper = self._load_paper()
 
-        print('[Planning] Overall plan')
+        logger.info('[Planning] Overall plan')
         plan = self._load_plan(paper)
 
-        print('"[Planning] Architecture design')
+        logger.info('"[Planning] Architecture design')
         flist_str = self._load_file_list(paper, plan)
 
-        print('"[Planning] Logic design')
+        logger.info('"[Planning] Logic design')
         tasks_str = self._load_tasks(paper, plan, flist_str)
 
-        print('[Planning] Configuration file generation')
+        logger.info('[Planning] Configuration file generation')
         cfg_str = self._load_config(paper, plan, flist_str, tasks_str)
 
         task_data = json.loads(tasks_str)
@@ -150,7 +156,7 @@ class Paper2CodeOrchestrator:
             logic_anls_dict,
         )
 
-        print('[DONE]')
+        logger.info('[DONE]')
 
     def _load_paper(self) -> str:
         paper_fname = path.join(self.out, 'paper')
@@ -221,7 +227,7 @@ class Paper2CodeOrchestrator:
     ) -> dict:
         logic_anls_dict = {}
         for fname in tasks:
-            print(f'[ANALYSIS] {fname}')
+            logger.info(f'[ANALYSIS] {fname}')
             la_fname = fname.replace('.', '_') + '_logic_analysis.md'
             la_fname = path.join(self.out, la_fname)
             if path.isfile(la_fname):
@@ -252,7 +258,7 @@ class Paper2CodeOrchestrator:
     ):
         code_dict = {}
         for fname in tasks:
-            print(f'[CODING] {fname}')
+            logger.info(f'[CODING] {fname}')
             code_fname = path.join(self.out, fname)
             if path.isfile(code_fname):
                 code_dict[fname] = open(
