@@ -14,7 +14,7 @@ from threading import Lock
 import functools
 from sentence_transformers import SentenceTransformer
 from typing import Any, Dict, Optional, List, Callable
-from .util import ask_chatgpt_retry, set_openai_props, ngram_jaccard
+from .util import ask_chatgpt_retry, set_openai_props, ngram_jaccard, ext_code_block, ext_cont_block
 from .md2skill_pmt import *
 from .md2skill_gen import generate_claude_skills
 from .md2skill_chunker import chunk_markdown
@@ -306,9 +306,10 @@ class Md2SkillAgent:
         """Step 1: 从目录和前言推断知识结构 schema"""
         prompt = SCHEMA_PMT.replace('{toc}', toc) \
             .replace('{preface}', preface)
-        ans = ask_chatgpt_retry(prompt, self.model, self.args)
-        schema_raw = re.search(r'```\w*([\s\S]+?)```', ans).group(1)
-        return BookSchema.model_validate(json.loads(schema_raw))
+        parse_output = lambda s: BookSchema.model_validate(
+            json.loads(ext_code_block(schema_raw)))
+        schema_raw = ask_chatgpt_retry(prompt, self.model, self.args, parse_output)
+        return schema_raw
 
     def generate_raw_skills(
         self, book_type: str, content: str, context: str
@@ -317,9 +318,8 @@ class Md2SkillAgent:
         prompt = get_pmt_by_type(book_type) \
             .replace('{content}', content) \
             .replace('{context}', context)
-        ans = ask_chatgpt_retry(prompt, self.model, self.args)
-        raw_texts = ans.replace('[content]', '') \
-            .replace('[/content]', '').split('[split/]')
+        parse_output = lambda s: ext_cont_block(s).split('[split/]')
+        raw_texts = ask_chatgpt_retry(prompt, self.model, self.args, parse_output)
         return [rs for rs in (parse_raw_skill(rt) for rt in raw_texts) if rs]
 
     def merge_cluster(self, cluster: List[RawSkill]) -> Optional[RawSkill]:
@@ -327,9 +327,7 @@ class Md2SkillAgent:
         text = '\n\n[split/]\n\n'.join([s.raw_text for s in cluster])
         prompt = REDUCE_PMT.replace('{count}', str(len(cluster))) \
             .replace('{skills}', text)
-        ans = ask_chatgpt_retry(prompt, self.model, self.args)
-        merged_text = ans.replace('[content]', '') \
-            .replace('[/content]', '')
+        merged_text = ask_chatgpt_retry(prompt, self.model, self.args, ext_cont_block)
         return parse_raw_skill(merged_text)
 
 
