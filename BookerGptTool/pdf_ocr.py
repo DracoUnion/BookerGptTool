@@ -87,8 +87,7 @@ class PdfOcrAgent:
         ques = MERGE_PMT.replace('{prev}', prev_line) \
             .replace('{next}', next_line)
         ans = ask_chatgpt_retry(ques, self.args.model, self.args)
-        merge_str = ans.replace('```', '').strip()
-        return int(merge_str == 'true')
+        return '[TRUE]' in ans
 
     def post_proc(self, text: str) -> str:
         ques = POSTPROC_PMT.replace('{text}', text)
