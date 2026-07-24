@@ -92,7 +92,10 @@ class PdfOcrAgent:
 
     def post_proc(self, text: str) -> str:
         ques = POSTPROC_PMT.replace('{text}', text)
-        return ask_chatgpt_retry(ques, self.args.model, self.args)
+        return ask_chatgpt_retry(
+            ques, self.args.model, self.args,
+            parse_output=ext_cont_block,
+        )
 
     def translate(self, text: str) -> str:
         ques = TRANS_BODY_PMT.replace('{text}', text)
