@@ -10,6 +10,7 @@ import json
 import random
 import copy
 import re
+from pydantic import parse_obj_as
 import functools
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
@@ -46,7 +47,7 @@ def clean_handle(args):
 
     for h in hdls: h.result()
 
-def clean_md_llm(md, args, nlines=3000):
+def clean_md_llm(md, args, nlines=1000):
     lines = md.split('\n')
     if nlines < 1:
         ed = int(nlines * len(lines))
@@ -58,18 +59,19 @@ def clean_md_llm(md, args, nlines=3000):
     } for i, l in enumerate(lines[:ed])]
     heading_str = json.dumps({"lines": heading}, ensure_ascii=False)
     ques = CLEAN_HEAD_PMT.replace('{text}', heading_str)
-    parse_output = lambda s:CleanHeadingResult(
-        **json_repair.loads(ext_code_block(s))
+    parse_output = lambda s: parse_obj_as(
+        List[CleanHeadingLineResult], 
+        json_repair.loads(ext_code_block(s))
     )
-    res: CleanHeadingResult = ask_chatgpt_retry(
+    res: List[CleanHeadingLineResult] = ask_chatgpt_retry(
         ques, args.model, args, 
         parse_output=parse_output,
     )
 
     torm = set()
-    for st, ed in res.info + res.copyright + res.toc:
-        for i in range(st, ed + 1):
-            torm.add(i)
+    for it in res:
+        if it.role in ["info", "copyright", "toc"]:
+            torm.add(it.line)
     
     lines = [l for i, l in enumerate(lines) if i not in torm]
     md = '\n'.join(lines)
