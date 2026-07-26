@@ -82,4 +82,5 @@ def forward(args):
         port=args.listen_port, 
         threads=args.threads,
         connection_limit=1_000_000,
+        channel_timeout=args.conn_timeout,
     )
