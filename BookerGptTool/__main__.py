@@ -47,6 +47,8 @@ def main():
     parser.add_argument("-ua", "--user-agent", default='claude-cli/2.1.41 (external, cli)', help="HTTP User-Agent Header")
     parser.add_argument("-st", "--stream", action='store_true' , help="stream mode")
     parser.add_argument("-eb", "--extra-body", help="extra body")
+    parser.add_argument("-ct", "--conn-timeout", type=int, default=6000, help="")
+    parser.add_argument("-rt", "--read-timeout", type=int, default=600000, help="")
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
     
@@ -192,8 +194,6 @@ def main():
     forward_parser.add_argument("fname", help="yaml file name containing keys")
     forward_parser.add_argument("-lh", "--listen-host", type=str, default='localhost', help="")
     forward_parser.add_argument("-lp", "--listen-port", type=int, default=5000, help="")
-    forward_parser.add_argument("-ct", "--conn-timeout", type=int, default=10, help="")
-    forward_parser.add_argument("-rt", "--read-timeout", type=int, default=600, help="")
     forward_parser.add_argument("-t", "--threads", type=int, default=8, help="")
     forward_parser.set_defaults(func=forward)
 

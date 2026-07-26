@@ -251,6 +251,7 @@ def call_llm(
         base_url=openai.base_url,
         api_key=openai.api_key,
         default_headers={'User-Agent': openai.user_agent},
+        timeout=openai.timeout,
     )
     res = client.chat.completions.create(
         messages=msgs,
@@ -280,6 +281,10 @@ def set_openai_props(args):
     openai.base_url = args.host
     openai.user_agent = args.user_agent
     openai.stream = args.stream
+    openai.timeout = openai.Timeout(
+        read=args.read_timeout,
+        connect=args.conn_timeout
+    )
 
 def collect_stream_content(resp):
     content = []
