@@ -47,6 +47,7 @@ dependencies = [
     "sentence-transformers",
     "flask",
     "ebooklib",
+    "waitress",
 ]
 
 [project.urls]

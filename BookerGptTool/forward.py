@@ -6,6 +6,7 @@ import requests
 import random
 from os import path
 import logging
+import waitress
 
 logging.basicConfig(
     level=logging.INFO, 
@@ -74,4 +75,5 @@ def forward(args):
             }
         }), 500
 
-    app.run(args.listen_host, args.listen_port, args.debug)
+    # app.run(args.listen_host, args.listen_port, args.debug)
+    waitress.serve(app, host=args.listen_host, port=args.listen_port, threads=args.threads)

@@ -12,3 +12,4 @@ pillow
 sentence-transformers
 flask
 ebooklib
+waitress
