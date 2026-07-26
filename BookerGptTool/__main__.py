@@ -194,7 +194,7 @@ def main():
     forward_parser.add_argument("-lp", "--listen-port", type=int, default=5000, help="")
     forward_parser.add_argument("-ct", "--conn-timeout", type=int, default=10, help="")
     forward_parser.add_argument("-rt", "--read-timeout", type=int, default=600, help="")
-    forward_parser.add_argument("-t", "--threads", type-int, default=8, help="")
+    forward_parser.add_argument("-t", "--threads", type=int, default=8, help="")
     forward_parser.set_defaults(func=forward)
 
     fin_report_parser = subparsers.add_parser("fin-report", help="make financial report")
