@@ -283,7 +283,9 @@ def set_openai_props(args):
     openai.stream = args.stream
     openai.timeout = openai.Timeout(
         read=args.read_timeout,
-        connect=args.conn_timeout
+        connect=args.conn_timeout,
+        write=None,
+        pool=None,
     )
 
 def collect_stream_content(resp):
