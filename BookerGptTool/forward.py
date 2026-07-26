@@ -76,4 +76,10 @@ def forward(args):
         }), 500
 
     # app.run(args.listen_host, args.listen_port, args.debug)
-    waitress.serve(app, host=args.listen_host, port=args.listen_port, threads=args.threads)
+    waitress.serve(
+        app, 
+        host=args.listen_host, 
+        port=args.listen_port, 
+        threads=args.threads,
+        connection_limit=1_000_000,
+    )
