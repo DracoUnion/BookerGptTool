@@ -67,7 +67,7 @@ def forward(args):
         捕获所有未在视图层处理的异常，返回 OpenAI 风格的错误 JSON。
         """
         # 针对特定异常可定制，这里统一返回 500
-        traceback.print_exc()
+        logging.warn(traceback.format_exc())
         return jsonify({
             "error": {
                 "message": f"Internal server error: {str(e)}",

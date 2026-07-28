@@ -355,4 +355,4 @@ def trans_epub_file_safe(args):
     try:
         TransEpubDispatcher(args).run()
     except:
-        traceback.print_exc()
+        logger.warn(traceback.format_exc())
