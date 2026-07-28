@@ -33,8 +33,8 @@ def forward(args):
         stream = data.get('stream', False)
         url = key['base_url'] + '/chat/completions'
         logger.info(f'url: {url}')
-        logger.info(f'headers: {hdrs}')
-        logger.info(f'data: {json.dumps(data)[:500]}')
+        logger.debug(f'headers: {hdrs}')
+        logger.debug(f'data: {json.dumps(data)[:500]}')
         r = requests.post(
             url,
             json=data,
@@ -44,7 +44,7 @@ def forward(args):
         )
         logger.info(f'{url} {r.status_code}')
         if not stream:
-            logger.info(f'reply: {r.text[:500]}')
+            logger.debug(f'reply: {r.text[:500]}')
             return jsonify(r.json()), r.status_code
         
         # 流式：使用生成器转发 SSE 事件
@@ -54,7 +54,7 @@ def forward(args):
                 if line:  # 跳过空行
                     # OpenAI 的 SSE 格式为 "data: {...}"，每块后有两个换行
                     line = line.decode('utf-8')
-                    logger.info(f'line: {line}')
+                    logger.debug(f'line: {line}')
                     yield line + "\n\n"
 
         return Response(generate(), mimetype="text/event-stream")
