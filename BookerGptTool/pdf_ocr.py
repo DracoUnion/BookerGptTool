@@ -515,6 +515,8 @@ def mkgroups(pages: List[Page], args: argparse.Namespace) -> List[Group]:
 
 
 def pdf_ocr(args: argparse.Namespace) -> None:
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
     if path.isfile(args.fname):
         fnames = [args.fname]
     else:
@@ -524,7 +526,7 @@ def pdf_ocr(args: argparse.Namespace) -> None:
         ]
     fnames = [f for f in fnames if f.endswith('.pdf')]
     if not fnames:
-        logger.info('请提供 PDF 或目录')
+        logger.fatal('请提供 PDF 或目录')
         return
 
     pool = ThreadPoolExecutor(args.file_threads)
