@@ -100,7 +100,7 @@ def request_retry(method, url, retry=10, check_status=False, **kw):
         except KeyboardInterrupt as e:
             raise e
         except Exception as e:
-            logger.info(f'{url} retry {i}')
+            logger.debug(f'{url} retry {i}')
             if i == retry - 1: raise e
 
 def reform_paras_mdcn(text, size=1500):
@@ -226,8 +226,8 @@ def call_llm_retry(
                 if parse_output else res
             )
         except Exception as ex:
-            logger.info(f'OpenAI retry {i+1}')
-            traceback.print_exc()
+            logger.debug(f'OpenAI retry {i+1}')
+            logger.debug(traceback.format_exc())
             if i == retry - 1: raise ex
 
 def ensure_utf8(text: str) -> str:
@@ -400,7 +400,7 @@ def call_glmocr_retry(img, retry=10):
         except Exception as ex:
             logger.info(f'GLM retry {i+1}: {str(ex)}')
             if i == retry - 1: raise ex
-    logger.info(res.text)
+    logger.debug(res.text)
     return json.loads(res.text)['md_results']
 
 def group_chunks(chunks, limit=8000):
