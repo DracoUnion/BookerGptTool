@@ -144,7 +144,7 @@ def main():
 
     pdf_ocr_parser = subparsers.add_parser("pdf-ocr", help="pdf ocr")
     pdf_ocr_parser.add_argument("fname", help="PDF file name")
-    pdf_ocr_parser.add_argument("--dpi", type=int, default=300, help="dpi")
+    pdf_ocr_parser.add_argument("--dpi", type=int, default=150, help="dpi")
     pdf_ocr_parser.add_argument("--trans", action='store_true', help="whether to translate")
     pdf_ocr_parser.add_argument("--clean", action='store_true', help="whether to clean heading")
     pdf_ocr_parser.add_argument("-md", "--mkdir", action='store_true', help="whether to make a single dir")
