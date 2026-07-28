@@ -246,7 +246,7 @@ def call_llm(
     msgs = repl_ins_token(msgs)
     if isinstance(extra_body, str):
         extra_body = json.loads(extra_body)
-    logger.info(f'ques: {json.dumps(get_msgs_text(msgs), ensure_ascii=False)}')
+    logger.debug(f'ques: {json.dumps(get_msgs_text(msgs), ensure_ascii=False)}')
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
@@ -273,7 +273,7 @@ def call_llm(
     # 还原指令格式
     ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
     ans = re.sub(r'<think>[\s\S]+?</think>', '', ans)
-    logger.info(f'ans: {json.dumps(ans, ensure_ascii=False)}')
+    logger.debug(f'ans: {json.dumps(ans, ensure_ascii=False)}')
     return ans
 
 def set_openai_props(args):
@@ -294,7 +294,7 @@ def collect_stream_content(resp):
         if chunk.choices and chunk.choices[0].delta.content:
             pt = chunk.choices[0].delta.content
             content.append(pt)
-            logger.info(f'stream: {json.dumps(pt, ensure_ascii=False)}')
+            logger.debug(f'stream: {json.dumps(pt, ensure_ascii=False)}')
     return ''.join(content)
 
 def extname(fname):
