@@ -1,3 +1,4 @@
+import tqdm
 import copy
 import traceback
 import os
@@ -171,7 +172,7 @@ class TransEpubDispatcher:
         for iname, data in fdict.items():
             if not is_pic(iname):
                 continue
-            logger.info(f'[3] {iname}')
+            logger.debug(f'[3] {iname}')
             ifname = path.join(img_dir, path.basename(iname))
             if path.isfile(ifname):
                 continue
@@ -179,7 +180,7 @@ class TransEpubDispatcher:
             open(ifname, 'wb').write(data)
 
     def _tr_fmt_trans(self, chunk: Chunk):
-        logger.info(f'[4] 处理分块')
+        logger.debug(f'[4] 处理分块')
         if not chunk.fmt:
             chunk.fmt = self.agent.format_text(chunk.raw)
         if not chunk.trans:
@@ -210,15 +211,17 @@ class TransEpubDispatcher:
         pool = ThreadPoolExecutor(self.args.threads)
         hdls = []
 
-        for c in chunks:
+        for c in tqdm.tqdm(chunks):
             if c.fmt and c.trans:
                 continue
             h = pool.submit(self._tr_fmt_trans, c)
             hdls.append(h)
 
-        for h in as_completed(hdls):
-            h.result()
-            self._write_yaml(chunk_fname, chunks)
+        with tqdm.tqdm(total=len(pool)) as pbar:
+            for h in as_completed(hdls):
+                h.result()
+                self._write_yaml(chunk_fname, chunks)
+            pbar.update(1)
         return chunks
 
     def _fix_toc(self, chunks, meta, meta_fname):
@@ -237,7 +240,7 @@ class TransEpubDispatcher:
             meta.toc = toc
             self._write_yaml(meta_fname, meta)
         for lvl, title in toc:
-            logger.info(f'[7] {lvl} {title}')
+            logger.debug(f'[7] {lvl} {title}')
             try:
                 md = re.sub(r'^#+\x20+' + re.escape(title) + '$', f'{lvl} {title}', md, flags=re.M)
             except re.error:
@@ -287,7 +290,7 @@ class TransEpubDispatcher:
         l = len(str(len(chs)))
         for i, c in enumerate(chs):
             ch_fname = path.join(proj_dir, slug + '_' + str(i).zfill(l) + '.md')
-            logger.info(f'[5] {ch_fname}')
+            logger.debug(f'[5] {ch_fname}')
             open(ch_fname, 'w', encoding='utf8').write(c)
 
     def _gen_readme(self, name, readme_fname, meta):
