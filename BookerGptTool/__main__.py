@@ -148,7 +148,8 @@ def main():
     pdf_ocr_parser.add_argument("--trans", action='store_true', help="whether to translate")
     pdf_ocr_parser.add_argument("--clean", action='store_true', help="whether to clean heading")
     pdf_ocr_parser.add_argument("-md", "--mkdir", action='store_true', help="whether to make a single dir")
-    pdf_ocr_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    pdf_ocr_parser.add_argument("-ft", "--file-threads", type=int, default=1, help="num file threads")
+    pdf_ocr_parser.add_argument("-pt", "--page-threads", type=int, default=8, help="num page threads")
     pdf_ocr_parser.add_argument("-l", "--limit", type=int, default=8000, help="text limit in groups")
     pdf_ocr_parser.set_defaults(func=pdf_ocr)
 

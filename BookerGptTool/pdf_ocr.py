@@ -132,7 +132,7 @@ class PDFOcrOrchestrator:
 
         # ── 线程池基础设施 ──
         self.pool: Optional[ThreadPoolExecutor] = \
-            ThreadPoolExecutor(self.args.threads)
+            ThreadPoolExecutor(self.args.page_threads)
         self._hdls: List[Future] = []
 
     @staticmethod
@@ -527,11 +527,7 @@ def pdf_ocr(args: argparse.Namespace) -> None:
         logger.info('请提供 PDF 或目录')
         return
 
-    args.threads = max(
-        int(args.threads ** 0.5),
-        int(args.threads / len(fnames)),
-    )
-    pool = ThreadPoolExecutor(args.threads)
+    pool = ThreadPoolExecutor(args.file_threads)
     hdls = []
     for f in fnames:
         args = copy.deepcopy(args)
