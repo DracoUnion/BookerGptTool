@@ -22,6 +22,7 @@ import uuid
 from typing import *
 
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
+logging.getLogger("openai._base_client").setLevel(logging.CRITICAL)
 logging.basicConfig(
     level=logging.INFO, 
     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
