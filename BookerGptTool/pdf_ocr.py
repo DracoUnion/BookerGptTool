@@ -33,6 +33,7 @@ from .util import (
     to_kebab,
     ext_code_block,
     ext_cont_block,
+    logger as util_logger,
 )
 
 logging.basicConfig(
@@ -520,6 +521,7 @@ def mkgroups(pages: List[Page], args: argparse.Namespace) -> List[Group]:
 def pdf_ocr(args: argparse.Namespace) -> None:
     if args.debug:
         logger.setLevel(logging.DEBUG)
+        util_logger.setLevel(logging.DEBUG)
     if path.isfile(args.fname):
         fnames = [args.fname]
     else:

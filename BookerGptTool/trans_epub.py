@@ -10,7 +10,21 @@ import yaml
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from imgyaso.quant import pngquant
 from .trans_epub_pmt import *
-from .util import set_openai_props, to_kebab, read_zip, is_pic, tomd, get_md_title, epub2html_pandoc, group_chunks, split_md_lines, ask_chatgpt_retry, ext_cont_block, ext_code_block
+from .util import (
+    set_openai_props, 
+    to_kebab, 
+    read_zip, 
+    is_pic, 
+    tomd, 
+    get_md_title, 
+    epub2html_pandoc, 
+    group_chunks, 
+    split_md_lines, 
+    ask_chatgpt_retry, 
+    ext_cont_block, 
+    ext_code_block,
+    logger as util_logger,
+)
 from .fmt import fmt_zh, fmt_publisher
 from .clean_heading import clean_md_llm
 from .trans_epub_models import *
@@ -314,6 +328,7 @@ class TransEpubDispatcher:
 def trans_epub(args):
     if args.debug:
         logger.setLevel(logging.DEBUG)
+        util_logger.setLevel(logging.DEBUG)
     if path.isfile(args.fname):
         fnames = [args.fname]
     else:
