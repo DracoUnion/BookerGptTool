@@ -199,6 +199,7 @@ def main():
     forward_parser.add_argument("-lh", "--listen-host", type=str, default='localhost', help="")
     forward_parser.add_argument("-lp", "--listen-port", type=int, default=5000, help="")
     forward_parser.add_argument("-t", "--threads", type=int, default=8, help="")
+    forward_parser.add_argument("-D", "--debug", action='store_true', help="")
     forward_parser.set_defaults(func=forward)
 
     fin_report_parser = subparsers.add_parser("fin-report", help="make financial report")

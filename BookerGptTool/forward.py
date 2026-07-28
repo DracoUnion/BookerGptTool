@@ -15,6 +15,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def forward(args):
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
     keys = yaml.safe_load(
         open(args.fname, encoding='utf8').read())
 
