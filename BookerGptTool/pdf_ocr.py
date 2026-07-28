@@ -217,13 +217,13 @@ class PDFOcrOrchestrator:
         return img_pt
 
     def _tr_ocr_page(self, img: bytes, page: Page) -> None:
-        logger.info(f'[3] 识别页码 {page.pgno + 1}')
+        logger.debug(f'[3] 识别页码 {page.pgno + 1}')
         page.md = self.agent.ocr(img=img)
 
     def _tr_proc_img(
         self, img: bytes, page: Page, img_dir: str, pdf_hash: str
     ) -> None:
-        logger.info(f'[4] 处理图像 {page.pgno}')
+        logger.debug(f'[4] 处理图像 {page.pgno}')
         md = page.md
         pgno = page.pgno
         img_links = re.findall(r'!\[\]\(.+?\)', md)
@@ -243,14 +243,14 @@ class PDFOcrOrchestrator:
             img_pt = pngquant(img_pt)
             img_fname = f'{pdf_hash}_{pgno}_{j}.png'
             img_ffname = path.join(img_dir, img_fname)
-            logger.info(f'[5] {img_ffname}')
+            logger.debug(f'[5] {img_ffname}')
             open(img_ffname, 'wb').write(img_pt)
             md = md.replace(link, f'![](img/{img_fname})')
             page.md = md
         page.img_proc = True
 
     def _tr_group_page(self, group: Group) -> None:
-        logger.info(f'[5] 处理页面合并')
+        logger.debug(f'[5] 处理页面合并')
         text = '\n\n'.join(group.raw)
         group.md = self.agent.post_proc(text=text)
         if self.args.trans:
@@ -259,7 +259,7 @@ class PDFOcrOrchestrator:
             group.mdcn = group.md
 
     def _tr_merge_group(self, prev_group: Group, group: Group) -> None:
-        logger.info(f'[6] 处理分组合并')
+        logger.debug(f'[6] 处理分组合并')
         prev_line = prev_group.mdcn.strip()
         next_line = group.mdcn.strip()
         prev = re.search(r'^.+?\Z', prev_line, flags=re.M).group()
@@ -375,7 +375,7 @@ class PDFOcrOrchestrator:
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
         full_text = ''
         for i, g in enumerate(res.groups):
-            logger.info(f'[6] 生成全文 {i}')
+            logger.debug(f'[6] 生成全文 {i}')
             if g.merge != 1:
                 full_text += '\n\n'
             full_text += g.mdcn
@@ -399,7 +399,7 @@ class PDFOcrOrchestrator:
             res.toc = toc
             self._write_yaml(res, yaml_fname)
         for lvl, title in toc:
-            logger.info(f'[7] {lvl} {title}')
+            logger.debug(f'[7] {lvl} {title}')
             try:
                 full_text = re.sub(
                     r'^#+\x20+' + re.escape(title) + '$',
