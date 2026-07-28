@@ -311,7 +311,7 @@ class PDFOcrOrchestrator:
     ) -> None:
         """[3] VLM 识别每页图像。原地填充 pages.md。"""
         logger.info('[3] 识别图像')
-        for i, pg in tqdm.tqdm(enumerate(res.pages)):
+        for i, pg in enumerate(tqdm.tqdm(res.pages)):
             if pg.md:
                 continue
             pgno = pg.pgno
@@ -331,7 +331,7 @@ class PDFOcrOrchestrator:
         """[4] 裁切并保存页面中的插图。原地填充 pages.md/img_proc。"""
         logger.info('[4] 处理图片')
         os.makedirs(img_dir, exist_ok=True)
-        for i, pg in tqdm.tqdm(enumerate(res.pages)):
+        for i, pg in enumerate(tqdm.tqdm(res.pages)):
             if pg.img_proc:
                 continue
             pgno = pg.pgno
@@ -350,7 +350,7 @@ class PDFOcrOrchestrator:
         logger.info('[5] 处理页间合并')
         if not res.groups:
             res.groups = mkgroups(res.pages, self.args)
-        for i, g in tqdm.tqdm(enumerate(res.groups)):
+        for i, g in enumerate(tqdm.tqdm(res.groups)):
             if g.md and g.mdcn:
                 continue
             self._submit(
@@ -363,7 +363,7 @@ class PDFOcrOrchestrator:
         """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge。"""
         logger.info('[6] 处理组间合并')
         res.groups = [g for g in res.groups if g.mdcn]
-        for i, g in tqdm.tqdm(enumerate(res.groups)):
+        for i, g in enumerate(tqdm.tqdm(res.groups)):
             if i == 0:
                 continue
             if g.merge != -1:
