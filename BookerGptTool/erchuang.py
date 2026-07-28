@@ -20,15 +20,8 @@ def erchuang_single(args):
         print(f'{args.fname} 已生成')
         return
     cont = open(args.fname, encoding='utf8').read()
-    pmt = (
-             XHS_PMT if args.style == 'xhs' 
-        else GZH_PMT if args.style == 'gzh'
-        else FMT_PMT if args.style == 'fmt'
-        else SUM_PMT if args.style == 'sum'
-        else QA_PMT if args.style == 'qa'
-        else KOUBO_PMT
-    )
-    ques = pmt.replace('{text}', cont)
+    ques = PMT_MAP.get(args.style, HUMANIZE_PMT) \
+                  .replace('{text}', cont)
     ans = ask_chatgpt_retry(ques, args.model, args)
     ans = ans.replace('[content]', '') \
         .replace('[/content]', '')

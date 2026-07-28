@@ -132,7 +132,7 @@ def main():
     erchuang_parser.add_argument(
         "-s", "--style", 
         type=str, default='xhs', 
-        choices=['xhs', 'gzh', 'fmt', 'sum', 'qa', 'koubo'], 
+        choices=['xhs', 'gzh', 'fmt', 'sum', 'qa', 'koubo', 'human'], 
         help="article style"
     )
     erchuang_parser.set_defaults(func=erchuang_handle)
