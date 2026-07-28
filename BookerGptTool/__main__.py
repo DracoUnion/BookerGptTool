@@ -181,6 +181,7 @@ def main():
     trans_epub_parser.add_argument("-pt", "--page-threads", type=int, default=8, help="num page threads")
     trans_epub_parser.add_argument("-l", "--limit", type=int, default=8000, help="chunk limit")
     trans_epub_parser.add_argument("-m", "--fmt-mode", default='none', help="format mode")
+    trans_epub_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
     trans_epub_parser.add_argument("--split", action='store_true', help="whether to split chs")
     trans_epub_parser.add_argument("--clean", action='store_true', help="whether to clean heading")
     trans_epub_parser.set_defaults(func=trans_epub)
