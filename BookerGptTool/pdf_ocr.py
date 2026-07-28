@@ -19,6 +19,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Iterator, List, Optional, Tuple
 import json
 import json_repair
+import tqdm
 from imgyaso.quant import pngquant
 from pydantic import BaseModel
 from .clean_heading import clean_md_llm
@@ -171,10 +172,12 @@ class PDFOcrOrchestrator:
         """等待所有已提交任务完成并清空。
         on_done: 每个子线程完成后在主线程中调用的回调。
         """
-        for h in as_completed(self._hdls):
-            h.result()
-            if on_done:
-                on_done()
+        with tqdm.tqdm(total=len(self._hdls)) as pbar:
+            for h in as_completed(self._hdls):
+                h.result()
+                if on_done:
+                    on_done()
+                pbar.update(1)
         self._hdls = []
 
     # ── 主线程写入 ──────────────────────────────────
