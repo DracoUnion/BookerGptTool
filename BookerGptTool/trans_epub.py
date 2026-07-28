@@ -313,7 +313,7 @@ class TransEpubDispatcher:
 
 def trans_epub(args):
     if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
     if path.isfile(args.fname):
         fnames = [args.fname]
     else:

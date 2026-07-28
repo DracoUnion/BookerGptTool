@@ -519,7 +519,7 @@ def mkgroups(pages: List[Page], args: argparse.Namespace) -> List[Group]:
 
 def pdf_ocr(args: argparse.Namespace) -> None:
     if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
     if path.isfile(args.fname):
         fnames = [args.fname]
     else:
