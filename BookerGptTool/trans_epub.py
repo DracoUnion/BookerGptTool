@@ -208,7 +208,7 @@ class TransEpubDispatcher:
             chunks = [Chunk(raw=c) for c in groups]
             self._write_yaml(chunk_fname, chunks)
 
-        pool = ThreadPoolExecutor(self.args.threads)
+        pool = ThreadPoolExecutor(self.args.page_threads)
         hdls = []
 
         for c in tqdm.tqdm(chunks):
@@ -324,11 +324,7 @@ def trans_epub(args):
         logger.info('请提供 EPUB 或目录')
         return
 
-    args.threads = max(
-        int(args.threads ** 0.5),
-        int(args.threads / len(fnames))
-    )
-    pool = ThreadPoolExecutor(args.threads)
+    pool = ThreadPoolExecutor(args.file_threads)
     hdls = []
     for f in fnames:
         args = copy.deepcopy(args)
