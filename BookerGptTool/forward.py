@@ -37,7 +37,7 @@ def forward(args):
         trunc_key = lambda s: s[:4] + '...' + s[-4:]
         logger.info(
             f'url: {url}, ' + 
-            f'key: {trunc_key(key["key"])}, ' + 
+            f'key: {trunc_key(key["api_key"])}, ' + 
             f'model: {key["model"]}'
         )
         logger.debug(f'headers: {hdrs}')
@@ -52,7 +52,7 @@ def forward(args):
         logger.info(f'{url} {r.status_code}')
         logger.info(
             f'HTTP {r.status_code}: {url}, ' + 
-            f'{trunc_key(key["key"])}, ' + 
+            f'{trunc_key(key["api_key"])}, ' + 
             f'{key["model"]}'
         )
         if not stream:
