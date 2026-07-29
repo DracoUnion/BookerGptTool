@@ -374,7 +374,6 @@ def _generate_image(prompt: str, output_path: Path, model: str, size: str,
 
 def generate_series(prompt_files: list[Path], output_dir: Path,
                     model: str | None = None, size: str | None = None) -> list[Path]:
-    model = _resolve_model(model)
     if size is None:
         size = ASPECT_3_4.get(model, "1024x1536")
 
@@ -432,14 +431,26 @@ def xhs_img_handle(args):
         text = sys.stdin.read()
     else:
         p = Path(args.input)
-        if not p.is_file():
+        if not p.is_file() :
             print(f"文件不存在: {args.input}")
+            return
+        if not args.input.endswith('.md'):
+            print('请提供 MD 文件')
             return
         text = p.read_text(encoding="utf-8")
 
     if not text.strip():
         print("输入内容为空")
         return
+
+    out_dir = (
+        Path(args.output_dir) 
+        if args.output_dir else 
+        Path(args.input[:-3] + '_xhs_img')
+    )
+    out_dir.mkdir(parents=True, exist_ok=True)
+    prompts_dir = out_dir / "prompts"
+    prompts_dir.mkdir(exist_ok=True)
 
     analysis = analyze_content(text)
     print(analysis.summary_text())
@@ -461,11 +472,7 @@ def xhs_img_handle(args):
     print(f"  图片: {count}张 · 策略: {strategy.upper()}")
     print(f"  模型: {_resolve_model(args.tti_model)}")
 
-    slug = _slugify(analysis.topic)
-    out_dir = Path(args.output_dir) if args.output_dir else Path("image-cards") / slug
-    out_dir.mkdir(parents=True, exist_ok=True)
-    prompts_dir = out_dir / "prompts"
-    prompts_dir.mkdir(exist_ok=True)
+
 
     content_lines = [l.strip() for l in text.strip().splitlines()
                      if l.strip() and not l.strip().startswith("#")]
@@ -485,11 +492,13 @@ def xhs_img_handle(args):
                                palette.name if palette else None, count)
         (out_dir / "outline.md").write_text(_outline_to_md(chosen), encoding="utf-8")
 
-    for page in chosen.pages:
-        prompt = _build_prompt(page, style, layout, palette, analysis.source_language)
-        (prompts_dir / f"{page.number:02d}-{page.position}-{page.slug}.md").write_text(
-            prompt, encoding="utf-8")
-
+    prompts = {
+        f"{page.number:02d}-{page.position}-{page.slug}.md":
+            _build_prompt(page, style, layout, palette, analysis.source_language)
+        for page in chosen.pages
+    }
+    for fname, p in prompts:
+        (prompts_dir / fname).write_text(p, encoding="utf-8")
     print(f"\n[Prompt] 文件已生成: {prompts_dir}")
 
     if args.generate:
