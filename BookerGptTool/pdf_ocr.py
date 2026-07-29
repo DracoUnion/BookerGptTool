@@ -246,7 +246,7 @@ class PDFOcrOrchestrator:
                 link,
             )
             m2 = re.search(
-                r'data:image/\w+;base64,(\w+)', link
+                r'data:image/\w+;base64,([\w+=\n]+)', link
             )
             if not m1 and not m2:
                 continue
@@ -257,7 +257,8 @@ class PDFOcrOrchestrator:
                 ]
                 img_pt = self._corp_img(img, bbox)
             else:
-                img_pt = base64.a85decode(m2.group(1))
+                img_pt = base64.b64decode(
+                    m2.group(1).replace('\n', ''))
             img_pt = pngquant(img_pt)
             img_fname = f'{pdf_hash}_{pgno}_{j}.png'
             img_ffname = path.join(img_dir, img_fname)
