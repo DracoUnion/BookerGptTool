@@ -462,7 +462,11 @@ def ngram_coverage(src: str, gen: str, n: int = 3) -> float:
 ext_code_block = lambda s: re.search(r'```\w*([\s\S]+)```', s).group(1)
 ext_cont_block = lambda s: re.search(r'\[content\]([\s\S]+)\[/content\]', s).group(1)
 
-def call_tti(text, model_name, size='1024x1024'):
+def call_tti(
+    text, model_name, 
+    size='1024x1024', 
+    ref_img: Optional[bytes]=None,
+):
     logging.debug(f'tti: {json.dumps(text, ensure_ascii=False)}')
     client = openai.OpenAI(
         base_url=openai.base_url,
@@ -470,12 +474,20 @@ def call_tti(text, model_name, size='1024x1024'):
         default_headers={'User-Agent': openai.user_agent},
         timeout=openai.timeout,
     )
+    if 'gpt-image' in model_name and ref_img:
+        ref_img_b64 = base64.b64encode(ref_img).decode('ascii')
+        extra_body = {
+            "image": f"data:image/png;base64,{ref_img_b64}",
+        }
+    else:
+        extra_body = {}
     img_data = client.images.generate(
         model=model_name, 
         size=size,
         prompt=text,
         response_format='b64_json',
         n=1,
+        extra_body=extra_body,
     ).data[0]
     if getattr(img_data, 'b64_json', None):
         return base64.b64decode(img_data.b64_json)
@@ -484,10 +496,15 @@ def call_tti(text, model_name, size='1024x1024'):
     else:
         raise ValueError('API 未返回数据')
 
-def call_tti_retry(text, model_name, size='1024x1024', retry=10, nothrow=True):
+def call_tti_retry(
+    text, model_name, 
+    size='1024x1024', 
+    ref_img: Optional[bytes]=None, 
+    retry=10, nothrow=True,
+):
     for i in range(retry):
         try:
-            return call_tti(text, model_name, size)
+            return call_tti(text, model_name, size, ref_img)
         except Exception as ex:
             logging.debug(f'OpenAI retry {i+1}: {str(ex)}')
             if i == retry - 1 and not nothrow: raise ex
