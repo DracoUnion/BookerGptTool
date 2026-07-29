@@ -1,3 +1,4 @@
+import base64
 import argparse
 import logging
 import traceback
@@ -237,20 +238,26 @@ class PDFOcrOrchestrator:
         logger.debug(f'[4] 处理图像 {page.pgno}')
         md = page.md
         pgno = page.pgno
-        img_links = re.findall(r'!\[\]\(.+?\)', md)
+        img_links = re.findall(r'!\[.*?\]\(.+?\)', md)
         for j, link in enumerate(img_links):
-            m = re.search(
+            m1 = re.search(
                 r'bbox=\[(\d+\.\d+),\x20(\d+\.\d+),'
                 r'\x20(\d+\.\d+),\x20(\d+\.\d+)\]',
                 link,
             )
-            if not m:
+            m2 = re.search(
+                r'data:image/\w+;base64,(\w+)', link
+            )
+            if not m1 and not m2:
                 continue
-            bbox = [
-                float(m.group(1)), float(m.group(2)),
-                float(m.group(3)), float(m.group(4)),
-            ]
-            img_pt = self._corp_img(img, bbox)
+            if m1:
+                bbox = [
+                    float(m1.group(1)), float(m1.group(2)),
+                    float(m1.group(3)), float(m1.group(4)),
+                ]
+                img_pt = self._corp_img(img, bbox)
+            else:
+                img_pt = base64.a85decode(m2.group(1))
             img_pt = pngquant(img_pt)
             img_fname = f'{pdf_hash}_{pgno}_{j}.png'
             img_ffname = path.join(img_dir, img_fname)
