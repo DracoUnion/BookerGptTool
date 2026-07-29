@@ -465,7 +465,7 @@ def xhs_img_handle(args):
             _build_prompt(page, style, layout, palette, analysis.source_language)
         for page in outline.pages
     }
-    for fname, p in prompts:
+    for fname, p in prompts.items():
         (prompts_dir / fname).write_text(p, encoding="utf-8")
     print(f"\n[Prompt] 文件已生成: {prompts_dir}")
 
