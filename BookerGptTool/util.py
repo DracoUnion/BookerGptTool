@@ -461,3 +461,32 @@ def ngram_coverage(src: str, gen: str, n: int = 3) -> float:
 
 ext_code_block = lambda s: re.search(r'```\w*([\s\S]+)```', s).group(1)
 ext_cont_block = lambda s: re.search(r'\[content\]([\s\S]+)\[/content\]', s).group(1)
+
+def call_tti(text, model_name, size='1024x1024'):
+    logging.debug(f'tti: {json.dumps(text, ensure_ascii=False)}')
+    client = openai.OpenAI(
+        base_url=openai.base_url,
+        api_key=openai.api_key,
+        default_headers={'User-Agent': openai.user_agent},
+        timeout=openai.timeout,
+    )
+    img_data = client.images.generate(
+        model=model_name, 
+        size=size,
+        prompt=text,
+        n=1,
+    ).data[0]
+    if getattr(img_data, 'b64_json', None):
+        return base64.b64decode(img_data.b64_json)
+    elif getattr(img_data, 'url', None):
+        return request_retry('GET', img_data.url).content
+    else:
+        raise ValueError('API 未返回数据')
+
+def call_tti_retry(text, model_name, size='1024x1024', retry=10, nothrow=True):
+    for i in range(retry):
+        try:
+            return call_tti(text, model_name, size)
+        except Exception as ex:
+            logging.debug(f'OpenAI retry {i+1}: {str(ex)}')
+            if i == retry - 1 and not nothrow: raise ex
