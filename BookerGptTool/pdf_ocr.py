@@ -34,6 +34,7 @@ from .util import (
     ext_code_block,
     ext_cont_block,
     logger as util_logger,
+    tomd,
 )
 
 logging.basicConfig(
@@ -220,9 +221,15 @@ class PDFOcrOrchestrator:
             )[1])
         return img_pt
 
-    def _tr_ocr_page(self, img: bytes, page: Page) -> None:
+    def _tr_ocr_page(self, fitz_page: fitz.Page, page: Page, args) -> None:
         logger.debug(f'[3] 识别页码 {page.pgno + 1}')
-        page.md = self.agent.ocr(img=img)
+        if is_scanned_page(fitz_page):
+            img = fitz_page \
+                .get_pixmap(dpi=args.dpi) \
+                .pil_tobytes('png')
+            page.md = self.agent.ocr(img=img)
+        else:
+            page.md = tomd(fitz_page.get_text('html'))
 
     def _tr_proc_img(
         self, img: bytes, page: Page, img_dir: str, pdf_hash: str
@@ -315,13 +322,9 @@ class PDFOcrOrchestrator:
         for i, pg in enumerate(tqdm.tqdm(res.pages)):
             if pg.md:
                 continue
-            pgno = pg.pgno
-            img = doc[pgno] \
-                .get_pixmap(dpi=self.args.dpi) \
-                .pil_tobytes('png')
             self._submit(
                 self._tr_ocr_page,
-                img, pg,
+                doc[pg.pgno], pg, self.args,
             )
         self._drain(lambda: self._write_yaml(res, yaml_fname))
 
@@ -550,3 +553,34 @@ def pdf_ocr_file_safe(args: argparse.Namespace) -> None:
         PDFOcrOrchestrator(args).run()
     except:
         logger.warn(traceback.format_exc())
+
+def is_scanned_page(page: fitz.Page, text_threshold=20, image_coverage_threshold=0.8):
+    """
+    综合判断一个PDF页面是否为扫描件
+    """
+    # 1. 文本检查
+    text = page.get_text().strip()
+    if len(text) >= text_threshold:
+        # 如果文本量足够，基本可以判定为非扫描件
+        return False
+
+    # 2. 图像覆盖检查
+    page_rect = page.rect
+    page_area = abs(page_rect)
+    total_image_area = 0
+
+    # 获取页面中所有图片的列表
+    image_list = page.get_images(full=True)
+    for img in image_list:
+        # 获取该图片在页面上的显示区域
+        bboxes = page.get_image_bbox(img)
+        for bbox in bboxes:
+            # 计算当前图片与页面的交集面积
+            intersection = bbox & page_rect
+            total_image_area += abs(intersection)
+
+    # 计算图像覆盖比例
+    coverage_ratio = total_image_area / page_area if page_area > 0 else 0
+    
+    # 如果图像覆盖面积超过阈值，则判定为扫描件
+    return coverage_ratio >= image_coverage_threshold
