@@ -155,6 +155,8 @@ def main():
     pdf_ocr_parser.add_argument("-pt", "--page-threads", type=int, default=8, help="num page threads")
     pdf_ocr_parser.add_argument("-l", "--limit", type=int, default=8000, help="text limit in groups")
     pdf_ocr_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
+    pdf_ocr_parser.add_argument("-tt", "--text-thres", type=int, default=20, help="")
+    pdf_ocr_parser.add_argument("-it", "--img-thres", type=float, default=0.8, help="")
     pdf_ocr_parser.set_defaults(func=pdf_ocr)
 
     fiction_parser = subparsers.add_parser("gts-fiction", help="write fiction")
