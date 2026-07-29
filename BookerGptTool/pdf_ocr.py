@@ -224,8 +224,7 @@ class PDFOcrOrchestrator:
 
     def _tr_ocr_page(self, fitz_page: fitz.Page, page: Page, args) -> None:
         logger.debug(f'[3] 识别页码 {page.pgno + 1}')
-        if is_scanned_page(
-            fitz_page, args.text_thres, args.img_thres):
+        if is_scanned_page(fitz_page, args.text_thres, args.img_thres):
             img = fitz_page \
                 .get_pixmap(dpi=args.dpi) \
                 .pil_tobytes('png')
