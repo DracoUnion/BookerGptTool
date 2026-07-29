@@ -18,7 +18,7 @@ from .xhs_img_models import (
     AudienceProfile, ContentAnalysis,
     STYLES, LAYOUTS, PALETTES, PRESETS, AUTO_SELECTION_TABLE,
 )
-from .util import call_tti_retry
+from .util import call_tti_retry, set_openai_props
 
 logger = logging.getLogger(__name__)
 
@@ -405,6 +405,7 @@ def _outline_to_md(outline: Outline) -> str:
 
 def xhs_img_handle(args):
     """xhs-img 子命令入口。"""
+    set_openai_props(args)
     if args.input == "-":
         text = sys.stdin.read()
     else:
