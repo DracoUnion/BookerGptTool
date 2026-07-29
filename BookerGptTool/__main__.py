@@ -31,6 +31,7 @@ def main():
     openai_url = os.environ.get('OPENAI_BASE_URL')
     openai_model = os.environ.get('OPENAI_CHAT_MODEL', 'gpt-3.5-turbo')
     openai_vmodel = os.environ.get('OPENAI_VIS_MODEL', '')
+    openai_tti_model = os.environ.get('OPENAI_TTI_MODEL', '')
 
     parser = argparse.ArgumentParser(prog="BookerGptTool", formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-v", "--version", action="version", version=f"PYBP version: {__version__}")
@@ -45,6 +46,7 @@ def main():
     parser.add_argument("-H", "--host", default=openai_url, help="api host")
     parser.add_argument("--emb", default=os.environ.get('EMB_MODEL_PATH', 'moka-ai/m3e-base'), help="emb model path")
     parser.add_argument("-vm", "--vmodel", default=openai_vmodel, help="vision model name")
+    parser.add_argument("-im", "--tti-model", default=openai_tti_model, help="vision model name")
     parser.add_argument("-ua", "--user-agent", default='claude-cli/2.1.41 (external, cli)', help="HTTP User-Agent Header")
     parser.add_argument("-st", "--stream", action='store_true' , help="stream mode")
     parser.add_argument("-eb", "--extra-body", help="extra body")

@@ -347,51 +347,29 @@ def _build_prompt(page: ImagePage, style: Style, layout: Layout,
 # TTI 图片生成（使用全局 openai 模块，由 set_openai_props 配置）
 # ════════════════════════════════════════════════════════════════════
 
-DEFAULT_TTI_MODEL = "gpt-image-1"
 ASPECT_3_4 = {"gpt-image-1": "1024x1536", "dall-e-3": "1024x1792"}
 
 
-def _resolve_model(cli_model: str | None = None) -> str:
-    if cli_model:
-        return cli_model
-    env = os.environ.get("OPENAI_TTI_MODEL")
-    if env:
-        return env.strip()
-    return DEFAULT_TTI_MODEL
 
-
-def _generate_image(prompt: str, output_path: Path, model: str, size: str,
-                    ref_image_path: str | None = None) -> Path:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    logger.info(f"生成中... model={model}, size={size}")
-    ref_img = Path(ref_image_path).read_bytes() if ref_image_path and Path(ref_image_path).is_file() else None
-    data = call_tti_retry(prompt, model, size, ref_img=ref_img, retry=3, nothrow=False)
-    output_path.write_bytes(data)
-    kb = output_path.stat().st_size / 1024
-    logger.info(f"[OK] {output_path.name} ({kb:.0f} KB)")
-    return output_path
-
-
-def generate_series(prompt_files: list[Path], output_dir: Path,
-                    model: str | None = None, size: str | None = None) -> list[Path]:
+def generate_series(prompts: dict[str, str], output_dir: Path,
+                    model: str | None = None, size: str | None = None) -> list[bytes]:
     if size is None:
         size = ASPECT_3_4.get(model, "1024x1536")
 
-    results: list[Path] = []
-    ref_path: str | None = None
+    results: list[bytes] = []
+    ref_img: bytes | None = None
 
-    for i, pf in enumerate(prompt_files):
-        prompt = pf.read_text(encoding="utf-8")
-        out_path = output_dir / (pf.stem + ".png")
-        logger.info(f"[{i + 1}/{len(prompt_files)}] {pf.name}")
-        try:
-            path = _generate_image(prompt, out_path, model, size, ref_path)
-            results.append(path)
-            if i == 0:
-                ref_path = str(path)
-        except Exception as ex:
-            logger.error(f"跳过失败项: {ex}")
-            results.append(out_path)
+    for i, (name, prompt) in enumerate(prompts.items()):
+        logger.info(f"生成中... model={model}, size={size}")
+        img_name = name[:-3] + ".png"
+        out_path = output_dir / img_name
+        logger.info(f"[{i + 1}/{len(prompts)}] {img_name}")
+        img = call_tti_retry(prompt, model, size, ref_img, nothrow=False)
+        logger.info(f"[OK] {img_name} ({len(img) / 1024:.0f} KB)")
+        out_path.write_bytes(img)
+        results.append(img)
+        if i == 0:
+            ref_img = img
     return results
 
 
@@ -470,48 +448,29 @@ def xhs_img_handle(args):
     print(f"\n选定方案:")
     print(f"  风格: {style.name} · 布局: {layout.name} · 配色: {palette.name if palette else '默认'}")
     print(f"  图片: {count}张 · 策略: {strategy.upper()}")
-    print(f"  模型: {_resolve_model(args.tti_model)}")
-
-
+    print(f"  模型: {args.tti_model}")
 
     content_lines = [l.strip() for l in text.strip().splitlines()
                      if l.strip() and not l.strip().startswith("#")]
     content_lines = [l for l in content_lines if len(l) > 2]
 
     gen = {"a": _gen_outline_a, "b": _gen_outline_b, "c": _gen_outline_c}
-    if strategy == "all":
-        for k, fn in gen.items():
-            ol = fn(analysis.topic, content_lines, style.name, layout.name,
-                    palette.name if palette else None, count)
-            (out_dir / f"outline-strategy-{k}.md").write_text(
-                _outline_to_md(ol), encoding="utf-8")
-        chosen = _gen_outline_a(analysis.topic, content_lines, style.name, layout.name,
-                                palette.name if palette else None, count)
-    else:
-        chosen = gen[strategy](analysis.topic, content_lines, style.name, layout.name,
-                               palette.name if palette else None, count)
-        (out_dir / "outline.md").write_text(_outline_to_md(chosen), encoding="utf-8")
+    outline = gen[strategy](analysis.topic, content_lines, style.name, layout.name,
+                            palette.name if palette else None, count)
+    (out_dir / "outline.md").write_text(_outline_to_md(outline), encoding="utf-8")
 
     prompts = {
         f"{page.number:02d}-{page.position}-{page.slug}.md":
             _build_prompt(page, style, layout, palette, analysis.source_language)
-        for page in chosen.pages
+        for page in outline.pages
     }
     for fname, p in prompts:
         (prompts_dir / fname).write_text(p, encoding="utf-8")
     print(f"\n[Prompt] 文件已生成: {prompts_dir}")
 
-    if args.generate:
-        prompt_files = sorted(prompts_dir.glob("*.md"))
-        if not prompt_files:
-            print("[Error] 未找到 prompt 文件")
-            return
-        print(f"\n[TTI] 开始生成图片 ({len(prompt_files)} 张)")
-        results = generate_series(prompt_files, out_dir, args.tti_model)
-        ok = sum(1 for p in results if p.is_file() and p.stat().st_size > 0)
-        print(f"\n[Done] {ok}/{len(prompt_files)} 张图片 -> {out_dir}")
-    else:
-        print(f"[Hint] 添加 --generate 参数可调用 TTI 生成图片")
+    print(f"\n[TTI] 开始生成图片 ({len(prompts)} 张)")
+    results = generate_series(prompts, out_dir, args.tti_model)
+    print(f"\n[Done] {len(results)}/{len(prompts)} 张图片 -> {out_dir}")
 
 
 def register_xhs_img(subparsers):
@@ -524,11 +483,7 @@ def register_xhs_img(subparsers):
     p.add_argument("--preset", choices=PRESET_NAMES, help="预设组合 (style+layout+palette)")
     p.add_argument("--count", type=int, help="图片数量 (2-10)")
     p.add_argument("--output-dir", "-o", help="输出目录 (默认: ./image-cards/{slug})")
-    p.add_argument("--strategy", choices=["a", "b", "c", "all"], default="a",
-                   help="大纲策略: a=故事驱动, b=信息密集, c=视觉优先, all=全部")
-    p.add_argument("--generate", "-g", action="store_true",
-                   help="生成 prompt 后调用 TTI 生成图片")
-    p.add_argument("--tti-model", default=None,
-                   help="TTI 模型 (默认: gpt-image-1，或通过 OPENAI_TTI_MODEL 设置)")
+    p.add_argument("--strategy", choices=["a", "b", "c"], default="a",
+                   help="大纲策略: a=故事驱动, b=信息密集, c=视觉优先")
     p.set_defaults(func=xhs_img_handle)
     return p
