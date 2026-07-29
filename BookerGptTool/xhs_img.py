@@ -6,23 +6,19 @@
 
 from __future__ import annotations
 
-import base64
 import logging
 import os
 import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any
-
-import openai
-import requests
 
 from .xhs_img_models import (
     Style, Layout, Palette, Preset, ImagePage, Outline,
     AudienceProfile, ContentAnalysis,
     STYLES, LAYOUTS, PALETTES, PRESETS, AUTO_SELECTION_TABLE,
 )
+from .util import call_tti_retry
 
 logger = logging.getLogger(__name__)
 
@@ -364,45 +360,12 @@ def _resolve_model(cli_model: str | None = None) -> str:
     return DEFAULT_TTI_MODEL
 
 
-def _call_tti(prompt: str, model: str, size: str, ref_image_path: str | None = None) -> bytes:
-    client = openai.OpenAI(
-        base_url=openai.base_url, api_key=openai.api_key,
-        default_headers=getattr(openai, "user_agent", None) and {"User-Agent": openai.user_agent} or {},
-        timeout=getattr(openai, "timeout", None),
-    )
-    kwargs: dict[str, Any] = {"model": model, "prompt": prompt, "size": size, "n": 1}
-
-    if model == "gpt-image-1" and ref_image_path and Path(ref_image_path).is_file():
-        try:
-            from PIL import Image
-            kwargs["image"] = [Image.open(ref_image_path)]
-        except ImportError:
-            logger.warning("PIL 未安装，忽略参考图")
-
-    res = client.images.generate(**kwargs)
-    img = res.data[0]
-    if getattr(img, "b64_json", None):
-        return base64.b64decode(img.b64_json)
-    if getattr(img, "url", None):
-        return requests.get(img.url, timeout=30).content
-    raise RuntimeError("API 未返回图片数据")
-
-
-def _call_tti_retry(prompt, model, size, ref_image_path=None, retry=3):
-    for i in range(retry):
-        try:
-            return _call_tti(prompt, model, size, ref_image_path)
-        except Exception as ex:
-            logger.warning(f"TTI retry {i + 1}: {ex}")
-            if i == retry - 1:
-                raise
-
-
 def _generate_image(prompt: str, output_path: Path, model: str, size: str,
                     ref_image_path: str | None = None) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     logger.info(f"生成中... model={model}, size={size}")
-    data = _call_tti_retry(prompt, model, size, ref_image_path)
+    ref_img = Path(ref_image_path).read_bytes() if ref_image_path and Path(ref_image_path).is_file() else None
+    data = call_tti_retry(prompt, model, size, ref_img=ref_img, retry=3, nothrow=False)
     output_path.write_bytes(data)
     kb = output_path.stat().st_size / 1024
     logger.info(f"[OK] {output_path.name} ({kb:.0f} KB)")
