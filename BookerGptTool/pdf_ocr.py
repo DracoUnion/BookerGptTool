@@ -238,7 +238,7 @@ class PDFOcrOrchestrator:
         logger.debug(f'[4] 处理图像 {page.pgno}')
         md = page.md
         pgno = page.pgno
-        img_links = re.findall(r'!\[.*?\]\(.+?\)', md)
+        img_links = re.findall(r'!\[.*?\]\([\s\S]+?\)', md)
         for j, link in enumerate(img_links):
             m1 = re.search(
                 r'bbox=\[(\d+\.\d+),\x20(\d+\.\d+),'
