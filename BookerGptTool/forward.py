@@ -49,7 +49,6 @@ def forward(args):
             stream=stream,
             timeout=(args.conn_timeout, args.read_timeout),
         )
-        logger.info(f'{url} {r.status_code}')
         logger.info(
             f'HTTP {r.status_code}: {url}, ' + 
             f'{trunc_key(key["api_key"])}, ' + 
