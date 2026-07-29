@@ -474,6 +474,7 @@ def call_tti(text, model_name, size='1024x1024'):
         model=model_name, 
         size=size,
         prompt=text,
+        response_format='b64_json',
         n=1,
     ).data[0]
     if getattr(img_data, 'b64_json', None):
