@@ -246,7 +246,7 @@ class PDFOcrOrchestrator:
                 link,
             )
             m2 = re.search(
-                r'data:image/\w+;base64,([\w+=\n]+)', link
+                r'data:image/\w+;base64,([\w+=/\n]+)', link
             )
             if not m1 and not m2:
                 continue
