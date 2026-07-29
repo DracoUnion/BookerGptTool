@@ -581,13 +581,10 @@ def is_scanned_page(page: fitz.Page, text_threshold=20, image_coverage_threshold
     image_list = page.get_images(full=True)
     for img in image_list:
         # 获取该图片在页面上的显示区域
-        bboxes = page.get_image_bbox(img)
-        for bbox in bboxes:
-            if not isinstance(bbox, fitz.Rect):
-                continue
-            # 计算当前图片与页面的交集面积
-            intersection = bbox & page_rect
-            total_image_area += abs(intersection)
+        bbox = page.get_image_bbox(img)
+        # 计算当前图片与页面的交集面积
+        intersection = bbox & page_rect
+        total_image_area += abs(intersection)
 
     # 计算图像覆盖比例
     coverage_ratio = total_image_area / page_area if page_area > 0 else 0
