@@ -34,7 +34,12 @@ def forward(args):
             data['temperature'] = 0.6
         stream = data.get('stream', False)
         url = key['base_url'] + '/chat/completions'
-        logger.info(f'url: {url}')
+        trunc_key = lambda s: s[:4] + '...' + s[-4:]
+        logger.info(
+            f'url: {url}, ' + 
+            f'key: {trunc_key(key["key"])}, ' + 
+            f'model: {key["model"]}'
+        )
         logger.debug(f'headers: {hdrs}')
         logger.debug(f'data: {json.dumps(data)[:500]}')
         r = requests.post(
@@ -45,6 +50,11 @@ def forward(args):
             timeout=(args.conn_timeout, args.read_timeout),
         )
         logger.info(f'{url} {r.status_code}')
+        logger.info(
+            f'HTTP {r.status_code}: {url}, ' + 
+            f'{trunc_key(key["key"])}, ' + 
+            f'{key["model"]}'
+        )
         if not stream:
             logger.debug(f'reply: {r.text[:500]}')
             return jsonify(r.json()), r.status_code
