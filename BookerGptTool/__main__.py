@@ -24,6 +24,7 @@ from .md2wiki import *
 from .clean_heading import *
 from .forward import *
 from .novel_anls import *
+from .xhs_img import register_xhs_img
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -223,6 +224,8 @@ def main():
     novel_anls_parser.add_argument("--author", default=None, help="author name")
     novel_anls_parser.add_argument("--blurb", default=None, help="book blurb")
     novel_anls_parser.set_defaults(func=novel_anls)
+
+    register_xhs_img(subparsers)
 
     args = parser.parse_args()
     args.func(args)
