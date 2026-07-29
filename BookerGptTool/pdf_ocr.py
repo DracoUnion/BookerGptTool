@@ -583,6 +583,8 @@ def is_scanned_page(page: fitz.Page, text_threshold=20, image_coverage_threshold
         # 获取该图片在页面上的显示区域
         bboxes = page.get_image_bbox(img)
         for bbox in bboxes:
+            if not isinstance(bbox, fitz.Rect):
+                continue
             # 计算当前图片与页面的交集面积
             intersection = bbox & page_rect
             total_image_area += abs(intersection)
