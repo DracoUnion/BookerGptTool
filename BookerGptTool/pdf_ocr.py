@@ -178,8 +178,7 @@ class PDFOcrOrchestrator:
         with tqdm.tqdm(total=len(self._hdls)) as pbar:
             for h in as_completed(self._hdls):
                 h.result()
-                if on_done:
-                    on_done()
+                if on_done: on_done()
                 pbar.update(1)
         self._hdls = []
 
