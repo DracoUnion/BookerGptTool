@@ -235,7 +235,7 @@ class TransEpubDispatcher:
         with tqdm.tqdm(total=len(hdls)) as pbar:
             for i, h in enumerate(as_completed(hdls)):
                 h.result()
-                if i % 100 == 0 or i == len(hdls):
+                if i % 100 == 0 or i == len(hdls) - 1:
                     self._write_yaml(chunk_fname, chunks)
             pbar.update(1)
         return chunks

@@ -179,7 +179,7 @@ class PDFOcrOrchestrator:
             for i, h in enumerate(as_completed(self._hdls)):
                 h.result()
                 if write_callback and \
-                   (i % 100 == 0 or i == len(self._hdls)): 
+                   (i % 100 == 0 or i == len(self._hdls) - 1): 
                     write_callback()
                 pbar.update(1)
         self._hdls = []
