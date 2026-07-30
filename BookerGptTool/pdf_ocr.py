@@ -196,6 +196,7 @@ class PDFOcrOrchestrator:
             ]
         with open(yaml_fname, 'w', encoding='utf8') as f:
             f.write(yaml.safe_dump(obj, allow_unicode=True))
+            f.flush()
 
     # ── 线程池任务 ────────────────────────────────
 

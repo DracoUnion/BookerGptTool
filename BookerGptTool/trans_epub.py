@@ -210,6 +210,7 @@ class TransEpubDispatcher:
             ]
         with open(fname, 'w', encoding='utf8') as f:
             f.write(yaml.safe_dump(obj, allow_unicode=True))
+            f.flush()
 
     def _format_translate(self, chunk_fname, md):
         logger.info('[4] 排版和翻译')
