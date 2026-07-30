@@ -329,6 +329,8 @@ class PDFOcrOrchestrator:
             fitz_page = doc[pg.pgno]
             if not is_scanned_page(fitz_page, self.args.text_thres, self.args.img_thres):
                 pg.md = tomd(fitz_page.get_text('html'))
+                if i % 100 == 0 or i == len(res.pages - 1):
+                    self._write_yaml(res, yaml_fname)
                 continue
             img = fitz_page \
                 .get_pixmap(dpi=self.args.dpi) \
@@ -336,8 +338,6 @@ class PDFOcrOrchestrator:
             self._submit(
                 self._tr_ocr_page, img, pg, 
             )
-            if i % 100 == 0 or i == len(res.pages - 1):
-                self._write_yaml(res, yaml_fname)
         self._drain(lambda: self._write_yaml(res, yaml_fname))
 
     def process_images(
