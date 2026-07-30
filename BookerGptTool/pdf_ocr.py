@@ -16,7 +16,7 @@ import yaml
 import fitz
 import functools
 import cv2
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 from typing import Any, Callable, Iterator, List, Optional, Tuple
 import json
 import json_repair
@@ -44,6 +44,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def _corp_img(img: bytes, bbox: List[float]) -> bytes:
+    xmin, ymin, xmax, ymax = bbox
+    fmt_bytes = isinstance(img, bytes)
+    if fmt_bytes:
+        img = cv2.imdecode(
+            np.frombuffer(img, np.uint8),
+            cv2.IMREAD_UNCHANGED
+        )
+    h, w = img.shape[0], img.shape[1]
+    xmin = int(w * xmin)
+    xmax = int(w * xmax)
+    ymin = int(h * ymin)
+    ymax = int(h * ymax)
+    img_pt = img[ymin:ymax + 1, xmin: xmax + 1]
+    if 0 in img_pt.shape:
+        img_pt = np.full([1, 1, 3], 255, np.uint8)
+    if fmt_bytes:
+        img_pt = bytes(cv2.imencode(
+            '.png', img_pt,
+            [cv2.IMWRITE_PNG_COMPRESSION, 9]
+        )[1])
+    return img_pt
 
 # ── Agent 类 ─────────────────────────────────────
 
@@ -136,6 +158,8 @@ class PDFOcrOrchestrator:
 
         # ── 线程池基础设施 ──
         self.pool: Optional[ThreadPoolExecutor] = \
+            ProcessPoolExecutor(self.args.page_threads) \
+            if self.args.multi_processes else \
             ThreadPoolExecutor(self.args.page_threads)
         self._hdls: List[Future] = []
 
@@ -171,13 +195,15 @@ class PDFOcrOrchestrator:
         h = self.pool.submit(fn, *args, **kwargs)
         self._hdls.append(h)
 
-    def _drain(self, write_callback: Optional[Callable] = None) -> None:
+    def _drain(self, write_callback: Optional[Callable] = None, res_callback: Optional[Callable] = None) -> None:
         """等待所有已提交任务完成并清空。
         on_done: 每个子线程完成后在主线程中调用的回调。
         """
         with tqdm.tqdm(total=len(self._hdls)) as pbar:
             for i, h in enumerate(as_completed(self._hdls)):
-                h.result()
+                r = h.result()
+                if res_callback:
+                    res_callback(r)
                 if write_callback and \
                    (i % 100 == 0 or i == len(self._hdls) - 1): 
                     write_callback()
@@ -200,29 +226,6 @@ class PDFOcrOrchestrator:
             f.flush()
 
     # ── 线程池任务 ────────────────────────────────
-
-    def _corp_img(self, img: bytes, bbox: List[float]) -> bytes:
-        xmin, ymin, xmax, ymax = bbox
-        fmt_bytes = isinstance(img, bytes)
-        if fmt_bytes:
-            img = cv2.imdecode(
-                np.frombuffer(img, np.uint8),
-                cv2.IMREAD_UNCHANGED
-            )
-        h, w = img.shape[0], img.shape[1]
-        xmin = int(w * xmin)
-        xmax = int(w * xmax)
-        ymin = int(h * ymin)
-        ymax = int(h * ymax)
-        img_pt = img[ymin:ymax + 1, xmin: xmax + 1]
-        if 0 in img_pt.shape:
-            img_pt = np.full([1, 1, 3], 255, np.uint8)
-        if fmt_bytes:
-            img_pt = bytes(cv2.imencode(
-                '.png', img_pt,
-                [cv2.IMWRITE_PNG_COMPRESSION, 9]
-            )[1])
-        return img_pt
 
     def _tr_ocr_page(self, pdf_data: bytes, page: Page) -> None:
         logger.debug(f'[3] 识别页码 {page.pgno + 1}')
@@ -260,7 +263,7 @@ class PDFOcrOrchestrator:
                     float(m1.group(1)), float(m1.group(2)),
                     float(m1.group(3)), float(m1.group(4)),
                 ]
-                img_pt = self._corp_img(img, bbox)
+                img_pt = _corp_img(img, bbox)
             else:
                 img_pt = base64.b64decode(
                     m2.group(1).replace('\n', ''))
@@ -336,9 +339,15 @@ class PDFOcrOrchestrator:
             if pg.md:
                 continue
             self._submit(
+                _mt_ocr_page, self.args, i, doc.convert_to_pdf(), pg,
+            ) if self.args.multi_processes else self._submit(
                 self._tr_ocr_page, doc.convert_to_pdf(), pg, 
             )
-        self._drain(lambda: self._write_yaml(res, yaml_fname))
+        def res_callback(tpl): res.pages[tpl[0]] = tpl[1]
+        self._drain(
+            lambda: self._write_yaml(res, yaml_fname),
+            res_callback,
+        )
 
     def process_images(
         self, doc: fitz.Document, res: Meta, pdf_hash: str,
@@ -385,10 +394,15 @@ class PDFOcrOrchestrator:
             if g.merge != -1:
                 continue
             self._submit(
-                self._tr_merge_group,
-                res.groups[i - 1], g,
+                _mt_merge_group, self.args, i, res.groups[i - 1], g
+            ) if self.args.multi_processes else self._submit(
+                self._tr_merge_group, res.groups[i - 1], g,
             )
-        self._drain(lambda: self._write_yaml(res, yaml_fname))
+        def res_callback(tpl): res.groups[tpl[0]] = tpl[1]
+        self._drain(
+            lambda: self._write_yaml(res, yaml_fname),
+            res_callback,
+        )
 
     def build_full_text(self, res: Meta, name: str) -> Tuple[str, str]:
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
@@ -565,6 +579,81 @@ def pdf_ocr_file_safe(args: argparse.Namespace) -> None:
         PDFOcrOrchestrator(args).run()
     except:
         logger.warn(traceback.format_exc())
+
+def _mt_ocr_page(args, idx, pdf_data: bytes, page: Page) -> Tuple[int, Page]:
+    logger.debug(f'[3] 识别页码 {page.pgno + 1}')
+    agent = PdfOcrAgent(args)
+    doc = fitz.open('pdf', BytesIO(pdf_data))
+    fitz_page = doc[page.pgno]
+    if is_scanned_page(fitz_page, args.text_thres, args.img_thres):
+        img = fitz_page \
+            .get_pixmap(dpi=args.dpi) \
+            .pil_tobytes('png')
+        page.md = agent.ocr(img=img)
+    else:
+        page.md = tomd(fitz_page.get_text('html'))
+    return idx, page
+
+def _mt_merge_group(args, idx, prev_group: Group, group: Group) -> Tuple[int, Group]:
+    logger.debug(f'[6] 处理分组合并')
+    agent = PdfOcrAgent(args)
+    prev_line = prev_group.mdcn.strip()
+    next_line = group.mdcn.strip()
+    prev = re.search(r'^.+?\Z', prev_line, flags=re.M).group()
+    next = re.search(r'\A.+?$', next_line, flags=re.M).group()
+    group.merge = agent.merge(
+        prev_line=prev, next_line=next,
+    )
+    return idx, group
+
+def _mt_group_page(args, idx, group: Group) -> Tuple[int, Group]:
+    logger.debug(f'[5] 处理页面合并')
+    agent = PdfOcrAgent(args)
+    text = '\n\n'.join(group.raw)
+    group.md = agent.post_proc(text=text)
+    if args.trans:
+        group.mdcn = agent.translate(text=group.md)
+    else:
+        group.mdcn = group.md
+    return idx, group
+
+def _mt_proc_img(
+    args, idx, img: bytes, page: Page, img_dir: str, pdf_hash: str
+) -> Tuple[int, Page]:
+    logger.debug(f'[4] 处理图像 {page.pgno}')
+    md = page.md
+    pgno = page.pgno
+    img_links = re.findall(r'!\[.*?\]\([\s\S]+?\)', md)
+    for j, link in enumerate(img_links):
+        m1 = re.search(
+            r'bbox=\[(\d+\.\d+),\x20(\d+\.\d+),'
+            r'\x20(\d+\.\d+),\x20(\d+\.\d+)\]',
+            link,
+        )
+        m2 = re.search(
+            r'data:image/\w+;base64,([\w+=/\n]+)', link
+        )
+        if not m1 and not m2:
+            continue
+        if m1:
+            bbox = [
+                float(m1.group(1)), float(m1.group(2)),
+                float(m1.group(3)), float(m1.group(4)),
+            ]
+            img_pt = _corp_img(img, bbox)
+        else:
+            img_pt = base64.b64decode(
+                m2.group(1).replace('\n', ''))
+        img_pt = pngquant(img_pt)
+        img_fname = f'{pdf_hash}_{pgno}_{j}.png'
+        img_ffname = path.join(img_dir, img_fname)
+        logger.debug(f'[5] {img_ffname}')
+        open(img_ffname, 'wb').write(img_pt)
+        md = md.replace(link, f'![](img/{img_fname})')
+        page.md = md
+    page.img_proc = True
+    return idx, page
+
 
 def is_scanned_page(page: fitz.Page, text_threshold=20, image_coverage_threshold=0.8):
     """
