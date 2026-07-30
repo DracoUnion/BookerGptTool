@@ -572,7 +572,9 @@ def pdf_ocr(args: argparse.Namespace) -> None:
         logger.fatal('请提供 PDF 或目录')
         return
 
-    pool = ThreadPoolExecutor(args.file_threads)
+    pool = ProcessPoolExecutor(args.file_threads) \
+        if args.multi_processes else \
+        ThreadPoolExecutor(args.file_threads)
     hdls = []
     for f in fnames:
         args = copy.deepcopy(args)
