@@ -360,7 +360,9 @@ def trans_epub(args):
         logger.info('请提供 EPUB 或目录')
         return
 
-    pool = ProcessPoolExecutor(args.file_threads)
+    pool = ProcessPoolExecutor(args.file_threads) \
+        if args.multi_processes else \
+        ThreadPoolExecutor(args.file_threads) 
     hdls = []
     for f in fnames:
         args = copy.deepcopy(args)
