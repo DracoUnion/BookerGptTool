@@ -364,11 +364,15 @@ class PDFOcrOrchestrator:
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
             self._submit(
-                self._tr_proc_img,
-                img, pg,
-                img_dir, pdf_hash,
+                _mt_proc_img, self.args, i, img, pg, img_dir, pdf_hash,
+            ) if self.args.multi_processes else self._submit(
+                self._tr_proc_img, img, pg, img_dir, pdf_hash,
             )
-        self._drain(lambda: self._write_yaml(res, yaml_fname))
+        def res_callback(tpl): res.pages[tpl[0]] = tpl[1]
+        self._drain(
+            lambda: self._write_yaml(res, yaml_fname),
+            res_callback,
+        )
 
     def group_pages(self, res: Meta, yaml_fname: str) -> None:
         """[5] 按长度分组，后处理 + 翻译。填充 res.groups。"""
@@ -379,10 +383,15 @@ class PDFOcrOrchestrator:
             if g.md and g.mdcn:
                 continue
             self._submit(
-                self._tr_group_page,
-                g,
+                _mt_group_page, self.args, i, g,
+            ) if self.args.multi_processe else self._submit(
+                self._tr_group_page, g,
             )
-        self._drain(lambda: self._write_yaml(res, yaml_fname))
+        def res_callback(tpl): res.groups[tpl[0]] = tpl[1]
+        self._drain(
+            lambda: self._write_yaml(res, yaml_fname),
+            res_callback,
+        )
 
     def merge_groups(self, res: Meta, yaml_fname: str) -> None:
         """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge。"""
