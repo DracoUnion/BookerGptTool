@@ -232,10 +232,11 @@ class TransEpubDispatcher:
             h = pool.submit(self._tr_fmt_trans, c)
             hdls.append(h)
 
-        with tqdm.tqdm(total=len(pool)) as pbar:
-            for h in as_completed(hdls):
+        with tqdm.tqdm(total=len(hdls)) as pbar:
+            for i, h in enumerate(as_completed(hdls)):
                 h.result()
-                self._write_yaml(chunk_fname, chunks)
+                if i % 100 == 0 or i == len(hdls):
+                    self._write_yaml(chunk_fname, chunks)
             pbar.update(1)
         return chunks
 

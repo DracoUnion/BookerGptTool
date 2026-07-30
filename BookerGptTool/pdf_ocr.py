@@ -171,14 +171,16 @@ class PDFOcrOrchestrator:
         h = self.pool.submit(fn, *args, **kwargs)
         self._hdls.append(h)
 
-    def _drain(self, on_done: Optional[Callable] = None) -> None:
+    def _drain(self, write_callback: Optional[Callable] = None) -> None:
         """等待所有已提交任务完成并清空。
         on_done: 每个子线程完成后在主线程中调用的回调。
         """
         with tqdm.tqdm(total=len(self._hdls)) as pbar:
-            for h in as_completed(self._hdls):
+            for i, h in enumerate(as_completed(self._hdls)):
                 h.result()
-                if on_done: on_done()
+                if write_callback and \
+                   (i % 100 == 0 or i == len(self._hdls)): 
+                    write_callback()
                 pbar.update(1)
         self._hdls = []
 
