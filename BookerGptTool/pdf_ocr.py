@@ -224,7 +224,7 @@ class PDFOcrOrchestrator:
             )[1])
         return img_pt
 
-    def _tr_ocr_page(self, img: bytes, page: Page, args) -> None:
+    def _tr_ocr_page(self, img: bytes, page: Page) -> None:
         logger.debug(f'[3] 识别页码 {page.pgno + 1}')
         page.md = self.agent.ocr(img=img)
 
@@ -334,7 +334,7 @@ class PDFOcrOrchestrator:
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
             self._submit(
-                self._tr_ocr_page, img, pg, self.args,
+                self._tr_ocr_page, img, pg, 
             )
         self._drain(lambda: self._write_yaml(res, yaml_fname))
 
