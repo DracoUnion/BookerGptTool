@@ -577,6 +577,7 @@ def pdf_ocr(args: argparse.Namespace) -> None:
     for f in fnames:
         args = copy.deepcopy(args)
         args.fname = f
+        args.func = None
         h = pool.submit(pdf_ocr_file_safe, args)
         hdls.append(h)
     for h in as_completed(hdls):
