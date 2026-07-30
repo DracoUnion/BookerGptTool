@@ -346,7 +346,7 @@ class PDFOcrOrchestrator:
         def res_callback(tpl): res.pages[tpl[0]] = tpl[1]
         self._drain(
             lambda: self._write_yaml(res, yaml_fname),
-            res_callback,
+            res_callback if self.multi_processes else None,
         )
 
     def process_images(
@@ -371,7 +371,7 @@ class PDFOcrOrchestrator:
         def res_callback(tpl): res.pages[tpl[0]] = tpl[1]
         self._drain(
             lambda: self._write_yaml(res, yaml_fname),
-            res_callback,
+            res_callback if self.multi_processes else None,
         )
 
     def group_pages(self, res: Meta, yaml_fname: str) -> None:
@@ -390,7 +390,7 @@ class PDFOcrOrchestrator:
         def res_callback(tpl): res.groups[tpl[0]] = tpl[1]
         self._drain(
             lambda: self._write_yaml(res, yaml_fname),
-            res_callback,
+            res_callback if self.multi_processes else None,
         )
 
     def merge_groups(self, res: Meta, yaml_fname: str) -> None:
@@ -410,7 +410,7 @@ class PDFOcrOrchestrator:
         def res_callback(tpl): res.groups[tpl[0]] = tpl[1]
         self._drain(
             lambda: self._write_yaml(res, yaml_fname),
-            res_callback,
+            res_callback if self.multi_processes else None,
         )
 
     def build_full_text(self, res: Meta, name: str) -> Tuple[str, str]:
