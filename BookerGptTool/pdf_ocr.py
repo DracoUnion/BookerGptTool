@@ -552,7 +552,7 @@ def pdf_ocr(args: argparse.Namespace) -> None:
         args.fname = f
         h = pool.submit(pdf_ocr_file_safe, args)
         hdls.append(h)
-    for h in hdls:
+    for h in as_completed(hdls):
         h.result()
 
 

@@ -348,7 +348,7 @@ def trans_epub(args):
         args.fname = f
         h = pool.submit(trans_epub_file_safe, args)
         hdls.append(h)
-    for h in hdls:
+    for h in as_completed(hdls):
         h.result()
 
 def trans_epub_file_safe(args):
