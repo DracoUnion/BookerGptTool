@@ -179,7 +179,7 @@ class PDFOcrOrchestrator:
             for i, h in enumerate(as_completed(self._hdls)):
                 h.result()
                 if write_callback and \
-                   (i % 100 == 0 or i == len(self._hdls)) - 1: 
+                   (i % 100 == 0 or i == len(self._hdls) - 1): 
                     write_callback()
                 pbar.update(1)
         self._hdls = []
@@ -329,7 +329,7 @@ class PDFOcrOrchestrator:
             fitz_page = doc[pg.pgno]
             if not is_scanned_page(fitz_page, self.args.text_thres, self.args.img_thres):
                 pg.md = tomd(fitz_page.get_text('html'))
-                if i % 100 == 0 or i == len(res.pages - 1):
+                if i % 100 == 0 or i == len(res.pages) - 1:
                     self._write_yaml(res, yaml_fname)
                 continue
             img = fitz_page \
