@@ -13,15 +13,17 @@ README_TMPL = '''
 OCR_PMT = '''
 你是一个专业的文档编辑助手。请查看给定图片，提取出其中的所有标题、段落、列表、表格、插图、引用、代码块等，并一定要忽略页眉和页脚，以给定 JSON  格式输出。注意只需要输出 JSON，不需要输出其它任何东西。
 
-注意 BBOX 应该用相对坐标，即整个图片的一个比例，不要使用像素单位的绝对坐标！
+## 注意 
 
-JSON 应包含在三个反引号（```）中返回。
+1.  BBOX 应该用相对坐标，即整个图片的一个比例，不要使用像素单位的绝对坐标！
+2.  如果图片不包含任何文字或模糊无法识别，请返回`contents`为空，`direction`为`"horizontal"`的 JSON。
+3.  JSON 应包含在三个反引号（```）中返回。
 
 ## 格式
 
 ```
 {
-	"direction": "horizontal‌|vertical",
+	"direction": "horizontal|vertical",
 	"contents": [
 		{
 			"type": "paragraph|title|list|table|quote|image|code",
