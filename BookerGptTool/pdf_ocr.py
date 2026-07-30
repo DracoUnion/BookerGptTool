@@ -384,7 +384,7 @@ class PDFOcrOrchestrator:
                 continue
             self._submit(
                 _mt_group_page, self.args, i, g,
-            ) if self.args.multi_processe else self._submit(
+            ) if self.args.multi_processes else self._submit(
                 self._tr_group_page, g,
             )
         def res_callback(tpl): res.groups[tpl[0]] = tpl[1]
