@@ -7,7 +7,7 @@ import logging
 from os import path
 import re
 import yaml
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 from imgyaso.quant import pngquant
 from .trans_epub_pmt import *
 from .util import (
@@ -223,18 +223,26 @@ class TransEpubDispatcher:
             chunks = [Chunk(raw=c) for c in groups]
             self._write_yaml(chunk_fname, chunks)
 
-        pool = ThreadPoolExecutor(self.args.page_threads)
+        pool = ProcessPoolExecutor(self.args.page_threads) \
+            if self.args.multi_processes else \
+            ThreadPoolExecutor(self.args.page_threads)
         hdls = []
 
-        for c in tqdm.tqdm(chunks):
+        for i, c in enumerate(tqdm.tqdm(chunks)):
             if c.fmt and c.trans:
                 continue
-            h = pool.submit(self._tr_fmt_trans, c)
+            h = pool.submit(_mt_fmt_trans, self.args, i, c) \
+                if self.args.multi_processes else \
+                pool.submit(self._tr_fmt_trans, c)
             hdls.append(h)
 
         with tqdm.tqdm(total=len(hdls)) as pbar:
             for i, h in enumerate(as_completed(hdls)):
-                h.result()
+                if self.args.multi_processes:
+                    idx, c = h.result()
+                    chunks[idx] = c
+                else:
+                    h.result()
                 if i % 100 == 0 or i == len(hdls) - 1:
                     self._write_yaml(chunk_fname, chunks)
             pbar.update(1)
@@ -326,6 +334,15 @@ class TransEpubDispatcher:
         summary = '\n'.join(toc)
         open(summary_fname, 'w', encoding='utf8').write(summary)
 
+def _mt_fmt_trans(args, idx: int, chunk: Chunk) -> Tuple[int, Chunk]:
+    logger.debug(f'[4] 处理分块')
+    agent = EpubTranslatorAgent(args)
+    if not chunk.fmt:
+        chunk.fmt = agent.format_text(chunk.raw)
+    if not chunk.trans:
+        chunk.trans = fmt_zh(agent.translate_body(chunk.fmt))
+    return idx, chunk
+
 
 def trans_epub(args):
     if args.debug:
@@ -343,11 +360,12 @@ def trans_epub(args):
         logger.info('请提供 EPUB 或目录')
         return
 
-    pool = ThreadPoolExecutor(args.file_threads)
+    pool = ProcessPoolExecutor(args.file_threads)
     hdls = []
     for f in fnames:
         args = copy.deepcopy(args)
         args.fname = f
+        args.func = None
         h = pool.submit(trans_epub_file_safe, args)
         hdls.append(h)
     for h in as_completed(hdls):
