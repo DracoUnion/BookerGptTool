@@ -224,15 +224,9 @@ class PDFOcrOrchestrator:
             )[1])
         return img_pt
 
-    def _tr_ocr_page(self, fitz_page: fitz.Page, page: Page, args) -> None:
+    def _tr_ocr_page(self, img: bytes, page: Page, args) -> None:
         logger.debug(f'[3] 识别页码 {page.pgno + 1}')
-        if is_scanned_page(fitz_page, args.text_thres, args.img_thres):
-            img = fitz_page \
-                .get_pixmap(dpi=args.dpi) \
-                .pil_tobytes('png')
-            page.md = self.agent.ocr(img=img)
-        else:
-            page.md = tomd(fitz_page.get_text('html'))
+        page.md = self.agent.ocr(img=img)
 
     def _tr_proc_img(
         self, img: bytes, page: Page, img_dir: str, pdf_hash: str
@@ -332,9 +326,15 @@ class PDFOcrOrchestrator:
         for i, pg in enumerate(tqdm.tqdm(res.pages)):
             if pg.md:
                 continue
+            fitz_page = doc[pg.no]
+            if not is_scanned_page(fitz_page, self.args.text_thres, self.img_thres):
+                pg.md = tomd(fitz_page.get_text('html'))
+                continue
+            img = fitz_page \
+                .get_pixmap(dpi=self.args.dpi) \
+                .pil_tobytes('png')
             self._submit(
-                self._tr_ocr_page,
-                doc[pg.pgno], pg, self.args,
+                self._tr_ocr_page, img, pg, self.args,
             )
         self._drain(lambda: self._write_yaml(res, yaml_fname))
 
