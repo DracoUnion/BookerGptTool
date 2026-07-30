@@ -327,7 +327,7 @@ class PDFOcrOrchestrator:
             if pg.md:
                 continue
             fitz_page = doc[pg.pgno]
-            if not is_scanned_page(fitz_page, self.args.text_thres, self.img_thres):
+            if not is_scanned_page(fitz_page, self.args.text_thres, self.args.img_thres):
                 pg.md = tomd(fitz_page.get_text('html'))
                 continue
             img = fitz_page \
