@@ -40,7 +40,7 @@ function tomd(html) {
 function processFile(fname) {
     if(!fname.endsWith('.html')) 
         return;
-    console.log(`file: ${fname}`)
+    // console.log(`file: ${fname}`)
     var co = fs.readFileSync(fname, 'utf-8')
                .replace(/<a[^>]*\/>/g, '');
     var mdName = fname.replace(/\.html/g, '.md')
