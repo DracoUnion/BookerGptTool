@@ -339,7 +339,7 @@ class PDFOcrOrchestrator:
             if pg.md:
                 continue
             self._submit(
-                _mt_ocr_page, self.args, i, doc.convert_to_pdf(), pg,
+                _mp_ocr_page, self.args, i, doc.convert_to_pdf(), pg,
             ) if self.args.multi_processes else self._submit(
                 self._tr_ocr_page, doc.convert_to_pdf(), pg, 
             )
@@ -364,7 +364,7 @@ class PDFOcrOrchestrator:
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
             self._submit(
-                _mt_proc_img, self.args, i, img, pg, img_dir, pdf_hash,
+                _mp_proc_img, self.args, i, img, pg, img_dir, pdf_hash,
             ) if self.args.multi_processes else self._submit(
                 self._tr_proc_img, img, pg, img_dir, pdf_hash,
             )
@@ -383,7 +383,7 @@ class PDFOcrOrchestrator:
             if g.md and g.mdcn:
                 continue
             self._submit(
-                _mt_group_page, self.args, i, g,
+                _mp_group_page, self.args, i, g,
             ) if self.args.multi_processes else self._submit(
                 self._tr_group_page, g,
             )
@@ -403,7 +403,7 @@ class PDFOcrOrchestrator:
             if g.merge != -1:
                 continue
             self._submit(
-                _mt_merge_group, self.args, i, res.groups[i - 1], g
+                _mp_merge_group, self.args, i, res.groups[i - 1], g
             ) if self.args.multi_processes else self._submit(
                 self._tr_merge_group, res.groups[i - 1], g,
             )
@@ -592,7 +592,7 @@ def pdf_ocr_file_safe(args: argparse.Namespace) -> None:
     except:
         logger.warn(traceback.format_exc())
 
-def _mt_ocr_page(args, idx, pdf_data: bytes, page: Page) -> Tuple[int, Page]:
+def _mp_ocr_page(args, idx, pdf_data: bytes, page: Page) -> Tuple[int, Page]:
     logger.debug(f'[3] 识别页码 {page.pgno + 1}')
     agent = PdfOcrAgent(args)
     doc = fitz.open('pdf', BytesIO(pdf_data))
@@ -606,7 +606,7 @@ def _mt_ocr_page(args, idx, pdf_data: bytes, page: Page) -> Tuple[int, Page]:
         page.md = tomd(fitz_page.get_text('html'))
     return idx, page
 
-def _mt_merge_group(args, idx, prev_group: Group, group: Group) -> Tuple[int, Group]:
+def _mp_merge_group(args, idx, prev_group: Group, group: Group) -> Tuple[int, Group]:
     logger.debug(f'[6] 处理分组合并')
     agent = PdfOcrAgent(args)
     prev_line = prev_group.mdcn.strip()
@@ -618,7 +618,7 @@ def _mt_merge_group(args, idx, prev_group: Group, group: Group) -> Tuple[int, Gr
     )
     return idx, group
 
-def _mt_group_page(args, idx, group: Group) -> Tuple[int, Group]:
+def _mp_group_page(args, idx, group: Group) -> Tuple[int, Group]:
     logger.debug(f'[5] 处理页面合并')
     agent = PdfOcrAgent(args)
     text = '\n\n'.join(group.raw)
@@ -629,7 +629,7 @@ def _mt_group_page(args, idx, group: Group) -> Tuple[int, Group]:
         group.mdcn = group.md
     return idx, group
 
-def _mt_proc_img(
+def _mp_proc_img(
     args, idx, img: bytes, page: Page, img_dir: str, pdf_hash: str
 ) -> Tuple[int, Page]:
     logger.debug(f'[4] 处理图像 {page.pgno}')

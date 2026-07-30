@@ -231,7 +231,7 @@ class TransEpubDispatcher:
         for i, c in enumerate(tqdm.tqdm(chunks)):
             if c.fmt and c.trans:
                 continue
-            h = pool.submit(_mt_fmt_trans, self.args, i, c) \
+            h = pool.submit(_mp_fmt_trans, self.args, i, c) \
                 if self.args.multi_processes else \
                 pool.submit(self._tr_fmt_trans, c)
             hdls.append(h)
@@ -334,7 +334,7 @@ class TransEpubDispatcher:
         summary = '\n'.join(toc)
         open(summary_fname, 'w', encoding='utf8').write(summary)
 
-def _mt_fmt_trans(args, idx: int, chunk: Chunk) -> Tuple[int, Chunk]:
+def _mp_fmt_trans(args, idx: int, chunk: Chunk) -> Tuple[int, Chunk]:
     logger.debug(f'[4] 处理分块')
     agent = EpubTranslatorAgent(args)
     if not chunk.fmt:
