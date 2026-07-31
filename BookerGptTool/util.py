@@ -378,35 +378,6 @@ def norm_l2(arr, axis=-1):
     l2 = (arr**2).sum(axis, keepdims=True) ** 0.5
     return arr / l2
 
-
-def call_glmocr_retry(img, retry=10):
-    img_base64 = base64.b64encode(img).decode('ascii')
-    url = "https://open.bigmodel.cn/api/paas/v4/layout_parsing"
-    payload = {
-        "model": "glm-ocr",
-        "file": f'data:image/png;base64,{img_base64}',
-    }
-    headers = {
-        "Authorization": f"Bearer {openai.api_key}",
-        "Content-Type": "application/json"
-    }
-    for i in range(retry):
-        try:
-            res = requests.post(
-                url, 
-                json=payload, 
-                headers=headers, 
-                proxies=openai.proxy,
-            )
-            if res.status_code >= 400:
-                raise requests.HTTPError(f'HTTP {res.status_code}: {res.text}')
-            break
-        except Exception as ex:
-            logger.info(f'GLM retry {i+1}: {str(ex)}')
-            if i == retry - 1: raise ex
-    logger.debug(res.text)
-    return json.loads(res.text)['md_results']
-
 def group_chunks(chunks, limit=8000):
     groups = ['']
     for c in chunks:
