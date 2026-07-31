@@ -319,7 +319,7 @@ class PDFOcrOrchestrator:
         pdf = open(self.args.fname, 'rb').read()
         pdf_hash = hashlib.md5(pdf).hexdigest()
         doc = fitz.open('pdf', BytesIO(pdf))
-        return doc, pdf_hash
+        return doc, pdf, pdf_hash
 
     def init_meta(self, doc: fitz.Document, yaml_fname: str) -> Meta:
         """[2] 加载或初始化 meta.yaml。返回 Meta。"""
@@ -336,7 +336,8 @@ class PDFOcrOrchestrator:
         return res
 
     def ocr_pages(
-        self, doc: fitz.Document, res: Meta, yaml_fname: str
+        self, pdf_data: bytes,
+        res: Meta, yaml_fname: str
     ) -> None:
         """[3] VLM 识别每页图像。原地填充 pages.md。"""
         logger.info('[3] 识别图像')
@@ -344,9 +345,9 @@ class PDFOcrOrchestrator:
             if pg.md:
                 continue
             self._submit(
-                _mp_ocr_page, self.args, i, doc.convert_to_pdf(), pg,
+                _mp_ocr_page, self.args, i, pdf_data, pg,
             ) if self.args.multi_processes else self._submit(
-                self._tr_ocr_page, doc.convert_to_pdf(), pg, 
+                self._tr_ocr_page, pdf_data, pg, 
             )
         def res_callback(tpl): res.pages[tpl[0]] = tpl[1]
         self._drain(
@@ -513,13 +514,13 @@ class PDFOcrOrchestrator:
             return
 
         # 1. 加载 PDF
-        doc, pdf_hash = self.load_pdf()
+        doc, pdf_data, pdf_hash = self.load_pdf()
 
         # 2. 初始化 meta
         res = self.init_meta(doc, yaml_fname)
 
         # 3. OCR 识别
-        self.ocr_pages(doc, res, yaml_fname)
+        self.ocr_pages(pdf_data, res, yaml_fname)
 
         # 4. 处理图片
         self.process_images(doc, res, pdf_hash, img_dir, yaml_fname)
