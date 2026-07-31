@@ -226,7 +226,9 @@ def call_llm_retry(
             return (
                 parse_output(res) 
                 if parse_output else res
-            )
+            )    
+        except KeyboardInterrupt:
+            raise
         except Exception as ex:
             logger.debug(f'OpenAI retry {i+1}')
             logger.debug(traceback.format_exc())
@@ -505,6 +507,8 @@ def call_tti_retry(
     for i in range(retry):
         try:
             return call_tti(text, model_name, size, ref_img)
+        except KeyboardInterrupt:
+            raise
         except Exception as ex:
             logging.debug(f'OpenAI retry {i+1}: {str(ex)}')
             if i == retry - 1 and not nothrow: raise ex
