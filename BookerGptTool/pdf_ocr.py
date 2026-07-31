@@ -289,11 +289,16 @@ class PDFOcrOrchestrator:
         logger.debug(f'[6] 处理分组合并')
         prev_line = prev_group.mdcn.strip()
         next_line = group.mdcn.strip()
-        prev = re.search(r'^.+?\Z', prev_line, flags=re.M).group()
-        next = re.search(r'\A.+?$', next_line, flags=re.M).group()
-        group.merge = self.agent.merge(
-            prev_line=prev, next_line=next,
-        )
+        m_prev = re.search(r'^.+?\Z', prev_line, flags=re.M)
+        m_next = re.search(r'\A.+?$', next_line, flags=re.M)
+        if m_prev and m_next:
+            prev = m_prev.group()
+            next = m_next.group()
+            group.merge = self.agent.merge(
+                prev_line=prev, next_line=next,
+            )
+        else:
+            group.merge = 0
 
     # ── 流水线各步骤 ──────────────────────────────
     #
@@ -611,11 +616,16 @@ def _mp_merge_group(args, idx, prev_group: Group, group: Group) -> Tuple[int, Gr
     agent = PdfOcrAgent(args)
     prev_line = prev_group.mdcn.strip()
     next_line = group.mdcn.strip()
-    prev = re.search(r'^.+?\Z', prev_line, flags=re.M).group()
-    next = re.search(r'\A.+?$', next_line, flags=re.M).group()
-    group.merge = agent.merge(
-        prev_line=prev, next_line=next,
-    )
+    m_prev = re.search(r'^.+?\Z', prev_line, flags=re.M)
+    m_next = re.search(r'\A.+?$', next_line, flags=re.M)
+    if m_prev and m_next:
+        prev = m_prev.group()
+        next = m_next.group()
+        group.merge = agent.merge(
+            prev_line=prev, next_line=next,
+        )
+    else:
+        group.merge = 0    
     return idx, group
 
 def _mp_group_page(args, idx, group: Group) -> Tuple[int, Group]:
