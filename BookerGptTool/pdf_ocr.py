@@ -594,6 +594,8 @@ def pdf_ocr(args: argparse.Namespace) -> None:
 def pdf_ocr_file_safe(args: argparse.Namespace) -> None:
     try:
         PDFOcrOrchestrator(args).run()
+    except KeyboardInterrupt:
+        raise
     except:
         logger.warn(traceback.format_exc())
 

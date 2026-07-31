@@ -376,5 +376,7 @@ def trans_epub(args):
 def trans_epub_file_safe(args):
     try:
         TransEpubDispatcher(args).run()
+    except KeyboardInterrupt:
+        raise
     except:
         logger.warn(traceback.format_exc())
