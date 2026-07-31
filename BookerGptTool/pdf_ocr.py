@@ -231,7 +231,8 @@ class PDFOcrOrchestrator:
         logger.debug(f'[3] 识别页码 {page.pgno + 1}')
         doc = fitz.open('pdf', BytesIO(pdf_data))
         fitz_page = doc[page.pgno]
-        if is_scanned_page(fitz_page, self.args.text_thres, self.args.img_thres):
+        if self.args.force_ocr or \
+           is_scanned_page(fitz_page, self.args.text_thres, self.args.img_thres):
             img = fitz_page \
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
@@ -605,7 +606,8 @@ def _mp_ocr_page(args, idx, pdf_data: bytes, page: Page) -> Tuple[int, Page]:
     agent = PdfOcrAgent(args)
     doc = fitz.open('pdf', BytesIO(pdf_data))
     fitz_page = doc[page.pgno]
-    if is_scanned_page(fitz_page, args.text_thres, args.img_thres):
+    if args.force_ocr or \
+       is_scanned_page(fitz_page, args.text_thres, args.img_thres):
         img = fitz_page \
             .get_pixmap(dpi=args.dpi) \
             .pil_tobytes('png')
