@@ -3,8 +3,6 @@ import argparse
 import logging
 import traceback
 import copy
-import requests
-import tarfile
 import numpy as np
 from io import BytesIO
 from os import path
@@ -22,7 +20,7 @@ import json
 import json_repair
 import tqdm
 from imgyaso.quant import pngquant
-from pydantic import BaseModel
+from pydantic import BaseModel, parse_obj_as
 from .clean_heading import clean_md_llm
 from .pdf_ocr_pmt import *
 from .pdf_ocr_models import *
@@ -170,22 +168,31 @@ class PDFOcrOrchestrator:
         slug = to_kebab(name)
         d = path.dirname(args.fname)
         pj_dir = path.join(d, slug) if args.mkdir else d
+        img_dir = (
+            path.join(pj_dir, 'img')
+            if args.mkdir else args.fname[:-4] + '_imgs'
+        )
+        meta_dir = (
+            path.join(pj_dir, 'asset')
+            if args.mkdir else args.fname[:-4] + '_asset'
+        )
+        md_fname = (
+            path.join(pj_dir, f'{slug}.md')
+            if args.mkdir else args.fname[:-4] + '.md'
+        )
+        page_fname = path.join(meta_dir, 'pages.yaml')
+        group_fname = path.join(meta_dir, 'groups.yaml')
+        toc_fname = path.join(meta_dir, 'toc.yaml')
         return {
             'name': name,
             'slug': slug,
             'pj_dir': pj_dir,
-            'md_fname': (
-                path.join(pj_dir, f'{slug}.md')
-                if args.mkdir else args.fname[:-4] + '.md'
-            ),
-            'yaml_fname': (
-                path.join(pj_dir, 'meta.yaml')
-                if args.mkdir else args.fname[:-4] + '.yaml'
-            ),
-            'img_dir': (
-                path.join(pj_dir, 'img')
-                if args.mkdir else args.fname[:-4] + '_imgs'
-            ),
+            'meta_dir': meta_dir,
+            'img_dir': img_dir,
+            'md_fname': md_fname,
+            'page_fname': page_fname,
+            'group_fname': group_fname,
+            'toc_fname': toc_fname,
         }
 
     # ── 线程池工具 ────────────────────────────────
@@ -322,27 +329,26 @@ class PDFOcrOrchestrator:
         doc = fitz.open('pdf', BytesIO(pdf))
         return doc, pdf, pdf_hash
 
-    def init_meta(self, doc: fitz.Document, yaml_fname: str) -> Meta:
+    def init_page(self, doc: fitz.Document, page_fname: str) -> List[Page]:
         """[2] 加载或初始化 meta.yaml。返回 Meta。"""
-        logger.info(f'[2] 初始化 {yaml_fname}')
-        if path.isfile(yaml_fname) and \
-           path.getsize(yaml_fname) != 0:
-            res = yaml.safe_load(
-                open(yaml_fname, encoding='utf8').read()
+        logger.info(f'[2] 初始化 {page_fname}')
+        if path.isfile(page_fname) and \
+           path.getsize(page_fname) != 0:
+            pages = yaml.safe_load(
+                open(page_fname, encoding='utf8').read()
             )
-            return Meta(**res)
+            return parse_obj_as(List[Page], pages)
         pages = [Page(pgno=i) for i in range(len(doc))]
-        res = Meta(pages=pages)
-        self._write_yaml(res, yaml_fname)
-        return res
+        self._write_yaml(pages, page_fname)
+        return pages
 
     def ocr_pages(
         self, pdf_data: bytes,
-        res: Meta, yaml_fname: str
+        pages: List[Page], page_fname: str
     ) -> None:
         """[3] VLM 识别每页图像。原地填充 pages.md。"""
         logger.info('[3] 识别图像')
-        for i, pg in enumerate(tqdm.tqdm(res.pages)):
+        for i, pg in enumerate(tqdm.tqdm(pages)):
             if pg.md:
                 continue
             self._submit(
@@ -350,20 +356,21 @@ class PDFOcrOrchestrator:
             ) if self.args.multi_processes else self._submit(
                 self._tr_ocr_page, pdf_data, pg, 
             )
-        def res_callback(tpl): res.pages[tpl[0]] = tpl[1]
+        def res_callback(tpl): pages[tpl[0]] = tpl[1]
         self._drain(
-            lambda: self._write_yaml(res, yaml_fname),
+            lambda: self._write_yaml(pages, page_fname),
             res_callback if self.args.multi_processes else None,
         )
 
     def process_images(
-        self, doc: fitz.Document, res: Meta, pdf_hash: str,
-        img_dir: str, yaml_fname: str,
+        self, doc: fitz.Document, pages: List[Page], 
+        pdf_hash: str,
+        img_dir: str, page_fname: str,
     ) -> None:
         """[4] 裁切并保存页面中的插图。原地填充 pages.md/img_proc。"""
         logger.info('[4] 处理图片')
         os.makedirs(img_dir, exist_ok=True)
-        for i, pg in enumerate(tqdm.tqdm(res.pages)):
+        for i, pg in enumerate(tqdm.tqdm(pages)):
             if pg.img_proc:
                 continue
             pgno = pg.pgno
@@ -375,18 +382,26 @@ class PDFOcrOrchestrator:
             ) if self.args.multi_processes else self._submit(
                 self._tr_proc_img, img, pg, img_dir, pdf_hash,
             )
-        def res_callback(tpl): res.pages[tpl[0]] = tpl[1]
+        def res_callback(tpl): pages[tpl[0]] = tpl[1]
         self._drain(
-            lambda: self._write_yaml(res, yaml_fname),
+            lambda: self._write_yaml(pages, page_fname),
             res_callback if self.args.multi_processes else None,
         )
 
-    def group_pages(self, res: Meta, yaml_fname: str) -> None:
+    def group_pages(self, pages: List[Page], group_fname: str) -> List[Group]:
         """[5] 按长度分组，后处理 + 翻译。填充 res.groups。"""
         logger.info('[5] 处理页间合并')
-        if not res.groups:
-            res.groups = mkgroups(res.pages, self.args)
-        for i, g in enumerate(tqdm.tqdm(res.groups)):
+        if path.isfile(group_fname) and \
+           path.getsize(group_fname) != 0:
+            groups = yaml.safe_load(
+                open(group_fname, encoding='utf8').read()
+            )
+            groups = parse_obj_as(List[Group], groups)
+        else:
+            groups = mkgroups(pages, self.args)
+            self._write_yaml(groups, group_fname)
+        
+        for i, g in enumerate(tqdm.tqdm(groups)):
             if g.md and g.mdcn:
                 continue
             self._submit(
@@ -394,36 +409,36 @@ class PDFOcrOrchestrator:
             ) if self.args.multi_processes else self._submit(
                 self._tr_group_page, g,
             )
-        def res_callback(tpl): res.groups[tpl[0]] = tpl[1]
+        def res_callback(tpl): groups[tpl[0]] = tpl[1]
         self._drain(
-            lambda: self._write_yaml(res, yaml_fname),
+            lambda: self._write_yaml(groups, group_fname),
             res_callback if self.args.multi_processes else None,
         )
+        return groups
 
-    def merge_groups(self, res: Meta, yaml_fname: str) -> None:
+    def merge_groups(self, groups: List[Group], group_fname: str) -> None:
         """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge。"""
         logger.info('[6] 处理组间合并')
-        res.groups = [g for g in res.groups if g.mdcn]
-        for i, g in enumerate(tqdm.tqdm(res.groups)):
+        for i, g in enumerate(tqdm.tqdm(groups)):
             if i == 0:
                 continue
             if g.merge != -1:
                 continue
             self._submit(
-                _mp_merge_group, self.args, i, res.groups[i - 1], g
+                _mp_merge_group, self.args, i, groups[i - 1], g
             ) if self.args.multi_processes else self._submit(
-                self._tr_merge_group, res.groups[i - 1], g,
+                self._tr_merge_group, groups[i - 1], g,
             )
-        def res_callback(tpl): res.groups[tpl[0]] = tpl[1]
+        def res_callback(tpl): groups[tpl[0]] = tpl[1]
         self._drain(
-            lambda: self._write_yaml(res, yaml_fname),
+            lambda: self._write_yaml(groups, group_fname),
             res_callback if self.args.multi_processes else None,
         )
 
-    def build_full_text(self, res: Meta, name: str) -> Tuple[str, str]:
+    def build_full_text(self, groups: List[Group], name: str) -> Tuple[str, str]:
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
         full_text = ''
-        for i, g in enumerate(res.groups):
+        for i, g in enumerate(groups):
             logger.debug(f'[6] 生成全文 {i}')
             if g.merge != 1:
                 full_text += '\n\n'
@@ -437,16 +452,18 @@ class PDFOcrOrchestrator:
 
         return full_text, name_cn
 
-    def fix_toc(self, full_text: str, res: Meta, yaml_fname: str) -> str:
+    def fix_toc(self, full_text: str, res: Meta, toc_fname: str) -> str:
         """[7] 修正目录层级。返回修正后的 full_text。"""
         logger.info('[7] 修正目录')
-        if res.toc:
-            toc = res.toc
+        if path.isfile(toc_fname) and \
+           path.getsize(toc_fname) != 0:
+            toc = yaml.safe_load(
+                open(toc_fname, encoding='utf8').read()
+            )
         else:
             toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
             toc = self.agent.fix_toc(toc_text='\n'.join(toc))
-            res.toc = toc
-            self._write_yaml(res, yaml_fname)
+            self._write_yaml(toc, toc_fname)
         for lvl, title in toc:
             logger.debug(f'[7] {lvl} {title}')
             try:
@@ -506,7 +523,9 @@ class PDFOcrOrchestrator:
         slug = paths['slug']
         pj_dir = paths['pj_dir']
         md_fname = paths['md_fname']
-        yaml_fname = paths['yaml_fname']
+        page_fname = paths['page_fname']
+        group_fname = paths['group_fname']
+        toc_fname = paths['toc_fname']
         img_dir = paths['img_dir']
 
         os.makedirs(pj_dir, exist_ok=True)
@@ -518,25 +537,25 @@ class PDFOcrOrchestrator:
         doc, pdf_data, pdf_hash = self.load_pdf()
 
         # 2. 初始化 meta
-        res = self.init_meta(doc, yaml_fname)
+        pages = self.init_page(doc, page_fname)
 
         # 3. OCR 识别
-        self.ocr_pages(pdf_data, res, yaml_fname)
+        self.ocr_pages(pdf_data, pages, page_fname)
 
         # 4. 处理图片
-        self.process_images(doc, res, pdf_hash, img_dir, yaml_fname)
+        self.process_images(doc, pages, pdf_hash, img_dir, page_fname)
 
         # 5. 分组 + 后处理 + 翻译
-        self.group_pages(res, yaml_fname)
+        groups = self.group_pages(pages, group_fname)
 
         # 6. 组间合并
-        self.merge_groups(res, yaml_fname)
+        self.merge_groups(groups, group_fname)
 
         # 7. 拼接全文
-        full_text, name_cn = self.build_full_text(res, name)
+        full_text, name_cn = self.build_full_text(groups, name)
 
         # 8. 修正目录
-        full_text = self.fix_toc(full_text, res, yaml_fname)
+        full_text = self.fix_toc(full_text, pages, toc_fname)
 
         # 9. 写入文件
         self.write_output(full_text, name_cn, md_fname, pj_dir, slug, name)
