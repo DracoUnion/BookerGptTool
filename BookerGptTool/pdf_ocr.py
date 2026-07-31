@@ -452,7 +452,7 @@ class PDFOcrOrchestrator:
 
         return full_text, name_cn
 
-    def fix_toc(self, full_text: str, res: Meta, toc_fname: str) -> str:
+    def fix_toc(self, full_text: str, toc_fname: str) -> str:
         """[7] 修正目录层级。返回修正后的 full_text。"""
         logger.info('[7] 修正目录')
         if path.isfile(toc_fname) and \
@@ -557,7 +557,7 @@ class PDFOcrOrchestrator:
         full_text, name_cn = self.build_full_text(groups, name)
 
         # 8. 修正目录
-        full_text = self.fix_toc(full_text, pages, toc_fname)
+        full_text = self.fix_toc(full_text, toc_fname)
 
         # 9. 写入文件
         self.write_output(full_text, name_cn, md_fname, pj_dir, slug, name)
