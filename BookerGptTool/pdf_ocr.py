@@ -527,8 +527,10 @@ class PDFOcrOrchestrator:
         group_fname = paths['group_fname']
         toc_fname = paths['toc_fname']
         img_dir = paths['img_dir']
+        meta_dir = paths['meta_dir']
 
         os.makedirs(pj_dir, exist_ok=True)
+        os.makedirs(meta_dir, exist_ok=True)
         if path.isfile(md_fname):
             logger.warn('PDF 已处理')
             return
