@@ -236,6 +236,7 @@ class TransEpubDispatcher:
                 pool.submit(self._tr_fmt_trans, c)
             hdls.append(h)
 
+        save_step = min(len(hdls) // 5, 100)
         with tqdm.tqdm(total=len(hdls)) as pbar:
             for i, h in enumerate(as_completed(hdls)):
                 if self.args.multi_processes:
@@ -243,7 +244,7 @@ class TransEpubDispatcher:
                     chunks[idx] = c
                 else:
                     h.result()
-                if i % 100 == 0 or i == len(hdls) - 1:
+                if i % save_step == 0 or i == len(hdls) - 1:
                     self._write_yaml(chunk_fname, chunks)
             pbar.update(1)
         return chunks
