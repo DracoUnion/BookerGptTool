@@ -202,7 +202,7 @@ class PDFOcrOrchestrator:
         h = self.pool.submit(fn, *args, **kwargs)
         self._hdls.append(h)
 
-    def _drain(self, write_callback: Optional[Callable] = None, res_callback: Optional[Callable] = None) -> None:
+    def _collect_hdls(self, write_callback: Optional[Callable] = None, res_callback: Optional[Callable] = None) -> None:
         """等待所有已提交任务完成并清空。
         on_done: 每个子线程完成后在主线程中调用的回调。
         """
@@ -358,7 +358,7 @@ class PDFOcrOrchestrator:
                 self._tr_ocr_page, pdf_data, pg, 
             )
         def res_callback(tpl): pages[tpl[0]] = tpl[1]
-        self._drain(
+        self._collect_hdls(
             lambda: self._write_yaml(pages, page_fname),
             res_callback if self.args.multi_processes else None,
         )
@@ -384,7 +384,7 @@ class PDFOcrOrchestrator:
                 self._tr_proc_img, img, pg, img_dir, pdf_hash,
             )
         def res_callback(tpl): pages[tpl[0]] = tpl[1]
-        self._drain(
+        self._collect_hdls(
             lambda: self._write_yaml(pages, page_fname),
             res_callback if self.args.multi_processes else None,
         )
@@ -411,7 +411,7 @@ class PDFOcrOrchestrator:
                 self._tr_group_page, g,
             )
         def res_callback(tpl): groups[tpl[0]] = tpl[1]
-        self._drain(
+        self._collect_hdls(
             lambda: self._write_yaml(groups, group_fname),
             res_callback if self.args.multi_processes else None,
         )
@@ -431,7 +431,7 @@ class PDFOcrOrchestrator:
                 self._tr_merge_group, groups[i - 1], g,
             )
         def res_callback(tpl): groups[tpl[0]] = tpl[1]
-        self._drain(
+        self._collect_hdls(
             lambda: self._write_yaml(groups, group_fname),
             res_callback if self.args.multi_processes else None,
         )

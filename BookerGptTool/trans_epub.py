@@ -89,6 +89,11 @@ class TransEpubDispatcher:
         self.args = args
         self.agent = EpubTranslatorAgent(args)
 
+        self.pool = ProcessPoolExecutor(self.args.page_threads) \
+            if self.args.multi_processes else \
+            ThreadPoolExecutor(self.args.page_threads)
+        self.hdls = []
+
     def _resolve_paths(self, args):
         name = path.basename(args.fname)[:-5]
         slug = to_kebab(name)
@@ -212,6 +217,17 @@ class TransEpubDispatcher:
             f.write(yaml.safe_dump(obj, allow_unicode=True))
             f.flush()
 
+    def _collect_hdls(self, write_callback:Optional[Callable]=None, res_callback:Optional[Callable]=None):
+        save_step = min(len(self.hdls) // 5, 100)
+        with tqdm.tqdm(total=len(self.hdls)) as pbar:
+            for i, h in enumerate(as_completed(self.hdls)):
+                r = h.result()
+                if res_callback: res_callback(r)
+                if write_callback and \
+                  (i % save_step == 0 or i == len(self.hdls) - 1):
+                    write_callback()
+            pbar.update(1)
+
     def _format_translate(self, chunk_fname, md):
         logger.info('[4] 排版和翻译')
         if path.isfile(chunk_fname) and \
@@ -223,30 +239,19 @@ class TransEpubDispatcher:
             chunks = [Chunk(raw=c) for c in groups]
             self._write_yaml(chunk_fname, chunks)
 
-        pool = ProcessPoolExecutor(self.args.page_threads) \
-            if self.args.multi_processes else \
-            ThreadPoolExecutor(self.args.page_threads)
-        hdls = []
-
         for i, c in enumerate(tqdm.tqdm(chunks)):
             if c.fmt and c.trans:
                 continue
-            h = pool.submit(_mp_fmt_trans, self.args, i, c) \
+            h = self.pool.submit(_mp_fmt_trans, self.args, i, c) \
                 if self.args.multi_processes else \
-                pool.submit(self._tr_fmt_trans, c)
-            hdls.append(h)
+                self.pool.submit(self._tr_fmt_trans, c)
+            self.hdls.append(h)
 
-        save_step = min(len(hdls) // 5, 100)
-        with tqdm.tqdm(total=len(hdls)) as pbar:
-            for i, h in enumerate(as_completed(hdls)):
-                if self.args.multi_processes:
-                    idx, c = h.result()
-                    chunks[idx] = c
-                else:
-                    h.result()
-                if i % save_step == 0 or i == len(hdls) - 1:
-                    self._write_yaml(chunk_fname, chunks)
-            pbar.update(1)
+        def res_callback(tpl): chunks[tpl[0]] = tpl[1] 
+        self._collect_hdls(
+            lambda: self._write_yaml(chunk_fname, chunks),
+            res_callback if self.args.multi_processes else None
+        )
         return chunks
 
     def _fix_toc(self, chunks, meta, meta_fname):
