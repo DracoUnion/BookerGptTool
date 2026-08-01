@@ -272,8 +272,7 @@ def call_llm(
         ans = collect_stream_content(res)
     else:
         ans = res.choices[0].message.content.strip()
-        if openai.rpre and re.search(openai.rpre, ans):
-            raise ValueError('检测到模型复读')
+        check_model_repetition(ans)
     if not ans: raise ValueError(f'回复为空：{res}')
     
     # 还原指令格式
@@ -301,11 +300,13 @@ def collect_stream_content(resp):
         if chunk.choices and chunk.choices[0].delta.content:
             pt = chunk.choices[0].delta.content
             content.append(pt)
-            if openai.rpre and \
-               re.search(openai.rpre, ''.join(content)):
-                raise ValueError('检测到模型复读')
+            check_model_repetition(''.join(content))
             logger.debug(f'stream: {json.dumps(pt, ensure_ascii=False)}')
     return ''.join(content)
+
+def check_model_repetition(text):
+    if openai.rpre and re.search(openai.rpre, text):
+        raise ValueError('检测到模型复读')
 
 def extname(fname):
     m = re.search(r'\.(\w+)$', fname)
