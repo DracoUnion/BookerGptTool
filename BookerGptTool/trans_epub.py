@@ -227,6 +227,7 @@ class TransEpubDispatcher:
                   (i % save_step == 0 or i == len(self.hdls) - 1):
                     write_callback()
             pbar.update(1)
+        self.hdls = []
 
     def _format_translate(self, chunk_fname, md):
         logger.info('[4] 排版和翻译')
