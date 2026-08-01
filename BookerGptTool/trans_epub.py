@@ -218,7 +218,7 @@ class TransEpubDispatcher:
             f.flush()
 
     def _collect_hdls(self, write_callback:Optional[Callable]=None, res_callback:Optional[Callable]=None):
-        save_step = min(len(self.hdls) // 5, 100)
+        save_step = max(min(len(self.hdls) // 5, 100), 1)
         with tqdm.tqdm(total=len(self.hdls)) as pbar:
             for i, h in enumerate(as_completed(self.hdls)):
                 r = h.result()

@@ -206,7 +206,7 @@ class PDFOcrOrchestrator:
         """等待所有已提交任务完成并清空。
         on_done: 每个子线程完成后在主线程中调用的回调。
         """
-        save_step = min(len(self._hdls) // 5, 100)
+        save_step = max(min(len(self._hdls) // 5, 100), 1)
         with tqdm.tqdm(total=len(self._hdls)) as pbar:
             for i, h in enumerate(as_completed(self._hdls)):
                 r = h.result()
