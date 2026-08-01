@@ -52,6 +52,7 @@ def main():
     parser.add_argument("-eb", "--extra-body", help="extra body")
     parser.add_argument("-ct", "--conn-timeout", type=int, default=6000, help="")
     parser.add_argument("-rt", "--read-timeout", type=int, default=600000, help="")
+    parser.add_argument("-rr", "--repetition-regex", default=r'([\s\S]{2,100})\1{4}', help="re for repetition detection")
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
     
