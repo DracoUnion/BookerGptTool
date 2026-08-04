@@ -354,7 +354,7 @@ class PDFOcrOrchestrator:
         for i, pg in enumerate(tqdm.tqdm(pages)):
             if pg.md:
                 continue
-            fitz_page = doc[page.pgno]
+            fitz_page = doc[pg.pgno]
             self._submit(
                 _mp_ocr_page, self.args, i, pdf_data, pg,
             ) if self.args.multi_processes else self._submit(
