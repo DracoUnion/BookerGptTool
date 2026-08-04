@@ -344,12 +344,12 @@ class PDFOcrOrchestrator:
         return pages
 
     def ocr_pages(
-        self, pdf_data: bytes,
+        self, doc: fitz.Document, pdf_data: bytes,
         pages: List[Page], page_fname: str
     ) -> None:
         """[3] VLM 识别每页图像。原地填充 pages.md。"""
         logger.info('[3] 识别图像')
-        doc = fitz.open('pdf', BytesIO(pdf_data))
+        # doc = fitz.open('pdf', BytesIO(pdf_data))
 
         for i, pg in enumerate(tqdm.tqdm(pages)):
             if pg.md:
@@ -546,7 +546,7 @@ class PDFOcrOrchestrator:
         pages = self.init_page(doc, page_fname)
 
         # 3. OCR 识别
-        self.ocr_pages(pdf_data, pages, page_fname)
+        self.ocr_pages(doc, pdf_data, pages, page_fname)
 
         # 4. 处理图片
         self.process_images(doc, pages, pdf_hash, img_dir, page_fname)
