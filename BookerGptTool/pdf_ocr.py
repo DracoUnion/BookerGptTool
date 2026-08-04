@@ -349,13 +349,16 @@ class PDFOcrOrchestrator:
     ) -> None:
         """[3] VLM 识别每页图像。原地填充 pages.md。"""
         logger.info('[3] 识别图像')
+        doc = fitz.open('pdf', BytesIO(pdf_data))
+
         for i, pg in enumerate(tqdm.tqdm(pages)):
             if pg.md:
                 continue
+            fitz_page = doc[page.pgno]
             self._submit(
                 _mp_ocr_page, self.args, i, pdf_data, pg,
             ) if self.args.multi_processes else self._submit(
-                self._tr_ocr_page, pdf_data, pg, 
+                self._tr_ocr_page, fitz_page, pg, 
             )
         def res_callback(tpl): pages[tpl[0]] = tpl[1]
         self._collect_hdls(
