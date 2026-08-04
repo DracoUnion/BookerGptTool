@@ -235,10 +235,10 @@ class PDFOcrOrchestrator:
 
     # ── 线程池任务 ────────────────────────────────
 
-    def _tr_ocr_page(self, pdf_data: bytes, page: Page) -> None:
+    def _tr_ocr_page(self, fitz_page: fitz.Page, page: Page) -> None:
         logger.debug(f'[3] 识别页码 {page.pgno + 1}')
-        doc = fitz.open('pdf', BytesIO(pdf_data))
-        fitz_page = doc[page.pgno]
+        # doc = fitz.open('pdf', BytesIO(pdf_data))
+        # fitz_page = doc[page.pgno]
         if self.args.force_ocr or \
            is_scanned_page(fitz_page, self.args.text_thres, self.args.img_thres):
             img = fitz_page \
