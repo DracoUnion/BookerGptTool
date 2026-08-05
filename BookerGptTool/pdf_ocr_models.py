@@ -11,9 +11,9 @@ class OCRContentResult(BaseModel):
     def validate_bbox(cls, bbox):
         if not len(bbox) == 4:
             raise ValueError('bbox 长度应为 4')
-        for it in bbox:
+        for i, it in enumerate(bbox):
             if not 0 <= it <= 1:
-                raise ValueError('bbox 每个元素应在 0 和 1 之间')
+                bbox[i] = it / 1000
         return bbox
             
 
