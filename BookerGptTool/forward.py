@@ -96,4 +96,4 @@ def forward(args):
             channel_timeout=args.conn_timeout,
         )
     else:
-        app.run(args.listen_host, args.listen_port, args.debug)
+        app.run(args.listen_host, args.listen_port, False)
