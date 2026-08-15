@@ -292,7 +292,7 @@ def set_openai_props(args):
         write=None,
         pool=None,
     )
-    openai.rptr = args.repetition_thres
+    openai.rpre = args.repetition_regex
 
 def collect_stream_content(resp):
     content = []
@@ -305,7 +305,7 @@ def collect_stream_content(resp):
     return ''.join(content)
 
 def check_model_repetition(text):
-    if openai.rptr and is_repetitive(text, openai.rptr):
+    if openai.rpre and re.search(openai.rpre, text):
         raise ValueError('检测到模型复读')
 
 def extname(fname):
@@ -490,10 +490,3 @@ def call_tti_retry(
         except Exception as ex:
             logging.debug(f'OpenAI retry {i+1}: {str(ex)}')
             if i == retry - 1 and not nothrow: raise ex
-
-def is_repetitive(text, threshold=0.3, n=4):
-    # 将文本切分为连续的 n 个词或字符（这里以字符为例）
-    ngrams = [text[i:i+n] for i in range(len(text)-n+1)]
-    unique_ngrams = set(ngrams)
-    # 如果去重后的片段占比低于阈值（例如30%），说明大量内容在重复
-    return len(unique_ngrams) / len(ngrams) < threshold
