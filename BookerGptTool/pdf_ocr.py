@@ -244,9 +244,13 @@ class PDFOcrOrchestrator:
             img = fitz_page \
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
+            logger.debug(f'[3] {page.pgno + 1}: ocr 准备')
             page.md = self.agent.ocr(img=img)
+            logger.debug(f'[3] {page.pgno + 1}: ocr 完成')
         else:
+            logger.debug(f'[3] {page.pgno + 1}: tomd 准备')
             page.md = tomd(fitz_page.get_text('html'))
+            logger.debug(f'[3] {page.pgno + 1}: tomd 准备')
 
 
     def _tr_proc_img(
@@ -633,12 +637,16 @@ def _mp_ocr_page(args, idx, pdf_data: bytes, page: Page) -> Tuple[int, Page]:
     fitz_page = doc[page.pgno]
     if args.force_ocr or \
        is_scanned_page(fitz_page, args.text_thres, args.img_thres):
+        logger.debug(f'[3] {page.pgno + 1}: ocr 准备')
         img = fitz_page \
             .get_pixmap(dpi=args.dpi) \
             .pil_tobytes('png')
         page.md = agent.ocr(img=img)
+        logger.debug(f'[3] {page.pgno + 1}: ocr 完成')
     else:
+        logger.debug(f'[3] {page.pgno + 1}: tomd 准备')
         page.md = tomd(fitz_page.get_text('html'))
+        logger.debug(f'[3] {page.pgno + 1}: tomd 完成')
     return idx, page
 
 def _mp_merge_group(args, idx, prev_group: Group, group: Group) -> Tuple[int, Group]:
