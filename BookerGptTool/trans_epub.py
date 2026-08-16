@@ -10,12 +10,12 @@ import yaml
 from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
 from imgyaso.quant import pngquant
 from .trans_epub_pmt import *
+from .tomd import tomd
 from .util import (
     set_openai_props, 
     to_kebab, 
     read_zip, 
     is_pic, 
-    tomd, 
     get_md_title, 
     epub2html_pandoc, 
     group_chunks, 

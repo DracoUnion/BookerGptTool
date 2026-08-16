@@ -24,6 +24,7 @@ from pydantic import BaseModel, parse_obj_as
 from .clean_heading import clean_md_llm
 from .pdf_ocr_pmt import *
 from .pdf_ocr_models import *
+from .tomd import tomd
 from .util import (
     call_vlm_retry,
     ask_chatgpt_retry,
@@ -33,7 +34,6 @@ from .util import (
     ext_code_block,
     ext_cont_block,
     logger as util_logger,
-    tomd,
 )
 
 logging.basicConfig(

@@ -1,3 +1,4 @@
+import pyturndown
 import openai
 import base64
 import httpx
@@ -49,27 +50,6 @@ def epub2html_pandoc(epub):
     os.remove(fname)
     os.remove(ofname)
     return html
-
-def tomd(html, lang=None):
-    # 处理 IFRAME
-    RE_IFRAME = r'<iframe[^>]*src="(.+?)"[^>]*>'
-    RE_IFRAME_ALL = r'</?iframe[^>]*>'
-    RE_IFRAME_REPL = r'<br/><br/><a href="\1">\1</a><br/><br/>'
-    html = re.sub(RE_IFRAME, RE_IFRAME_REPL, html)
-    html = re.sub(RE_IFRAME_ALL, '', html)
-    js_fname = d('tomd.js')
-    html_fname = path.join(tempfile.gettempdir(), uuid.uuid4().hex + '.html')
-    open(html_fname, 'w', encoding='utf8').write(html)
-    subp.Popen(
-        ["node", js_fname, html_fname],
-        shell=True,
-    ).communicate()
-    md_fname = re.sub(r'\.html$', '', html_fname) + '.md'
-    md = open(md_fname, encoding='utf8').read()
-    os.remove(html_fname)
-    if lang:
-        md = re.sub(r'```([\s\S]+?```)', '```' + lang + r'\1', md)
-    return md
 
 def is_pic(fname):
     ext = [
