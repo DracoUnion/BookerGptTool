@@ -54,7 +54,6 @@ def filter_a_no_href(node, options):
     return node.tag == 'a' and not node.get('href')
 
 def filter_single_pre(node, options):
-    print('filter_single_pre')
     if node.tag not in ('pre', 'textarea'):
         return False
     children = node.getchildren()
