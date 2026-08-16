@@ -24,36 +24,36 @@ def register_rule(name, filter_condition, replacement_func):
 SUPERSCRIPTS = list('⁰¹²³⁴⁵⁶⁷⁸⁹')
 
 # ---------- filter 函数（均为独立 def） ----------
-def filter_math(node):
+def filter_math(node, options):
     return node.tag == 'math'
 
 
-def filter_p_in_td(node):
+def filter_p_in_td(node, options):
     return (node.tag == 'p' and
             node.getparent() is not None and
             node.getparent().tag in ('td', 'th'))
 
-def filter_dd_dt(node):
+def filter_dd_dt(node, options):
     return node.tag in ('dd', 'dt', 'figcaption', 'caption')
 
-def filter_dl(node):
+def filter_dl(node, options):
     return node.tag == 'dl'
 
 
-def filter_span_div(node):
+def filter_span_div(node, options):
     return node.tag in ('span', 'div', 'article', 'section', 'header', 'footer',
                         'figure', 'nav', 'u', 'center', 'small', 'cite', 'mark',
                         'font', 'big', 'time', 'address', 'abbr', 'object')
 
-def filter_clean(node):
+def filter_clean(node, options):
     return node.tag in ('style', 'base', 'meta', 'script', 'ins', 'aside',
                         'noscript', 'form', 'label', 'input', 'button',
                         'col', 'colgroup')
 
-def filter_a_no_href(node):
+def filter_a_no_href(node, options):
     return node.tag == 'a' and not node.get('href')
 
-def filter_single_pre(node):
+def filter_single_pre(node, options):
     print('filter_single_pre')
     if node.tag not in ('pre', 'textarea'):
         return False
@@ -61,60 +61,60 @@ def filter_single_pre(node):
     has_code = len(children) == 1 and children[0].tag == 'code'
     return not has_code
 
-def filter_in_pre(node):
+def filter_in_pre(node, options):
     parent = node.getparent()
     return parent is not None and parent.tag == 'pre' and node.tag != 'br'
 
-def filter_media(node):
+def filter_media(node, options):
     return node.tag in ('iframe', 'video', 'audio', 'source')
 
-def filter_sub(node):
+def filter_sub(node, options):
     return node.tag == 'sub'
 
-def filter_sup(node):
+def filter_sup(node, options):
     return node.tag == 'sup'
 
 # ---------- replacement 函数（均为独立 def） ----------
-def repl_math(content, node):
+def repl_math(content, node, options):
     tex = node.get('alttext')
     if tex:
         return '$' + tex.strip() + '$'
     return content
 
-def repl_p_in_td(content, node):
+def repl_p_in_td(content, node, options):
     return content
 
-def repl_dd_dt(content, node):
+def repl_dd_dt(content, node, options):
     return '\n\n' + content + '\n\n'
 
-def repl_dl(content, node):
+def repl_dl(content, node, options):
     return content
 
-def repl_span_div(content, node):
+def repl_span_div(content, node, options):
     return content
 
-def repl_clean(content, node):
+def repl_clean(content, node, options):
     return ''
 
-def repl_a_no_href(content, node):
+def repl_a_no_href(content, node, options):
     return content
 
-def repl_single_pre(content, node):
+def repl_single_pre(content, node, options):
     # 注意：此规则标记为 leaf，因此 content 实际上是 node.text_content()
     return '\n\n```\n' + content + '\n```\n\n'
 
-def repl_in_pre(content, node):
+def repl_in_pre(content, node, options):
     return content
 
-def repl_media(content, node):
+def repl_media(content, node, options):
     src = node.get('src')
     prefix = '\n\n<' + src + '>\n\n' if src else ''
     return prefix + content
 
-def repl_sub(content, node):
+def repl_sub(content, node, options):
     return '[' + content + ']'
 
-def repl_sup(content, node):
+def repl_sup(content, node, options):
     # 如果内容为单个数字（0-9），返回上标字符
     if content in SUPERSCRIPTS:  # 直接匹配字符
         return content
