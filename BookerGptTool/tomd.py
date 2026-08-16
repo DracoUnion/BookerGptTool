@@ -21,7 +21,7 @@ def register_rule(name, filter_condition, replacement_func):
 
 
 # 上标字符映射表（0-9）
-SUPERSCRIPTS = {i:it for i, it in enumerate('⁰¹²³⁴⁵⁶⁷⁸⁹')}
+SUPERSCRIPTS = {str(i):it for i, it in enumerate('⁰¹²³⁴⁵⁶⁷⁸⁹')}
 
 # ---------- filter 函数（均为独立 def） ----------
 def filter_math(node, options):
