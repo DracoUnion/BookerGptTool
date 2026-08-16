@@ -54,7 +54,13 @@ def filter_a_no_href(node):
     return node.tag == 'a' and not node.get('href')
 
 def filter_pre(node):
-    return node.tag in ('pre', 'textarea')
+    if node.tag not in ('pre', 'textarea'):
+        return False
+    children = node.getchilren()
+    if not children:
+        return True
+    has_code = any(ch.tag == 'code' for ch in children)
+    return not has_code
 
 def filter_in_pre(node):
     parent = node.getparent()
