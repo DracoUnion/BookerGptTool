@@ -57,7 +57,7 @@ def filter_single_pre(node, options):
     print('filter_single_pre')
     if node.tag not in ('pre', 'textarea'):
         return False
-    children = node.getchilren()
+    children = node.getchildren()
     has_code = len(children) == 1 and children[0].tag == 'code'
     return not has_code
 
