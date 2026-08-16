@@ -54,6 +54,7 @@ def filter_a_no_href(node):
     return node.tag == 'a' and not node.get('href')
 
 def filter_single_pre(node):
+    print('filter_single_pre')
     if node.tag not in ('pre', 'textarea'):
         return False
     children = node.getchilren()
@@ -154,7 +155,8 @@ def tomd(html, lang=None):
     html = re.sub(RE_IFRAME, RE_IFRAME_REPL, html)
     html = re.sub(RE_IFRAME_ALL, '', html)
     tds = pyturndown.TurndownService()
-    tds.options['rules'] |= get_rules()
+    for k, r in get_rules().items():
+        tds.add_rule(k, r)
     md = tds.turndown(html)
     if lang:
         md = re.sub(r'```([\s\S]+?```)', '```' + lang + r'\1', md)
