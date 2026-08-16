@@ -250,7 +250,7 @@ class PDFOcrOrchestrator:
         else:
             logger.debug(f'[3] {page.pgno + 1}: tomd 准备')
             page.md = tomd(fitz_page.get_text('html'))
-            logger.debug(f'[3] {page.pgno + 1}: tomd 准备')
+            logger.debug(f'[3] {page.pgno + 1}: tomd 完成')
 
 
     def _tr_proc_img(
