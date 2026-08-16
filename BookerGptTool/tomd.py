@@ -53,13 +53,11 @@ def filter_clean(node):
 def filter_a_no_href(node):
     return node.tag == 'a' and not node.get('href')
 
-def filter_pre(node):
+def filter_single_pre(node):
     if node.tag not in ('pre', 'textarea'):
         return False
     children = node.getchilren()
-    if not children:
-        return True
-    has_code = any(ch.tag == 'code' for ch in children)
+    has_code = len(children) == 1 and children[0].tag == 'code'
     return not has_code
 
 def filter_in_pre(node):
@@ -100,7 +98,7 @@ def repl_clean(content, node):
 def repl_a_no_href(content, node):
     return content
 
-def repl_pre(content, node):
+def repl_single_pre(content, node):
     # 注意：此规则标记为 leaf，因此 content 实际上是 node.text_content()
     return '\n\n```\n' + content + '\n```\n\n'
 
@@ -133,7 +131,7 @@ register_rule('in_pre', filter_in_pre, repl_in_pre)
 register_rule('math', filter_math, repl_math)
 register_rule('media', filter_media, repl_media)
 register_rule('p_in_td', filter_p_in_td, repl_p_in_td)
-register_rule('pre', filter_pre, repl_pre)
+register_rule('single_pre', filter_single_pre, repl_single_pre)
 register_rule('span_div', filter_span_div, repl_span_div)
 register_rule('sub', filter_sub, repl_sub)
 register_rule('sup', filter_sup, repl_sup)
