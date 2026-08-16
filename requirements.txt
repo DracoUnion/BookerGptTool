@@ -13,3 +13,4 @@ sentence-transformers
 flask
 ebooklib
 waitress
+pyturndown
