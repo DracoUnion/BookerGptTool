@@ -116,7 +116,7 @@ def repl_sub(content, node, options):
 def repl_sup(content, node, options):
     # 如果内容为单个数字（0-9），返回上标字符
     if content in SUPERSCRIPTS:  # 直接匹配字符
-        return content
+        return SUPERSCRIPTS[content]
     # 如果长度1，返回 ^x
     if len(content) == 1:
         return '^' + content
