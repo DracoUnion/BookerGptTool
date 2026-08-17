@@ -11,7 +11,7 @@ import os
 import hashlib
 import shutil
 import yaml
-import fitz
+import pymupdf as pymu
 import functools
 import cv2
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed, ProcessPoolExecutor
@@ -235,13 +235,13 @@ class PDFOcrOrchestrator:
 
     # ── 线程池任务 ────────────────────────────────
 
-    def _tr_ocr_page(self, fitz_page: fitz.Page, page: Page) -> None:
+    def _tr_ocr_page(self, pymu_page: pymu.Page, page: Page) -> None:
         logger.debug(f'[3] 识别页码 {page.pgno + 1}')
-        # doc = fitz.open('pdf', BytesIO(pdf_data))
-        # fitz_page = doc[page.pgno]
+        # doc = pymu.open('pdf', BytesIO(pdf_data))
+        # pymu_page = doc[page.pgno]
         if self.args.force_ocr or \
-           is_scanned_page(fitz_page, self.args.text_thres, self.args.img_thres):
-            img = fitz_page \
+           is_scanned_page(pymu_page, self.args.text_thres, self.args.img_thres):
+            img = pymu_page \
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
             logger.debug(f'[3] {page.pgno + 1}: ocr 准备')
@@ -249,7 +249,7 @@ class PDFOcrOrchestrator:
             logger.debug(f'[3] {page.pgno + 1}: ocr 完成')
         else:
             logger.debug(f'[3] {page.pgno + 1}: tomd 准备')
-            page.md = tomd(fitz_page.get_text('html'))
+            page.md = tomd(pymu_page.get_text('html'))
             logger.debug(f'[3] {page.pgno + 1}: tomd 完成')
 
 
@@ -326,15 +326,15 @@ class PDFOcrOrchestrator:
     #   fix_toc(full_text, res) → full_text
     #   write_output(full_text, name_cn) → None
 
-    def load_pdf(self) -> Tuple[fitz.Document, str]:
+    def load_pdf(self) -> Tuple[pymu.Document, str]:
         """[1] 加载 PDF 文件。返回 (doc, pdf_hash)。"""
         logger.info(f'[1] 加载 {self.args.fname}')
         pdf = open(self.args.fname, 'rb').read()
         pdf_hash = hashlib.md5(pdf).hexdigest()
-        doc = fitz.open('pdf', BytesIO(pdf))
+        doc = pymu.open('pdf', BytesIO(pdf))
         return doc, pdf, pdf_hash
 
-    def init_page(self, doc: fitz.Document, page_fname: str) -> List[Page]:
+    def init_page(self, doc: pymu.Document, page_fname: str) -> List[Page]:
         """[2] 加载或初始化 meta.yaml。返回 Meta。"""
         logger.info(f'[2] 初始化 {page_fname}')
         if path.isfile(page_fname) and \
@@ -348,21 +348,21 @@ class PDFOcrOrchestrator:
         return pages
 
     def ocr_pages(
-        self, doc: fitz.Document, pdf_data: bytes,
+        self, doc: pymu.Document, pdf_data: bytes,
         pages: List[Page], page_fname: str
     ) -> None:
         """[3] VLM 识别每页图像。原地填充 pages.md。"""
         logger.info('[3] 识别图像')
-        # doc = fitz.open('pdf', BytesIO(pdf_data))
+        # doc = pymu.open('pdf', BytesIO(pdf_data))
 
         for i, pg in enumerate(tqdm.tqdm(pages)):
             if pg.md:
                 continue
-            fitz_page = doc[pg.pgno]
+            pymu_page = doc[pg.pgno]
             self._submit(
                 _mp_ocr_page, self.args, i, pdf_data, pg,
             ) if self.args.multi_processes else self._submit(
-                self._tr_ocr_page, fitz_page, pg, 
+                self._tr_ocr_page, pymu_page, pg, 
             )
         def res_callback(tpl): pages[tpl[0]] = tpl[1]
         self._collect_hdls(
@@ -371,7 +371,7 @@ class PDFOcrOrchestrator:
         )
 
     def process_images(
-        self, doc: fitz.Document, pages: List[Page], 
+        self, doc: pymu.Document, pages: List[Page], 
         pdf_hash: str,
         img_dir: str, page_fname: str,
     ) -> None:
@@ -633,19 +633,19 @@ def pdf_ocr_file_safe(args: argparse.Namespace) -> None:
 def _mp_ocr_page(args, idx, pdf_data: bytes, page: Page) -> Tuple[int, Page]:
     logger.debug(f'[3] 识别页码 {page.pgno + 1}')
     agent = PdfOcrAgent(args)
-    doc = fitz.open('pdf', BytesIO(pdf_data))
-    fitz_page = doc[page.pgno]
+    doc = pymu.open('pdf', BytesIO(pdf_data))
+    pymu_page = doc[page.pgno]
     if args.force_ocr or \
-       is_scanned_page(fitz_page, args.text_thres, args.img_thres):
+       is_scanned_page(pymu_page, args.text_thres, args.img_thres):
         logger.debug(f'[3] {page.pgno + 1}: ocr 准备')
-        img = fitz_page \
+        img = pymu_page \
             .get_pixmap(dpi=args.dpi) \
             .pil_tobytes('png')
         page.md = agent.ocr(img=img)
         logger.debug(f'[3] {page.pgno + 1}: ocr 完成')
     else:
         logger.debug(f'[3] {page.pgno + 1}: tomd 准备')
-        page.md = tomd(fitz_page.get_text('html'))
+        page.md = tomd(pymu_page.get_text('html'))
         logger.debug(f'[3] {page.pgno + 1}: tomd 完成')
     return idx, page
 
@@ -715,7 +715,7 @@ def _mp_proc_img(
     return idx, page
 
 
-def is_scanned_page(page: fitz.Page, text_threshold=20, image_coverage_threshold=0.8):
+def is_scanned_page(page: pymu.Page, text_threshold=20, image_coverage_threshold=0.8):
     """
     综合判断一个PDF页面是否为扫描件
     """
