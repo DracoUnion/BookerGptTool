@@ -208,7 +208,7 @@ class PDFOcrOrchestrator:
         """
         save_step = max(min(len(self._hdls) // 5, 100), 1)
         with tqdm.tqdm(total=len(self._hdls)) as pbar:
-            for i, h in enumerate(as_completed(self._hdls)):
+            for i, h in enumerate(self._hdls):
                 r = h.result()
                 if res_callback:
                     res_callback(r)
@@ -618,7 +618,7 @@ def pdf_ocr(args: argparse.Namespace) -> None:
         args.func = None
         h = pool.submit(pdf_ocr_file_safe, args)
         hdls.append(h)
-    for h in as_completed(hdls):
+    for h in hdls:
         h.result()
 
 

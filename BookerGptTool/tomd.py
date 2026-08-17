@@ -34,21 +34,27 @@ def filter_p_in_td(node, options):
             node.getparent().tag in ('td', 'th'))
 
 def filter_dd_dt(node, options):
-    return node.tag in ('dd', 'dt', 'figcaption', 'caption')
+    return node.tag in (
+        'dd', 'dt', 'figcaption', 'caption'
+    )
 
 def filter_dl(node, options):
     return node.tag == 'dl'
 
 
 def filter_span_div(node, options):
-    return node.tag in ('span', 'div', 'article', 'section', 'header', 'footer',
-                        'figure', 'nav', 'u', 'center', 'small', 'cite', 'mark',
-                        'font', 'big', 'time', 'address', 'abbr', 'object')
+    return node.tag in (
+        'span', 'div', 'article', 'section', 'header', 'footer',
+        'figure', 'nav', 'u', 'center', 'small', 'cite', 'mark',
+        'font', 'big', 'time', 'address', 'abbr', 'object'
+    )
 
 def filter_clean(node, options):
-    return node.tag in ('style', 'base', 'meta', 'script', 'ins', 'aside',
-                        'noscript', 'form', 'label', 'input', 'button',
-                        'col', 'colgroup')
+    return node.tag in (
+        'style', 'base', 'meta', 'script', 'ins', 'aside',
+        'noscript', 'form', 'label', 'input', 'button',
+        'col', 'colgroup', 'title',
+    )
 
 def filter_a_no_href(node, options):
     return node.tag == 'a' and not node.get('href')
@@ -65,7 +71,9 @@ def filter_in_pre(node, options):
     return parent is not None and parent.tag == 'pre' and node.tag != 'br'
 
 def filter_media(node, options):
-    return node.tag in ('iframe', 'video', 'audio', 'source')
+    return node.tag in (
+        'iframe', 'video', 'audio', 'source'
+    )
 
 def filter_sub(node, options):
     return node.tag == 'sub'
