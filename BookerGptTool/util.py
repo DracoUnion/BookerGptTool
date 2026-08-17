@@ -192,6 +192,7 @@ def call_llm_retry(
     extra_body=None,
     parse_output=None,
 ):
+    msgs = list(msgs)
     for i in range(retry):
         try:
             res =  call_llm(
@@ -203,6 +204,10 @@ def call_llm_retry(
                 max_tokens=max_tokens,
                 extra_body=extra_body,
             )
+            msgs.append({
+                'role': 'assistant', 
+                'content': res
+            })
             return (
                 parse_output(res) 
                 if parse_output else res
@@ -212,6 +217,12 @@ def call_llm_retry(
         except Exception as ex:
             logger.debug(f'OpenAI retry {i+1}')
             logger.debug(traceback.format_exc())
+            if msgs[-1]['role'] == 'assistant':
+                msgs.append({
+                    'role': 'user',
+                    'content': f'解析失败，请严格按照格式输出：\n\n' + \
+                               f'```{traceback.format_exc()}```'
+                })
             if i == retry - 1: raise ex
 
 def ensure_utf8(text: str) -> str:
