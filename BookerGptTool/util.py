@@ -221,7 +221,7 @@ def call_llm_retry(
                 msgs.append({
                     'role': 'user',
                     'content': f'解析失败，请严格按照格式输出：\n\n' + \
-                               f'```{traceback.format_exc()}```'
+                               f'```\n{traceback.format_exc()}\n```'
                 })
             if i == retry - 1: raise ex
 
