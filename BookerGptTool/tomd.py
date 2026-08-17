@@ -33,13 +33,10 @@ def filter_p_in_td(node, options):
             node.getparent() is not None and
             node.getparent().tag in ('td', 'th'))
 
-def filter_dd_dt(node, options):
+def filter_caption(node, options):
     return node.tag in (
-        'dd', 'dt', 'figcaption', 'caption'
+        'figcaption', 'caption'
     )
-
-def filter_dl(node, options):
-    return node.tag == 'dl'
 
 
 def filter_span_div(node, options):
@@ -91,7 +88,7 @@ def repl_math(content, node, options):
 def repl_p_in_td(content, node, options):
     return content
 
-def repl_dd_dt(content, node, options):
+def repl_caption(content, node, options):
     return '\n\n' + content + '\n\n'
 
 def repl_dl(content, node, options):
@@ -133,8 +130,6 @@ def repl_sup(content, node, options):
 
 register_rule('a_no_href', filter_a_no_href, repl_a_no_href)
 register_rule('clean', filter_clean, repl_clean)
-register_rule('dd_dt', filter_dd_dt, repl_dd_dt)
-register_rule('dl', filter_dl, repl_dl)
 register_rule('in_pre', filter_in_pre, repl_in_pre)
 register_rule('math', filter_math, repl_math)
 register_rule('media', filter_media, repl_media)
@@ -143,6 +138,7 @@ register_rule('single_pre', filter_single_pre, repl_single_pre)
 register_rule('span_div', filter_span_div, repl_span_div)
 register_rule('sub', filter_sub, repl_sub)
 register_rule('sup', filter_sup, repl_sup)
+register_rule('caption', filter_caption, repl_caption)
 
 # 导出规则字典
 def get_rules():
