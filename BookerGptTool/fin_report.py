@@ -1,5 +1,5 @@
 from io import BytesIO
-import fitz
+import pymupdf as pymu
 from os import path
 import os
 import json
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 # ===================== 工具函数 =====================
 def read_pdf_text(data):
-    pdf: fitz.Document = fitz.open('pdf', BytesIO(data))
+    pdf: pymu.Document = pymu.open('pdf', BytesIO(data))
     cont = '\n\n'.join([
         pg.get_text() for pg in pdf
     ])
