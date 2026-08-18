@@ -20,7 +20,10 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import tempfile
 import uuid
+import multiprocessing as mp
 from typing import *
+
+mp.set_start_method('spawn')
 
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("openai._base_client").setLevel(logging.CRITICAL)
