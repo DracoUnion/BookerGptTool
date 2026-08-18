@@ -1,4 +1,5 @@
 import base64
+import gc
 import argparse
 import logging
 import traceback
@@ -545,32 +546,26 @@ class PDFOcrOrchestrator:
 
         # 1. 加载 PDF
         doc, pdf_data, pdf_hash = self.load_pdf()
-
         # 2. 初始化 meta
         pages = self.init_page(doc, page_fname)
-
         # 3. OCR 识别
         self.ocr_pages(doc, pdf_data, pages, page_fname)
-
         # 4. 处理图片
         self.process_images(doc, pages, pdf_hash, img_dir, page_fname)
-
         # 5. 分组 + 后处理 + 翻译
         groups = self.group_pages(pages, group_fname)
-
         # 6. 组间合并
         self.merge_groups(groups, group_fname)
-
         # 7. 拼接全文
         full_text, name_cn = self.build_full_text(groups, name)
-
         # 8. 修正目录
         full_text = self.fix_toc(full_text, toc_fname)
-
         # 9. 写入文件
         self.write_output(full_text, name_cn, md_fname, pj_dir, slug, name)
-
+        del doc, pdf_data, pages, groups
+        gc.collect()
         logger.info('[*] 处理完毕')
+        
 
 
 # ── 模块级工具函数 ────────────────────────────────
