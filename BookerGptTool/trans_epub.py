@@ -25,6 +25,7 @@ from .util import (
     ext_cont_block, 
     ext_code_block,
     logger as util_logger,
+    malloc_trim_linux,
 )
 from .fmt import fmt_zh, fmt_publisher
 from .clean_heading import clean_md_llm
@@ -152,6 +153,7 @@ class TransEpubDispatcher:
         self._gen_summary(slug=p['slug'], summary_fname=p['summary_fname'], chs=chs, meta=meta)
         del html, md, chunks, chs
         gc.collect()
+        malloc_trim_linux()
         logger.info('[*] 完成')
 
     def _init_meta(self, name, slug, meta_dir, meta_fname):

@@ -35,6 +35,7 @@ from .util import (
     ext_code_block,
     ext_cont_block,
     logger as util_logger,
+    malloc_trim_linux,
 )
 
 logging.basicConfig(
@@ -249,6 +250,7 @@ class PDFOcrOrchestrator:
         else:
             page.md = tomd(pymu_page.get_text('html'))   
         gc.collect()
+        malloc_trim_linux()
         logger.debug(f'[3] 识别页码 {page.pgno + 1} 完成')
 
 
@@ -562,6 +564,7 @@ class PDFOcrOrchestrator:
         self.write_output(full_text, name_cn, md_fname, pj_dir, slug, name)
         del doc, pdf_data, pages, groups
         gc.collect()
+        malloc_trim_linux()
         logger.info('[*] 处理完毕')
         
 
@@ -638,6 +641,7 @@ def _mp_ocr_page(args, idx, pdf_data: bytes, page: Page) -> Tuple[int, Page]:
         page.md = tomd(pymu_page.get_text('html'))
     del doc, pymu_page
     gc.collect()
+    malloc_trim_linux()
     logger.debug(f'[3] 识别页码 {page.pgno + 1} 完成')
     return idx, page
 

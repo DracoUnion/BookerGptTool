@@ -1,3 +1,5 @@
+import ctypes
+import sys
 import pyturndown
 import openai
 import base64
@@ -484,3 +486,8 @@ def call_tti_retry(
         except Exception as ex:
             logging.debug(f'OpenAI retry {i+1}: {str(ex)}')
             if i == retry - 1 and not nothrow: raise ex
+
+def malloc_trim_linux():
+    if sys.platform == 'linux':
+        libc = ctypes.CDLL("libc.so.6")
+        libc.malloc_trim(0)
