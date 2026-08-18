@@ -251,6 +251,7 @@ class PDFOcrOrchestrator:
         else:
             logger.debug(f'[3] {page.pgno + 1}: tomd 准备')
             page.md = tomd(pymu_page.get_text('html'))
+            gc.collect()
             logger.debug(f'[3] {page.pgno + 1}: tomd 完成')
 
 
@@ -642,6 +643,8 @@ def _mp_ocr_page(args, idx, pdf_data: bytes, page: Page) -> Tuple[int, Page]:
         logger.debug(f'[3] {page.pgno + 1}: tomd 准备')
         page.md = tomd(pymu_page.get_text('html'))
         logger.debug(f'[3] {page.pgno + 1}: tomd 完成')
+    del doc, pymu_page
+    gc.collect()
     return idx, page
 
 def _mp_merge_group(args, idx, prev_group: Group, group: Group) -> Tuple[int, Group]:
