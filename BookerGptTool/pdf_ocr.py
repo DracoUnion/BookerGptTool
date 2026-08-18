@@ -633,18 +633,15 @@ def _mp_ocr_page(args, idx, pdf_data: bytes, page: Page) -> Tuple[int, Page]:
     pymu_page = doc[page.pgno]
     if args.force_ocr or \
        is_scanned_page(pymu_page, args.text_thres, args.img_thres):
-        logger.debug(f'[3] {page.pgno + 1}: ocr 准备')
         img = pymu_page \
             .get_pixmap(dpi=args.dpi) \
             .pil_tobytes('png')
         page.md = agent.ocr(img=img)
-        logger.debug(f'[3] {page.pgno + 1}: ocr 完成')
     else:
-        logger.debug(f'[3] {page.pgno + 1}: tomd 准备')
         page.md = tomd(pymu_page.get_text('html'))
-        logger.debug(f'[3] {page.pgno + 1}: tomd 完成')
     del doc, pymu_page
     gc.collect()
+    logger.debug(f'[3] 识别页码 {page.pgno + 1} 完成')
     return idx, page
 
 def _mp_merge_group(args, idx, prev_group: Group, group: Group) -> Tuple[int, Group]:
