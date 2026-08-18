@@ -1,3 +1,4 @@
+import gc
 import tqdm
 import copy
 import traceback
@@ -149,6 +150,8 @@ class TransEpubDispatcher:
         self._write_chapters(proj_dir=p['proj_dir'], slug=p['slug'], chs=chs)
         self._gen_readme(name=p['name'], readme_fname=p['readme_fname'], meta=meta)
         self._gen_summary(slug=p['slug'], summary_fname=p['summary_fname'], chs=chs, meta=meta)
+        del html, md, chunks, chs
+        gc.collect()
         logger.info('[*] 完成')
 
     def _init_meta(self, name, slug, meta_dir, meta_fname):
