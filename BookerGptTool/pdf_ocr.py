@@ -245,14 +245,11 @@ class PDFOcrOrchestrator:
             img = pymu_page \
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
-            logger.debug(f'[3] {page.pgno + 1}: ocr 准备')
             page.md = self.agent.ocr(img=img)
-            logger.debug(f'[3] {page.pgno + 1}: ocr 完成')
         else:
-            logger.debug(f'[3] {page.pgno + 1}: tomd 准备')
-            page.md = tomd(pymu_page.get_text('html'))
-            gc.collect()
-            logger.debug(f'[3] {page.pgno + 1}: tomd 完成')
+            page.md = tomd(pymu_page.get_text('html'))   
+        gc.collect()
+        logger.debug(f'[3] 识别页码 {page.pgno + 1} 完成')
 
 
     def _tr_proc_img(
