@@ -272,8 +272,9 @@ def code2doc_handle(args):
         fnames = [args.fname]
     else:
         fnames = [
-            path.join(args.fname, f)
-            for f in os.listdir(args.fname)
+            path.join(rt, f)
+            for rt, _, fnames in os.walk(args.fname)
+            for f in fnames
         ]
     fnames = [f for f in fnames if extname(f) in SUPPORTED_EXTENSIONS]
     if not fnames:
