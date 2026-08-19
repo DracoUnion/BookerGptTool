@@ -10,6 +10,12 @@ class ClsExtResult(BaseModel):
     desc: str
     methods: List[FuncExtResult]
 
+class ClsFuncExtBrief(BaseModel):
+    file: str
+    desc: str
+    classes: List[ClsExtResult]
+    funcs: List[FuncExtResult]
+
 class ClsFuncExtResult(BaseModel):
     desc: str
     process: List[str]
