@@ -158,8 +158,6 @@ class PDFOcrOrchestrator:
 
         # ── 线程池基础设施 ──
         self.pool: Optional[ThreadPoolExecutor] = \
-            ProcessPoolExecutor(self.args.page_threads) \
-            if self.args.multi_processes else \
             ThreadPoolExecutor(self.args.page_threads)
         self._hdls: List[Future] = []
 
@@ -204,18 +202,14 @@ class PDFOcrOrchestrator:
         h = self.pool.submit(fn, *args, **kwargs)
         self._hdls.append(h)
 
-    def _collect_hdls(self, write_callback: Optional[Callable] = None, res_callback: Optional[Callable] = None) -> None:
+    def _collect_hdls(self, res_callback: Optional[Callable] = None) -> None:
         """等待所有已提交任务完成并清空。
         on_done: 每个子线程完成后在主线程中调用的回调。
         """
-        save_step = max(min(len(self._hdls) // 5, 100), 1)
         for i, h in enumerate(tqdm.tqdm(self._hdls)):
             r = h.result()
             if res_callback:
                 res_callback(r)
-            if write_callback and \
-                (i % save_step == 0 or i == len(self._hdls) - 1): 
-                write_callback()
         self._hdls = []
 
     # ── 主线程写入 ──────────────────────────────────
@@ -361,15 +355,9 @@ class PDFOcrOrchestrator:
                 continue
             pymu_page = doc[pg.pgno]
             self._submit(
-                _mp_ocr_page, self.args, i, pdf_data, pg,
-            ) if self.args.multi_processes else self._submit(
                 self._tr_ocr_page, pymu_page, pg, 
             )
-        def res_callback(tpl): pages[tpl[0]] = tpl[1]
-        self._collect_hdls(
-            lambda: self._write_yaml(pages, page_fname),
-            res_callback if self.args.multi_processes else None,
-        )
+        self._collect_hdls()
 
     def process_images(
         self, doc: pymu.Document, pages: List[Page], 
@@ -387,15 +375,9 @@ class PDFOcrOrchestrator:
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
             self._submit(
-                _mp_proc_img, self.args, i, img, pg, img_dir, pdf_hash,
-            ) if self.args.multi_processes else self._submit(
                 self._tr_proc_img, img, pg, img_dir, pdf_hash,
             )
-        def res_callback(tpl): pages[tpl[0]] = tpl[1]
-        self._collect_hdls(
-            lambda: self._write_yaml(pages, page_fname),
-            res_callback if self.args.multi_processes else None,
-        )
+        self._collect_hdls()
 
     def group_pages(self, pages: List[Page], group_fname: str) -> List[Group]:
         """[5] 按长度分组，后处理 + 翻译。填充 res.groups。"""
@@ -414,35 +396,24 @@ class PDFOcrOrchestrator:
             if g.md and g.mdcn:
                 continue
             self._submit(
-                _mp_group_page, self.args, i, g,
-            ) if self.args.multi_processes else self._submit(
                 self._tr_group_page, g,
             )
-        def res_callback(tpl): groups[tpl[0]] = tpl[1]
-        self._collect_hdls(
-            lambda: self._write_yaml(groups, group_fname),
-            res_callback if self.args.multi_processes else None,
-        )
+        self._collect_hdls()
         return groups
 
     def merge_groups(self, groups: List[Group], group_fname: str) -> None:
         """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge。"""
         logger.info('[6] 处理组间合并')
+        save_step = max(min(len(self._hdls) // 5, 100), 1)
         for i, g in enumerate(tqdm.tqdm(groups)):
             if i == 0:
                 continue
             if g.merge != -1:
                 continue
             self._submit(
-                _mp_merge_group, self.args, i, groups[i - 1], g
-            ) if self.args.multi_processes else self._submit(
                 self._tr_merge_group, groups[i - 1], g,
             )
-        def res_callback(tpl): groups[tpl[0]] = tpl[1]
-        self._collect_hdls(
-            lambda: self._write_yaml(groups, group_fname),
-            res_callback if self.args.multi_processes else None,
-        )
+        self._collect_hdls()
 
     def build_full_text(self, groups: List[Group], name: str) -> Tuple[str, str]:
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
@@ -604,9 +575,7 @@ def pdf_ocr(args: argparse.Namespace) -> None:
         logger.fatal('请提供 PDF 或目录')
         return
 
-    pool = ProcessPoolExecutor(args.file_threads) \
-        if args.multi_processes else \
-        ThreadPoolExecutor(args.file_threads)
+    pool = ThreadPoolExecutor(args.file_threads)
     hdls = []
     for f in fnames:
         args = copy.deepcopy(args)
@@ -625,92 +594,6 @@ def pdf_ocr_file_safe(args: argparse.Namespace) -> None:
         raise
     except:
         logger.warn(traceback.format_exc())
-
-def _mp_ocr_page(args, idx, pdf_data: bytes, page: Page) -> Tuple[int, Page]:
-    logger.debug(f'[3] 识别页码 {page.pgno + 1}')
-    agent = PdfOcrAgent(args)
-    doc = pymu.open('pdf', BytesIO(pdf_data))
-    pymu_page = doc[page.pgno]
-    if args.force_ocr or \
-       is_scanned_page(pymu_page, args.text_thres, args.img_thres):
-        img = pymu_page \
-            .get_pixmap(dpi=args.dpi) \
-            .pil_tobytes('png')
-        img = pngquant(img)
-        page.md = agent.ocr(img=img)
-    else:
-        page.md = tomd(pymu_page.get_text('html'))
-    del doc, pymu_page
-    gc.collect()
-    malloc_trim_linux()
-    logger.debug(f'[3] 识别页码 {page.pgno + 1} 完成')
-    return idx, page
-
-def _mp_merge_group(args, idx, prev_group: Group, group: Group) -> Tuple[int, Group]:
-    logger.debug(f'[6] 处理分组合并')
-    agent = PdfOcrAgent(args)
-    prev_line = prev_group.mdcn.strip()
-    next_line = group.mdcn.strip()
-    m_prev = re.search(r'^.+?\Z', prev_line, flags=re.M)
-    m_next = re.search(r'\A.+?$', next_line, flags=re.M)
-    if m_prev and m_next:
-        prev = m_prev.group()
-        next = m_next.group()
-        group.merge = agent.merge(
-            prev_line=prev, next_line=next,
-        )
-    else:
-        group.merge = 0    
-    return idx, group
-
-def _mp_group_page(args, idx, group: Group) -> Tuple[int, Group]:
-    logger.debug(f'[5] 处理页面合并')
-    agent = PdfOcrAgent(args)
-    text = '\n\n'.join(group.raw)
-    group.md = agent.post_proc(text=text)
-    if args.trans:
-        group.mdcn = agent.translate(text=group.md)
-    else:
-        group.mdcn = group.md
-    return idx, group
-
-def _mp_proc_img(
-    args, idx, img: bytes, page: Page, img_dir: str, pdf_hash: str
-) -> Tuple[int, Page]:
-    logger.debug(f'[4] 处理图像 {page.pgno}')
-    md = page.md
-    pgno = page.pgno
-    img_links = re.findall(r'!\[.*?\]\([\s\S]+?\)', md)
-    for j, link in enumerate(img_links):
-        m1 = re.search(
-            r'bbox=\[(\d+\.\d+),\x20(\d+\.\d+),'
-            r'\x20(\d+\.\d+),\x20(\d+\.\d+)\]',
-            link,
-        )
-        m2 = re.search(
-            r'data:image/\w+;base64,([\w+=/\n]+)', link
-        )
-        if not m1 and not m2:
-            continue
-        if m1:
-            bbox = [
-                float(m1.group(1)), float(m1.group(2)),
-                float(m1.group(3)), float(m1.group(4)),
-            ]
-            img_pt = _corp_img(img, bbox)
-        else:
-            img_pt = base64.b64decode(
-                m2.group(1).replace('\n', ''))
-        img_pt = pngquant(img_pt)
-        img_fname = f'{pdf_hash}_{pgno}_{j}.png'
-        img_ffname = path.join(img_dir, img_fname)
-        logger.debug(f'[5] {img_ffname}')
-        open(img_ffname, 'wb').write(img_pt)
-        md = md.replace(link, f'![](img/{img_fname})')
-        page.md = md
-    page.img_proc = True
-    return idx, page
-
 
 def is_scanned_page(page: pymu.Page, text_threshold=20, image_coverage_threshold=0.8):
     """
