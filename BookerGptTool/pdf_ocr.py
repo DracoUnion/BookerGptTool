@@ -246,6 +246,7 @@ class PDFOcrOrchestrator:
                 .pil_tobytes('png')
             img = pngquant(img)
             page.md = self.agent.ocr(img=img)
+            del img
         else:
             page.md = tomd(pymu_page.get_text('html'))   
         gc.collect()
