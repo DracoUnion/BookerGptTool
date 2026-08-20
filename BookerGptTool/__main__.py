@@ -1,7 +1,6 @@
 import argparse
 import sys
 import os
-import multiprocessing as mp
 from . import __version__
 from .trans import *
 from .fin_report import *
@@ -28,8 +27,6 @@ from .novel_anls import *
 from .xhs_img import register_xhs_img
 
 def main():
-    mp.set_start_method('spawn')
-
     openai_key = os.environ.get('OPENAI_API_KEY')
     openai_url = os.environ.get('OPENAI_BASE_URL')
     openai_model = os.environ.get('OPENAI_CHAT_MODEL', 'gpt-3.5-turbo')
