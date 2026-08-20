@@ -18,7 +18,7 @@ from .xhs_img_models import (
     AudienceProfile, ContentAnalysis,
     STYLES, LAYOUTS, PALETTES, PRESETS, AUTO_SELECTION_TABLE,
 )
-from .util import call_tti_retry, set_openai_props
+from .util import ask_chatgpt_retry, set_openai_props, ext_code_block
 
 logger = logging.getLogger(__name__)
 
@@ -244,7 +244,7 @@ def _gen_outline_c(topic, content_lines, style, layout, palette, n):
 # ════════════════════════════════════════════════════════════════════
 
 _BASE = """\
-Create a Xiaohongshu (Little Red Book) style infographic following these guidelines:
+Create a Xiaohongshu (Little Red Book) style infographic in SVG format following these guidelines:
 
 ## Image Specifications
 - **Type**: Infographic
@@ -280,7 +280,10 @@ Create a Xiaohongshu (Little Red Book) style infographic following these guideli
 
 ---
 
-Please generate the infographic based on the specifications above."""
+Please generate the infographic in SVG format based on the specifications above.
+
+The output should be surrounded in three backticks (```).
+"""
 
 DEFAULT_CORE = ("- Hand-drawn quality throughout - NO realistic or photographic elements\n"
                 "- Keep information concise, highlight keywords and core concepts\n"
@@ -352,19 +355,19 @@ ASPECT_3_4 = {"gpt-image-1": "1024x1536", "dall-e-3": "1024x1792"}
 
 
 def generate_series(prompts: dict[str, str], output_dir: Path,
-                    model: str | None = None, size: str | None = None) -> list[bytes]:
+                    args, size: str | None = None) -> list[bytes]:
     if size is None:
-        size = ASPECT_3_4.get(model, "1024x1536")
+        size = ASPECT_3_4.get(args.model, "1024x1536")
 
     results: list[bytes] = []
     ref_img: bytes | None = None
 
     for i, (name, prompt) in enumerate(prompts.items()):
-        logger.info(f"生成中... model={model}, size={size}")
-        img_name = name[:-3] + ".png"
+        logger.info(f"生成中... model={args.model}, size={size}")
+        img_name = name[:-3] + ".svg"
         out_path = output_dir / img_name
         logger.info(f"[{i + 1}/{len(prompts)}] {img_name}")
-        img = call_tti_retry(prompt, model, size, ref_img, nothrow=False)
+        img = ask_chatgpt_retry(prompt, args.model, args, ext_code_block)
         logger.info(f"[OK] {img_name} ({len(img) / 1024:.0f} KB)")
         out_path.write_bytes(img)
         results.append(img)
@@ -470,7 +473,7 @@ def xhs_img_handle(args):
     print(f"\n[Prompt] 文件已生成: {prompts_dir}")
 
     print(f"\n[TTI] 开始生成图片 ({len(prompts)} 张)")
-    results = generate_series(prompts, out_dir, args.tti_model)
+    results = generate_series(prompts, out_dir, args)
     print(f"\n[Done] {len(results)}/{len(prompts)} 张图片 -> {out_dir}")
 
 
