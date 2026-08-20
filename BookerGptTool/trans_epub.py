@@ -224,14 +224,12 @@ class TransEpubDispatcher:
 
     def _collect_hdls(self, write_callback:Optional[Callable]=None, res_callback:Optional[Callable]=None):
         save_step = max(min(len(self.hdls) // 5, 100), 1)
-        with tqdm.tqdm(total=len(self.hdls)) as pbar:
-            for i, h in enumerate(as_completed(self.hdls)):
-                r = h.result()
-                if res_callback: res_callback(r)
-                if write_callback and \
-                  (i % save_step == 0 or i == len(self.hdls) - 1):
-                    write_callback()
-            pbar.update(1)
+        for i, h in enumerate(tqdm.tqdm(self.hdls)):
+            r = h.result()
+            if res_callback: res_callback(r)
+            if write_callback and \
+                (i % save_step == 0 or i == len(self.hdls) - 1):
+                write_callback()
         self.hdls = []
 
     def _format_translate(self, chunk_fname, md):

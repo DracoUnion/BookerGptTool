@@ -209,15 +209,13 @@ class PDFOcrOrchestrator:
         on_done: 每个子线程完成后在主线程中调用的回调。
         """
         save_step = max(min(len(self._hdls) // 5, 100), 1)
-        with tqdm.tqdm(total=len(self._hdls)) as pbar:
-            for i, h in enumerate(self._hdls):
-                r = h.result()
-                if res_callback:
-                    res_callback(r)
-                if write_callback and \
-                   (i % save_step == 0 or i == len(self._hdls) - 1): 
-                    write_callback()
-                pbar.update(1)
+        for i, h in enumerate(tqdm.tqdm(self._hdls)):
+            r = h.result()
+            if res_callback:
+                res_callback(r)
+            if write_callback and \
+                (i % save_step == 0 or i == len(self._hdls) - 1): 
+                write_callback()
         self._hdls = []
 
     # ── 主线程写入 ──────────────────────────────────
