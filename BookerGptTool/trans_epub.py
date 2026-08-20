@@ -220,14 +220,10 @@ class TransEpubDispatcher:
             f.write(yaml.safe_dump(obj, allow_unicode=True))
             f.flush()
 
-    def _collect_hdls(self, write_callback:Optional[Callable]=None, res_callback:Optional[Callable]=None):
-        save_step = max(min(len(self.hdls) // 5, 100), 1)
+    def _collect_hdls(self, res_callback:Optional[Callable]=None):
         for i, h in enumerate(tqdm.tqdm(self.hdls)):
             r = h.result()
             if res_callback: res_callback(r)
-            if write_callback and \
-                (i % save_step == 0 or i == len(self.hdls) - 1):
-                write_callback()
         self.hdls = []
 
     def _format_translate(self, chunk_fname, md):
@@ -241,15 +237,17 @@ class TransEpubDispatcher:
             chunks = [Chunk(raw=c) for c in groups]
             self._write_yaml(chunk_fname, chunks)
 
+        save_step = max(min(len(chunks) // 5, 100), 1)
         for i, c in enumerate(tqdm.tqdm(chunks)):
-            if c.fmt and c.trans:
-                continue
-            h = self.pool.submit(self._tr_fmt_trans, c)
-            self.hdls.append(h)
-
-        self._collect_hdls(
-            lambda: self._write_yaml(chunk_fname, chunks),
-        )
+            if not (c.fmt and c.trans):
+                h = self.pool.submit(self._tr_fmt_trans, c)
+                self.hdls.append(h)
+                if len(self.hdls) > self.args.page_threads:
+                    self._collect_hdls()
+            if i % save_step == 0:
+                self._write_yaml(chunk_fname, chunks)
+        self._collect_hdls()
+        self._write_yaml(chunk_fname, chunks)
         return chunks
 
     def _fix_toc(self, chunks, meta, meta_fname):
