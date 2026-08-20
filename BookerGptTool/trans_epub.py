@@ -91,9 +91,7 @@ class TransEpubDispatcher:
         self.args = args
         self.agent = EpubTranslatorAgent(args)
 
-        self.pool = ProcessPoolExecutor(self.args.page_threads) \
-            if self.args.multi_processes else \
-            ThreadPoolExecutor(self.args.page_threads)
+        self.pool = ThreadPoolExecutor(self.args.page_threads)
         self.hdls = []
 
     def _resolve_paths(self, args):
@@ -246,15 +244,11 @@ class TransEpubDispatcher:
         for i, c in enumerate(tqdm.tqdm(chunks)):
             if c.fmt and c.trans:
                 continue
-            h = self.pool.submit(_mp_fmt_trans, self.args, i, c) \
-                if self.args.multi_processes else \
-                self.pool.submit(self._tr_fmt_trans, c)
+            h = self.pool.submit(self._tr_fmt_trans, c)
             self.hdls.append(h)
 
-        def res_callback(tpl): chunks[tpl[0]] = tpl[1] 
         self._collect_hdls(
             lambda: self._write_yaml(chunk_fname, chunks),
-            res_callback if self.args.multi_processes else None
         )
         return chunks
 
@@ -344,15 +338,6 @@ class TransEpubDispatcher:
         summary = '\n'.join(toc)
         open(summary_fname, 'w', encoding='utf8').write(summary)
 
-def _mp_fmt_trans(args, idx: int, chunk: Chunk) -> Tuple[int, Chunk]:
-    logger.debug(f'[4] 处理分块')
-    agent = EpubTranslatorAgent(args)
-    if not chunk.fmt:
-        chunk.fmt = agent.format_text(chunk.raw)
-    if not chunk.trans:
-        chunk.trans = fmt_zh(agent.translate_body(chunk.fmt))
-    return idx, chunk
-
 
 def trans_epub(args):
     if args.debug:
@@ -370,9 +355,7 @@ def trans_epub(args):
         logger.info('请提供 EPUB 或目录')
         return
 
-    pool = ProcessPoolExecutor(args.file_threads) \
-        if args.multi_processes else \
-        ThreadPoolExecutor(args.file_threads) 
+    pool = ThreadPoolExecutor(args.file_threads) 
     hdls = []
     for f in fnames:
         args = copy.deepcopy(args)
