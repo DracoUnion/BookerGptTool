@@ -349,15 +349,19 @@ class PDFOcrOrchestrator:
         """[3] VLM 识别每页图像。原地填充 pages.md。"""
         logger.info('[3] 识别图像')
         # doc = pymu.open('pdf', BytesIO(pdf_data))
-
+        save_step = max(min(len(pages) // 5, 100), 1)
         for i, pg in enumerate(tqdm.tqdm(pages)):
-            if pg.md:
-                continue
-            pymu_page = doc[pg.pgno]
-            self._submit(
-                self._tr_ocr_page, pymu_page, pg, 
-            )
+            if not pg.md:
+                pymu_page = doc[pg.pgno]
+                self._submit(
+                    self._tr_ocr_page, pymu_page, pg, 
+                )
+                if len(self._hdls) > self.args.page_threads:
+                    self._collect_hdls()
+            if i % save_step == 0:
+                self._write_yaml(pages, page_fname)
         self._collect_hdls()
+        self._write_yaml(pages, page_fname)
 
     def process_images(
         self, doc: pymu.Document, pages: List[Page], 
@@ -367,17 +371,21 @@ class PDFOcrOrchestrator:
         """[4] 裁切并保存页面中的插图。原地填充 pages.md/img_proc。"""
         logger.info('[4] 处理图片')
         os.makedirs(img_dir, exist_ok=True)
+        save_step = max(min(len(pages) // 5, 100), 1)
         for i, pg in enumerate(tqdm.tqdm(pages)):
-            if pg.img_proc:
-                continue
-            pgno = pg.pgno
-            img = doc[pgno] \
-                .get_pixmap(dpi=self.args.dpi) \
-                .pil_tobytes('png')
-            self._submit(
-                self._tr_proc_img, img, pg, img_dir, pdf_hash,
-            )
+            if not pg.img_proc:
+                img = doc[pg.pgno] \
+                    .get_pixmap(dpi=self.args.dpi) \
+                    .pil_tobytes('png')
+                self._submit(
+                    self._tr_proc_img, img, pg, img_dir, pdf_hash,
+                )
+                if len(self._hdls) > self.args.page_threads:
+                   self._collect_hdls() 
+            if i % save_step == 0:
+                self._write_yaml(pages, page_fname)
         self._collect_hdls()
+        self._write_yaml(pages, page_fname)
 
     def group_pages(self, pages: List[Page], group_fname: str) -> List[Group]:
         """[5] 按长度分组，后处理 + 翻译。填充 res.groups。"""
@@ -391,29 +399,36 @@ class PDFOcrOrchestrator:
         else:
             groups = mkgroups(pages, self.args)
             self._write_yaml(groups, group_fname)
-        
+
+        save_step = max(min(len(groups) // 5, 100), 1)
         for i, g in enumerate(tqdm.tqdm(groups)):
-            if g.md and g.mdcn:
-                continue
-            self._submit(
-                self._tr_group_page, g,
-            )
+            if not (g.md and g.mdcn):
+                self._submit(
+                    self._tr_group_page, g,
+                )
+                if len(self._hdls) > self.args.page_threads:
+                    self._collect_hdls()
+            if i % save_step == 0:
+                self._write_yaml(groups, group_fname)
         self._collect_hdls()
+        self._write_yaml(groups, group_fname)
         return groups
 
     def merge_groups(self, groups: List[Group], group_fname: str) -> None:
         """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge。"""
         logger.info('[6] 处理组间合并')
-        save_step = max(min(len(self._hdls) // 5, 100), 1)
+        save_step = max(min(len(groups) // 5, 100), 1)
         for i, g in enumerate(tqdm.tqdm(groups)):
-            if i == 0:
-                continue
-            if g.merge != -1:
-                continue
-            self._submit(
-                self._tr_merge_group, groups[i - 1], g,
-            )
+            if not (i == 0 or g.merge != -1):
+                self._submit(
+                    self._tr_merge_group, groups[i - 1], g,
+                )
+                if len(self._hdls) > self.args.page_threads:
+                    self._collect_hdls()
+            if i % save_step == 0:
+                self._write_yaml(groups, group_fname)
         self._collect_hdls()
+        self._write_yaml(groups, group_fname)
 
     def build_full_text(self, groups: List[Group], name: str) -> Tuple[str, str]:
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
