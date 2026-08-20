@@ -246,6 +246,7 @@ class PDFOcrOrchestrator:
             img = pymu_page \
                 .get_pixmap(dpi=self.args.dpi) \
                 .pil_tobytes('png')
+            img = pngquant(img)
             page.md = self.agent.ocr(img=img)
         else:
             page.md = tomd(pymu_page.get_text('html'))   
@@ -636,6 +637,7 @@ def _mp_ocr_page(args, idx, pdf_data: bytes, page: Page) -> Tuple[int, Page]:
         img = pymu_page \
             .get_pixmap(dpi=args.dpi) \
             .pil_tobytes('png')
+        img = pngquant(img)
         page.md = agent.ocr(img=img)
     else:
         page.md = tomd(pymu_page.get_text('html'))
