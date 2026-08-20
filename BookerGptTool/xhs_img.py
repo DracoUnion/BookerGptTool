@@ -369,7 +369,7 @@ def generate_series(prompts: dict[str, str], output_dir: Path,
         logger.info(f"[{i + 1}/{len(prompts)}] {img_name}")
         img = ask_chatgpt_retry(prompt, args.model, args, ext_code_block)
         logger.info(f"[OK] {img_name} ({len(img) / 1024:.0f} KB)")
-        out_path.write_bytes(img)
+        out_path.write_text(img, encoding='utf8')
         results.append(img)
         if i == 0:
             ref_img = img
