@@ -221,7 +221,7 @@ class TransEpubDispatcher:
             f.flush()
 
     def _collect_hdls(self, res_callback:Optional[Callable]=None):
-        for i, h in enumerate(tqdm.tqdm(self.hdls)):
+        for h in self.hdls:
             r = h.result()
             if res_callback: res_callback(r)
         self.hdls = []
