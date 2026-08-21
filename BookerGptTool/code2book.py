@@ -305,8 +305,11 @@ class Code2BookOrchestrator:
             if len(rest_fnames) == 0:
                 logger.info('[3] 校验通过')
                 break
-            logger.info('[3] 校验未通过')
-            logger.info('\n'.join(rest_fnames))
+            logger.warn('[3] 校验未通过')
+            logger.warn(
+                '\n'.join(rest_fnames[:10]) +
+                f'...\n共 {len(rest_fnames)} 个'
+            )
             outline = self.agent.fix_outline(
                 outline, fnames, code_desc, readme,
                 '\n'.join(rest_fnames),
