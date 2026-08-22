@@ -18,7 +18,7 @@ from .xhs_img_models import (
     AudienceProfile, ContentAnalysis,
     STYLES, LAYOUTS, PALETTES, PRESETS, AUTO_SELECTION_TABLE,
 )
-from .util import ask_chatgpt_retry, set_openai_props, ext_code_block
+from .util import call_tti_retry, ask_chatgpt_retry, set_openai_props, ext_code_block
 
 logger = logging.getLogger(__name__)
 
@@ -244,7 +244,7 @@ def _gen_outline_c(topic, content_lines, style, layout, palette, n):
 # ════════════════════════════════════════════════════════════════════
 
 _BASE = """\
-Create a Xiaohongshu (Little Red Book) style infographic in SVG format following these guidelines:
+Create a Xiaohongshu (Little Red Book) style infographic following these guidelines:
 
 ## Image Specifications
 - **Type**: Infographic
@@ -280,9 +280,7 @@ Create a Xiaohongshu (Little Red Book) style infographic in SVG format following
 
 ---
 
-Please generate the infographic in SVG format based on the specifications above.
-
-The output should be surrounded in three backticks (```).
+Please generate the infographic based on the specifications above.
 """
 
 DEFAULT_CORE = ("- Hand-drawn quality throughout - NO realistic or photographic elements\n"
@@ -364,12 +362,13 @@ def generate_series(prompts: dict[str, str], output_dir: Path,
 
     for i, (name, prompt) in enumerate(prompts.items()):
         logger.info(f"生成中... model={args.model}, size={size}")
-        img_name = name[:-3] + ".svg"
+        img_name = name[:-3] + ".png"
         out_path = output_dir / img_name
         logger.info(f"[{i + 1}/{len(prompts)}] {img_name}")
-        img = ask_chatgpt_retry(prompt, args.model, args, ext_code_block)
+        # img = ask_chatgpt_retry(prompt, args.model, args, ext_code_block)
+        img = call_tti_retry(prompt, args.model, size, ref_img, args.retry)
         logger.info(f"[OK] {img_name} ({len(img) / 1024:.0f} KB)")
-        out_path.write_text(img, encoding='utf8')
+        out_path.write_bytes(img, encoding='utf8')
         results.append(img)
         if i == 0:
             ref_img = img
