@@ -366,7 +366,7 @@ def generate_series(prompts: dict[str, str], output_dir: Path,
         out_path = output_dir / img_name
         logger.info(f"[{i + 1}/{len(prompts)}] {img_name}")
         # img = ask_chatgpt_retry(prompt, args.model, args, ext_code_block)
-        img = call_tti_retry(prompt, args.model, size, ref_img, args.retry)
+        img = call_tti_retry(prompt, args.tti_model, size, ref_img, args.retry)
         logger.info(f"[OK] {img_name} ({len(img) / 1024:.0f} KB)")
         out_path.write_bytes(img, encoding='utf8')
         results.append(img)
