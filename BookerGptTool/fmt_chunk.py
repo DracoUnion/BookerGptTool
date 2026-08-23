@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 from os import path
 from .md2skill_chunker import chunk_markdown
-from .util import group_chunks, set_openai_props, ask_chatgpt_retry, split_md_lines
+from .util import group_chunks, set_openai_props, ask_chatgpt_retry, split_md_lines, ext_cont_block
 
 CRTC_PMT = '''
 假设你是一个高级文档工程师，你的任务是审核提供的 Markdown 文本的格式问题，然后参考格式要求和重要规则，提出排版建议。如果文本不需要排版，直接输出“[TEXT_PERFECT/]”。
@@ -22,7 +22,8 @@ CRTC_PMT = '''
 - 不要修改正文内容的语义
 - 不要删减有价值的信息
 - 只返回排版意见，不要重复输出原文，也不要输出修改后的文本
-- 如果文本不需要排版，直接输出“[TEXT_PERFECT/]”。
+- 排版意见应包含在“[content]...[/content]”中
+- 如果文本不需要排版，直接输出“[content][TEXT_PERFECT/][/content]”。
 
 ## 排版前后示例
 
@@ -80,6 +81,7 @@ FIX_PMT = '''
 - 不要修改正文内容的语义
 - 不要删减有价值的信息
 - 不要重复输出原文，也不要添加额外信息，只输出排版后的文本
+- 修改后文本应包含在“[content]...[/content]”中
 
 ## 要排版的文本
 
@@ -111,6 +113,7 @@ FMT_PMT = '''
 - 不要删减有价值的信息
 - 确保输出是标准Markdown格式
 - 只返回处理后的内容，不要重复输出原文，也不要添加额外说明
+- 排版后文本应包含在“[content]...[/content]”中
 
 ## 示例
 
@@ -154,20 +157,17 @@ if (condVar > someVal) {console.log("xxx")}
 def tr_fmt_group_multi(text, res, idx, args):
     for i in range(args.round):
         ques = CRTC_PMT.replace('{text}', text)
-        ans = ask_chatgpt_retry(ques, args.model, args)
-        crtc = ans.replace('[content]', '').replace('[/content]', '').strip()
+        crtc = ask_chatgpt_retry(ques, args.model, args, ext_cont_block).strip()
         if '[TEXT_PERFECT/]' in crtc:
             res[idx] = text
             break
         ques = FIX_PMT.replace('{text}', text).replace('{crtc}', crtc)
-        ans = ask_chatgpt_retry(ques, args.model, args)
-        text = ans.replace('[content]', '').replace('[/content]', '').strip()
+        text = ask_chatgpt_retry(ques, args.model, args, ext_cont_block).strip()
         res[idx] = text
 
 def tr_fmt_group(text, res, idx, args):
     ques = FMT_PMT.replace('{text}', text)
-    ans = ask_chatgpt_retry(ques, args.model, args)
-    ans = ans.replace('[content]', '').replace('[/content]', '')
+    ans = ask_chatgpt_retry(ques, args.model, args, ext_cont_block)
     res[idx] = ans
 
 def fmt_chunk_dir(args):
