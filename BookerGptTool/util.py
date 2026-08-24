@@ -169,12 +169,8 @@ def ask_chatgpt_retry(
     ques, model_name, args,
     parse_output=None,
 ):
-    msgs = [{
-        'role': 'user',
-        'content': ques,
-    }]
     return call_llm_retry(
-        msgs, model_name, 
+        ques, model_name, 
         retry=args.retry,
         temp=args.temp, 
         top_p=args.top_p,
@@ -187,7 +183,7 @@ def ask_chatgpt_retry(
 
 def call_llm_with_toolcall(
     msgs, model_name, 
-    tool_def, tool_dict, *,
+    tool_defs, tool_dict, *,
     temp=None, 
     top_p=None,
     frequency_penalty=None,
@@ -195,8 +191,10 @@ def call_llm_with_toolcall(
     max_tokens=None,
     extra_body=None,
 ):
-        tool_def_str = json.dumps(tool_def)
-        toolcall_pmt = TOOLCALL_PMT.replace('{tool_def}', tool_def_str)
+        if isinstance(msgs, str):
+            msgs = [{'role': 'user', 'content': msgs}]
+        tool_defs_str = json.dumps(tool_defs)
+        toolcall_pmt = TOOLCALL_PMT.replace('{tool_def}', tool_defs_str)
         msgs = [{
             'role': 'system', 
             'content': toolcall_pmt
@@ -224,7 +222,7 @@ def call_llm_with_toolcall(
                 'role': 'assistant',
                 'content': res
             }, {
-                'role': 'observer',
+                'role': 'user',
                 'content': f'[tool-result]{toolcall_res_str}[/tool-result]'
             }]
             res =  call_llm(
@@ -242,7 +240,7 @@ def call_llm_with_toolcall(
 
 def call_llm_with_toolcall_retry(
     msgs, model_name, 
-    tool_def, tool_dict, *,
+    tool_defs, tool_dict, *,
     retry=10, temp=None, 
     top_p=None,
     frequency_penalty=None,
@@ -255,7 +253,7 @@ def call_llm_with_toolcall_retry(
         try:
             res =  call_llm_with_toolcall(
                 msgs, model_name, 
-                tool_def, tool_dict,
+                tool_defs, tool_dict,
                 temp=temp, 
                 top_p=top_p,
                 frequency_penalty=frequency_penalty,
@@ -318,6 +316,8 @@ def call_llm(
     max_tokens=None,
     extra_body=None,
 ):
+    if isinstance(msgs, str):
+        msgs = [{'role': 'user', 'content': msgs}]
     # 改变指令符号的形式，避免模型出错
     msgs = repl_ins_token(msgs)
     if isinstance(extra_body, str):
