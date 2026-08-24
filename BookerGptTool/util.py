@@ -23,6 +23,7 @@ from threading import Lock
 import tempfile
 import uuid
 from typing import *
+from .toolcall_pmt import *
 
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
 logging.getLogger("openai._base_client").setLevel(logging.CRITICAL)
@@ -183,6 +184,92 @@ def ask_chatgpt_retry(
         extra_body=args.extra_body,
         parse_output=parse_output,
     )
+
+def call_llm_with_toolcall(
+    msgs, model_name, 
+    tool_def, tool_dict, *,
+    temp=None, 
+    top_p=None,
+    frequency_penalty=None,
+    presence_penalty=None,
+    max_tokens=None,
+    extra_body=None,
+):
+        tool_def_str = json.dumps(tool_def)
+        toolcall_pmt = TOOLCALL_PMT.replace('{tool_def}', tool_def_str)
+        msgs = [{
+            'role': 'user', 
+            'content': toolcall_pmt
+        }] + msgs
+        res =  call_llm(
+            msgs, model_name, 
+            temp=temp, 
+            top_p=top_p,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            max_tokens=max_tokens,
+            extra_body=extra_body,
+        )
+        
+        TOOLCALL_RE = r'\[tool\]([\s\S]+)\[/tool\]'
+        m = re.search(TOOLCALL_RE, res)
+        while m:
+            toolcalls = json.loads(m.group(1))
+            toolcall_res_list = []
+            for tc in toolcalls:
+                tc_res = tool_dict[tc['tool']](**tc['parameters'])
+                toolcall_res_list.append({'id': tc['id'], 'result': tc_res})
+            toolcall_res_str = json.dumps(toolcall_res_list)
+            msgs.append({
+                'role': 'user',
+                'content': f'[tool-result]{toolcall_res_str}[/tool-result]'
+            })
+            res =  call_llm(
+                msgs, model_name, 
+                temp=temp, 
+                top_p=top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                max_tokens=max_tokens,
+                extra_body=extra_body,
+            )
+            m = re.search(TOOLCALL_RE, res)
+        
+        return res
+
+def call_llm_with_toolcall_retry(
+    msgs, model_name, 
+    tool_def, tool_dict, *,
+    retry=10, temp=None, 
+    top_p=None,
+    frequency_penalty=None,
+    presence_penalty=None,
+    max_tokens=None,
+    extra_body=None,
+    parse_output=None
+):
+    for i in range(retry):
+        try:
+            res =  call_llm_with_toolcall(
+                msgs, model_name, 
+                tool_def, tool_dict,
+                temp=temp, 
+                top_p=top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                max_tokens=max_tokens,
+                extra_body=extra_body,
+            )
+            return (
+                parse_output(res) 
+                if parse_output else res
+            )    
+        except KeyboardInterrupt:
+            raise
+        except Exception as ex:
+            logger.debug(f'OpenAI retry {i+1}')
+            logger.debug(traceback.format_exc())
+            if i == retry - 1: raise ex
 
 def call_llm_retry(
     msgs, model_name, *,
