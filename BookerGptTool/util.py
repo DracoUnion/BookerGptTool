@@ -198,7 +198,7 @@ def call_llm_with_toolcall(
         tool_def_str = json.dumps(tool_def)
         toolcall_pmt = TOOLCALL_PMT.replace('{tool_def}', tool_def_str)
         msgs = [{
-            'role': 'user', 
+            'role': 'system', 
             'content': toolcall_pmt
         }] + msgs
         res =  call_llm(
@@ -220,10 +220,13 @@ def call_llm_with_toolcall(
                 tc_res = tool_dict[tc['tool']](**tc['parameters'])
                 toolcall_res_list.append({'id': tc['id'], 'result': tc_res})
             toolcall_res_str = json.dumps(toolcall_res_list)
-            msgs.append({
-                'role': 'user',
+            msgs += [{
+                'role': 'assistant',
+                'content': res
+            }, {
+                'role': 'observer',
                 'content': f'[tool-result]{toolcall_res_str}[/tool-result]'
-            })
+            }]
             res =  call_llm(
                 msgs, model_name, 
                 temp=temp, 
