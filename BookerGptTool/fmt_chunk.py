@@ -186,9 +186,13 @@ def fmt_chunk_handle(args):
     fnames = [
         f for f in fnames
         if f.endswith('md') and 
-           not f.endswith('_fmt.md') and
-           not re.search(args.excluding_re, f)
+           not f.endswith('_fmt.md') 
     ]
+    if args.excluding_re:
+        fnames = [
+            f for f in fnames
+            if not re.search(args.excluding_re, f)
+        ]
     if not fnames:
         print('请提供 MD 文件或目录')
         return
@@ -200,7 +204,7 @@ def fmt_chunk_handle(args):
     hdls = []
     for f in fnames:
         args = copy.deepcopy(args)
-        args.fname = path.join(dir, f)
+        args.fname = f
         h = pool.submit(fmt_chunk_file, args)
         hdls.append(h)
         # if len(hdls) > args.threads:
@@ -220,7 +224,8 @@ def fmt_chunk_file(args):
     if args.fname.endswith('_fmt.md'):
         print(f'{args.fname} 已排版')
         return
-    if re.search(args.excluding_re, args.fname):
+    if args.excluding_re and \
+       re.search(args.excluding_re, args.fname):
         print(f'{args.fname} 已跳过')
         return
     ofname = args.fname[:-3] + '_fmt.md'
