@@ -1,3 +1,4 @@
+import re
 import copy
 import math
 from concurrent.futures import ThreadPoolExecutor
@@ -170,9 +171,27 @@ def tr_fmt_group(text, res, idx, args):
     ans = ask_chatgpt_retry(ques, args.model, args, ext_cont_block)
     res[idx] = ans
 
-def fmt_chunk_dir(args):
-    dir = args.fname
-    fnames = os.listdir(dir)
+def fmt_chunk_handle(args):
+    if path.isfile(args.fname):
+        fnames = [args.fname]
+    else:
+        fnames = [
+            path.join(rt, f)
+            for rt, _, fs in os.walk(args.fname)
+            for f in fs
+        ] if args.recur else [
+            path.join(args.fname, f)
+            for f in os.listdir(args.fname)
+        ]
+    fnames = [
+        f for f in fnames
+        if f.endswith('md') and 
+           not f.endswith('_fmt.md') and
+           not re.search(args.excluding_re, f)
+    ]
+    if not fnames:
+        print('请提供 MD 文件或目录')
+        return
     args.threads = max(
         int(args.threads ** 0.5),
         int(args.threads / len(fnames))
@@ -191,11 +210,6 @@ def fmt_chunk_dir(args):
     for h in hdls: h.result()
     hdls = []
 
-def fmt_chunk_handle(args):
-    if path.isfile(args.fname):
-        fmt_chunk_file(args)
-    else:
-        fmt_chunk_dir(args)
 
 def fmt_chunk_file(args):
     print(args)
@@ -203,11 +217,14 @@ def fmt_chunk_file(args):
     if not args.fname.endswith('.md'):
         print('请提供 MD 文件')
         return
-    ofname = args.fname[:-3] + '_fmt.md'
-    if path.isfile(ofname):
+    if args.fname.endswith('_fmt.md'):
         print(f'{args.fname} 已排版')
         return
-    if args.fname.endswith('_fmt.md'):
+    if re.search(args.excluding_re, args.fname):
+        print(f'{args.fname} 已跳过')
+        return
+    ofname = args.fname[:-3] + '_fmt.md'
+    if path.isfile(ofname):
         print(f'{args.fname} 已排版')
         return
     print(args.fname)
