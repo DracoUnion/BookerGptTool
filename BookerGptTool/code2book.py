@@ -507,7 +507,7 @@ class Code2BookOrchestrator:
             # 持久化
             detail_fname = path.join(self.pj_dir, f'detail_{idx+1}.yaml')
             self._write_yaml(detail_fname, details[i])
-            self._collect_hdls(res_callback)
+        self._collect_hdls(res_callback)
 
         return details
 
