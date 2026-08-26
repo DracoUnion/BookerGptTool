@@ -319,7 +319,8 @@ class Code2BookOrchestrator:
             ]
             self._write_yaml(code_desc_fname, code_desc)
 
-        save_step = max(min(len(code_desc) // 5, 100), 1)
+        # save_step = max(min(len(code_desc) // 5, 100), 1)
+        save_step = 1
         def res_callback(tpl):
             idx, code_desc_i = tpl
             code_desc[idx] == code_desc_i
