@@ -109,7 +109,7 @@ class Code2BookAgent:
             .replace('{outline}', outline_str) \
             .replace('{problem}', problem)
         parse_output = lambda s: parse_obj_as(
-            List[OutlineChapterResult]
+            List[OutlineChapterResult],
             json_repair.loads(ext_code_block(s))
         )
         return ask_chatgpt_retry(
