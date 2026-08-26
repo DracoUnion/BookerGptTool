@@ -6,7 +6,7 @@ import json_repair
 import json
 import logging
 import functools
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, Future
 from threading import Lock
 from typing import List
 from pydantic import parse_obj_as
@@ -234,8 +234,18 @@ class Code2BookOrchestrator:
         self.agent = Code2BookAgent( args)
         self.pj_dir = path.abspath(args.dir) + '_code2book'
         self.pool = ThreadPoolExecutor(args.threads)
+        self.hdls: List[Future] = []
         self.lock = Lock()
 
+    def _collect_hdls(self, res_callback: Optional[Callable] = None) -> None:
+        """等待所有已提交任务完成并清空。
+        on_done: 每个子线程完成后在主线程中调用的回调。
+        """
+        for h in self.hdls:
+            r = h.result()
+            if res_callback: res_callback(r)
+        self.hdls = []
+    
     # ── 持久化工具 ──────────────────────────────────────────
 
     def _write_yaml(self, fname, obj):
@@ -302,21 +312,22 @@ class Code2BookOrchestrator:
             ]
             self._write_yaml(code_desc_fname, code_desc)
 
-        hdls = []
-        for i, it in enumerate(code_desc):
-            if it.desc:
-                continue
-            h = self.pool.submit(
-                self._tr_gen_code_desc, it.file, i)
-            hdls.append(h)
-        save_step = max(min(len(hdls) // 5, 100), 1)
-        for i, h in enumerate(hdls):
-            idx, code_desc_i = h.result()
+        save_step = max(min(len(code_desc) // 5, 100), 1)
+        def res_callback(tpl):
+            idx, code_desc_i = tpl
             code_desc[idx] == code_desc_i
-            if i % save_step == 0 or \
-               i == len(hdls) - 1: 
+        for i, it in enumerate(code_desc):
+            if not it.desc:
+                h = self.pool.submit(
+                    self._tr_gen_code_desc, it.file, i)
+                self.hdls.append(h)
+                if len(self.hdls) > self.args.threads:
+                    self._collect_hdls(res_callback)
+            if i % save_step == 0:
                 self._write_yaml(code_desc_fname, code_desc)
-
+        
+        self._collect_hdls(res_callback)
+        self._write_yaml(code_desc_fname, code_desc)                
         return code_desc
 
     # ── 步骤 3a：划分部分 ──────────────────────────────────
@@ -416,7 +427,7 @@ class Code2BookOrchestrator:
             OutlinePartResult(**pt.dict(), chapters=[]) 
             for pt in parts
         ]
-        hdls = []
+        
         for i, pt in enumerate(parts):
             pt_fnames_set = set(pt.files)
             pt_code_desc = [
@@ -427,7 +438,7 @@ class Code2BookOrchestrator:
                 self._tr_gen_outline,
                 i, pt.files, pt_code_desc
             )
-            hdls.append(h)
+            self.hdls.append(h)
         for h in hdls:
             idx, pt_outline = h.result()
             outline[idx].chapters = pt_outline
@@ -465,7 +476,7 @@ class Code2BookOrchestrator:
     ) -> List[Detail]:
         logger.info('[4] 生成细纲')
         details: List[Detail] = []
-        hdls = []
+        
         for i, ch in enumerate(outline_chs):
             detail_fname = path.join(self.pj_dir, f'detail_{i+1}.yaml')
             if path.isfile(detail_fname):
@@ -476,7 +487,7 @@ class Code2BookOrchestrator:
             details.append(Detail())
             h = self.pool.submit(
                 self._tr_gen_detail, outline_chs, i)
-            hdls.append(h)
+            self.hdls.append(h)
 
         for h in as_completed(hdls):
             idx, detail = h.result()
@@ -582,7 +593,7 @@ class Code2BookOrchestrator:
     ) -> List[str]:
         logger.info('[5] 生成正文')
         bodies: List[str] = []
-        hdls = []
+        
         for i, detail in enumerate(details):
             if path.isfile(body_fname):
                 body = open(body_fname, encoding='utf8').read()
@@ -593,7 +604,7 @@ class Code2BookOrchestrator:
                 self._tr_gen_body, outline_chs,
                 detail, i,
             )
-            hdls.append(h)
+            self.hdls.append(h)
 
         for h in as_completed(hdls):
             idx, body = h.result()
