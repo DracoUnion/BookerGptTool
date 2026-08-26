@@ -352,10 +352,10 @@ class Code2BookOrchestrator:
     # ── 步骤 3：生成大纲 ──────────────────────────────────
 
     def _tr_gen_outline(
-        self, idx: int, no_start: int,
+        self, idx: int,
         part_fnames: List[str], 
         part_code_desc: List[CodeDescItemResult],
-    ) -> Tuple[int, List[OutlineNodeResult]]:
+    ) -> Tuple[int, List[OutlineChapterResult]]:
         logger.info(f'[3] 生成大纲 {idx}')
         readme = open(path.join(self.args.dir, 'README.md'), encoding='utf8').read()
         outline = self.agent.gen_outline(part_fnames, part_code_desc, readme)
@@ -386,27 +386,48 @@ class Code2BookOrchestrator:
                 outline, part_fnames, part_code_desc, readme,
                 prob,
             )
-        # 重排序号
-        for o in outline:
-            o.no + no_start + o.no - 1
         return idx, outline
 
     def step_gen_outline(
         self, 
         parts: List[PartClusResult],
-        fnames: List[str], 
         code_desc: List[CodeDescItemResult],
-    ) -> List[OutlineNodeResult]:
+    ) -> List[OutlinePartResult]:
         logger.info('[3] 生成大纲')
         outline_fname = path.join(self.pj_dir, 'outline.yaml')
 
         if path.isfile(outline_fname):
             outline = yaml.safe_load(
                 open(outline_fname, encoding='utf8').read())
-            return parse_obj_as(List[OutlineChapterResult], outline)
+            return parse_obj_as(List[OutlinePartResult], outline)
 
-        
+        outline = [
+            OutlinePartResult(**pt.dict(), chapters=[]) 
+            for pt in parts
+        ]
+        hdls = []
+        for i, pt in enumerate(parts):
+            pt_fnames_set = set(pt.files)
+            pt_code_desc = [
+                it for it in code_desc 
+                if it.file in pt_fnames_set
+            ]
+            h = self.pool.submit(
+                self._tr_gen_outline,
+                i, pt.files, pt_code_desc
+            )
+            hdls.append(h)
+        for h in hdls:
+            idx, pt_outline = h.result()
+            outline[idx].chapters = pt_outline
+            self._write_yaml(outline_fname, outline)
 
+        # 重排章节序号
+        idx = 1
+        for pt in outline:
+            for ch in pt.chapters:
+                ch.no = idx
+                idx += 1
         self._write_yaml(outline_fname, outline)
         return outline
 
@@ -602,10 +623,10 @@ class Code2BookOrchestrator:
         parts = self.step_clus_part(fnames)
 
         # 3. 生成大纲
-        outline = self.step_gen_outline(fnames, code_desc)
+        outline = self.step_gen_outline(parts, code_desc)
 
         # 4. 生成细纲
-        outline_chs = sum([pt.chapters for pt in outline.parts], [])
+        outline_chs = sum([pt.chapters for pt in outline], [])
         details = self.step_gen_details(outline_chs, code_desc, fnames)
 
         # 4b. 校验细纲
