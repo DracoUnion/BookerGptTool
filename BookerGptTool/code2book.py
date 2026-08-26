@@ -617,15 +617,6 @@ class Code2BookOrchestrator:
 
         # 2. 生成源码文件描述
         code_desc = self.step_gen_code_desc(fnames)
-        code_desc = [
-            ClsFuncExtBrief(
-                file=d.file,
-                desc=d.desc,
-                classes=d.classes,
-                funcs=d.funcs,
-            )
-            for d in code_desc
-        ]
 
         # 3a 划分部分
         parts = self.step_clus_part(fnames)

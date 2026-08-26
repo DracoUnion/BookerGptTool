@@ -8,8 +8,6 @@ CLS_FUNC_EXT_PMT = '''
 ## 要求
 
 1.  输出包含一段话描述，用一段话概述该代码的核心功能。
-2.  分析代码的整体工作流程，输出 mermaid。
-3.  分析代码的类层次结构，输出树状图。
 2.  识别出代码中的所有类名、类方法名和全局函数名,及其一句话描述。
 3.  将这些元素分类，准备进入下一步的详细解析。
 3.  注意不要统计标准库和三方库的类方法或函数，例如`os.chdir`，`tempfile.gettempdir`，只专注当前项目。
@@ -20,26 +18,6 @@ CLS_FUNC_EXT_PMT = '''
 ```
 {
     "desc": "the file ....",
-    "process": [
-        "graph TD",
-        "    A[开始] --> B{金额 > 0?}",
-        "    B -- 否 --> C[抛出 ValueError]",
-        "    B -- 是 --> D[调用第三方支付网关]",
-        "    D --> E{网关返回成功?}",
-        "    E -- 是 --> F[更新订单状态]",
-        "    E -- 否 --> G[记录日志并重试]",
-        "    ..."
-    ],
-    "structure": [
-        "ModelBase (抽象基类)",
-        "├── TextModel (文本模型基类)",
-        "│   ├── LlamaModel",
-        "│   ├── GPT2Model",
-        "│   ├── FalconModel",
-        "│   ├── Qwen2Model",
-        "│   ├── GemmaModel",
-        "│   └── ... "
-    ],
     "classes": [
         {
             "name": "Class1",
