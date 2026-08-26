@@ -340,7 +340,7 @@ class Code2BookOrchestrator:
                 prob += '以下文件没有添加到任何部分中：\n' + \
                         '\n'.join(rest_fnames) + '\n'
             logger.warn(f'[3] 部分校验失败：\n{prob}')
-            parts = 
+            parts = self.agent.fix_parts(fnames, parts, prob)
         return parts
 
     # ── 步骤 3：生成大纲 ──────────────────────────────────
