@@ -285,20 +285,21 @@ class Code2BookOrchestrator:
     def step_gen_code_desc(self, fnames: List[str]) -> List[CodeDescItemResult]:
         logger.info('[2] 生成源码文件描述')
         code_desc_fname = path.join(self.pj_dir, 'code_desc.yaml')
-
         if path.isfile(code_desc_fname):
             code_desc = yaml.safe_load(
                 open(code_desc_fname, encoding='utf8').read())
-            return parse_obj_as(List[CodeDescItemResult], code_desc)
-
-        code_desc = [
-            CodeDescItemResult(
-                file=f, desc='', process=[], structure=[],
-                classes=[], funcs=[],
+            code_desc = parse_obj_as(
+                List[CodeDescItemResult], code_desc,
             )
-            for f in fnames
-        ]
-        self._write_yaml(code_desc_fname, code_desc)
+        else:
+            code_desc = [
+                CodeDescItemResult(
+                    file=f, desc='', process=[], structure=[],
+                    classes=[], funcs=[],
+                )
+                for f in fnames
+            ]
+            self._write_yaml(code_desc_fname, code_desc)
 
         hdls = []
         for i, it in enumerate(code_desc):
