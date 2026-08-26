@@ -36,6 +36,16 @@ class Code2BookAgent:
         self.args = args
         set_openai_props(self.args)
 
+    def cluster_parts(self, files: List[str]) -> List[PartClusResult]:
+        ques = PT_CLUS_PMT.replace('{files}', '\n'.join(files))
+        parse_output = lambda s: parse_obj_as(
+            List[PartClusResult],
+            json_repair.loads(ext_code_block(s))
+        )
+        return ask_chatgpt_retry(
+            ques, self.model, self.args,
+            parse_output=parse_output,
+        )
 
     def gen_code_desc(self, fname: str, code: str) -> ClsFuncExtResult:
         """根据源码提取类、方法和全局函数描述。"""
