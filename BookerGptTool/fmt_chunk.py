@@ -3,9 +3,16 @@ import copy
 import math
 from concurrent.futures import ThreadPoolExecutor
 import os
+import logging
 from os import path
 from .md2skill_chunker import chunk_markdown
-from .util import group_chunks, set_openai_props, ask_chatgpt_retry, split_md_lines, ext_cont_block
+from .util import group_chunks, set_openai_props, ask_chatgpt_retry, split_md_lines, ext_cont_block, logger as util_logger
+
+logging.basicConfig(
+    level=logging.INFO, 
+    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 CRTC_PMT = '''
 假设你是一个高级文档工程师，你的任务是审核提供的 Markdown 文本的格式问题，然后参考格式要求和重要规则，提出排版建议。如果文本不需要排版，直接输出“[TEXT_PERFECT/]”。
@@ -194,7 +201,7 @@ def fmt_chunk_handle(args):
             if not re.search(args.excluding_re, f)
         ]
     if not fnames:
-        print('请提供 MD 文件或目录')
+        logger.critical('请提供 MD 文件或目录')
         return
     args.threads = max(
         int(args.threads ** 0.5),
@@ -216,23 +223,26 @@ def fmt_chunk_handle(args):
 
 
 def fmt_chunk_file(args):
-    print(args)
+    logger.info(args)
     set_openai_props(args)
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        util_logger.setLevel(logging.DEBUG)
     if not args.fname.endswith('.md'):
-        print('请提供 MD 文件')
+        logger.critical('请提供 MD 文件')
         return
     if args.fname.endswith('_fmt.md'):
-        print(f'{args.fname} 已排版')
+        logger.warn(f'{args.fname} 已排版')
         return
     if args.excluding_re and \
        re.search(args.excluding_re, args.fname):
-        print(f'{args.fname} 已跳过')
+        logger.warn(f'{args.fname} 已跳过')
         return
     ofname = args.fname[:-3] + '_fmt.md'
     if path.isfile(ofname):
-        print(f'{args.fname} 已排版')
+        logger.warn(f'{args.fname} 已排版')
         return
-    print(args.fname)
+    logger.info(args.fname)
     md = open(args.fname, encoding='utf8').read()
     chunks = group_chunks(split_md_lines(md), args.limit)
     

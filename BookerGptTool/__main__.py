@@ -203,6 +203,7 @@ def main():
     fmt_chunk_parser.add_argument("-x", "--excluding-re", default='', help="regex for excluding files")
     fmt_chunk_parser.add_argument("-r", "--round", type=int, default=3, help="fix round")
     fmt_chunk_parser.add_argument("-mr", "--multi-round", action='store_true', help="whether multi round")
+    fmt_chunk_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
     fmt_chunk_parser.set_defaults(func=fmt_chunk_handle)
 
     forward_parser = subparsers.add_parser("forward", help="forward oopenai api")
