@@ -236,7 +236,6 @@ class Code2BookOrchestrator:
         self.pj_dir = path.abspath(args.dir) + '_code2book'
         self.pool = ThreadPoolExecutor(args.threads)
         self.hdls: List[Future] = []
-        self.lock = Lock()
 
     def _collect_hdls(self, 
         res_callback: Optional[Callable] = None,
@@ -257,15 +256,17 @@ class Code2BookOrchestrator:
     # ── 持久化工具 ──────────────────────────────────────────
 
     def _write_yaml(self, fname, obj):
-        with self.lock:
-            with open(fname, 'w', encoding='utf8') as f:
-                data = (
-                    [r.dict() for r in obj]
-                    if isinstance(obj, list)
-                    else obj.dict()
-                )
-                f.write(yaml.safe_dump(data, allow_unicode=True))
-
+        """在主线程中将 meta 写回 yaml 文件。"""
+        if isinstance(obj, BaseModel):
+            obj = obj.dict()
+        elif isinstance(obj, list):
+            obj = [
+                it.dict() if isinstance(it, BaseModel) else it
+                for it in obj
+            ]
+        with open(fname, 'w', encoding='utf8') as f:
+            f.write(yaml.safe_dump(obj, allow_unicode=True))
+            f.flush()
 
     # ── 文件探索 ────────────────────────────────────────────
 
@@ -332,6 +333,7 @@ class Code2BookOrchestrator:
                 if len(self.hdls) > self.args.threads:
                     self._collect_hdls(res_callback)
             if i % save_step == 0:
+                logger.debug(f'保存 {i}')
                 self._write_yaml(code_desc_fname, code_desc)
         
         self._collect_hdls(res_callback)
