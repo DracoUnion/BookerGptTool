@@ -44,15 +44,6 @@ class OutlineChapterResult(BaseModel):
     desc: str
     nodes: List[OutlineNodeResult]
 
-class OutlinePartResult(BaseModel):
-    no: int
-    name: str
-    desc: str
-    chapters: List[OutlineChapterResult]
-
-class OutlineResult(BaseModel):
-    parts: List[OutlinePartResult]
-
 class SrcAnlsDetailCodeResult(BaseModel):
     file: str
     class_or_func: str

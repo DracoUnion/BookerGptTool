@@ -78,15 +78,16 @@ class Code2BookAgent:
 
     def gen_outline(
         self, fnames: List[str], code_desc: List[CodeDescItemResult], readme: str,
-    ) -> OutlineResult:
+    ) -> List[OutlineChapterResult]:
         """根据项目结构和源码描述生成书籍大纲。"""
         fnames_li = '\n'.join(fnames)
         code_desc_str = json.dumps([d.dict() for d in code_desc], ensure_ascii=False)
         ques = OUTLINE_PMT.replace('{struct}', fnames_li) \
             .replace('{code_desc}', code_desc_str) \
             .replace('{readme}', readme)
-        parse_output = lambda s: OutlineResult(
-            **json_repair.loads(ext_code_block(s))
+        parse_output = lambda s: parse_obj_as(
+            List[OutlineChapterResult],
+            json_repair.loads(ext_code_block(s))
         )
         return ask_chatgpt_retry(
             ques, self.model, self.args,
@@ -347,18 +348,18 @@ class Code2BookOrchestrator:
     # ── 步骤 3：生成大纲 ──────────────────────────────────
 
     def step_gen_outline(
-        self, fnames: List[str], code_desc: List[CodeDescItemResult],
-    ) -> OutlineResult:
+        self, part_fnames: List[str], code_desc: List[CodeDescItemResult],
+    ) -> List[OutlineNodeResult]:
         logger.info('[3] 生成大纲')
         outline_fname = path.join(self.pj_dir, 'outline.yaml')
 
         if path.isfile(outline_fname):
             outline = yaml.safe_load(
                 open(outline_fname, encoding='utf8').read())
-            return OutlineResult(**outline)
+            return parse_obj_as(List[OutlineChapterResult], outline)
 
         readme = open(path.join(self.args.dir, 'README.md'), encoding='utf8').read()
-        outline = self.agent.gen_outline(fnames, code_desc, readme)
+        outline = self.agent.gen_outline(part_fnames, code_desc, readme)
 
         # 校验源码文件完整覆盖
         for _ in range(self.args.check):
@@ -369,7 +370,7 @@ class Code2BookOrchestrator:
                 for n in ch.nodes
                 for f in n.src
             ]
-            rest_fnames = list(set(fnames) - set(outline_fnames))
+            rest_fnames = list(set(part_fnames) - set(outline_fnames))
             if len(rest_fnames) == 0:
                 logger.info('[3] 校验通过')
                 break
@@ -379,7 +380,7 @@ class Code2BookOrchestrator:
                 f'...\n共 {len(rest_fnames)} 个'
             )
             outline = self.agent.fix_outline(
-                outline, fnames, code_desc, readme,
+                outline, part_fnames, code_desc, readme,
                 '\n'.join(rest_fnames),
             )
 
