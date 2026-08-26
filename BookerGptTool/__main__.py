@@ -80,6 +80,7 @@ def main():
     code2book_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
     code2book_parser.add_argument("-c", "--check", type=int, default=0, help="check times")
     code2book_parser.add_argument("-l", "--chapter-limit", type=int, default=20, help="chapter limit")
+    code2book_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
     code2book_parser.set_defaults(func=code2book)
 
     shengcai_parser = subparsers.add_parser("shengcai", help="parse shengcai fengxiangbiao")
