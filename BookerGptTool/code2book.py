@@ -118,10 +118,13 @@ class Code2BookAgent:
         )
 
     def gen_src_anls_detail(
-        self, idx: int, outline_chs: List[OutlineResult], code_str: str,
+        self, idx: int, outline_chs: List[OutlineChapterResult], code_str: str,
     ) -> SrcAnlsDetailResult:
         """生成第 idx 章细纲的源码解析部分。"""
-        outline_str = json.dumps(outline_chs, ensure_ascii=False)
+        outline_str = json.dumps(
+            [c.dict() for c in outline_chs], 
+            ensure_ascii=False
+        )
         ques = SRC_ANLS_DETAIL_PMT.replace('{i}', str(idx + 1)) \
             .replace('{outline}', outline_str) \
             .replace('{code}', code_str)
@@ -138,7 +141,10 @@ class Code2BookAgent:
     ) -> RestDetailResult:
         """生成第 idx 章细纲的剩余部分（学习目标、类比、练习等）。"""
         detail_str = json.dumps(detail, ensure_ascii=False)
-        outline_str = json.dumps(outline_chs, ensure_ascii=False)
+        outline_str =  outline_str = json.dumps(
+            [c.dict() for c in outline_chs], 
+            ensure_ascii=False
+        )
         ques = REST_DETAIL_PMT.replace('{detail}', detail_str) \
             .replace('{outline}', outline_str) \
             .replace('{i}', str(idx + 1)) \
@@ -433,7 +439,7 @@ class Code2BookOrchestrator:
 
     # ── 步骤 4：生成细纲 ──────────────────────────────────
 
-    def _tr_gen_detail(self, outline_chs, idx: int) -> Tuple[int, Detail]:
+    def _tr_gen_detail(self, outline_chs: List[OutlineChapterResult], idx: int) -> Tuple[int, Detail]:
         logger.info(f'[4] 编写第{idx+1}章细纲')
         code_fnames = [
             f for pt in outline_chs[idx].nodes
@@ -450,8 +456,7 @@ class Code2BookOrchestrator:
         return Detail(**detail_result.dict(), **rest_result.dict())
 
     def step_gen_details(
-        self, outline_chs, code_desc: List[CodeDescItemResult],
-        fnames: List[str],
+        self, outline_chs: List[OutlineChapterResult],
     ) -> List[Detail]:
         logger.info('[4] 生成细纲')
         details: List[Detail] = []
@@ -627,7 +632,7 @@ class Code2BookOrchestrator:
 
         # 4. 生成细纲
         outline_chs = sum([pt.chapters for pt in outline], [])
-        details = self.step_gen_details(outline_chs, code_desc, fnames)
+        details = self.step_gen_details(outline_chs)
 
         # 4b. 校验细纲
         details = self.step_check_details(details, code_desc, fnames)
