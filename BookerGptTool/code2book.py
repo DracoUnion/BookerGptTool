@@ -341,6 +341,7 @@ class Code2BookOrchestrator:
                         '\n'.join(rest_fnames) + '\n'
             logger.warn(f'[3] 部分校验失败：\n{prob}')
             parts = self.agent.fix_parts(fnames, parts, prob)
+        self._write_yaml(part_clus_fname, parts)
         return parts
 
     # ── 步骤 3：生成大纲 ──────────────────────────────────
