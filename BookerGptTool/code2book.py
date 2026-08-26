@@ -285,7 +285,8 @@ class Code2BookOrchestrator:
     def step_gen_code_desc(self, fnames: List[str]) -> List[CodeDescItemResult]:
         logger.info('[2] 生成源码文件描述')
         code_desc_fname = path.join(self.pj_dir, 'code_desc.yaml')
-        if path.isfile(code_desc_fname):
+        if path.isfile(code_desc_fname) and \
+           path.getsize(code_desc_fname):
             code_desc = yaml.safe_load(
                 open(code_desc_fname, encoding='utf8').read())
             code_desc = parse_obj_as(
