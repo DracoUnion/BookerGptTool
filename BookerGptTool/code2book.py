@@ -312,8 +312,7 @@ class Code2BookOrchestrator:
         else:
             code_desc = [
                 CodeDescItemResult(
-                    file=f, desc='', process=[], structure=[],
-                    classes=[], funcs=[],
+                    file=f, desc='', classes=[], funcs=[],
                 )
                 for f in fnames
             ]
