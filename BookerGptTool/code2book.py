@@ -36,9 +36,14 @@ class Code2BookAgent:
         self.args = args
         set_openai_props(self.args)
 
-    def fix_parts(self, files: List[str], problem: str) -> List[PartClusResult]:
+    def fix_parts(
+        self, files: List[str], 
+        parts: List[PartClusResult], problem: str
+    ) -> List[PartClusResult]:
+        parts_str = json.dumps([p.dict() for p in parts])
         ques = PT_FIX_PMT.replace('{files}', '\n'.join(files)) \
-            .replace('{problem}', problem)
+            .replace('{problem}', problem) \
+            .replace('{parts}', parts_str)
         parse_output = lambda s: parse_obj_as(
             List[PartClusResult],
             json_repair.loads(ext_code_block(s))
@@ -334,7 +339,8 @@ class Code2BookOrchestrator:
             if rest_fnames:
                 prob += '以下文件没有添加到任何部分中：\n' + \
                         '\n'.join(rest_fnames) + '\n'
-
+            logger.warn(f'[3] 部分校验失败：\n{prob}')
+            parts = 
         return parts
 
     # ── 步骤 3：生成大纲 ──────────────────────────────────
