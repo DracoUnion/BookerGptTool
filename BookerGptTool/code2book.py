@@ -286,6 +286,45 @@ class Code2BookOrchestrator:
 
         return code_desc
 
+    # ── 步骤 3a：划分部分 ──────────────────────────────────
+  
+    def step_clus_part(
+        self, fnames: List[str]
+    ):
+        logger.info('[3] 划分部分')
+        part_clus_fname = path.join(self.pj_dir, 'parts.yaml')
+        if path.isfile(part_clus_fname):
+            parts = yaml.safe_load(
+                open(part_clus_fname, encoding='utf8').read())
+            return parse_obj_as(List[PartClusResult], parts)
+
+        if len(fnames) <= self.args.chapter_limit:
+            parts = [PartClusResult(no=1, title='全书', files=fnames)]
+            self._write_yaml(part_clus_fname, parts)
+            return parts
+
+        parts = self.agent.cluster_parts(fnames)
+        for _ in self.args.retry:
+            total_fnames = set(fnames)
+            exi_fnames = {
+                f for p in parts for f in p.files
+            }
+            false_fnames = exi_fnames - total_fnames
+            rest_fnames = total_fnames - exi_fnames
+            if not false_fnames and not rest_fnames:
+                logger.debug('[3] 部分校验通过')
+                break
+
+            prob = ''
+            if false_fnames:
+                prob += f'以下文件在源码目录中不存在：\n' + \
+                        '\n'.join(false_fnames) + '\n'
+            if rest_fnames:
+                prob += '以下文件没有添加到任何部分中：\n' + \
+                        '\n'.join(rest_fnames) + '\n'
+            
+        return parts
+
     # ── 步骤 3：生成大纲 ──────────────────────────────────
 
     def step_gen_outline(
