@@ -307,10 +307,13 @@ class Code2BookOrchestrator:
             h = self.pool.submit(
                 self._tr_gen_code_desc, it.file, i)
             hdls.append(h)
-        for h in as_completed(hdls):
+        save_step = max(min(len(hdls) // 5, 100), 1)
+        for i, h in enumerate(hdls):
             idx, code_desc_i = h.result()
             code_desc[idx] == code_desc_i
-            self._write_yaml(code_desc_fname, code_desc)
+            if i % save_step == 0 or \
+               i == len(hdls) - 1: 
+                self._write_yaml(code_desc_fname, code_desc)
 
         return code_desc
 
