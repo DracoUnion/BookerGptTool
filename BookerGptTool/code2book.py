@@ -95,18 +95,22 @@ class Code2BookAgent:
         )
 
     def fix_outline(
-        self, outline: OutlineResult, fnames_li: str,
-        code_desc_str: str, readme: str, rest_fnames: str,
-    ) -> OutlineResult:
+        self, outline: List[OutlineChapterResult], fnames_li: str,
+        code_desc_str: str, readme: str, problem: str,
+    ) -> List[OutlineChapterResult]:
         """校验大纲未覆盖所有文件时，补充缺少的源码文件重写大纲。"""
-        outline_str = json.dumps(outline.dict(), ensure_ascii=False)
+        outline_str = json.dumps(
+            [o.dict() for o in outline], 
+            ensure_ascii=False
+        )
         ques = OUTLINE_FIX_PMT.replace('{struct}', fnames_li) \
             .replace('{code_desc}', code_desc_str) \
             .replace('{readme}', readme) \
             .replace('{outline}', outline_str) \
-            .replace('{rest_fnames}', rest_fnames)
-        parse_output = lambda s: OutlineResult(
-            **json_repair.loads(ext_code_block(s))
+            .replace('{problem}', problem)
+        parse_output = lambda s: parse_obj_as(
+            List[OutlineChapterResult]
+            json_repair.loads(ext_code_block(s))
         )
         return ask_chatgpt_retry(
             ques, self.model, self.args,
@@ -322,7 +326,7 @@ class Code2BookOrchestrator:
             return parts
 
         parts = self.agent.cluster_parts(fnames)
-        for _ in self.args.retry:
+        for _ in range(self.args.check):
             total_fnames = set(fnames)
             exi_fnames = {
                 f for p in parts for f in p.files
@@ -370,18 +374,22 @@ class Code2BookOrchestrator:
                 for n in ch.nodes
                 for f in n.src
             ]
-            rest_fnames = list(set(part_fnames) - set(outline_fnames))
-            if len(rest_fnames) == 0:
+            rest_fnames = set(part_fnames) - set(outline_fnames)
+            false_fnames = set(outline_fnames) - set(part_fnames)
+            if not rest_fnames and not false_fnames:
                 logger.info('[3] 校验通过')
                 break
-            logger.warn('[3] 校验未通过')
-            logger.warn(
-                '\n'.join(rest_fnames[:10]) +
-                f'...\n共 {len(rest_fnames)} 个'
-            )
+            prob = ''
+            if rest_fnames:
+                prob += '以下文件在大纲中未出现：\n' + \
+                        '\n'.join(rest_fnames) + '\n'
+            if false_fnames:
+                prob += '以下文件在源码目录中不存在：\n' + \
+                        '\n'.join(false_fnames) + '\n'
+            logger.warn('[3] 校验未通过：\n{prob}')
             outline = self.agent.fix_outline(
                 outline, part_fnames, code_desc, readme,
-                '\n'.join(rest_fnames),
+                prob,
             )
 
         self._write_yaml(outline_fname, outline)
