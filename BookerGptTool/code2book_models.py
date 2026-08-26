@@ -1,6 +1,11 @@
 from pydantic import BaseModel, field_validator, parse_obj_as
 from typing import *
 
+class PartClusResult(BaseModel):
+    no: int
+    title: str
+    files: List[str]
+
 class FuncExtResult(BaseModel):
     name: str
     desc: str  
