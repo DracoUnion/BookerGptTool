@@ -324,7 +324,7 @@ class Code2BookOrchestrator:
         save_step = 1
         def res_callback(tpl):
             idx, code_desc_i = tpl
-            code_desc[idx] == code_desc_i
+            code_desc[idx] = code_desc_i
         for i, it in enumerate(code_desc):
             if not it.desc:
                 h = self.pool.submit(
@@ -333,7 +333,6 @@ class Code2BookOrchestrator:
                 if len(self.hdls) > self.args.threads:
                     self._collect_hdls(res_callback)
             if i % save_step == 0:
-                logger.debug(f'保存 {i}')
                 self._write_yaml(code_desc_fname, code_desc)
         
         self._collect_hdls(res_callback)
