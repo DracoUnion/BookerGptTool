@@ -28,6 +28,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def expand_dbl_star(ptns, files):
+    res = []
+    for p in ptns:
+        if not p.endswith('**'):
+            res.append(p)
+        else:
+            res += [f for f in files if f.startswith(p[:-2])]
+    return res
 
 class Code2BookAgent:
     """封装所有 LLM 调用，每个方法对应一个独立的 prompt 调用。"""
@@ -361,6 +369,7 @@ class Code2BookOrchestrator:
             exi_fnames = {
                 f for p in parts for f in p.files
             }
+            exi_fnames = set(expand_dbl_star(exi_fnames, total_fnames))
             false_fnames = exi_fnames - total_fnames
             rest_fnames = total_fnames - exi_fnames
             if not false_fnames and not rest_fnames:
