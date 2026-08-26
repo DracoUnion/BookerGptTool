@@ -237,13 +237,20 @@ class Code2BookOrchestrator:
         self.hdls: List[Future] = []
         self.lock = Lock()
 
-    def _collect_hdls(self, res_callback: Optional[Callable] = None) -> None:
+    def _collect_hdls(self, 
+        res_callback: Optional[Callable] = None,
+        write_callback: Optional[Callable] = None,
+    ) -> None:
         """等待所有已提交任务完成并清空。
         on_done: 每个子线程完成后在主线程中调用的回调。
         """
-        for h in self.hdls:
+        save_step = max(min(len(self.hdls) // 5, 100), 1)
+        for i, h in enumerate(self.hdls):
             r = h.result()
             if res_callback: res_callback(r)
+            if write_callback and \
+               (i % save_step == 0 or i == len(self.hdls) - 1):
+               write_callback()
         self.hdls = []
     
     # ── 持久化工具 ──────────────────────────────────────────
@@ -439,10 +446,15 @@ class Code2BookOrchestrator:
                 i, pt.files, pt_code_desc
             )
             self.hdls.append(h)
-        for h in self.hdls:
-            idx, pt_outline = h.result()
+        def res_callback(tpl):
+            idx, pt_outline = tpl
             outline[idx].chapters = pt_outline
-            self._write_yaml(outline_fname, outline)
+        self._collect_hdls(
+            res_callback,
+            lambda: self._write_yaml(outline_fname, outline)
+        )
+            
+            
 
         # 重排章节序号
         idx = 1
@@ -489,12 +501,13 @@ class Code2BookOrchestrator:
                 self._tr_gen_detail, outline_chs, i)
             self.hdls.append(h)
 
-        for h in as_completed(self.hdls):
-            idx, detail = h.result()
+        def res_callback(tpl)
+            idx, detail = tpl
             details[idx] = detail
             # 持久化
             detail_fname = path.join(self.pj_dir, f'detail_{idx+1}.yaml')
             self._write_yaml(detail_fname, details[i])
+            self._collect_hdls(res_callback)
 
         return details
 
@@ -605,12 +618,13 @@ class Code2BookOrchestrator:
                 detail, i,
             )
             self.hdls.append(h)
-
-        for h in as_completed(self.hdls):
-            idx, body = h.result()
+        def res_callback(tpl):
+            idx, body = tpl
             bodies[idx] = body
             body_fname = path.join(self.pj_dir, f'body_{idx+1}.md')
             open(body_fname, 'w', encoding='utf8').write(body)
+        self._collect_hdls(res_callback)
+            
 
         return bodies
 
