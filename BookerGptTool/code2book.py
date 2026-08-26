@@ -137,7 +137,7 @@ class Code2BookAgent:
         )
 
     def gen_rest_detail(
-        self, idx: int, detail: Detail, outline_chs: str, code_str: str,
+        self, idx: int, detail: Detail, outline_chs: List[OutlineChapterResult], code_str: str,
     ) -> RestDetailResult:
         """生成第 idx 章细纲的剩余部分（学习目标、类比、练习等）。"""
         detail_str = json.dumps(detail, ensure_ascii=False)
