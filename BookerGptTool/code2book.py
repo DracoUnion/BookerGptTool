@@ -574,6 +574,9 @@ class Code2BookOrchestrator:
             for d in code_desc
         ]
 
+        # 3a 划分部分
+        parts = self.step_clus_part(fnames)
+
         # 3. 生成大纲
         outline = self.step_gen_outline(fnames, code_desc)
 
