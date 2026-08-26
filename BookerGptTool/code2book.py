@@ -351,19 +351,14 @@ class Code2BookOrchestrator:
 
     # ── 步骤 3：生成大纲 ──────────────────────────────────
 
-    def step_gen_outline(
-        self, part_fnames: List[str], code_desc: List[CodeDescItemResult],
-    ) -> List[OutlineNodeResult]:
-        logger.info('[3] 生成大纲')
-        outline_fname = path.join(self.pj_dir, 'outline.yaml')
-
-        if path.isfile(outline_fname):
-            outline = yaml.safe_load(
-                open(outline_fname, encoding='utf8').read())
-            return parse_obj_as(List[OutlineChapterResult], outline)
-
+    def _tr_gen_outline(
+        self, idx: int, no_start: int,
+        part_fnames: List[str], 
+        part_code_desc: List[CodeDescItemResult],
+    ) -> Tuple[int, List[OutlineNodeResult]]:
+        logger.info(f'[3] 生成大纲 {idx}')
         readme = open(path.join(self.args.dir, 'README.md'), encoding='utf8').read()
-        outline = self.agent.gen_outline(part_fnames, code_desc, readme)
+        outline = self.agent.gen_outline(part_fnames, part_code_desc, readme)
 
         # 校验源码文件完整覆盖
         for _ in range(self.args.check):
@@ -388,9 +383,29 @@ class Code2BookOrchestrator:
                         '\n'.join(false_fnames) + '\n'
             logger.warn('[3] 校验未通过：\n{prob}')
             outline = self.agent.fix_outline(
-                outline, part_fnames, code_desc, readme,
+                outline, part_fnames, part_code_desc, readme,
                 prob,
             )
+        # 重排序号
+        for o in outline:
+            o.no + no_start + o.no - 1
+        return idx, outline
+
+    def step_gen_outline(
+        self, 
+        parts: List[PartClusResult],
+        fnames: List[str], 
+        code_desc: List[CodeDescItemResult],
+    ) -> List[OutlineNodeResult]:
+        logger.info('[3] 生成大纲')
+        outline_fname = path.join(self.pj_dir, 'outline.yaml')
+
+        if path.isfile(outline_fname):
+            outline = yaml.safe_load(
+                open(outline_fname, encoding='utf8').read())
+            return parse_obj_as(List[OutlineChapterResult], outline)
+
+        
 
         self._write_yaml(outline_fname, outline)
         return outline
