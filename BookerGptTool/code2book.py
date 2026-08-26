@@ -252,7 +252,7 @@ class Code2BookOrchestrator:
         """等待所有已提交任务完成并清空。
         on_done: 每个子线程完成后在主线程中调用的回调。
         """
-        save_step = max(min(len(self.hdls) // 5, 20), 1)
+        save_step = max(min(len(self.hdls) // 5, 100), 1)
         for i, h in enumerate(self.hdls):
             r = h.result()
             if res_callback: res_callback(r)
@@ -328,7 +328,7 @@ class Code2BookOrchestrator:
             ]
             self._write_yaml(code_desc_fname, code_desc)
 
-        save_step = max(min(len(code_desc) // 5, 20), 1)
+        save_step = max(min(len(code_desc) // 5, 100), 1)
         def res_callback(tpl):
             idx, code_desc_i = tpl
             code_desc[idx] = code_desc_i
