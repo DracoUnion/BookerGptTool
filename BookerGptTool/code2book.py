@@ -501,7 +501,7 @@ class Code2BookOrchestrator:
                 self._tr_gen_detail, outline_chs, i)
             self.hdls.append(h)
 
-        def res_callback(tpl)
+        def res_callback(tpl):
             idx, detail = tpl
             details[idx] = detail
             # 持久化
