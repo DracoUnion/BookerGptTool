@@ -439,7 +439,7 @@ class Code2BookOrchestrator:
                 i, pt.files, pt_code_desc
             )
             self.hdls.append(h)
-        for h in hdls:
+        for h in self.hdls:
             idx, pt_outline = h.result()
             outline[idx].chapters = pt_outline
             self._write_yaml(outline_fname, outline)
@@ -489,7 +489,7 @@ class Code2BookOrchestrator:
                 self._tr_gen_detail, outline_chs, i)
             self.hdls.append(h)
 
-        for h in as_completed(hdls):
+        for h in as_completed(self.hdls):
             idx, detail = h.result()
             details[idx] = detail
             # 持久化
@@ -606,7 +606,7 @@ class Code2BookOrchestrator:
             )
             self.hdls.append(h)
 
-        for h in as_completed(hdls):
+        for h in as_completed(self.hdls):
             idx, body = h.result()
             bodies[idx] = body
             body_fname = path.join(self.pj_dir, f'body_{idx+1}.md')
