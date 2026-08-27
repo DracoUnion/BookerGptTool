@@ -57,10 +57,13 @@ class Code2BookAgent:
             List[PartClusResult],
             json_repair.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(
+        parts =  ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
+        for pt in parts:
+            pt.files = expand_dbl_star(pt.files, files)
+        return parts
 
     def cluster_parts(self, files: List[str]) -> List[PartClusResult]:
         ques = PT_CLUS_PMT.replace('{files}', '\n'.join(files))
@@ -68,10 +71,13 @@ class Code2BookAgent:
             List[PartClusResult],
             json_repair.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(
+        parts =  ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
+        for pt in parts:
+            pt.files = expand_dbl_star(pt.files, files)
+        return parts
 
     def gen_code_desc(self, fname: str, code: str) -> ClsFuncExtResult:
         """根据源码提取类、方法和全局函数描述。"""
@@ -364,8 +370,6 @@ class Code2BookOrchestrator:
             return parts
 
         parts = self.agent.cluster_parts(fnames)
-        for pt in parts:
-            pt.files = expand_dbl_star(pt.files, fnames)
         for _ in range(self.args.check):
             total_fnames = set(fnames)
             exi_fnames = {
@@ -386,8 +390,6 @@ class Code2BookOrchestrator:
                         '\n'.join(rest_fnames) + '\n'
             logger.warn(f'[3] 部分校验失败：\n{prob}')
             parts = self.agent.fix_parts(fnames, parts, prob)
-            for pt in parts:
-                pt.files = expand_dbl_star(pt.files, fnames)
         self._write_yaml(part_clus_fname, parts)
         return parts
 
