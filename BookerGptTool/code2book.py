@@ -364,12 +364,13 @@ class Code2BookOrchestrator:
             return parts
 
         parts = self.agent.cluster_parts(fnames)
+        for pt in parts:
+            pt.files = expand_dbl_star(pt.files, fnames)
         for _ in range(self.args.check):
             total_fnames = set(fnames)
             exi_fnames = {
                 f for p in parts for f in p.files
             }
-            exi_fnames = set(expand_dbl_star(exi_fnames, total_fnames))
             false_fnames = exi_fnames - total_fnames
             rest_fnames = total_fnames - exi_fnames
             if not false_fnames and not rest_fnames:
@@ -385,6 +386,8 @@ class Code2BookOrchestrator:
                         '\n'.join(rest_fnames) + '\n'
             logger.warn(f'[3] 部分校验失败：\n{prob}')
             parts = self.agent.fix_parts(fnames, parts, prob)
+            for pt in parts:
+                pt.files = expand_dbl_star(pt.files, fnames)
         self._write_yaml(part_clus_fname, parts)
         return parts
 
