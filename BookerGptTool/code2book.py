@@ -576,66 +576,6 @@ class Code2BookOrchestrator:
 
         return details
 
-    # ── 步骤 4b：校验细纲 ────────────────────────────────
-
-    def step_check_details(
-        self, details: List[Detail],
-        code_desc: List[CodeDescItemResult],
-        fnames: List[str],
-    ) -> List[Detail]:
-        fixed = all(d.fixed for d in details)
-        if fixed:
-            logger.info('[4] 细纲校验通过')
-            return details
-        for i, d in enumerate(details):
-            d.no = i + 1
-
-        readme = open(path.join(self.args.dir, 'README.md'), encoding='utf8').read()
-        total_funcs = [
-            cd.file + ':' + fn.name
-            for cd in code_desc
-            for fn in cd.funcs
-        ]
-        total_funcs += [
-            cd.file + ':' + cls_.name + '.' + m.name
-            for cd in code_desc
-            for cls_ in cd.classes
-            for m in cls_.methods
-        ]
-        total_funcs = [
-            it.replace('\\', '/').replace('()', '')
-            for it in total_funcs
-        ]
-
-        for _ in range(self.args.check):
-            exi_funcs = [
-                cd.file + ':' + cd.method_or_func
-                for d in details
-                for u in d.units
-                for cd in u.codes
-            ]
-            exi_funcs = [
-                it.replace('\\', '/').replace('()', '')
-                for it in exi_funcs
-            ]
-            rest_funcs = list(set(total_funcs) - set(exi_funcs))
-            if len(rest_funcs) == 0:
-                logger.info('[4] 细纲校验通过')
-                break
-            logger.info('[4] 细纲校验未通过')
-            logger.info('\n'.join(rest_funcs))
-            details = self.agent.fix_detail(
-                details, fnames, code_desc, readme,
-                '\n'.join(rest_funcs),
-            )
-            sorted(details, key=lambda it: it.no)
-            for i, d in enumerate(details):
-                d.fixed = True
-                detail_fname = path.join(self.pj_dir, f'detail_{i+1}.yaml')
-                self._write_yaml(detail_fname. d)
-
-        return details
-
     # ── 步骤 5：生成正文 ──────────────────────────────────
 
     def _tr_gen_body(
@@ -719,9 +659,6 @@ class Code2BookOrchestrator:
         # 4. 生成细纲
         outline_chs = sum([pt.chapters for pt in outline], [])
         details = self.step_gen_details(outline_chs, code_desc)
-
-        # 4b. 校验细纲
-        details = self.step_check_details(details, code_desc, fnames)
 
         # 5. 生成正文
         self.step_gen_bodies(outline_chs, details)
