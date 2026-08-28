@@ -264,6 +264,7 @@ class Code2BookOrchestrator:
             if write_callback and \
                (i % save_step == 0 or i == len(self.hdls) - 1):
                write_callback()
+               logger.warn(f'保存 {i}')
         self.hdls = []
     
     # ── 持久化工具 ──────────────────────────────────────────
@@ -466,6 +467,8 @@ class Code2BookOrchestrator:
         def res_callback(tpl):
             idx, pt_outline = tpl
             outline[idx].chapters = pt_outline
+            done = sum(1 for ch in outline[idx].chapters if ch)
+            logger.warn(f'写回 {tpl}，完成 {done}')
         self._collect_hdls(
             res_callback,
             lambda: self._write_yaml(outline_fname, outline)
@@ -616,6 +619,7 @@ class Code2BookOrchestrator:
         bodies: List[str] = []
         
         for i, detail in enumerate(details):
+            body_fname = path.join(self.pj_dir, f'article_{i+1}.md')
             if path.isfile(body_fname):
                 body = open(body_fname, encoding='utf8').read()
                 bodies.append(body)
