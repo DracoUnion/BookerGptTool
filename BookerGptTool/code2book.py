@@ -442,14 +442,17 @@ class Code2BookOrchestrator:
         if path.isfile(outline_fname):
             outline = yaml.safe_load(
                 open(outline_fname, encoding='utf8').read())
-            return parse_obj_as(List[OutlinePartResult], outline)
-
-        outline = [
-            OutlinePartResult(**pt.dict(), chapters=[]) 
-            for pt in parts
-        ]
+            outline = parse_obj_as(List[OutlinePartResult], outline)
+        else:
+            outline = [
+                OutlinePartResult(**pt.dict(), chapters=[]) 
+                for pt in parts
+            ]
+            self._write_yaml(outline_fname, outline)
         
         for i, pt in enumerate(parts):
+            if outline[i].chapters:
+                continue
             pt_fnames_set = set(pt.files)
             pt_code_desc = [
                 it for it in code_desc 
