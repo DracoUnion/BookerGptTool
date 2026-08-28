@@ -155,12 +155,11 @@ class Code2BookAgent:
         self, idx: int, detail: Detail, outline_chs: List[OutlineChapterResult], code_str: str,
     ) -> RestDetailResult:
         """生成第 idx 章细纲的剩余部分（学习目标、类比、练习等）。"""
-        detail_str = json.dumps(detail, ensure_ascii=False)
         outline_str =  outline_str = json.dumps(
             [c.dict() for c in outline_chs], 
             ensure_ascii=False
         )
-        ques = REST_DETAIL_PMT.replace('{detail}', detail_str) \
+        ques = REST_DETAIL_PMT.replace('{detail}', detail.json()) \
             .replace('{outline}', outline_str) \
             .replace('{i}', str(idx + 1)) \
             .replace('{code}', code_str)
@@ -172,21 +171,21 @@ class Code2BookAgent:
             parse_output=parse_output,
         )
 
-    def fix_details(
-        self, details: List[Detail], fnames: List[str],
-        code_desc: List[CodeDescItemResult], readme: str, rest_funcs: str,
+    def fix_detail(
+        self, idx: int, detail: Detail, outline_chs: List[OutlineChapterResult],
+        code_str: str, problem: str,
     ) -> List[Detail]:
         """校验细纲未覆盖所有函数时，补充缺少的函数重写细纲。"""
-        details_str = json.dumps(
-            [d.dict() for d in details], ensure_ascii=False)
-        fnames_li = '\n'.join(fnames)
-        code_desc_str = json.dumps([d.dict() for d in code_desc], ensure_ascii=False)
+        outline_str = json.dumps(
+            [c.dict() for c in outline_chs], 
+            ensure_ascii=False
+        )        
         ques = DETAIL_FIX_PMT \
-            .replace('{details}', details_str) \
-            .replace('{struct}', fnames_li) \
-            .replace('{code_desc}', code_desc_str) \
-            .replace('{readme}', readme) \
-            .replace('{rest_funcs}', rest_funcs)
+            .replace('{i}', str(idx)) \
+            .replace('{outline}', outline_str) \
+            .replace('{detail}', detail.json()) \
+            .replace('{code}', code_str) \
+            .replace('{problem}', problem)
         parse_output = lambda s: parse_obj_as(
             List[Detail], json_repair.loads(ext_code_block(s))
         )
@@ -482,24 +481,75 @@ class Code2BookOrchestrator:
 
     # ── 步骤 4：生成细纲 ──────────────────────────────────
 
-    def _tr_gen_detail(self, outline_chs: List[OutlineChapterResult], idx: int) -> Tuple[int, Detail]:
+    def _tr_gen_detail(
+        self, 
+        outline_chs: List[OutlineChapterResult], 
+        idx: int,
+        code_desc: List[CodeDescItemResult],
+    ) -> Tuple[int, Detail]:
         logger.info(f'[4] 编写第{idx+1}章细纲')
         code_fnames = [
             f for pt in outline_chs[idx].nodes
               for f in pt.src
         ]
+        code_fname_set = set(code_fnames)
         code_dict = self._read_code_dict(code_fnames)
         code_str = self._code_to_str(code_dict)
+        code_desc_ch = [
+            d for d in code_desc 
+            if d.file in code_fname_set
+        ]
+        total_funcs = [
+            code_desc_ch.file + ':' + fn.name
+            for fn in code_desc_ch.funcs
+        ]
+        total_funcs += [
+            code_desc_ch.file + ':' + cls_.name + '.' + m.name
+            for cls_ in code_desc_ch.classes
+            for m in cls_.methods
+        ]
+        total_funcs = {
+            it.replace('\\', '/').replace('()', '')
+            for it in total_funcs
+        }
 
         # 源码解析部分
         detail_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_str)
         # 剩余部分
         rest_result = self.agent.gen_rest_detail(idx, detail_result, outline_chs, code_str)
-        
-        return Detail(**detail_result.dict(), **rest_result.dict())
+        result = Detail(**detail_result.dict(), **rest_result.dict())
+
+        for _ in range(self.args.check):
+            detail_funcs = [
+                c.file + ':' + c.method_or_func
+                for u in result.units
+                for c in u.codes
+            ]
+            detail_funcs = {
+                it.replace('\\', '/').replace('()', '')
+                for it in detail_funcs
+            }
+            rest_funcs = total_funcs - detail_funcs
+            false_funcs = detail_funcs - total_funcs
+            if not rest_funcs and not false_funcs:
+                logger.info(f'[4] 细纲 {idx+1} 校验通过')
+                break
+            prob = ''
+            if false_funcs:
+                prob += f'以下函数或方法在源文件中不存在：\n' + \
+                        '\n'.join(false_funcs) + '\n'
+            if rest_funcs:
+                prob += '以下函数或方法没有添加到任何部分中：\n' + \
+                        '\n'.join(rest_funcs) + '\n'
+            logger.warn(f'[4] 细纲 {idx+1} 校验失败：\n{prob}')
+            parts = self.agent.fix_detail(fnames, parts, prob)
+
+
+        return result
 
     def step_gen_details(
         self, outline_chs: List[OutlineChapterResult],
+        code_desc: List[CodeDescItemResult],
     ) -> List[Detail]:
         logger.info('[4] 生成细纲')
         details: List[Detail] = []
@@ -513,7 +563,7 @@ class Code2BookOrchestrator:
                 continue
             details.append(Detail())
             h = self.pool.submit(
-                self._tr_gen_detail, outline_chs, i)
+                self._tr_gen_detail, outline_chs, i, code_desc)
             self.hdls.append(h)
 
         def res_callback(tpl):
@@ -559,10 +609,10 @@ class Code2BookOrchestrator:
 
         for _ in range(self.args.check):
             exi_funcs = [
-                cd.file + ':' + cd.class_or_func
+                cd.file + ':' + cd.method_or_func
                 for d in details
                 for u in d.units
-                for cd in u.code
+                for cd in u.codes
             ]
             exi_funcs = [
                 it.replace('\\', '/').replace('()', '')
@@ -574,7 +624,7 @@ class Code2BookOrchestrator:
                 break
             logger.info('[4] 细纲校验未通过')
             logger.info('\n'.join(rest_funcs))
-            details = self.agent.fix_details(
+            details = self.agent.fix_detail(
                 details, fnames, code_desc, readme,
                 '\n'.join(rest_funcs),
             )
@@ -595,7 +645,7 @@ class Code2BookOrchestrator:
         code_fnames = [
             c.file
             for u in detail.units
-            for c in u.code
+            for c in u.codes
         ]
         code_dict = self._read_code_dict(code_fnames)
         code_str = self._code_to_str(code_dict)
@@ -668,7 +718,7 @@ class Code2BookOrchestrator:
 
         # 4. 生成细纲
         outline_chs = sum([pt.chapters for pt in outline], [])
-        details = self.step_gen_details(outline_chs)
+        details = self.step_gen_details(outline_chs, code_desc)
 
         # 4b. 校验细纲
         details = self.step_check_details(details, code_desc, fnames)

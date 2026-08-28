@@ -41,14 +41,14 @@ class OutlinePartResult(PartClusResult):
 
 class SrcAnlsDetailCodeResult(BaseModel):
     file: str
-    class_or_func: str
+    method_or_func: str
     line: str
 
 class SrcAnlsDetailUnitResult(BaseModel):
     no: int
     name: str
     points: List[str]
-    code: List[SrcAnlsDetailCodeResult]
+    codes: List[SrcAnlsDetailCodeResult]
 
 class SrcAnlsDetailResult(BaseModel):
     units: List[SrcAnlsDetailUnitResult]

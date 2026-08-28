@@ -244,7 +244,8 @@ SRC_ANLS_DETAIL_PMT = '''
 
 ## 要求
 
-1.  细纲包含若干个源码解析单元（`unit`），由大纲的知识点（`nodes`）拆分而成，每个单元只包含要点（`points`），以列表格式呈现，以及源码位置，包含文件名（`file`），以及类名或函数名（`class_or_func`）和行数（`lines`）。
+1.  细纲包含若干个源码解析单元（`unit`），由大纲的知识点（`nodes`）拆分而成，每个单元只包含要点（`points`），以列表格式呈现，以及源码位置，包含文件名（`file`），以及方法名或函数名（`method_or_func`）和行数（`lines`）。
+1.  对于`method_or_func`字段，方法名应写成`ClassName.methodName()`格式，你可以用`ClassName.*`来表示类中的所有方法。
 2.  单元名称采取两段式结构，注重类比，例如：
     +    llama.cpp 概览 —— 认识这座"大模型推理引擎
     +    环境搭建与构建系统 —— 打造你的"AI 开发工作站"
@@ -269,10 +270,10 @@ SRC_ANLS_DETAIL_PMT = '''
                 "- 反向传播时（训练场景）需要追踪梯度来源",
                 "..."
             ],
-            "code": [
+            "codes": [
                 {
                     "file": "ggml/src/ggml.c",
-                    "class_or_func": "ggml_mul_mat()",
+                    "method_or_func": "ggml_mul_mat()",
                     "line": "15000-15200",
                 },
                 { ... }
@@ -430,14 +431,15 @@ DETAIL_FIX_PMT = '''
 
 ## 任务
 
-现在你已经编写了所有章的细纲，并发现它没有涵盖整个项目所有类方法和函数，你的当前任务是根据现有细纲、缺少的类方法和函数、项目结构和源码描述，重写书籍细纲，按照相同格式以 JSON 输出。
+现在你已经编写了所有章的细纲，并发现它没有涵盖整个项目所有类方法和函数，你的当前任务是根据现有细纲、已知问题和对应源码，重写第 {i} 章细纲，按照相同格式以 JSON 输出。
 
-具体来说，你需要找到合适的一章，在`units[i].code`里面把函数添加进去，然后更新其它属性，如`code_map`、`summary`等。
+具体来说，你需要找到合适的一个单元，在`units[i].code`里面把函数添加进去，然后更新其它属性，如`code_map`、`summary`等。
 
 ## 要求
 
 1.  细纲包含章序号（`no`），从 1 开始，表明是第几章。
-1.  细纲包含若干个源码解析单元（`unit`），由大纲的知识点（`nodes`）拆分而成，每个单元只包含要点（`points`），以列表格式呈现，以及源码位置，包含文件名（`file`），以及类名或函数名（`class_or_func`）和行数（`lines`）。
+1.  细纲包含若干个源码解析单元（`unit`），由大纲的知识点（`nodes`）拆分而成，每个单元只包含要点（`points`），以列表格式呈现，以及源码位置，包含文件名（`file`），以及方法名或函数名（`method_or_func`）和行数（`lines`）。
+1.  对于`method_or_func`字段，方法名应写成`ClassName.methodName()`格式，你可以用`ClassName.*`来表示类中的所有方法。
 2.  单元名称采取两段式结构，注重类比，例如：
     +    llama.cpp 概览 —— 认识这座"大模型推理引擎
     +    环境搭建与构建系统 —— 打造你的"AI 开发工作站"
@@ -479,35 +481,29 @@ DETAIL_FIX_PMT = '''
         - 它们的输入输出形状关系是什么？
 3.  JSON 格式输出，注意输出包含在三个反引号（```）中。
 
-
 ## 现有细纲
 
 ```
-{details}
+{detail}
 ```
 
-## 项目结构
 
-[content]
-{struct}
-[/content]
+## 大纲
 
-## 源码描述
+```
+{outline}
+```
+
+## 对应源码
 
 [coontent]
-{code_desc}
+{code}
 [/content]
 
-## README
+## 已知问题
 
 [content]
-{readme}
-[/content]
-
-## 缺少的类方法和函数
-
-[content]
-{rest_funcs}
+{problem}
 [/content]
 '''
 
