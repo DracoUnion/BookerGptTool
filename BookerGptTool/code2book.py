@@ -571,6 +571,7 @@ class Code2BookOrchestrator:
             # 持久化
             detail_fname = path.join(self.pj_dir, f'detail_{idx+1}.yaml')
             self._write_yaml(detail_fname, details[i])
+
         for i, ch in enumerate(outline_chs):
             detail_fname = path.join(self.pj_dir, f'detail_{i+1}.yaml')
             if path.isfile(detail_fname):
@@ -624,25 +625,27 @@ class Code2BookOrchestrator:
         logger.info('[5] 生成正文')
         bodies: List[str] = []
         
-        for i, detail in enumerate(details):
-            body_fname = path.join(self.pj_dir, f'article_{i+1}.md')
-            if path.isfile(body_fname):
-                body = open(body_fname, encoding='utf8').read()
-                bodies.append(body)
-                continue
-            bodies.append('')
-            h = self.pool.submit(
-                self._tr_gen_body, outline_chs,
-                detail, i,
-            )
-            self.hdls.append(h)
         def res_callback(tpl):
             idx, body = tpl
             bodies[idx] = body
             body_fname = path.join(self.pj_dir, f'body_{idx+1}.md')
             open(body_fname, 'w', encoding='utf8').write(body)
+
+        for i, detail in enumerate(details):
+            body_fname = path.join(self.pj_dir, f'article_{i+1}.md')
+            if path.isfile(body_fname):
+                body = open(body_fname, encoding='utf8').read()
+                bodies.append(body)
+            else:
+                bodies.append('')
+                h = self.pool.submit(
+                    self._tr_gen_body, outline_chs,
+                    detail, i,
+                )
+                self.hdls.append(h)
+                if len(self.hdls) > self.args.threads:
+                    self._collect_hdls(res_callback)
         self._collect_hdls(res_callback)
-            
 
         return bodies
 
