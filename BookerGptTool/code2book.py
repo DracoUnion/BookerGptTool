@@ -515,7 +515,7 @@ class Code2BookOrchestrator:
             for fn in d.funcs
         ]
         total_funcs += [
-            code_desc_ch.file + ':' + cls_.name + '.' + m.name
+            d.file + ':' + cls_.name + '.' + m.name
             for d in code_desc_ch
             for cls_ in d.classes
             for m in cls_.methods
