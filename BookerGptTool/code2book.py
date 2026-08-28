@@ -408,9 +408,8 @@ class Code2BookOrchestrator:
         for _ in range(self.args.check):
             outline_fnames = [
                 f.replace('\\', '/')
-                for pt in outline.parts
-                for ch in pt.chapters
-                for n in ch.nodes
+                for o in outline
+                for n in o.nodes
                 for f in n.src
             ]
             rest_fnames = set(part_fnames) - set(outline_fnames)
@@ -451,31 +450,30 @@ class Code2BookOrchestrator:
             ]
             self._write_yaml(outline_fname, outline)
         
-        for i, pt in enumerate(parts):
-            if outline[i].chapters:
-                continue
-            pt_fnames_set = set(pt.files)
-            pt_code_desc = [
-                it for it in code_desc 
-                if it.file in pt_fnames_set
-            ]
-            h = self.pool.submit(
-                self._tr_gen_outline,
-                i, pt.files, pt_code_desc
-            )
-            self.hdls.append(h)
+        save_step = max(min(len(parts) // 5, 100), 1)
         def res_callback(tpl):
             idx, pt_outline = tpl
             outline[idx].chapters = pt_outline
             done = sum(1 for ch in outline[idx].chapters if ch)
             logger.warn(f'写回 {tpl}，完成 {done}')
-        self._collect_hdls(
-            res_callback,
-            lambda: self._write_yaml(outline_fname, outline)
-        )
-            
-            
+        for i, pt in enumerate(parts):
+            if not outline[i].chapters:
+                pt_fnames_set = set(pt.files)
+                pt_code_desc = [
+                    it for it in code_desc 
+                    if it.file in pt_fnames_set
+                ]
+                h = self.pool.submit(
+                    self._tr_gen_outline,
+                    i, pt.files, pt_code_desc
+                )
+                self.hdls.append(h)
+                if len(self.hdls) > self.args.threads:
+                    self._collect_hdls(res_callback)
+            if i % save_step == 0:
+                self._write_yaml(outline_fname, outline)
 
+        self._collect_hdls(res_callback)
         # 重排章节序号
         idx = 1
         for pt in outline:
