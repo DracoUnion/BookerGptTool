@@ -459,6 +459,8 @@ class Code2BookOrchestrator:
         def res_callback(tpl):
             idx, pt_outline = tpl
             outline[idx].chapters = pt_outline
+            done = sum(1 for ch in outline[idx].chapters if ch)
+            logger.warn(f'写回 {tpl}，完成 {done}')
         for i, pt in enumerate(parts):
             if not outline[i].chapters:
                 pt_fnames_set = set(pt.files)
@@ -512,7 +514,7 @@ class Code2BookOrchestrator:
             for fn in d.funcs
         ]
         total_funcs += [
-            d.file + ':' + cls_.name + '.' + m.name
+            code_desc_ch.file + ':' + cls_.name + '.' + m.name
             for d in code_desc_ch
             for cls_ in d.classes
             for m in cls_.methods
@@ -563,24 +565,25 @@ class Code2BookOrchestrator:
         logger.info('[4] 生成细纲')
         details: List[Detail] = []
         
-        for i, ch in enumerate(outline_chs):
-            detail_fname = path.join(self.pj_dir, f'detail_{i+1}.yaml')
-            if path.isfile(detail_fname):
-                detail = yaml.safe_load(
-                    open(detail_fname, encoding='utf8').read())
-                details.append(Detail(**detail))
-                continue
-            details.append(Detail())
-            h = self.pool.submit(
-                self._tr_gen_detail, outline_chs, i, code_desc)
-            self.hdls.append(h)
-
         def res_callback(tpl):
             idx, detail = tpl
             details[idx] = detail
             # 持久化
             detail_fname = path.join(self.pj_dir, f'detail_{idx+1}.yaml')
             self._write_yaml(detail_fname, details[i])
+        for i, ch in enumerate(outline_chs):
+            detail_fname = path.join(self.pj_dir, f'detail_{i+1}.yaml')
+            if path.isfile(detail_fname):
+                detail = yaml.safe_load(
+                    open(detail_fname, encoding='utf8').read())
+                details.append(Detail(**detail))
+            else:
+                details.append(Detail())
+                h = self.pool.submit(
+                    self._tr_gen_detail, outline_chs, i, code_desc)
+                self.hdls.append(h)
+                if len(self.hdls) > self.args.threads:
+                    self._collect_hdls(res_callback)
         self._collect_hdls(res_callback)
 
         return details
