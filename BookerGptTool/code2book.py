@@ -510,12 +510,14 @@ class Code2BookOrchestrator:
             if d.file in code_fname_set
         ]
         total_funcs = [
-            code_desc_ch.file + ':' + fn.name
-            for fn in code_desc_ch.funcs
+            d.file + ':' + fn.name
+            for d in code_desc_ch
+            for fn in d.funcs
         ]
         total_funcs += [
             code_desc_ch.file + ':' + cls_.name + '.' + m.name
-            for cls_ in code_desc_ch.classes
+            for d in code_desc_ch
+            for cls_ in d.classes
             for m in cls_.methods
         ]
         total_funcs = {
