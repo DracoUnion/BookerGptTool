@@ -514,15 +514,15 @@ class Code2BookOrchestrator:
         }
 
         # 源码解析部分
-        detail_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_str)
+        src_anls_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_str)
         # 剩余部分
-        rest_result = self.agent.gen_rest_detail(idx, detail_result, outline_chs, code_str)
-        result = Detail(**detail_result.dict(), **rest_result.dict())
+        rest_result = self.agent.gen_rest_detail(idx, src_anls_result, outline_chs, code_str)
+        detail = Detail(**src_anls_result.dict(), **rest_result.dict())
 
         for _ in range(self.args.check):
             detail_funcs = [
                 c.file + ':' + c.method_or_func
-                for u in result.units
+                for u in detail.units
                 for c in u.codes
             ]
             detail_funcs = {
@@ -542,10 +542,10 @@ class Code2BookOrchestrator:
                 prob += '以下函数或方法没有添加到任何部分中：\n' + \
                         '\n'.join(rest_funcs) + '\n'
             logger.warn(f'[4] 细纲 {idx+1} 校验失败：\n{prob}')
-            parts = self.agent.fix_detail(fnames, parts, prob)
+            detail = self.agent.fix_detail(idx, detail, outline_chs, code_str, problem)
 
 
-        return result
+        return idx, detail
 
     def step_gen_details(
         self, outline_chs: List[OutlineChapterResult],
