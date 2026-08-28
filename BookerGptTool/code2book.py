@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, Future
 from threading import Lock
 from typing import List
 from pydantic import parse_obj_as
+from tqdm import tqdm
 
 from .util import (
     ask_chatgpt_retry,
@@ -340,7 +341,7 @@ class Code2BookOrchestrator:
         def res_callback(tpl):
             idx, code_desc_i = tpl
             code_desc[idx] = code_desc_i
-        for i, it in enumerate(code_desc):
+        for i, it in enumerate(tqdm(code_desc)):
             if not it.desc:
                 h = self.pool.submit(
                     self._tr_gen_code_desc, it.file, i)
@@ -461,7 +462,7 @@ class Code2BookOrchestrator:
             outline[idx].chapters = pt_outline
             done = sum(1 for ch in outline[idx].chapters if ch)
             logger.warn(f'写回 {tpl}，完成 {done}')
-        for i, pt in enumerate(parts):
+        for i, pt in enumerate(tqdm(parts)):
             if not outline[i].chapters:
                 pt_fnames_set = set(pt.files)
                 pt_code_desc = [
@@ -572,7 +573,7 @@ class Code2BookOrchestrator:
             detail_fname = path.join(self.pj_dir, f'detail_{idx+1}.yaml')
             self._write_yaml(detail_fname, details[i])
 
-        for i, ch in enumerate(outline_chs):
+        for i, ch in enumerate(tqdm(outline_chs)):
             detail_fname = path.join(self.pj_dir, f'detail_{i+1}.yaml')
             if path.isfile(detail_fname):
                 detail = yaml.safe_load(
@@ -631,7 +632,7 @@ class Code2BookOrchestrator:
             body_fname = path.join(self.pj_dir, f'body_{idx+1}.md')
             open(body_fname, 'w', encoding='utf8').write(body)
 
-        for i, detail in enumerate(details):
+        for i, detail in enumerate(tqdm(details)):
             body_fname = path.join(self.pj_dir, f'article_{i+1}.md')
             if path.isfile(body_fname):
                 body = open(body_fname, encoding='utf8').read()
