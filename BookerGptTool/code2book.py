@@ -293,6 +293,7 @@ class Code2BookOrchestrator:
             for f in fnames
             if extname(f) in self.SUPPORTED_EXTS
         ]
+        fnames.append('README.md')
         return fnames
 
     def _read_code(self, fname: str) -> str:
@@ -644,6 +645,9 @@ class Code2BookOrchestrator:
         logger.info(self.args)
         if not path.isdir(self.args.dir):
             logger.fatal('请提供项目目录！')
+            return
+        if not path.isfile(path.join(self.args.dir, 'README.md')):
+            logger.fatal('该项目没有 README.md 文件')
             return
         os.makedirs(self.pj_dir, exist_ok=True)
 
