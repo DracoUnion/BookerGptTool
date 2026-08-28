@@ -406,7 +406,7 @@ class Code2BookOrchestrator:
         part_fnames: List[str], 
         part_code_desc: List[CodeDescItemResult],
     ) -> Tuple[int, List[OutlineChapterResult]]:
-        logger.info(f'[3] 生成大纲 {idx}')
+        logger.info(f'[3] 生成大纲 {idx+1}')
         readme = open(path.join(self.args.dir, 'README.md'), encoding='utf8').read()
         outline = self.agent.gen_outline(part_fnames, part_code_desc, readme)
 
@@ -421,7 +421,7 @@ class Code2BookOrchestrator:
             rest_fnames = set(part_fnames) - set(outline_fnames)
             false_fnames = set(outline_fnames) - set(part_fnames)
             if not rest_fnames and not false_fnames:
-                logger.info('[3] 校验通过')
+                logger.info(f'[3] 大纲 {idx+1} 校验通过')
                 break
             prob = ''
             if rest_fnames:
@@ -430,7 +430,7 @@ class Code2BookOrchestrator:
             if false_fnames:
                 prob += '以下文件在源码目录中不存在：\n' + \
                         '\n'.join(false_fnames) + '\n'
-            logger.warn(f'[3] 校验未通过：\n{prob}')
+            logger.warn(f'[3] 大纲 {idx+1} 校验未通过：\n{prob}')
             outline = self.agent.fix_outline(
                 outline, part_fnames, part_code_desc, readme,
                 prob,
