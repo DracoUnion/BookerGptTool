@@ -424,7 +424,7 @@ class Code2BookOrchestrator:
             if false_fnames:
                 prob += '以下文件在源码目录中不存在：\n' + \
                         '\n'.join(false_fnames) + '\n'
-            logger.warn('[3] 校验未通过：\n{prob}')
+            logger.warn(f'[3] 校验未通过：\n{prob}')
             outline = self.agent.fix_outline(
                 outline, part_fnames, part_code_desc, readme,
                 prob,
