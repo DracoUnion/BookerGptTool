@@ -110,7 +110,7 @@ class Code2BookAgent:
         )
 
     def fix_outline(
-        self, outline: List[OutlineChapterResult], fnames_li: str,
+        self, outline: List[OutlineChapterResult], fnames: List[str],
         code_desc_str: str, readme: str, problem: str,
     ) -> List[OutlineChapterResult]:
         """校验大纲未覆盖所有文件时，补充缺少的源码文件重写大纲。"""
@@ -118,6 +118,7 @@ class Code2BookAgent:
             [o.dict() for o in outline], 
             ensure_ascii=False
         )
+        fnames_li = '\n'.join(fnames)
         ques = OUTLINE_FIX_PMT.replace('{struct}', fnames_li) \
             .replace('{code_desc}', code_desc_str) \
             .replace('{readme}', readme) \
