@@ -539,10 +539,10 @@ class Code2BookOrchestrator:
                 prob += f'以下函数或方法在源文件中不存在：\n' + \
                         '\n'.join(false_funcs) + '\n'
             if rest_funcs:
-                prob += '以下函数或方法没有添加到任何部分中：\n' + \
+                prob += '以下函数或方法没有添加到任何单元中：\n' + \
                         '\n'.join(rest_funcs) + '\n'
             logger.warn(f'[4] 细纲 {idx+1} 校验失败：\n{prob}')
-            detail = self.agent.fix_detail(idx, detail, outline_chs, code_str, problem)
+            detail = self.agent.fix_detail(idx, detail, outline_chs, code_str, prob)
 
 
         return idx, detail
