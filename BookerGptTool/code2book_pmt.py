@@ -245,7 +245,7 @@ SRC_ANLS_DETAIL_PMT = '''
 ## 要求
 
 1.  细纲包含若干个源码解析单元（`unit`），由大纲的知识点（`nodes`）拆分而成，每个单元只包含要点（`points`），以列表格式呈现，以及源码位置，包含文件名（`file`），以及方法名或函数名（`method_or_func`）和行数（`lines`）。
-1.  对于`method_or_func`字段，方法名应写成`ClassName.methodName()`格式，你可以用`ClassName.*`来表示类中的所有方法。
+1.  对于`method_or_func`字段，方法名应写成`ClassName.methodName()`格式，你可以用`ClassName.*`来表示类中的所有方法，使用`*`来表示该文件所有函数和方法，使用`__main__`来表示全局代码。
 2.  单元名称采取两段式结构，注重类比，例如：
     +    llama.cpp 概览 —— 认识这座"大模型推理引擎
     +    环境搭建与构建系统 —— 打造你的"AI 开发工作站"
@@ -439,7 +439,7 @@ DETAIL_FIX_PMT = '''
 
 1.  细纲包含章序号（`no`），从 1 开始，表明是第几章。
 1.  细纲包含若干个源码解析单元（`unit`），由大纲的知识点（`nodes`）拆分而成，每个单元只包含要点（`points`），以列表格式呈现，以及源码位置，包含文件名（`file`），以及方法名或函数名（`method_or_func`）和行数（`lines`）。
-1.  对于`method_or_func`字段，方法名应写成`ClassName.methodName()`格式，你可以用`ClassName.*`来表示类中的所有方法。
+1.  对于`method_or_func`字段，方法名应写成`ClassName.methodName()`格式，你可以用`ClassName.*`来表示类中的所有方法，使用`*`来表示该文件所有函数和方法，使用`__main__`来表示全局代码。
 2.  单元名称采取两段式结构，注重类比，例如：
     +    llama.cpp 概览 —— 认识这座"大模型推理引擎
     +    环境搭建与构建系统 —— 打造你的"AI 开发工作站"
