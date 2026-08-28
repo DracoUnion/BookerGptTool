@@ -372,6 +372,9 @@ class Code2BookOrchestrator:
             return parts
 
         parts = self.agent.cluster_parts(fnames)
+        for pt in parts:
+            if 'README.md' not in pt.files:
+                pt.files.append('README.md')
         for _ in range(self.args.check):
             total_fnames = set(fnames)
             exi_fnames = {
