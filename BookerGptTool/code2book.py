@@ -29,13 +29,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def expand_dbl_star(ptns, files):
+def expand_stars(ptns, files):
     res = []
     for p in ptns:
-        if not p.endswith('**'):
-            res.append(p)
-        else:
+        if p.endswith('**'):
             res += [f for f in files if f.startswith(p[:-2])]
+        elif p.endswith('*'):
+            res += [f for f in files if f.startswith(p[:-1])]
+        else:
+            res.append(p)
     return res
 
 class Code2BookAgent:
@@ -63,7 +65,7 @@ class Code2BookAgent:
             parse_output=parse_output,
         )
         for pt in parts:
-            pt.files = expand_dbl_star(pt.files, files)
+            pt.files = expand_stars(pt.files, files)
         return parts
 
     def cluster_parts(self, files: List[str]) -> List[PartClusResult]:
@@ -77,7 +79,7 @@ class Code2BookAgent:
             parse_output=parse_output,
         )
         for pt in parts:
-            pt.files = expand_dbl_star(pt.files, files)
+            pt.files = expand_stars(pt.files, files)
         return parts
 
     def gen_code_desc(self, fname: str, code: str) -> ClsFuncExtResult:
@@ -149,10 +151,11 @@ class Code2BookAgent:
         parse_output = lambda s: SrcAnlsDetailResult(
             **json_repair.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(
+        res: SrcAnlsDetailResult = ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
+        return res
 
     def gen_rest_detail(
         self, idx: int, detail: Detail, outline_chs: List[OutlineChapterResult], code_str: str,
@@ -541,6 +544,7 @@ class Code2BookOrchestrator:
                 it.replace('\\', '/').replace('()', '')
                 for it in detail_funcs
             }
+            detail_funcs = set(expand_stars(detail_funcs, total_funcs))
             rest_funcs = total_funcs - detail_funcs
             false_funcs = detail_funcs - total_funcs
             if not rest_funcs and not false_funcs:
