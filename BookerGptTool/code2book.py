@@ -463,8 +463,6 @@ class Code2BookOrchestrator:
         def res_callback(tpl):
             idx, pt_outline = tpl
             outline[idx].chapters = pt_outline
-            done = sum(1 for ch in outline[idx].chapters if ch)
-            logger.warn(f'写回 {tpl}，完成 {done}')
         for i, pt in enumerate(tqdm(parts)):
             if not outline[i].chapters:
                 pt_fnames_set = set(pt.files)
@@ -560,7 +558,8 @@ class Code2BookOrchestrator:
             logger.warn(f'[4] 细纲 {idx+1} 校验失败：\n{prob}')
             detail = self.agent.fix_detail(idx, detail, outline_chs, code_str, prob)
 
-
+        detail_fname = path.join(self.pj_dir, f'detail_{idx+1}.yaml')
+        self._write_yaml(detail_fname, detail)
         return idx, detail
 
     def step_gen_details(
@@ -573,9 +572,6 @@ class Code2BookOrchestrator:
         def res_callback(tpl):
             idx, detail = tpl
             details[idx] = detail
-            # 持久化
-            detail_fname = path.join(self.pj_dir, f'detail_{idx+1}.yaml')
-            self._write_yaml(detail_fname, details[i])
 
         for i, ch in enumerate(tqdm(outline_chs)):
             detail_fname = path.join(self.pj_dir, f'detail_{i+1}.yaml')
@@ -621,6 +617,9 @@ class Code2BookOrchestrator:
             logger.info(cmt)
             body = self.agent.fix_body(detail, body, cmt, code_str)
 
+        body_fname = path.join(self.pj_dir, f'body_{idx+1}.md')
+        open(body_fname, 'w', encoding='utf8').write(body)
+
         return idx, body
 
 
@@ -633,8 +632,6 @@ class Code2BookOrchestrator:
         def res_callback(tpl):
             idx, body = tpl
             bodies[idx] = body
-            body_fname = path.join(self.pj_dir, f'body_{idx+1}.md')
-            open(body_fname, 'w', encoding='utf8').write(body)
 
         for i, detail in enumerate(tqdm(details)):
             body_fname = path.join(self.pj_dir, f'article_{i+1}.md')
