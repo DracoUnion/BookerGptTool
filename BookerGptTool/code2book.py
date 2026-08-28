@@ -266,7 +266,6 @@ class Code2BookOrchestrator:
             if write_callback and \
                (i % save_step == 0 or i == len(self.hdls) - 1):
                write_callback()
-               logger.warn(f'保存 {i}')
         self.hdls = []
     
     # ── 持久化工具 ──────────────────────────────────────────
@@ -460,8 +459,6 @@ class Code2BookOrchestrator:
         def res_callback(tpl):
             idx, pt_outline = tpl
             outline[idx].chapters = pt_outline
-            done = sum(1 for ch in outline[idx].chapters if ch)
-            logger.warn(f'写回 {tpl}，完成 {done}')
         for i, pt in enumerate(parts):
             if not outline[i].chapters:
                 pt_fnames_set = set(pt.files)
