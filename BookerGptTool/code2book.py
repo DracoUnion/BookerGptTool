@@ -204,7 +204,7 @@ class Code2BookAgent:
         self, idx: int, detail: Detail, outline_chs: List[OutlineChapterResult], code_str: str,
     ) -> str:
         """根据大纲和细纲生成第 idx 章正文。"""
-        outline_str = json.dumps(outline_chs, ensure_ascii=False)
+        outline_str = json.dumps([o.dict() for o in outline_chs], ensure_ascii=False)
         detail_str = json.dumps(detail.dict(), ensure_ascii=False)
         ques = BODY_PMT.replace('{detail}', detail_str) \
             .replace('{outline}', outline_str) \
