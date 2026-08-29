@@ -205,7 +205,7 @@ class Code2BookAgent:
     ) -> str:
         """根据大纲和细纲生成第 idx 章正文。"""
         outline_str = json.dumps([o.dict() for o in outline_chs], ensure_ascii=False)
-        detail_str = json.dumps(detail.json(), ensure_ascii=False)
+        detail_str = detail.json()
         ques = BODY_PMT.replace('{detail}', detail_str) \
             .replace('{outline}', outline_str) \
             .replace('{code}', code_str) \
@@ -226,9 +226,10 @@ class Code2BookAgent:
         )
 
     def fix_body(
-        self, detail_str: str, body: str, comment: str, code_str: str,
+        self, detail: Detail, body: str, comment: str, code_str: str,
     ) -> str:
         """根据修改意见和对应源码修改正文。"""
+        detail_str = detail.json()
         ques = BODY_FIX_PMT.replace('{detail}', detail_str) \
             .replace('{body}', body) \
             .replace('{comment}', comment) \
