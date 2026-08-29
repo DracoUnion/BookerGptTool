@@ -180,7 +180,7 @@ class Code2BookAgent:
     def fix_detail(
         self, idx: int, detail: Detail, outline_chs: List[OutlineChapterResult],
         code_str: str, problem: str,
-    ) -> List[Detail]:
+    ) -> Detail:
         """校验细纲未覆盖所有函数时，补充缺少的函数重写细纲。"""
         outline_str = json.dumps(
             [c.dict() for c in outline_chs], 
