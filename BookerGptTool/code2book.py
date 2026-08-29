@@ -618,7 +618,7 @@ class Code2BookOrchestrator:
             logger.info(cmt)
             body = self.agent.fix_body(detail, body, cmt, code_str)
 
-        body_fname = path.join(self.pj_dir, f'body_{idx+1}.md')
+        body_fname = path.join(self.pj_dir, f'article_{idx+1}.md')
         open(body_fname, 'w', encoding='utf8').write(body)
 
         return idx, body
@@ -636,7 +636,8 @@ class Code2BookOrchestrator:
 
         for i, detail in enumerate(tqdm(details)):
             body_fname = path.join(self.pj_dir, f'article_{i+1}.md')
-            if path.isfile(body_fname):
+            if path.isfile(body_fname) and \
+               path.getsize(body_fname):
                 body = open(body_fname, encoding='utf8').read()
                 bodies.append(body)
             else:
