@@ -192,8 +192,8 @@ class Code2BookAgent:
             .replace('{detail}', detail.json()) \
             .replace('{code}', code_str) \
             .replace('{problem}', problem)
-        parse_output = lambda s: parse_obj_as(
-            List[Detail], json_repair.loads(ext_code_block(s))
+        parse_output = lambda s: Detail(
+            **json_repair.loads(ext_code_block(s))
         )
         return ask_chatgpt_retry(
             ques, self.model, self.args,
