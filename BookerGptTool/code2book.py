@@ -107,10 +107,14 @@ class Code2BookAgent:
             List[OutlineChapterResult],
             json_repair.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(
+        res: List[OutlineChapterResult] = ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
+        for o in res:
+            for n in o.nodes:
+                n.src = expand_stars(n.src, fnames)
+        return res
 
     def fix_outline(
         self, outline: List[OutlineChapterResult], fnames: List[str],
@@ -132,10 +136,14 @@ class Code2BookAgent:
             List[OutlineChapterResult],
             json_repair.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(
+        res: List[OutlineChapterResult] = ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
+        for o in res:
+            for n in o.nodes:
+                n.src = expand_stars(n.src, fnames)
+        return res
 
     def gen_src_anls_detail(
         self, idx: int, outline_chs: List[OutlineChapterResult], code_str: str,
