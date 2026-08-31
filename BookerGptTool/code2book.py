@@ -539,7 +539,7 @@ class Code2BookOrchestrator:
         src_anls_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_str)
         # 剩余部分
         rest_result = self.agent.gen_rest_detail(idx, src_anls_result, outline_chs, code_str)
-        detail = Detail(**src_anls_result.dict(), **rest_result.dict())
+        detail = Detail(no=idx, **src_anls_result.dict(), **rest_result.dict())
 
         for _ in range(self.args.check):
             detail_funcs = [
@@ -589,7 +589,15 @@ class Code2BookOrchestrator:
                     open(detail_fname, encoding='utf8').read())
                 details.append(Detail(**detail))
             else:
-                details.append(Detail())
+                details.append(Detail(
+                    no=i, 
+                    learning_targets=[],
+                    code_map=[],
+                    life_analogy=[],
+                    summary=[],
+                    exercises=[],
+                    units=[],
+                ))
                 h = self.pool.submit(
                     self._tr_gen_detail, outline_chs, i, code_desc)
                 self.hdls.append(h)
