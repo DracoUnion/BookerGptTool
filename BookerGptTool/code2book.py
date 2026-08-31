@@ -576,7 +576,18 @@ class Code2BookOrchestrator:
         code_desc: List[CodeDescItemResult],
     ) -> List[Detail]:
         logger.info('[4] 生成细纲')
-        details: List[Detail] = []
+        details = [
+            Detail(
+                no=i, 
+                learning_targets=[],
+                code_map=[],
+                life_analogy=[],
+                summary=[],
+                exercises=[],
+                units=[],
+            )
+            for i in range(len(outline_chs)) 
+        ]
         
         def res_callback(tpl):
             idx, detail = tpl
@@ -587,17 +598,8 @@ class Code2BookOrchestrator:
             if path.isfile(detail_fname):
                 detail = yaml.safe_load(
                     open(detail_fname, encoding='utf8').read())
-                details.append(Detail(**detail))
+                details[i] = Detail(**detail)
             else:
-                details.append(Detail(
-                    no=i, 
-                    learning_targets=[],
-                    code_map=[],
-                    life_analogy=[],
-                    summary=[],
-                    exercises=[],
-                    units=[],
-                ))
                 h = self.pool.submit(
                     self._tr_gen_detail, outline_chs, i, code_desc)
                 self.hdls.append(h)
@@ -644,20 +646,19 @@ class Code2BookOrchestrator:
         self, outline_chs, details: List[Detail],
     ) -> List[str]:
         logger.info('[5] 生成正文')
-        bodies: List[str] = []
+        bodies = ['' for _ in range(len(details))]
         
         def res_callback(tpl):
             idx, body = tpl
             bodies[idx] = body
-
+        
         for i, detail in enumerate(tqdm(details)):
             body_fname = path.join(self.pj_dir, f'article_{i+1}.md')
             if path.isfile(body_fname) and \
                path.getsize(body_fname):
                 body = open(body_fname, encoding='utf8').read()
-                bodies.append(body)
+                bodies[i] = body
             else:
-                bodies.append('')
                 h = self.pool.submit(
                     self._tr_gen_body, outline_chs,
                     detail, i,
