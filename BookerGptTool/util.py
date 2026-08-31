@@ -11,7 +11,7 @@ import yaml
 import argparse
 from os import path
 import logging
-import json
+import json, json_repair
 import random
 import copy
 import re
@@ -23,6 +23,7 @@ from threading import Lock
 import tempfile
 import uuid
 from typing import *
+from pydantic import parse_obj_as, ValidationError
 from .toolcall_pmt import *
 
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
@@ -109,6 +110,23 @@ def fix_lists(ans):
     ans = re.sub(r'^(\x20*)(\d+\.)\x20+', r'\1\2  ', ans, flags=re.M)
     return ans
 
+def parse_toolcall(res: str) -> Tuple[List[ToolCallItem], str]:
+    """Parse the first [tool]...[/tool] block in a response into a list of
+    tool-call dicts (id / tool / parameters). Mirrors llm/openai.py."""
+    m = re.search(r"\[tool\]([\s\S]+)\[/tool\]", res)
+    if not m:
+        return [], ""
+    try:
+        blocks = parse_obj_as(
+            List[ToolCallItem],
+            json_repair.loads(m.group(1)),
+        )
+        return blocks, ""
+    except json.JSONDecodeError as ex:
+        return [], str(ex)
+    except ValidationError as ex:
+        return [], str(ex)
+
 def call_vlm_retry(
     img, ques, model_name, args,
     parse_output=None,
@@ -191,15 +209,16 @@ def call_llm_with_toolcall(
     max_tokens=None,
     extra_body=None,
 ):
-        if isinstance(msgs, str):
-            msgs = [{'role': 'user', 'content': msgs}]
-        tool_defs_str = json.dumps(tool_defs)
-        toolcall_pmt = TOOLCALL_PMT.replace('{tool_def}', tool_defs_str)
-        msgs = [{
-            'role': 'system', 
-            'content': toolcall_pmt
-        }] + msgs
-        res =  call_llm(
+    if isinstance(msgs, str):
+        msgs = [{'role': 'user', 'content': msgs}]
+    tool_defs_str = json.dumps(tool_defs)
+    toolcall_pmt = TOOLCALL_PMT.replace('{tool_def}', tool_defs_str)
+    msgs = [{
+        'role': 'system', 
+        'content': toolcall_pmt
+    }] + msgs
+    while True:
+        res = call_llm(
             msgs, model_name, 
             temp=temp, 
             top_p=top_p,
@@ -208,35 +227,26 @@ def call_llm_with_toolcall(
             max_tokens=max_tokens,
             extra_body=extra_body,
         )
-        
-        TOOLCALL_RE = r'\[tool\]([\s\S]+)\[/tool\]'
-        m = re.search(TOOLCALL_RE, res)
-        while m:
-            toolcalls = json.loads(m.group(1))
-            toolcall_res_list = []
-            for tc in toolcalls:
-                tc_res = tool_dict[tc['tool']](**tc['parameters'])
-                toolcall_res_list.append({'id': tc['id'], 'result': tc_res})
-            toolcall_res_str = json.dumps(toolcall_res_list)
-            msgs += [{
-                'role': 'assistant',
-                'content': res
-            }, {
-                'role': 'user',
-                'content': f'[tool-result]{toolcall_res_str}[/tool-result]'
-            }]
-            res =  call_llm(
-                msgs, model_name, 
-                temp=temp, 
-                top_p=top_p,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-                max_tokens=max_tokens,
-                extra_body=extra_body,
-            )
-            m = re.search(TOOLCALL_RE, res)
-        
-        return res
+        toolcalls, errmsg = parse_toolcall(res)
+        if not errmsg and not toolcalls:
+            break
+        if errmsg:
+            msgs += [
+                {"role": "assistant", "content": res},
+                {"role": "user", "content": errmsg},
+            ]
+            continue
+        toolcall_res_list = []
+        for tc in toolcalls:
+            tc_res = tool_dict[tc.tool](**tc.parameters)
+            toolcall_res_list.append({'id': tc.id, 'result': tc_res})
+        toolcall_res_str = json.dumps(toolcall_res_list)
+        msgs += [
+            {'role': 'assistant', 'content': res}, 
+            {'role': 'user', 'content': f'[tool-result]{toolcall_res_str}[/tool-result]'}
+        ]
+    
+    return res
 
 def call_llm_with_toolcall_retry(
     msgs, model_name, 

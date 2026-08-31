@@ -1,3 +1,6 @@
+from pydantic import BaseModel
+from typing import Dict, Any
+
 TOOLCALL_PMT = '''
 ## 工具调用指南
 
@@ -45,3 +48,8 @@ TOOLCALL_PMT = '''
 
 请注意，上述只是个示例，并不代表`plus_one`和`plus_minus`真实存在。
 '''
+
+class ToolCallItem(BaseModel):
+    id: str
+    tool: str
+    parameters: Dict[str, Any]
