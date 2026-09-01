@@ -567,7 +567,9 @@ class Code2BookOrchestrator:
             logger.warn(f'[4] 细纲 {idx+1} 校验失败：\n{prob}')
             detail = self.agent.fix_detail(idx, detail, outline_chs, code_str, prob)
 
-        detail_fname = path.join(self.pj_dir, f'detail_{idx+1}.yaml')
+        l = len(str(len(outline_chs)))
+        detail_fname = f'detail_{str(idx+1).zfill(l)}.yaml'
+        detail_fname = path.join(self.pj_dir, detail_fname)
         self._write_yaml(detail_fname, detail)
         return idx, detail
 
@@ -576,6 +578,7 @@ class Code2BookOrchestrator:
         code_desc: List[CodeDescItemResult],
     ) -> List[Detail]:
         logger.info('[4] 生成细纲')
+        l = len(str(len(outline_chs)))
         details = [
             Detail(
                 no=i, 
@@ -594,7 +597,8 @@ class Code2BookOrchestrator:
             details[idx] = detail
 
         for i, ch in enumerate(tqdm(outline_chs)):
-            detail_fname = path.join(self.pj_dir, f'detail_{i+1}.yaml')
+            detail_fname = f'detail_{str(i+1).zfill(l)}.yaml'
+            detail_fname = path.join(self.pj_dir, detail_fname)
             if path.isfile(detail_fname):
                 detail = yaml.safe_load(
                     open(detail_fname, encoding='utf8').read())
