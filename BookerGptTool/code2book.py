@@ -640,7 +640,9 @@ class Code2BookOrchestrator:
             logger.info(cmt)
             body = self.agent.fix_body(detail, body, cmt, code_str)
 
-        body_fname = path.join(self.pj_dir, f'article_{idx+1}.md')
+        l = len(str(len(outline_chs)))
+        body_fname = f'article_{str(idx+1).zfill(l)}.md'
+        body_fname = path.join(self.pj_dir, body_fname)
         open(body_fname, 'w', encoding='utf8').write(body)
 
         return idx, body
@@ -650,6 +652,7 @@ class Code2BookOrchestrator:
         self, outline_chs, details: List[Detail],
     ) -> List[str]:
         logger.info('[5] 生成正文')
+        l = len(str(len(outline_chs)))
         bodies = ['' for _ in range(len(details))]
         
         def res_callback(tpl):
@@ -657,7 +660,8 @@ class Code2BookOrchestrator:
             bodies[idx] = body
         
         for i, detail in enumerate(tqdm(details)):
-            body_fname = path.join(self.pj_dir, f'article_{i+1}.md')
+            body_fname = f'article_{str(i+1).zfill(l)}.md'
+            body_fname = path.join(self.pj_dir, body_fname)
             if path.isfile(body_fname) and \
                path.getsize(body_fname):
                 body = open(body_fname, encoding='utf8').read()
