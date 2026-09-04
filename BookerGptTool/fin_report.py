@@ -7,7 +7,7 @@ import logging
 from pydantic import parse_obj_as
 from typing import List, Optional, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from .util import ext_code_block, ext_cont_block, call_llm_retry, set_openai_props, ask_chatgpt_retry
+from .util import ext_code_block, ext_cont_block, call_llm_retry, set_openai_props, ask_chatgpt_retry, to_kebab
 from .fin_report_models import *
 
 from .fin_report_pmt import *
@@ -169,14 +169,24 @@ class MultiReportOrchestrator:
         # 初始化 Agent
         self.agent = FinReportAgent(args)
 
-    def process(self, reports: List[str]):
+    def process(self, fnames: List[str], reports: List[str]):
         pool = ThreadPoolExecutor(self.max_workers)
         hdls = []
+        results = []
         for i, report in enumerate(reports):
-            
+            h = pool.submit(
+                self._tr_process_single, 
+                to_kebab(fnames[i])
+                report
+            )
+            hdls.append(h)
+
+        for h in hdls:
+            res = h.result()
+            results.append(res)
 
 
-    def process_single(self, slug: str, report: str) -> OrchestratorResult:
+    def _tr_process_single(self, slug: str, report: str) -> OrchestratorResult:
         """
         处理多份研报，返回最终裁决报告和中间结果。
         """
