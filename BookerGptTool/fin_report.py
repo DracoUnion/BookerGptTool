@@ -155,12 +155,10 @@ class MultiReportOrchestrator:
 
     def __init__(self, args):
         self.args = args
-        self.proj_dir = getattr(
-            args,
-            'proj_dir',
+        self.proj_dir = (
             args.fname[:-4] + '_fin_report'
             if path.isfile(args.fname)
-            else path.join(args.fname, 'fin_report'),
+            else path.join(args.fname, 'fin_report')
         )
         self.debate_rounds = getattr(args, 'rounds', 3)
         self.max_workers = getattr(args, 'threads', 5)
@@ -270,12 +268,13 @@ class MultiReportOrchestrator:
             for fname in fnames
         ]
         result = self.process(reports)
-
+        '''
         print("\n" + "=" * 60)
         print("📊 最终裁决报告")
         print("=" * 60)
         print(result)
         open(ofname, 'w', encoding='utf8').write(result)
+        '''
         return result
 
     def _get_pdf_md_files(self) -> List[str]:
