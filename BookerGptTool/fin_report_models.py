@@ -1,6 +1,22 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Literal
 from pydantic import BaseModel
 
+class FundAnlsResult(BaseModel):
+    institution: str
+    industry: str
+    date: str
+    revenue_growth: int
+    profit_growth: int
+    growth_evidences: List[str]
+    roe_trend: Literal["improving", "stable", "declining", "unknown"]
+    capex_trend: Literal["expanding", "stable", "contracting", "unknown"]
+    capex_evidences: List[str]
+    margin_trend: Literal["improving", "stable", "declining", "unknown"]
+    roe_margin_evidences: List[str]
+    earnings_revision: Literal["upgraded", "unchanged", "downgraded", "unknown"]
+    prospect_score: int
+    key_risks: List[str]
+    risk_evidences: List[str]
 
 class ReportMeta(BaseModel):
     """研报元数据"""

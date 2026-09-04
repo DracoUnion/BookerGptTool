@@ -16,8 +16,8 @@ FUND_ANLS_PROMPT = """
     "institution": "机构名称",
     "industry": "行业名称",
     "date": "yyyymm",
-    "revenue_growth": 营收同比增速（百分数，如 35），
-    "profit_growth": 利润同比增速（百分数），
+    "revenue_growth": 营收同比增速（百分数，如 1~100），
+    "profit_growth": 利润同比增速（百分数 1~100），
     "growth_evidences": ["引用报告原文中关于营收/利润增长的具体数据（例如：'报告指出营收同比+35%，环比+5%'）", ...],
     "roe_trend": "improving|stable|declining|unknown",
     "capex_trend": "expanding|stable|contracting|unknown",
