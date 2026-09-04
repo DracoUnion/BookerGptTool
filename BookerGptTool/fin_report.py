@@ -7,30 +7,10 @@ import logging
 from pydantic import parse_obj_as
 from typing import List, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from .util import ext_code_block, ext_cont_block, call_llm_retry, set_openai_props
-from .fin_report_models import (
-    ReportMeta,
-    Fact,
-    ResearcherOutput,
-    DivergencePoint,
-    FusionOutput,
-    OrchestratorResult,
-)
+from .util import ext_code_block, ext_cont_block, call_llm_retry, set_openai_props, ask_chatgpt_retry
+from .fin_report_models import *
 
-from .fin_report_pmt import (
-    RESEARCHER_SYSTEM_PROMPT,
-    RESEARCHER_EXTRACT_USER,
-    FUSION_SYSTEM_PROMPT,
-    FUSION_FUSE_USER,
-    BULL_SYSTEM_PROMPT,
-    BULL_INITIAL_USER,
-    BULL_REBUT_USER,
-    BEAR_SYSTEM_PROMPT,
-    BEAR_INITIAL_USER,
-    BEAR_REBUT_USER,
-    JUDGE_SYSTEM_PROMPT,
-    JUDGE_USER,
-)
+from .fin_report_pmt import *
 
 # 配置日志
 logging.basicConfig(
@@ -76,6 +56,30 @@ class FinReportAgent:
             temp=temperature,
             max_tokens=max_tokens or self.max_tokens,
             parse_output=parse_output,
+        )
+
+    def anls_fund(self, report: str) -> FundAnlsResult:
+        ques = FUND_ANLS_PROMPT.replace('{report}', report)
+        parse_output = lambda s: \
+            FundAnlsResult.model_validate_json(ext_code_block(s))
+        return ask_chatgpt_retry(
+            ques, self.model, self.args, parse_output
+        )
+
+    def anls_value(self, report: str) -> ValueAnlsResult:
+        ques = VAL_ANLS_PROMPT.replace('{report}', report)
+        parse_output = lambda s: \
+            ValueAnlsResult.model_validate_json(ext_code_block(s))
+        return ask_chatgpt_retry(
+            ques, self.model, self.args, parse_output
+        )
+
+    def anls_value(self, report: str) -> SentiAnlsResult:
+        ques = SENTI_ANLS_PROMPT.replace('{report}', report)
+        parse_output = lambda s: \
+            SentiAnlsResult.model_validate_json(ext_code_block(s))
+        return ask_chatgpt_retry(
+            ques, self.model, self.args, parse_output
         )
 
     def extract(self, report_text: str) -> ResearcherOutput:
