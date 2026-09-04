@@ -174,7 +174,13 @@ class MultiReportOrchestrator:
         处理多份研报，返回最终裁决报告和中间结果。
         """
         # ---------- 第一步：并行提取 ----------
-        anls_res = self.agent.extract(report)
+        logger.info("生成初步分析...")
+        anls_fname = path.join(self.proj_dir, 'anls.json')
+        if(path.isfile(anls_fname)):
+            anls_res = AnlsOutput.model_validate_json(open(anls_fname, encoding='utf8').read())
+        else:
+            anls_res = self.agent.extract(report)
+            open(anls_fname, 'w', encoding='utf8').write(anls_res.json())
 
         # ---------- 第三步：多空初始立场 ----------
         logger.info("生成初始立场...")
