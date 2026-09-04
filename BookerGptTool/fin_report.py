@@ -169,13 +169,20 @@ class MultiReportOrchestrator:
         # 初始化 Agent
         self.agent = FinReportAgent(args)
 
-    def process_single(self, report: str) -> OrchestratorResult:
+    def process(self, reports: List[str]):
+        pool = ThreadPoolExecutor(self.max_workers)
+        hdls = []
+        for i, report in enumerate(reports):
+            
+
+
+    def process_single(self, slug: str, report: str) -> OrchestratorResult:
         """
         处理多份研报，返回最终裁决报告和中间结果。
         """
         # ---------- 第一步：并行提取 ----------
         logger.info("生成初步分析...")
-        anls_fname = path.join(self.proj_dir, 'anls.json')
+        anls_fname = path.join(self.proj_dir, f'{slug}_anls.json')
         if(path.isfile(anls_fname)):
             anls_res = AnlsOutput.model_validate_json(open(anls_fname, encoding='utf8').read())
         else:
@@ -184,7 +191,7 @@ class MultiReportOrchestrator:
 
         # ---------- 第三步：多空初始立场 ----------
         logger.info("生成初始立场...")
-        his_fname = path.join(self.proj_dir, 'history.json')
+        his_fname = path.join(self.proj_dir, '{slug}_history.json')
         if(path.isfile(his_fname)):
             history = json.loads(open(his_fname, encoding='utf8').read())
             bull_history, bear_history = history['bull'], history['bear']
@@ -217,12 +224,12 @@ class MultiReportOrchestrator:
 
         # ---------- 第五步：裁决 ----------
         logger.info("生成最终裁决...")
-        final_fname = path.join(self.proj_dir, 'final.md')
+        final_fname = path.join(self.proj_dir, '{slug}_final.json')
         if path.isfile(final_fname):
-            final_verdict = open(final_fname, encoding='utf8').read()
+            final_verdict = JudgeResult.model_validate_json(open(final_fname, encoding='utf8').read())
         else:
             final_verdict = self.agent.judge(anls_res, bull_history, bear_history)
-            open(final_fname, 'w', encoding='utf8').write(final_verdict)
+            open(final_fname, 'w', encoding='utf8').write(final_verdict.json())
 
         return OrchestratorResult(
             analysis=anls_res,
@@ -230,38 +237,6 @@ class MultiReportOrchestrator:
             bear_history=bear_history,
             final_verdict=final_verdict,
         )
-
-    def _tr_extract(self, idx: int, report: str) -> Tuple[int, AnlsOutput]:
-        return idx, self.agent.extract(report)
-
-    def _parallel_extract(self, reports: List[str]) -> List[AnlsOutput]:
-        """使用线程池并行提取"""
-        res_fname = path.join(self.proj_dir, 'research,json')
-        if path.isfile(res_fname):
-            results = parse_obj_as(
-                List[AnlsOutput],
-                json.loads(open(res_fname, encoding='utf8').read())
-            )
-        else:
-            results = [None for _ in range(len(reports))]
-        pool = ThreadPoolExecutor(max_workers=self.max_workers)
-        hdls = []
-
-        for i, text in enumerate(reports):
-            if not reports[i]:
-                h = pool.submit(self._tr_extract, i, text)
-                hdls.append(h)
-
-        for h in hdls:
-            idx, res = h.result()
-            results[idx] = res
-            logger.info(f"研报 {idx+1} 提取成功")
-            open(res_fname, 'w', encoding='utf8') \
-                .write(json.dumps([
-                    it.model_dump() for it in results
-                ]))
-
-        return results
 
     def run(self) -> Optional[OrchestratorResult]:
         """执行 PDF 读取、研报处理和最终报告输出。"""
@@ -280,7 +255,7 @@ class MultiReportOrchestrator:
             read_pdf_text(open(fname, 'rb').read())
             for fname in fnames
         ]
-        result = self.process_single(reports)
+        result = self.process(reports)
 
         print("\n" + "=" * 60)
         print("📊 最终裁决报告")
