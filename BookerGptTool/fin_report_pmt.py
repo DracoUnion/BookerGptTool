@@ -199,7 +199,7 @@ JUDGE_USER = """\
 ```
 {
     "institution": "机构名称",
-    "indusntry": "行业名称",
+    "industry": "行业名称",
     "date": "yyyymm",
     "overall_score": 1~10 整数,
     "recommendation" "overweight|neutral|underweight",

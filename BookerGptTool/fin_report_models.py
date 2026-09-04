@@ -56,11 +56,20 @@ class AnlsOutput(BaseModel):
     value: ValueAnlsResult
     sentiment: SentiAnlsResult
 
-
+class JudgeResult(BaseModel):
+    institution: str
+    industry: str
+    date: str
+    overall_score: int
+    recommendation: Literal["overweight", "neutral", "underweight"]
+    key_drivers: List[str]
+    key_risks: List[str]
+    conclusion: str
+    conclusio_evidences: List[str]
 
 class OrchestratorResult(BaseModel):
     """多报告协调器的完整输出"""
     analysis: AnlsOutput
     bull_history: List[str]
     bear_history: List[str]
-    final_verdict: str
+    final_verdict: JudgeResult

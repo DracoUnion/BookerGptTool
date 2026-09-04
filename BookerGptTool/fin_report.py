@@ -89,43 +89,6 @@ class FinReportAgent:
             sentiment=self.anls_sentiment(report)
         )
 
-    def fuse(self, extraction_results: List[AnlsOutput]) -> FusionOutput:
-        all_facts = []
-        rating_list = []
-        risk_set = set()
-        for res in extraction_results:
-            all_facts.extend(res.facts)
-            rating = res.explicit_rating
-            if rating and rating != "null":
-                rating_list.append(rating)
-            risk_set.update(res.explicit_risks)
-
-        if not all_facts:
-            return FusionOutput(
-                consensus_facts=[],
-                divergence_points=[],
-                rating_distribution={},
-                merged_risks=list(risk_set),
-            )
-
-        facts_json = json.dumps([f.model_dump() for f in all_facts], ensure_ascii=False, indent=2)
-        user_prompt = FUSION_FUSE_USER.format(facts_json=facts_json)
-        parse_output = lambda s: \
-            FusionOutput.model_validate_json(ext_code_block(s))
-        fused = self._call(
-            FUSION_SYSTEM_PROMPT, user_prompt,
-            temperature=0.1,
-            parse_output=parse_output,
-        )
-
-        if not fused.consensus_facts:
-            fused.consensus_facts = all_facts
-        if not fused.rating_distribution:
-            fused.rating_distribution = {r: rating_list.count(r) for r in set(rating_list)}
-        if not fused.merged_risks:
-            fused.merged_risks = list(risk_set)
-        return fused
-
     def bull_initial(self, analysis: AnlsOutput) -> str:
         user_prompt = BULL_INITIAL_USER \
             .replace('{analysis}', analysis.json())
@@ -164,17 +127,19 @@ class FinReportAgent:
             parse_output=ext_cont_block,
         )
 
-    def judge(self, analysis: AnlsOutput, bull_history: List[str], bear_history: List[str]) -> str:
+    def judge(self, analysis: AnlsOutput, bull_history: List[str], bear_history: List[str]) -> JudgeResult:
         user_prompt = JUDGE_USER \
             .replace('{analysis}', analysis.json()) \
             .replace('{bull_history}', '\n'.join(bull_history)) \
             .replace('{bear_history}', '\n'.join(bear_history))
-        raw = self._call(
+        parse_output = lambda s: \
+            JudgeResult.model_validate_json(ext_code_block(s))
+        res = self._call(
             JUDGE_SYSTEM_PROMPT, user_prompt,
             temperature=0.2,
-            parse_output=ext_cont_block,
+            parse_output=parse_output,
         )
-        return raw
+        return res
 
 
 # ===================== 5. 协调器 (Orchestrator) =====================
