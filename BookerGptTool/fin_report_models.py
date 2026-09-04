@@ -91,7 +91,7 @@ class FusionOutput(BaseModel):
 
 class OrchestratorResult(BaseModel):
     """多报告协调器的完整输出"""
-    anls_res: AnlsOutput
+    analysis: AnlsOutput
     bull_history: List[str]
     bear_history: List[str]
     final_verdict: str

@@ -254,7 +254,7 @@ class MultiReportOrchestrator:
             open(final_fname, 'w', encoding='utf8').write(final_verdict)
 
         return OrchestratorResult(
-            anls_res=anls_res,
+            analysis=anls_res,
             bull_history=bull_history,
             bear_history=bear_history,
             final_verdict=final_verdict,
