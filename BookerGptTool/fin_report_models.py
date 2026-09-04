@@ -35,9 +35,20 @@ class ValueAnlsResult(BaseModel):
 
 
 class SentiAnlsResult(BaseModel):
-institution: str
-industry: str
-date: str
+    institution: str
+    industry: str
+    date: str
+    market_style: Literal["growth", "value", "neutral", "unknown"]
+    style_evidences: List[str]
+    size_preference: Literal["large", "small", "neutral", "unknown"]
+    turnover_heat: Literal["cold", "normal", "hot", "unknown"]
+    turnover_evidences: List[str]
+    analyst_consensus: Literal["bullish", "neutral", "bearish", "unknown"]
+    analyst_evidences: List[str]
+    momentum_direction: Literal["up", "down", "consolidating", "unknwon"]
+    sentiment_score: int
+
+####################################################################
 
 class ReportMeta(BaseModel):
     """研报元数据"""
