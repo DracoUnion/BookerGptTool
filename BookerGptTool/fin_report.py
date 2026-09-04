@@ -135,8 +135,10 @@ class FinReportAgent:
             parse_output=ext_cont_block,
         )
 
-    def bull_rebut(self, fused_data: FusionOutput, opponent_argument: str) -> str:
-        user_prompt = BULL_REBUT_USER.format(opponent_argument=opponent_argument)
+    def bull_rebut(self, analysis: AnlsOutput, opponent_argument: str) -> str:
+        user_prompt = BULL_REBUT_USER \
+            .replace('{analysis}', analysis.json()) \
+            .replace('{opponent_argument}', opponent_argument)
         return self._call(
             BULL_SYSTEM_PROMPT, user_prompt,
             temperature=0.7,
@@ -144,7 +146,7 @@ class FinReportAgent:
         )
 
     def bear_initial(self, analysis: AnlsOutput) -> str:
-        user_prompt = BEAR_INITIAL_USER\
+        user_prompt = BEAR_INITIAL_USER \
             .replace('{analysis}', analysis.json())
         return self._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
@@ -152,8 +154,10 @@ class FinReportAgent:
             parse_output=ext_cont_block,
         )
 
-    def bear_rebut(self, fused_data: FusionOutput, opponent_argument: str) -> str:
-        user_prompt = BEAR_REBUT_USER.format(opponent_argument=opponent_argument)
+    def bear_rebut(self, analysis: AnlsOutput, opponent_argument: str) -> str:
+        user_prompt = BEAR_REBUT_USER \
+            .replace('{analysis}', analysis.json()) \
+            .replace('{opponent_argument}', opponent_argument)
         return self._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
             temperature=0.7,
@@ -233,10 +237,10 @@ class MultiReportOrchestrator:
         for round_idx in range(len(bull_history), self.debate_rounds):
             logger.info(f"辩论第 {round_idx+1} 轮...")
             # 空方反驳多方最新观点
-            bear_rebut = self.agent.bear_rebut(fused_data, bull_history[-1])
+            bear_rebut = self.agent.bear_rebut(anls_res, bull_history[-1])
             bear_history.append(bear_rebut)
             # 多方反驳空方最新观点
-            bull_rebut = self.agent.bull_rebut(fused_data, bear_history[-1])
+            bull_rebut = self.agent.bull_rebut(anls_res, bear_history[-1])
             bull_history.append(bull_rebut)
             open(his_fname, 'w', encoding='utf8') \
                 .write(json.dumps({
