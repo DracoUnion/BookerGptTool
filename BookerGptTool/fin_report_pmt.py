@@ -169,22 +169,10 @@ BULL_SYSTEM_PROMPT = "你是一个专业的投资分析师。"
 
 BULL_INITIAL_USER = """\
 你是一位乐观的买方基金经理。基于以下融合数据生成看多立场报告。
+
 数据：
-共识事实：
 ```
-{consensus_facts}
-```
-分歧点：
-```
-{divergence_points}
-```
-评级分布：
-```
-{rating_distribution}
-```
-风险列表：
-```
-{merged_risks}
+{analysis}
 ```
 
 请输出"多方立场 (Bull Case)"，包含：
@@ -213,22 +201,10 @@ BEAR_SYSTEM_PROMPT = "你是一个谨慎的风险分析师。"
 
 BEAR_INITIAL_USER = """\
 你是一位谨慎的风控专家。基于以下融合数据生成看空立场报告。
+
 数据：
-共识事实：
 ```
-{consensus_facts}
-```
-分歧点：
-```
-{divergence_points}
-```
-评级分布：
-```
-{rating_distribution}
-```
-风险列表：
-```
-{merged_risks}
+{analysis}
 ```
 
 请输出"空方立场 (Bear Case)"，包含：

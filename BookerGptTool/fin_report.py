@@ -126,13 +126,9 @@ class FinReportAgent:
             fused.merged_risks = list(risk_set)
         return fused
 
-    def bull_initial(self, fused_data: FusionOutput) -> str:
-        user_prompt = BULL_INITIAL_USER.format(
-            consensus_facts=json.dumps([f.model_dump() for f in fused_data.consensus_facts], ensure_ascii=False, indent=2),
-            divergence_points=json.dumps([d.model_dump() for d in fused_data.divergence_points], ensure_ascii=False, indent=2),
-            rating_distribution=fused_data.rating_distribution,
-            merged_risks=fused_data.merged_risks,
-        )
+    def bull_initial(self, analysis: AnlsOutput) -> str:
+        user_prompt = BULL_INITIAL_USER \
+            .replace('{analysis}', analysis.json())
         return self._call(
             BULL_SYSTEM_PROMPT, user_prompt,
             temperature=0.7,
@@ -147,13 +143,9 @@ class FinReportAgent:
             parse_output=ext_cont_block,
         )
 
-    def bear_initial(self, fused_data: FusionOutput) -> str:
-        user_prompt = BEAR_INITIAL_USER.format(
-            consensus_facts=json.dumps([f.model_dump() for f in fused_data.consensus_facts], ensure_ascii=False, indent=2),
-            divergence_points=json.dumps([d.model_dump() for d in fused_data.divergence_points], ensure_ascii=False, indent=2),
-            rating_distribution=fused_data.rating_distribution,
-            merged_risks=fused_data.merged_risks,
-        )
+    def bear_initial(self, analysis: AnlsOutput) -> str:
+        user_prompt = BEAR_INITIAL_USER\
+            .replace('{analysis}', analysis.json())
         return self._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
             temperature=0.7,
@@ -212,27 +204,12 @@ class MultiReportOrchestrator:
         # 初始化 Agent
         self.agent = FinReportAgent(args)
 
-    def process(self, reports: List[str]) -> OrchestratorResult:
+    def process_single(self, report: str) -> OrchestratorResult:
         """
         处理多份研报，返回最终裁决报告和中间结果。
         """
-        if not reports:
-            raise ValueError("研报列表为空")
-
-        logger.info(f"开始处理 {len(reports)} 份研报，并行提取...")
         # ---------- 第一步：并行提取 ----------
-        extraction_results = self._parallel_extract(reports)
-
-        # ---------- 第二步：融合 ----------
-        logger.info("融合提取结果...")
-        fused_fname = path.join(self.proj_dir, 'fused.json')
-        if path.isfile(fused_fname):
-            fused_data = json.loads(open(fused_fname, encoding='utf8').read())
-            fused_data = FusionOutput(**fused_data)
-        else:
-            fused_data = self.agent.fuse(extraction_results)
-            open(fused_fname, 'w', encoding='utf8') \
-                .write(fused_data.model_dump_json())
+        anls_res = self.agent.extract(report)
 
         # ---------- 第三步：多空初始立场 ----------
         logger.info("生成初始立场...")
@@ -241,8 +218,8 @@ class MultiReportOrchestrator:
             history = json.loads(open(his_fname, encoding='utf8').read())
             bull_history, bear_history = history['bull'], history['bear']
         else:
-            bull_initial = self.agent.bull_initial(fused_data)
-            bear_initial = self.agent.bear_initial(fused_data)
+            bull_initial = self.agent.bull_initial(anls_res)
+            bear_initial = self.agent.bear_initial(anls_res)
 
             bull_history = [bull_initial]
             bear_history = [bear_initial]
@@ -332,7 +309,7 @@ class MultiReportOrchestrator:
             read_pdf_text(open(fname, 'rb').read())
             for fname in fnames
         ]
-        result = self.process(reports)
+        result = self.process_single(reports)
 
         print("\n" + "=" * 60)
         print("📊 最终裁决报告")
