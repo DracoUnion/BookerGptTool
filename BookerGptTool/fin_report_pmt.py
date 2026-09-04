@@ -31,10 +31,6 @@ FUND_ANLS_PROMPT = """
 }
 ```
 
-机构：{institution_name}
-
-行业：{industry_name}
-
 报告内容：
 
 [content]
@@ -67,10 +63,6 @@ VAL_ANLS_PROMPT = """
     "crowding_evidences": ["引用交易拥挤度描述（例如：'成交额占比从6%升至8.5%'）", ...]
     "valuation_score": 1~10 整数,
 }
-
-机构：{institution_name}
-
-行业：{industry_name}
 
 报告内容：
 

@@ -18,6 +18,21 @@ class FundAnlsResult(BaseModel):
     key_risks: List[str]
     risk_evidences: List[str]
 
+class ValueAnlsResult(BaseModel):
+    institution: str
+    industry: str
+    date: str
+    pe_percentile: int
+    pb_percentile: int
+    valuation_assessment: Literal["undervalued", "fair", "overvalued", "unknown"]
+    valuation_evidences: List[str]
+    institutional_flow: Literal["inflow", "neutral", "outflow", "unknown"]
+    retail_flow: Literal["inflow", "neutral", "outflow", "unknown"]
+    flow_evidences: List[str]
+    crowding_status: Literal["low", "moderate", "high", "unknown"]
+    crowding_evidences: List[str]
+    valuation_score: int
+
 class ReportMeta(BaseModel):
     """研报元数据"""
     title: Optional[str]
