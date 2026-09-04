@@ -169,21 +169,23 @@ class MultiReportOrchestrator:
         # 初始化 Agent
         self.agent = FinReportAgent(args)
 
-    def process(self, fnames: List[str], reports: List[str]):
+    def process(self, fnames: List[str], reports: List[str]) -> List[OrchestratorResult]:
         pool = ThreadPoolExecutor(self.max_workers)
         hdls = []
         results = []
         for i, report in enumerate(reports):
             h = pool.submit(
                 self._tr_process_single, 
-                to_kebab(fnames[i])
-                report
+                to_kebab(fnames[i]),
+                report,
             )
             hdls.append(h)
 
         for h in hdls:
             res = h.result()
             results.append(res)
+
+        return results
 
 
     def _tr_process_single(self, slug: str, report: str) -> OrchestratorResult:
@@ -251,9 +253,9 @@ class MultiReportOrchestrator:
     def run(self) -> Optional[OrchestratorResult]:
         """执行 PDF 读取、研报处理和最终报告输出。"""
         print(self.args)
-        fnames = self._get_pdf_files()
+        fnames = self._get_pdf_md_files()
         if not fnames:
-            print('请提供 PDF 文件或目录')
+            print('请提供 PDF 或 MD 文件或目录')
             return None
 
         ofname = self._get_output_fname()
@@ -263,6 +265,8 @@ class MultiReportOrchestrator:
 
         reports = [
             read_pdf_text(open(fname, 'rb').read())
+                if fname.endswith('.pdf') else
+                open(fname, encoding='utf8').read()
             for fname in fnames
         ]
         result = self.process(reports)
@@ -270,11 +274,11 @@ class MultiReportOrchestrator:
         print("\n" + "=" * 60)
         print("📊 最终裁决报告")
         print("=" * 60)
-        print(result.final_verdict)
-        open(ofname, 'w', encoding='utf8').write(result.final_verdict)
+        print(result)
+        open(ofname, 'w', encoding='utf8').write(result)
         return result
 
-    def _get_pdf_files(self) -> List[str]:
+    def _get_pdf_md_files(self) -> List[str]:
         """获取待处理的 PDF 文件列表。"""
         if path.isfile(self.args.fname):
             fnames = [self.args.fname]
@@ -285,14 +289,18 @@ class MultiReportOrchestrator:
             ]
         else:
             fnames = []
-        return [fname for fname in fnames if fname.endswith('.pdf')]
+        return [
+            fname for fname in fnames 
+            if fname.endswith('.pdf') or
+               fname.endswith('.md')
+        ]
 
     def _get_output_fname(self) -> str:
         """根据输入路径确定最终报告路径。"""
         return (
-            self.args.fname[:-4] + '_report.md'
+            self.args.fname[:-4] + '_report.json'
             if path.isfile(self.args.fname)
-            else path.join(self.args.fname, 'report.md')
+            else path.join(self.args.fname, 'report.json')
         )
 
 
