@@ -4,6 +4,43 @@
 使用 Python str.format() 的 {} 作为占位符。
 """
 
+FUND_ANLS_PROMPT = """
+你是一位资深行业基本面分析师。请基于提供的行业报告，提取信息并以 JSON 格式返回，包含在三个反引号（```）中。
+
+**重要要求：输出中必须包含`*_evidence`（证据）字段！**你不能只给出数字或趋势，必须引用报告原文中的具体数据或描述来支撑你的每个判断。
+
+输出 JSON 格式如下：
+
+```
+{
+    "institution": "机构名称",
+    "date": "yyyymm",
+    "revenue_growth": 营收同比增速（百分数，如 35），
+    "profit_growth": 利润同比增速（百分数），
+    "growth_evidences": ["引用报告原文中关于营收/利润增长的具体数据（例如：'报告指出营收同比+35%，环比+5%'）", ...],
+    "roe_trend": "improving|stable|declining|unknown",
+    "capex_trend": "expanding|stable|contracting|unknown",
+    "capex_evidence": ["引用资本开支或产能扩张的描述", ...],
+    "margin_trend": "improving|stable|declining|unknown",
+    "roe_margin_evidence": ["引用ROE或毛利率变化的具体数字（例如：'ROE从12.5%提升至15.2%'）", ...],
+    "earnings_revision": "upgraded|unchanged|downgraded|unknown",
+    "prospect_score": 1~10 的整数,
+    "key_risks": ["风险点1", "风险点2"],
+    "risk_evidence": ["引用报告中提到的具体风险描述", ....]
+}
+```
+
+机构：{institution_name}
+
+行业：{industry_name}
+
+报告内容：
+
+[content]
+{report_text}
+[/content]
+"""
+
 
 # ===================== 1. 研究员 Agent (ResearcherAgent) =====================
 
