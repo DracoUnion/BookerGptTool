@@ -234,22 +234,9 @@ JUDGE_SYSTEM_PROMPT = "你是一个客观、理性的首席投资官。"
 JUDGE_USER = """\
 你是一位经验丰富的首席投资官。请基于以下所有材料，做出最终投资裁决。
 
-融合数据：
-共识事实：
+数据：
 ```
-{consensus_facts}
-```
-分歧点：
-```
-{divergence_points}
-```
-评级分布：
-```
-{rating_distribution}
-```
-风险列表：
-```
-{merged_risks}
+{analysis}
 ```
 
 多方全部发言：

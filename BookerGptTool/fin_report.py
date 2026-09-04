@@ -164,21 +164,17 @@ class FinReportAgent:
             parse_output=ext_cont_block,
         )
 
-    def judge(self, fused_data: FusionOutput, bull_history: List[str], bear_history: List[str]) -> str:
-        user_prompt = JUDGE_USER.format(
-            consensus_facts=json.dumps([f.model_dump() for f in fused_data.consensus_facts], ensure_ascii=False, indent=2),
-            divergence_points=json.dumps([d.model_dump() for d in fused_data.divergence_points], ensure_ascii=False, indent=2),
-            rating_distribution=fused_data.rating_distribution,
-            merged_risks=fused_data.merged_risks,
-            bull_history=chr(10).join(bull_history),
-            bear_history=chr(10).join(bear_history),
-        )
+    def judge(self, analysis: AnlsOutput, bull_history: List[str], bear_history: List[str]) -> str:
+        user_prompt = JUDGE_USER \
+            .replace('{analysis}', analysis.json()) \
+            .replace('{bull_history}', '\n'.join(bull_history)) \
+            .replace('{bear_history}', '\n'.join(bear_history))
         raw = self._call(
             JUDGE_SYSTEM_PROMPT, user_prompt,
             temperature=0.2,
             parse_output=ext_cont_block,
         )
-        return raw if raw else "裁决失败，请检查API配置。"
+        return raw
 
 
 # ===================== 5. 协调器 (Orchestrator) =====================
@@ -254,11 +250,11 @@ class MultiReportOrchestrator:
         if path.isfile(final_fname):
             final_verdict = open(final_fname, encoding='utf8').read()
         else:
-            final_verdict = self.agent.judge(fused_data, bull_history, bear_history)
+            final_verdict = self.agent.judge(anls_res, bull_history, bear_history)
             open(final_fname, 'w', encoding='utf8').write(final_verdict)
 
         return OrchestratorResult(
-            fused_data=fused_data,
+            anls_res=anls_res,
             bull_history=bull_history,
             bear_history=bear_history,
             final_verdict=final_verdict,
