@@ -33,6 +33,12 @@ class ValueAnlsResult(BaseModel):
     crowding_evidences: List[str]
     valuation_score: int
 
+
+class SentiAnlsResult(BaseModel):
+institution: str
+industry: str
+date: str
+
 class ReportMeta(BaseModel):
     """研报元数据"""
     title: Optional[str]

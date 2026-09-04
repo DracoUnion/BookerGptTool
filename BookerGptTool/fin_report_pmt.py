@@ -34,7 +34,7 @@ FUND_ANLS_PROMPT = """
 报告内容：
 
 [content]
-{report_text}
+{report}
 [/content]
 """
 
@@ -67,7 +67,7 @@ VAL_ANLS_PROMPT = """
 报告内容：
 
 [content]
-{report_text}
+{report}
 [/content]
 """
 
@@ -96,6 +96,12 @@ SENTI_ANLS_PROMPT = """
     "sentiment_score": 1~10 整数,
 }
 ```
+
+报告内容：
+
+[content]
+{report}
+[/content]
 """
 
 ##############################################################################
