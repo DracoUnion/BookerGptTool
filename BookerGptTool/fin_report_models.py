@@ -50,43 +50,12 @@ class SentiAnlsResult(BaseModel):
 
 ####################################################################
 
-class ReportMeta(BaseModel):
-    """研报元数据"""
-    title: Optional[str]
-    publisher: Optional[str]
-    time: Optional[str]
-    industry: Optional[str]
-
-
-class Fact(BaseModel):
-    """研究员提取的单条事实"""
-    fact_id: Optional[str]
-    category: Optional[str]
-    content: Optional[str]
-    value: Optional[str]
-    source: Optional[str]
-
-
 class AnlsOutput(BaseModel):
     """研究员 Agent 的完整提取结果"""
     fundamental: FundAnlsResult
     value: ValueAnlsResult
     sentiment: SentiAnlsResult
 
-
-class DivergencePoint(BaseModel):
-    """融合后的分歧点"""
-    topic: Optional[str]
-    bull_view: Optional[str]
-    bear_view: Optional[str]
-
-
-class FusionOutput(BaseModel):
-    """融合仲裁官的完整输出结果"""
-    consensus_facts: List[Fact]
-    divergence_points: List[DivergencePoint]
-    rating_distribution: Dict[str, int]
-    merged_risks: List[str]
 
 
 class OrchestratorResult(BaseModel):
