@@ -67,12 +67,11 @@ class Fact(BaseModel):
     source: Optional[str]
 
 
-class ResearcherOutput(BaseModel):
+class AnlsOutput(BaseModel):
     """研究员 Agent 的完整提取结果"""
-    report_meta: ReportMeta
-    facts: List[Fact]
-    explicit_rating: Optional[str]
-    explicit_risks: List[str]
+    fundamental: FundAnlsResult
+    value: ValueAnlsResult
+    sentiment: SentiAnlsResult
 
 
 class DivergencePoint(BaseModel):

@@ -5,7 +5,7 @@ import os
 import json
 import logging
 from pydantic import parse_obj_as
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from .util import ext_code_block, ext_cont_block, call_llm_retry, set_openai_props, ask_chatgpt_retry
 from .fin_report_models import *
@@ -74,7 +74,7 @@ class FinReportAgent:
             ques, self.model, self.args, parse_output
         )
 
-    def anls_value(self, report: str) -> SentiAnlsResult:
+    def anls_sentiment(self, report: str) -> SentiAnlsResult:
         ques = SENTI_ANLS_PROMPT.replace('{report}', report)
         parse_output = lambda s: \
             SentiAnlsResult.model_validate_json(ext_code_block(s))
@@ -82,17 +82,14 @@ class FinReportAgent:
             ques, self.model, self.args, parse_output
         )
 
-    def extract(self, report_text: str) -> ResearcherOutput:
-        user_prompt = RESEARCHER_EXTRACT_USER.format(report_text=report_text)
-        parse_output = lambda s: \
-            ResearcherOutput.model_validate_json(ext_code_block(s))
-        return self._call(
-            RESEARCHER_SYSTEM_PROMPT, user_prompt,
-            temperature=0.0,
-            parse_output=parse_output,
+    def extract(self, report: str) -> AnlsOutput:
+        return AnlsOutput(
+            fundamental=self.anls_fund(report),
+            value=self.anls_value(report),
+            sentiment=self.anls_sentiment(report)
         )
 
-    def fuse(self, extraction_results: List[ResearcherOutput]) -> FusionOutput:
+    def fuse(self, extraction_results: List[AnlsOutput]) -> FusionOutput:
         all_facts = []
         rating_list = []
         risk_set = set()
@@ -286,24 +283,21 @@ class MultiReportOrchestrator:
             final_verdict=final_verdict,
         )
 
-    def _parallel_extract(self, reports: List[str]) -> List[ResearcherOutput]:
+    def _tr_extract(self, idx: int, report: str) -> Tuple[int, AnlsOutput]:
+        return idx, self.agent.extract(report)
+
+    def _parallel_extract(self, reports: List[str]) -> List[AnlsOutput]:
         """使用线程池并行提取"""
         res_fname = path.join(self.proj_dir, 'research,json')
         if path.isfile(res_fname):
             results = parse_obj_as(
-                List[ResearcherOutput],
+                List[AnlsOutput],
                 json.loads(open(res_fname, encoding='utf8').read())
             )
         else:
             results = [
-                ResearcherOutput(
-                    report_meta=ReportMeta(
-                        title='', publisher='',
-                        time='', industry='',
-                    ),
-                    facts=[],
-                    explicit_rating='',
-                    explicit_risks=[],
+                AnlsOutput(
+                    
                 )
                 for _ in range(len(reports))
             ]
@@ -326,7 +320,7 @@ class MultiReportOrchestrator:
                 except Exception as e:
                     logger.error(f"研报 {idx+1} 提取失败: {e}")
                     # 填充空结果以保持数量一致
-                    results.append(ResearcherOutput(
+                    results.append(AnlsOutput(
                         report_meta=ReportMeta(title=None, publisher=None, time=None, industry=None),
                         facts=[],
                         explicit_rating=None,
