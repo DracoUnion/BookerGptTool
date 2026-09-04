@@ -14,6 +14,7 @@ FUND_ANLS_PROMPT = """
 ```
 {
     "institution": "机构名称",
+    "industry": "行业名称",
     "date": "yyyymm",
     "revenue_growth": 营收同比增速（百分数，如 35），
     "profit_growth": 利润同比增速（百分数），
@@ -40,6 +41,46 @@ FUND_ANLS_PROMPT = """
 {report_text}
 [/content]
 """
+
+###############################################################################
+
+VAL_ANLS_PROMPT = """
+你是一位估值与资金面分析师。请基于提供的行业报告，提取信息并以 JSON 格式返回，包含在三个反引号（```）中。
+
+**重要要求：输出中必须包含`*_evidence`（证据）字段！**你不能只给出数字或趋势，必须引用报告原文中的具体数据或描述来支撑你的每个判断。
+
+输出 JSON 格式如下：
+
+```
+{
+    "institution": "机构名称",
+    "industry": "行业名称",
+    "date": "yyyymm",
+    "pe_percentile": PE 历史分位数（0~100 整数）,
+    "pb_percentile": PB 历史分位数（0~100 整数）,
+    "valuation_assessment": "undervalued|fair|overvalued|unknown",
+    "valuation_evidence": ["引用具体估值数据（例如：'当前PE为28倍，处于近5年45%分位'）", ...],
+    "institutional_flow": "inflow|neutral|outflow|unknown",
+    "retail_flow": "inflow|neutral|outflow|unknown",
+    "flow_evidence": ["引用资金流向描述（例如：'北向资金近一月净流入120亿元'）", ...],
+    "crowding_status": "low|moderate|high|unknown",
+    "crowding_evidence": ["引用交易拥挤度描述（例如：'成交额占比从6%升至8.5%'）", ...]
+    "valuation_score": 1~10 整数,
+}
+
+机构：{institution_name}
+
+行业：{industry_name}
+
+报告内容：
+
+[content]
+{report_text}
+[/content]
+"""
+
+###############################################################################
+
 
 
 # ===================== 1. 研究员 Agent (ResearcherAgent) =====================
