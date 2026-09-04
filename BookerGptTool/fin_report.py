@@ -167,15 +167,14 @@ class MultiReportOrchestrator:
         # 初始化 Agent
         self.agent = FinReportAgent(args)
 
-    def process(self, fnames: List[str], reports: List[str]) -> List[OrchestratorResult]:
+    def process(self, fnames: List[str]) -> List[OrchestratorResult]:
         pool = ThreadPoolExecutor(self.max_workers)
         hdls = []
         results = []
-        for i, report in enumerate(reports):
+        for i, fname in enumerate(fnames):
             h = pool.submit(
                 self._tr_process_single, 
-                to_kebab(fnames[i]),
-                report,
+                fname,
             )
             hdls.append(h)
 
@@ -186,10 +185,14 @@ class MultiReportOrchestrator:
         return results
 
 
-    def _tr_process_single(self, slug: str, report: str) -> OrchestratorResult:
+    def _tr_process_single(self, fname) -> OrchestratorResult:
         """
         处理多份研报，返回最终裁决报告和中间结果。
         """
+        report = read_pdf_text(open(fname, 'rb').read()) \
+            if fname.endswith('.pdf') else \
+            open(fname, encoding='utf8').read()
+        slug = to_kebab(fname)
         # ---------- 第一步：并行提取 ----------
         logger.info("生成初步分析...")
         anls_fname = path.join(self.proj_dir, f'{slug}_anls.json')
@@ -261,13 +264,7 @@ class MultiReportOrchestrator:
             print('PDF 已处理')
             return None
 
-        reports = [
-            read_pdf_text(open(fname, 'rb').read())
-                if fname.endswith('.pdf') else
-                open(fname, encoding='utf8').read()
-            for fname in fnames
-        ]
-        result = self.process(reports)
+        result = self.process(fnames)
         '''
         print("\n" + "=" * 60)
         print("📊 最终裁决报告")
