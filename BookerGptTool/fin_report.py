@@ -295,37 +295,24 @@ class MultiReportOrchestrator:
                 json.loads(open(res_fname, encoding='utf8').read())
             )
         else:
-            results = [
-                AnlsOutput(
-                    
-                )
-                for _ in range(len(reports))
-            ]
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_idx = {
-                executor.submit(self.agent.extract, text): i 
-                for i, text in enumerate(reports)
-                if not results[i].facts
-            }
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                try:
-                    res = future.result(timeout=60)
-                    results[idx] = res
-                    logger.info(f"研报 {idx+1} 提取成功")
-                    open(res_fname, 'w', encoding='utf8') \
-                        .write(json.dumps([
-                            it.model_dump() for it in results
-                        ]))
-                except Exception as e:
-                    logger.error(f"研报 {idx+1} 提取失败: {e}")
-                    # 填充空结果以保持数量一致
-                    results.append(AnlsOutput(
-                        report_meta=ReportMeta(title=None, publisher=None, time=None, industry=None),
-                        facts=[],
-                        explicit_rating=None,
-                        explicit_risks=[],
-                    ))
+            results = [None for _ in range(len(reports))]
+        pool = ThreadPoolExecutor(max_workers=self.max_workers)
+        hdls = []
+
+        for i, text in enumerate(reports):
+            if not reports[i]:
+                h = pool.submit(self._tr_extract, i, text)
+                hdls.append(h)
+
+        for h in hdls:
+            idx, res = h.result()
+            results[idx] = res
+            logger.info(f"研报 {idx+1} 提取成功")
+            open(res_fname, 'w', encoding='utf8') \
+                .write(json.dumps([
+                    it.model_dump() for it in results
+                ]))
+
         return results
 
     def run(self) -> Optional[OrchestratorResult]:
