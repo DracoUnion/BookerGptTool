@@ -522,3 +522,10 @@ def md2skill(args):
     set_openai_props(args)
     orchestrator = Md2SkillOrchestrator(args)
     orchestrator.run()
+
+
+def reg_subparser(subparsers):
+    md2skill_parser = subparsers.add_parser("md2skill", help="md2skill")
+    md2skill_parser.add_argument("fname", help="fname")
+    md2skill_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    md2skill_parser.set_defaults(func=md2skill)

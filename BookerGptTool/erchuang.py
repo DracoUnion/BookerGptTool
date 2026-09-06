@@ -65,6 +65,19 @@ def erchuang_handle(args):
         # if len(hdls) > args.threads:
         #     for h in hdls: h.result()
         #     hdls = []
-            
+
     for h in hdls: h.result()
+
+
+def reg_subparser(subparsers):
+    erchuang_parser = subparsers.add_parser("erchuang", help="gen xhs notes")
+    erchuang_parser.add_argument("fname", help="fname")
+    erchuang_parser.add_argument("-t", "--threads", type=int, default=8, help="threadcount")
+    erchuang_parser.add_argument(
+        "-s", "--style",
+        type=str, default='xhs',
+        choices=['xhs', 'gzh', 'fmt', 'sum', 'qa', 'koubo', 'human'],
+        help="article style"
+    )
+    erchuang_parser.set_defaults(func=erchuang_handle)
     

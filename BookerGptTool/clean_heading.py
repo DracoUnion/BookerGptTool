@@ -81,3 +81,11 @@ def clean_file(args):
     md = open(args.fname, encoding='utf8').read()
     md = clean_md_llm(md, args, args.lines)
     open(args.fname, 'w', encoding='utf8').write(md)
+
+
+def reg_subparser(subparsers):
+    clean_parser = subparsers.add_parser("clean-heading", help="clean heading")
+    clean_parser.add_argument("fname", help="MD for dir of them")
+    clean_parser.add_argument("-l", "--lines", type=float, default=3000, help="ratio/lines of heading")
+    clean_parser.add_argument("-t", "--threads", type=int, default=8, help="num of threads")
+    clean_parser.set_defaults(func=clean_handle)

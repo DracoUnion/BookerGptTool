@@ -185,4 +185,19 @@ def trans_handle(args):
     print(args)
     set_openai_props(args)
     ans = openai_trans(args.en, args.prompt, args.model, args)
+
+
+def reg_subparser(subparsers):
+    trans_parser = subparsers.add_parser("trans-yaml", help="translate YAML files")
+    trans_parser.add_argument("fname", help="yaml file name of dir")
+    trans_parser.add_argument("-p", "--prompt", default=DFT_TRANS_PROMPT, help="prompt for trans")
+    trans_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
+    trans_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    trans_parser.set_defaults(func=trans_yaml_handle)
+
+    test_parser = subparsers.add_parser("trans", help="translate one sentence")
+    test_parser.add_argument("en", help="en text")
+    test_parser.add_argument("-p", "--prompt", default=DFT_TRANS_PROMPT, help="prompt for trans")
+    test_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
+    test_parser.set_defaults(func=trans_handle)
     

@@ -131,3 +131,10 @@ def md2wiki(args):
     for h in hdls:
         h.result()
     hdls = []
+
+
+def reg_subparser(subparsers):
+    md2wiki_parser = subparsers.add_parser("md2wiki", help="md2wiki")
+    md2wiki_parser.add_argument("fname", help="fname")
+    md2wiki_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    md2wiki_parser.set_defaults(func=md2wiki)

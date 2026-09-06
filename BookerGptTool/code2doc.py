@@ -290,3 +290,10 @@ def code2doc_handle(args):
         hdls.append(h)
     for h in hdls:
         h.result()
+
+
+def reg_subparser(subparsers):
+    comm_parser = subparsers.add_parser("code2doc", help="comment code")
+    comm_parser.add_argument('fname', help='file or dir name')
+    comm_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    comm_parser.set_defaults(func=code2doc_handle)

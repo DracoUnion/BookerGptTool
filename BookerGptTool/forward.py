@@ -97,3 +97,14 @@ def forward(args):
         )
     else:
         app.run(args.listen_host, args.listen_port, False)
+
+
+def reg_subparser(subparsers):
+    forward_parser = subparsers.add_parser("forward", help="forward oopenai api")
+    forward_parser.add_argument("fname", help="yaml file name containing keys")
+    forward_parser.add_argument("-lh", "--listen-host", type=str, default='localhost', help="")
+    forward_parser.add_argument("-lp", "--listen-port", type=int, default=5000, help="")
+    forward_parser.add_argument("-w", "--waitress", action='store_true', help="")
+    forward_parser.add_argument("-t", "--threads", type=int, default=8, help="")
+    forward_parser.add_argument("-D", "--debug", action='store_true', help="")
+    forward_parser.set_defaults(func=forward)

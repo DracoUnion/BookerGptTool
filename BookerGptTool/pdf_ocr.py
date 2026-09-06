@@ -638,3 +638,20 @@ def is_scanned_page(page: pymu.Page, text_threshold=20, image_coverage_threshold
     
     # 如果图像覆盖面积超过阈值，则判定为扫描件
     return coverage_ratio >= image_coverage_threshold
+
+
+def reg_subparser(subparsers):
+    pdf_ocr_parser = subparsers.add_parser("pdf-ocr", help="pdf ocr")
+    pdf_ocr_parser.add_argument("fname", help="PDF file name")
+    pdf_ocr_parser.add_argument("--dpi", type=int, default=150, help="dpi")
+    pdf_ocr_parser.add_argument("--trans", action='store_true', help="whether to translate")
+    pdf_ocr_parser.add_argument("--clean", action='store_true', help="whether to clean heading")
+    pdf_ocr_parser.add_argument("-md", "--mkdir", action='store_true', help="whether to make a single dir")
+    pdf_ocr_parser.add_argument("-ft", "--file-threads", type=int, default=1, help="num file threads")
+    pdf_ocr_parser.add_argument("-pt", "--page-threads", type=int, default=8, help="num page threads")
+    pdf_ocr_parser.add_argument("-l", "--limit", type=int, default=8000, help="text limit in groups")
+    pdf_ocr_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
+    pdf_ocr_parser.add_argument("-tt", "--text-thres", type=int, default=20, help="")
+    pdf_ocr_parser.add_argument("-it", "--img-thres", type=float, default=0.8, help="")
+    pdf_ocr_parser.add_argument("-fo", "--force-ocr", action='store_true', help="")
+    pdf_ocr_parser.set_defaults(func=pdf_ocr)

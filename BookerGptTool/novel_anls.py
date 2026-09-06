@@ -285,3 +285,14 @@ def novel_anls(args):
     """CLI 入口函数。"""
     orchestrator = BookAnalyzerOrchestrator(args)
     orchestrator.run()
+
+
+def reg_subparser(subparsers):
+    novel_anls_parser = subparsers.add_parser("novel-anls", help="analyze novel from epub")
+    novel_anls_parser.add_argument("fname", help="EPUB file name")
+    novel_anls_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    novel_anls_parser.add_argument("-mc", "--max-chapters", type=int, default=None, help="max chapters to process")
+    novel_anls_parser.add_argument("--book-title", default=None, help="book title")
+    novel_anls_parser.add_argument("--author", default=None, help="author name")
+    novel_anls_parser.add_argument("--blurb", default=None, help="book blurb")
+    novel_anls_parser.set_defaults(func=novel_anls)

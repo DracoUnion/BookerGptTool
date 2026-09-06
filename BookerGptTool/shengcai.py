@@ -95,3 +95,14 @@ def parse_shengcai(args):
     md = '# ' + args.fname[:-5].replace('懒人', '龙哥') + ' GPT拆解\n\n' + md
     md_fname = args.fname[:-5] + '.md'
     open(md_fname, 'w', encoding='utf8').write(md)
+
+
+def reg_subparser(subparsers):
+    shengcai_parser = subparsers.add_parser("shengcai", help="parse shengcai fengxiangbiao")
+    shengcai_parser.add_argument('fname', help='epub file name')
+    shengcai_parser.add_argument('-p', '--prompt', default=DFT_SHENGCAI_PROMPT, help='prompt for code comment')
+    shengcai_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    shengcai_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
+    shengcai_parser.add_argument("-s", "--start", type=int, default=2, help="page to start")
+    shengcai_parser.add_argument("--min", type=int, default=200, help="max token limit")
+    shengcai_parser.set_defaults(func=parse_shengcai)

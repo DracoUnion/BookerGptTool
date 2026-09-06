@@ -24,3 +24,14 @@ def call_handle(args):
     set_openai_props(args)
     ans = ask_chatgpt_retry(args.ques, args.model, args)
     print(ans)
+
+
+def reg_subparser(subparsers):
+    call_parser = subparsers.add_parser("call", help="call chatgpt with custom question")
+    call_parser.add_argument("ques", help="question")
+    call_parser.set_defaults(func=call_handle)
+
+    call_parser = subparsers.add_parser("check-batch", help="check keys in YAML")
+    call_parser.add_argument("fname", help="YAML file name")
+    call_parser.add_argument("ques", help="question")
+    call_parser.set_defaults(func=check_batch_handle)

@@ -35,3 +35,13 @@ def infer(args):
         h = pool.submit(tr_infer, dit, args, write_callback)
         hdls.append(h)
     for h in hdls: h.result()
+
+
+def reg_subparser(subparsers):
+    infer_parser = subparsers.add_parser("infer", help="free inference")
+    infer_parser.add_argument("fname", help="fname")
+    infer_parser.add_argument("-p", "--prompt", default="{question}", help="prompt")
+    infer_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    infer_parser.add_argument("--ques-col", default="question", help="question column name")
+    infer_parser.add_argument("--ans-col", default="answer", help="answer column name")
+    infer_parser.set_defaults(func=infer)

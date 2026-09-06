@@ -267,3 +267,17 @@ def sum_arxiv(args):
     res += f'> 原文：<https://ar5iv.labs.arxiv.org/html/{args.arxiv}>\n\n'
     res += ans
     open(ofname, 'w', encoding='utf8').write(res)
+
+
+def reg_subparser(subparsers):
+    arxiv_parser = subparsers.add_parser("arxiv", help="summarize arxiv papers")
+    arxiv_parser.add_argument("arxiv", help="arxiv id")
+    arxiv_parser.add_argument("-l", "--limit", type=int, default=3000, help="limit")
+    arxiv_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    arxiv_parser.set_defaults(func=sum_arxiv)
+
+    arxiv_batch_parser = subparsers.add_parser("arxiv-batch", help="summarize arxiv papers")
+    arxiv_batch_parser.add_argument("fname", help="file name of arxiv id ")
+    arxiv_batch_parser.add_argument("-l", "--limit", type=int, default=3000, help="limit")
+    arxiv_batch_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    arxiv_batch_parser.set_defaults(func=sum_arxiv_batch)

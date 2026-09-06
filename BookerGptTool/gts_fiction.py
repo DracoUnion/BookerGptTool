@@ -6,6 +6,7 @@ from .util import ask_chatgpt_retry, set_openai_props
 from .gts_fiction_pmt import (
     SETTING_PMT, ROLE_PMT, OUTLINE_PMT,
     DETAIL_PMT, BODY_PMT, POLISH_PMT,
+    DFT_WRITE_CMD, DFT_POLISH_CMD,
 )
 
 
@@ -151,3 +152,15 @@ def write_fiction(args):
 
     orchestrator = GtsFictionOrchestrator(args)
     orchestrator.run()
+
+
+def reg_subparser(subparsers):
+    fiction_parser = subparsers.add_parser("gts-fiction", help="write fiction")
+    fiction_parser.add_argument("idea", help="idea")
+    fiction_parser.add_argument("-o", "--out-dir", help="output dir")
+    fiction_parser.add_argument("-c", "--chapters", type=int, default=20, help="num chapters")
+    fiction_parser.add_argument("-w", "--words", type=int, default=5000, help="num words")
+    fiction_parser.add_argument("-wc", "--write_command", default=DFT_WRITE_CMD, help="writing coommand")
+    fiction_parser.add_argument("-pc", "--polish_command", default=DFT_POLISH_CMD, help="polishing coommand")
+    fiction_parser.add_argument("-se", "--style-example", default='', help="style example")
+    fiction_parser.set_defaults(func=write_fiction)

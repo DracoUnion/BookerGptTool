@@ -312,3 +312,10 @@ def ext_chapters(tex):
 def paper2code(args):
     """入口函数：创建编排器并运行。"""
     return Paper2CodeOrchestrator(args).run()
+
+
+def reg_subparser(subparsers):
+    paper2code_parser = subparsers.add_parser("paper2code", help="summarize arxiv papers")
+    paper2code_parser.add_argument("fname", help="MD/TEX/TXT file or ARXIV ID（arxiv:\d+\.\d+）")
+    paper2code_parser.add_argument("-o", "--out", type=str, help="output dir name")
+    paper2code_parser.set_defaults(func=paper2code)

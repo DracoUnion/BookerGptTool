@@ -721,3 +721,13 @@ def code2book(args):
         util_logger.setLevel(logging.DEBUG)
     orchestrator = Code2BookOrchestrator(args)
     orchestrator.run()
+
+
+def reg_subparser(subparsers):
+    code2book_parser = subparsers.add_parser("code2book", help="code to book")
+    code2book_parser.add_argument('dir', help='proj dir name')
+    code2book_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    code2book_parser.add_argument("-c", "--check", type=int, default=3, help="check times")
+    code2book_parser.add_argument("-l", "--chapter-limit", type=int, default=20, help="chapter limit")
+    code2book_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
+    code2book_parser.set_defaults(func=code2book)

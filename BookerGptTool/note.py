@@ -85,3 +85,10 @@ def mknote(args):
         #     hdls = []
 
     for h in hdls: h.result()
+
+
+def reg_subparser(subparsers):
+    note_parser = subparsers.add_parser("note", help="make notes")
+    note_parser.add_argument("fname", help="fname")
+    note_parser.add_argument("-t", "--threads", type=int, default=8, help="threadcount")
+    note_parser.set_defaults(func=mknote)

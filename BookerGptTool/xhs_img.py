@@ -476,7 +476,7 @@ def xhs_img_handle(args):
     print(f"\n[Done] {len(results)}/{len(prompts)} 张图片 -> {out_dir}")
 
 
-def register_xhs_img(subparsers):
+def reg_subparser(subparsers):
     """在 BookerGptTool 的 subparsers 中注册 xhs-img 子命令。"""
     p = subparsers.add_parser("xhs-img", help="小红书信息图卡片系列生成器")
     p.add_argument("input", help="输入文件路径，或 - 表示 stdin")

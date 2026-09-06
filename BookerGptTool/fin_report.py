@@ -305,3 +305,11 @@ class MultiReportOrchestrator:
 def fin_report_handle(args):
     """入口函数：创建编排器并运行完整流程。"""
     return MultiReportOrchestrator(args).run()
+
+
+def reg_subparser(subparsers):
+    fin_report_parser = subparsers.add_parser("fin-report", help="make financial report")
+    fin_report_parser.add_argument("fname", help="PDF file name")
+    fin_report_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    fin_report_parser.add_argument("-rd", "--rounds", type=int, default=3, help="debate rounds")
+    fin_report_parser.set_defaults(func=fin_report_handle)

@@ -2,29 +2,12 @@ import argparse
 import sys
 import os
 from . import __version__
-from .trans import *
-from .fin_report import *
-from .md2kg import *
-from .code2doc import *
-from .code2book import *
-from .shengcai import *
-from .call import *
-from .arxiv import *
-from .infer import *
-from .erchuang import *
-from .note import *
-from .paper2code import *
-from .pdf_ocr import *
-from .gts_fiction import *
-from .gts_fiction_pmt import DFT_WRITE_CMD, DFT_POLISH_CMD
-from .md2skill import *
-from .trans_epub import *
-from .fmt_chunk import *
-from .md2wiki import *
-from .clean_heading import *
-from .forward import *
-from .novel_anls import *
-from .xhs_img import register_xhs_img
+from . import (
+    trans, fin_report, md2kg, code2doc, code2book, shengcai, call,
+    arxiv, infer, erchuang, note, paper2code, pdf_ocr, gts_fiction,
+    md2skill, trans_epub, fmt_chunk, md2wiki, clean_heading, forward,
+    novel_anls, xhs_img,
+)
 
 def main():
     openai_key = os.environ.get('OPENAI_API_KEY')
@@ -55,189 +38,29 @@ def main():
     parser.add_argument("-rr", "--repetition-regex", default='', help="re for repetition detection")
     parser.set_defaults(func=lambda x: parser.print_help())
     subparsers = parser.add_subparsers()
-    
-    trans_parser = subparsers.add_parser("trans-yaml", help="translate YAML files")
-    trans_parser.add_argument("fname", help="yaml file name of dir")
-    trans_parser.add_argument("-p", "--prompt", default=DFT_TRANS_PROMPT, help="prompt for trans")
-    trans_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
-    trans_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    trans_parser.set_defaults(func=trans_yaml_handle)
 
-
-    test_parser = subparsers.add_parser("trans", help="translate one sentence")
-    test_parser.add_argument("en", help="en text")
-    test_parser.add_argument("-p", "--prompt", default=DFT_TRANS_PROMPT, help="prompt for trans")
-    test_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
-    test_parser.set_defaults(func=trans_handle)
-
-    comm_parser = subparsers.add_parser("code2doc", help="comment code")
-    comm_parser.add_argument('fname', help='file or dir name')
-    comm_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    comm_parser.set_defaults(func=code2doc_handle)
-
-    code2book_parser = subparsers.add_parser("code2book", help="code to book")
-    code2book_parser.add_argument('dir', help='proj dir name')
-    code2book_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    code2book_parser.add_argument("-c", "--check", type=int, default=3, help="check times")
-    code2book_parser.add_argument("-l", "--chapter-limit", type=int, default=20, help="chapter limit")
-    code2book_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
-    code2book_parser.set_defaults(func=code2book)
-
-    shengcai_parser = subparsers.add_parser("shengcai", help="parse shengcai fengxiangbiao")
-    shengcai_parser.add_argument('fname', help='epub file name')
-    shengcai_parser.add_argument('-p', '--prompt', default=DFT_SHENGCAI_PROMPT, help='prompt for code comment')
-    shengcai_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    shengcai_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
-    shengcai_parser.add_argument("-s", "--start", type=int, default=2, help="page to start")
-    shengcai_parser.add_argument("--min", type=int, default=200, help="max token limit")
-    shengcai_parser.set_defaults(func=parse_shengcai)
-
-    call_parser = subparsers.add_parser("call", help="call chatgpt with custom question")
-    call_parser.add_argument("ques", help="question")
-    call_parser.set_defaults(func=call_handle)
-
-    call_parser = subparsers.add_parser("check-batch", help="check keys in YAML")
-    call_parser.add_argument("fname", help="YAML file name")
-    call_parser.add_argument("ques", help="question")
-    call_parser.set_defaults(func=check_batch_handle)
-
-    arxiv_parser = subparsers.add_parser("arxiv", help="summarize arxiv papers")
-    arxiv_parser.add_argument("arxiv", help="arxiv id")
-    arxiv_parser.add_argument("-l", "--limit", type=int, default=3000, help="limit")
-    arxiv_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    arxiv_parser.set_defaults(func=sum_arxiv)
-
-    arxiv_batch_parser = subparsers.add_parser("arxiv-batch", help="summarize arxiv papers")
-    arxiv_batch_parser.add_argument("fname", help="file name of arxiv id ")
-    arxiv_batch_parser.add_argument("-l", "--limit", type=int, default=3000, help="limit")
-    arxiv_batch_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    arxiv_batch_parser.set_defaults(func=sum_arxiv_batch)
-
-    paper2code_parser = subparsers.add_parser("paper2code", help="summarize arxiv papers")
-    paper2code_parser.add_argument("fname", help="MD/TEX/TXT file or ARXIV ID（arxiv:\d+\.\d+）")
-    paper2code_parser.add_argument("-o", "--out", type=str, help="output dir name")
-    paper2code_parser.set_defaults(func=paper2code)
-
-    clean_parser = subparsers.add_parser("clean-heading", help="clean heading")
-    clean_parser.add_argument("fname", help="MD for dir of them")
-    clean_parser.add_argument("-l", "--lines", type=float, default=3000, help="ratio/lines of heading")
-    clean_parser.add_argument("-t", "--threads", type=int, default=8, help="num of threads")
-    clean_parser.set_defaults(func=clean_handle)
-
-    infer_parser = subparsers.add_parser("infer", help="free inference")
-    infer_parser.add_argument("fname", help="fname")
-    infer_parser.add_argument("-p", "--prompt", default="{question}", help="prompt")
-    infer_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    infer_parser.add_argument("--ques-col", default="question", help="question column name")
-    infer_parser.add_argument("--ans-col", default="answer", help="answer column name")
-    infer_parser.set_defaults(func=infer)
-
-    erchuang_parser = subparsers.add_parser("erchuang", help="gen xhs notes")
-    erchuang_parser.add_argument("fname", help="fname")
-    erchuang_parser.add_argument("-t", "--threads", type=int, default=8, help="threadcount")
-    erchuang_parser.add_argument(
-        "-s", "--style", 
-        type=str, default='xhs', 
-        choices=['xhs', 'gzh', 'fmt', 'sum', 'qa', 'koubo', 'human'], 
-        help="article style"
-    )
-    erchuang_parser.set_defaults(func=erchuang_handle)
-
-    note_parser = subparsers.add_parser("note", help="make notes")
-    note_parser.add_argument("fname", help="fname")
-    note_parser.add_argument("-t", "--threads", type=int, default=8, help="threadcount")
-    note_parser.set_defaults(func=mknote)
-
-    pdf_ocr_parser = subparsers.add_parser("pdf-ocr", help="pdf ocr")
-    pdf_ocr_parser.add_argument("fname", help="PDF file name")
-    pdf_ocr_parser.add_argument("--dpi", type=int, default=150, help="dpi")
-    pdf_ocr_parser.add_argument("--trans", action='store_true', help="whether to translate")
-    pdf_ocr_parser.add_argument("--clean", action='store_true', help="whether to clean heading")
-    pdf_ocr_parser.add_argument("-md", "--mkdir", action='store_true', help="whether to make a single dir")
-    pdf_ocr_parser.add_argument("-ft", "--file-threads", type=int, default=1, help="num file threads")
-    pdf_ocr_parser.add_argument("-pt", "--page-threads", type=int, default=8, help="num page threads")
-    pdf_ocr_parser.add_argument("-l", "--limit", type=int, default=8000, help="text limit in groups")
-    pdf_ocr_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
-    pdf_ocr_parser.add_argument("-tt", "--text-thres", type=int, default=20, help="")
-    pdf_ocr_parser.add_argument("-it", "--img-thres", type=float, default=0.8, help="")
-    pdf_ocr_parser.add_argument("-fo", "--force-ocr", action='store_true', help="")
-    pdf_ocr_parser.set_defaults(func=pdf_ocr)
-
-    fiction_parser = subparsers.add_parser("gts-fiction", help="write fiction")
-    fiction_parser.add_argument("idea", help="idea")
-    fiction_parser.add_argument("-o", "--out-dir", help="output dir")
-    fiction_parser.add_argument("-c", "--chapters", type=int, default=20, help="num chapters")
-    fiction_parser.add_argument("-w", "--words", type=int, default=5000, help="num words")
-    fiction_parser.add_argument("-wc", "--write_command", default=DFT_WRITE_CMD, help="writing coommand")
-    fiction_parser.add_argument("-pc", "--polish_command", default=DFT_POLISH_CMD, help="polishing coommand")
-    fiction_parser.add_argument("-se", "--style-example", default='', help="style example")
-    fiction_parser.set_defaults(func=write_fiction)
-
-    md2skill_parser = subparsers.add_parser("md2skill", help="md2skill")
-    md2skill_parser.add_argument("fname", help="fname")
-    md2skill_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
-    md2skill_parser.set_defaults(func=md2skill)
-
-    md2wiki_parser = subparsers.add_parser("md2wiki", help="md2wiki")
-    md2wiki_parser.add_argument("fname", help="fname")
-    md2wiki_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
-    md2wiki_parser.set_defaults(func=md2wiki)
-
-
-    trans_epub_parser = subparsers.add_parser("trans-epub", help="translate epub")
-    trans_epub_parser.add_argument("fname", help="epub file name")
-    trans_epub_parser.add_argument("-ft", "--file-threads", type=int, default=1, help="num file threads")
-    trans_epub_parser.add_argument("-pt", "--page-threads", type=int, default=8, help="num page threads")
-    trans_epub_parser.add_argument("-l", "--limit", type=int, default=8000, help="chunk limit")
-    trans_epub_parser.add_argument("-m", "--fmt-mode", default='none', help="format mode")
-    trans_epub_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
-    trans_epub_parser.add_argument("--split", action='store_true', help="whether to split chs")
-    trans_epub_parser.add_argument("--clean", action='store_true', help="whether to clean heading")
-    trans_epub_parser.set_defaults(func=trans_epub)
-    
-    fmt_chunk_parser = subparsers.add_parser("fmt-chunk", help="translate epub")
-    fmt_chunk_parser.add_argument("fname", help="epub file name")
-    fmt_chunk_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
-    fmt_chunk_parser.add_argument("-l", "--limit", type=int, default=8000, help="chunk limit")
-    fmt_chunk_parser.add_argument("-rc", "--recur", action='store_true', help="whether recursive")
-    fmt_chunk_parser.add_argument("-x", "--excluding-re", default='', help="regex for excluding files")
-    fmt_chunk_parser.add_argument("-r", "--round", type=int, default=3, help="fix round")
-    fmt_chunk_parser.add_argument("-mr", "--multi-round", action='store_true', help="whether multi round")
-    fmt_chunk_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
-    fmt_chunk_parser.set_defaults(func=fmt_chunk_handle)
-
-    forward_parser = subparsers.add_parser("forward", help="forward oopenai api")
-    forward_parser.add_argument("fname", help="yaml file name containing keys")
-    forward_parser.add_argument("-lh", "--listen-host", type=str, default='localhost', help="")
-    forward_parser.add_argument("-lp", "--listen-port", type=int, default=5000, help="")
-    forward_parser.add_argument("-w", "--waitress", action='store_true', help="")
-    forward_parser.add_argument("-t", "--threads", type=int, default=8, help="")
-    forward_parser.add_argument("-D", "--debug", action='store_true', help="")
-    forward_parser.set_defaults(func=forward)
-
-    fin_report_parser = subparsers.add_parser("fin-report", help="make financial report")
-    fin_report_parser.add_argument("fname", help="PDF file name")
-    fin_report_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
-    fin_report_parser.add_argument("-rd", "--rounds", type=int, default=3, help="debate rounds")
-    fin_report_parser.set_defaults(func=fin_report_handle)
-
-    md2kg_parser = subparsers.add_parser("md2kg", help="md2kg")
-    md2kg_parser.add_argument("fname", help="MD file name")
-    md2kg_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
-    md2kg_parser.add_argument("-th", "--threshold", type=float, default=0.6,
-                             help="integration threshold for evaluation (default: 0.6)")
-    md2kg_parser.set_defaults(func=md2kg_handle)
-
-    novel_anls_parser = subparsers.add_parser("novel-anls", help="analyze novel from epub")
-    novel_anls_parser.add_argument("fname", help="EPUB file name")
-    novel_anls_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
-    novel_anls_parser.add_argument("-mc", "--max-chapters", type=int, default=None, help="max chapters to process")
-    novel_anls_parser.add_argument("--book-title", default=None, help="book title")
-    novel_anls_parser.add_argument("--author", default=None, help="author name")
-    novel_anls_parser.add_argument("--blurb", default=None, help="book blurb")
-    novel_anls_parser.set_defaults(func=novel_anls)
-
-    register_xhs_img(subparsers)
+    trans.reg_subparser(subparsers)
+    code2doc.reg_subparser(subparsers)
+    code2book.reg_subparser(subparsers)
+    shengcai.reg_subparser(subparsers)
+    call.reg_subparser(subparsers)
+    arxiv.reg_subparser(subparsers)
+    paper2code.reg_subparser(subparsers)
+    clean_heading.reg_subparser(subparsers)
+    infer.reg_subparser(subparsers)
+    erchuang.reg_subparser(subparsers)
+    note.reg_subparser(subparsers)
+    pdf_ocr.reg_subparser(subparsers)
+    gts_fiction.reg_subparser(subparsers)
+    md2skill.reg_subparser(subparsers)
+    md2wiki.reg_subparser(subparsers)
+    trans_epub.reg_subparser(subparsers)
+    fmt_chunk.reg_subparser(subparsers)
+    forward.reg_subparser(subparsers)
+    fin_report.reg_subparser(subparsers)
+    md2kg.reg_subparser(subparsers)
+    novel_anls.reg_subparser(subparsers)
+    xhs_img.reg_subparser(subparsers)
 
     args = parser.parse_args()
     args.func(args)
