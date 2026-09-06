@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import functools
 from .util import *
+from .openai import ask_chatgpt_retry, set_openai_props
 
 DFT_TRANS_PROMPT = '''
 假设你是一个高级文档工程师和翻译员，请参考下面的注意事项了解 Markdown 文档的格式，然后参考示例，将给定英文文本翻译成中文。

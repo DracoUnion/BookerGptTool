@@ -13,13 +13,12 @@ from pydantic import parse_obj_as
 from tqdm import tqdm
 
 from .util import (
-    ask_chatgpt_retry,
-    set_openai_props,
     extname,
     ext_code_block,
     ext_cont_block,
     logger as util_logger
 )
+from .openai import ask_chatgpt_retry, set_openai_props
 from .code2book_pmt import *
 from .code2book_models import *
 

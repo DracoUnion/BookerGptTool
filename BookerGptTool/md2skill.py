@@ -14,7 +14,8 @@ from threading import Lock
 import functools
 from sentence_transformers import SentenceTransformer
 from typing import Any, Dict, Optional, List, Callable
-from .util import ask_chatgpt_retry, set_openai_props, ngram_jaccard, ext_code_block, ext_cont_block
+from .util import ngram_jaccard, ext_code_block, ext_cont_block
+from .openai import ask_chatgpt_retry, set_openai_props
 from .md2skill_pmt import *
 from .md2skill_gen import generate_claude_skills
 from .md2skill_chunker import chunk_markdown

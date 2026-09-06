@@ -5,7 +5,8 @@ from os import path
 from typing import List, Optional, Dict, Any, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from .util import call_llm_retry, ext_code_block, set_openai_props
+from .util import ext_code_block
+from .openai import call_llm_retry, set_openai_props
 from .md2kg_models import (
     Entity, Relation, EntityList, RelationList,
     GlobalEntity, GlobalRelation, ResolvedGraph,

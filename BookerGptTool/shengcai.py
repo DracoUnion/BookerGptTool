@@ -2,6 +2,7 @@ from BookerEpubTool.util import *
 from os import path
 import yaml
 from .util import *
+from .openai import ask_chatgpt_retry, set_openai_props
 
 DFT_SHENGCAI_PROMPT = '''
 假设你是一个公司的技术总监、商业分析师和人工智能专家。市场部门的员工会定期向你发送商机，你需要将它们变成一个可盈利的项目。请参考示例分析商机并从中提取盈利点、操作流程和所需软件。

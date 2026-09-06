@@ -7,7 +7,8 @@ import logging
 from pydantic import parse_obj_as
 from typing import List, Optional, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from .util import ext_code_block, ext_cont_block, call_llm_retry, set_openai_props, ask_chatgpt_retry, to_kebab
+from .util import ext_code_block, ext_cont_block, to_kebab
+from .openai import call_llm_retry, set_openai_props, ask_chatgpt_retry
 from .fin_report_models import *
 
 from .fin_report_pmt import *

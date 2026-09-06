@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import functools
 from .util import *
+from .openai import ask_chatgpt_retry, set_openai_props
 from .erchuang_pmt import *
 
 def erchuang_single(args):

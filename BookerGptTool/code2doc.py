@@ -7,12 +7,11 @@ import logging
 import json_repair as json
 
 from .util import (
-    ask_chatgpt_retry,
-    set_openai_props,
     ext_code_block,
     ext_cont_block,
     extname,
 )
+from .openai import ask_chatgpt_retry, set_openai_props
 from .code2doc_pmt import *
 from .code2doc_models import *
 

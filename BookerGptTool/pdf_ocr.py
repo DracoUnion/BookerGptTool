@@ -27,15 +27,17 @@ from .pdf_ocr_pmt import *
 from .pdf_ocr_models import *
 from .tomd import tomd
 from .util import (
-    call_vlm_retry,
-    ask_chatgpt_retry,
-    set_openai_props,
     extname,
     to_kebab,
     ext_code_block,
     ext_cont_block,
     logger as util_logger,
     malloc_trim_linux,
+)
+from .openai import (
+    call_vlm_retry,
+    ask_chatgpt_retry,
+    set_openai_props,
 )
 
 logging.basicConfig(

@@ -1,17 +1,14 @@
 import ctypes
 import sys
 import pyturndown
-import openai
-import base64
 import httpx
-import requests
 import os
 import traceback
 import yaml
 import argparse
 from os import path
 import logging
-import json, json_repair
+import json
 import random
 import copy
 import re
@@ -23,13 +20,10 @@ from threading import Lock
 import tempfile
 import uuid
 from typing import *
-from pydantic import parse_obj_as, ValidationError
-from .toolcall_pmt import *
 
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
-logging.getLogger("openai._base_client").setLevel(logging.CRITICAL)
 logging.basicConfig(
-    level=logging.INFO, 
+    level=logging.INFO,
     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -76,19 +70,6 @@ def to_kebab(name: str) -> str:
     s = re.sub(r"[\s_]+", "-", s).strip("-").lower()
     return s[:60] or "unnamed"
 
-def request_retry(method, url, retry=10, check_status=False, **kw):
-    kw.setdefault('timeout', 10)
-    for i in range(retry):
-        try:
-            r = requests.request(method, url, **kw)
-            if check_status: r.raise_for_status()
-            return r
-        except KeyboardInterrupt as e:
-            raise e
-        except Exception as e:
-            logger.debug(f'{url} retry {i}')
-            if i == retry - 1: raise e
-
 def reform_paras_mdcn(text, size=1500):
     text = re.sub(r'```[\s\S]+?```', '', text)
     lines = [l.strip() for l in text.split('\n') if l.strip()]
@@ -110,304 +91,6 @@ def fix_lists(ans):
     ans = re.sub(r'^(\x20*)(\d+\.)\x20+', r'\1\2  ', ans, flags=re.M)
     return ans
 
-def parse_toolcall(res: str) -> Tuple[List[ToolCallItem], str]:
-    """Parse the first [tool]...[/tool] block in a response into a list of
-    tool-call dicts (id / tool / parameters). Mirrors llm/openai.py."""
-    m = re.search(r"\[tool\]([\s\S]+)\[/tool\]", res)
-    if not m:
-        return [], ""
-    try:
-        blocks = parse_obj_as(
-            List[ToolCallItem],
-            json_repair.loads(m.group(1)),
-        )
-        return blocks, ""
-    except json.JSONDecodeError as ex:
-        return [], str(ex)
-    except ValidationError as ex:
-        return [], str(ex)
-
-def call_vlm_retry(
-    img, ques, model_name, args,
-    parse_output=None,
-):
-    img_base64 = base64.b64encode(img).decode('ascii')
-    msgs = [{
-        "role": "user",
-        "content": [
-            {"type": "text", "text": ques},
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{img_base64}"
-                }
-            },
-        ]
-    }]
-    return call_llm_retry(
-        msgs, model_name, 
-        retry=args.retry,
-        temp=args.temp, 
-        top_p=args.top_p,
-        frequency_penalty=args.frequency_penalty,
-        presence_penalty=args.presence_penalty,
-        max_tokens=args.max_tokens,
-        extra_body=args.extra_body,
-        parse_output=parse_output,
-    )
-
-def get_msgs_text(msgs):
-    for m in msgs[::-1]:
-        cont = m.get('content')
-        if isinstance(cont, str):
-            return m['content']
-        elif isinstance(cont, list):
-            for it in m['content']:
-                tp = it.get('type')
-                if tp == 'text':
-                    return it['text']
-    return ''
-
-def repl_ins_token(msgs):
-    repl_ins_token_re = lambda s: re.sub(r'<\|([\w\-\.]+)\|>', r'</\1/>', s)
-    for m in msgs:
-        cont = m.get('content')
-        if isinstance(cont, str):
-            m['content'] = ensure_utf8(
-                repl_ins_token_re(m['content']))
-        elif isinstance(cont, list):
-            for it in m['content']:
-                tp = it.get('type')
-                if tp == 'text':
-                    it['text'] = ensure_utf8(
-                        repl_ins_token_re(it['text']))
-    return msgs
-
-def ask_chatgpt_retry(
-    ques, model_name, args,
-    parse_output=None,
-):
-    return call_llm_retry(
-        ques, model_name, 
-        retry=args.retry,
-        temp=args.temp, 
-        top_p=args.top_p,
-        frequency_penalty=args.frequency_penalty,
-        presence_penalty=args.presence_penalty,
-        max_tokens=args.max_tokens,
-        extra_body=args.extra_body,
-        parse_output=parse_output,
-    )
-
-
-def dispatch_tools(
-    tool_dict: Dict[str, Callable], 
-    name: str, 
-    args: Dict[str, Any],
-) -> Tuple[Any, str]:
-    try:
-        return tool_dict[name](**args), ""
-    except KeyboardInterrupt:
-        raise
-    except Exception as ex:
-        return None, str(ex)
-
-def call_llm_with_toolcall(
-    msgs, model_name, 
-    tool_defs, tool_dict, *,
-    temp=None, 
-    top_p=None,
-    frequency_penalty=None,
-    presence_penalty=None,
-    max_tokens=None,
-    extra_body=None,
-):
-    if isinstance(msgs, str):
-        msgs = [{'role': 'user', 'content': msgs}]
-    tool_defs_str = json.dumps(tool_defs)
-    toolcall_pmt = TOOLCALL_PMT.replace('{tool_def}', tool_defs_str)
-    msgs = [{
-        'role': 'system', 
-        'content': toolcall_pmt
-    }] + msgs
-    while True:
-        res = call_llm(
-            msgs, model_name, 
-            temp=temp, 
-            top_p=top_p,
-            frequency_penalty=frequency_penalty,
-            presence_penalty=presence_penalty,
-            max_tokens=max_tokens,
-            extra_body=extra_body,
-        )
-        toolcalls, errmsg = parse_toolcall(res)
-        if not errmsg and not toolcalls:
-            break
-        if errmsg:
-            msgs += [
-                {"role": "assistant", "content": res},
-                {"role": "user", "content": errmsg},
-            ]
-            continue
-        toolcall_res_list = []
-        toolcall_errmsgs = []
-        for tc in toolcalls:
-            tc_res, errmsg = dispatch_tools(tool_dict, tc.tool, tc.parameters)
-            if errmsg:
-                toolcall_errmsgs.append(errmsg)
-                continue
-            toolcall_res_list.append({'id': tc.id, 'result': tc_res})
-        toolcall_res_str = json.dumps(toolcall_res_list)
-        msgs += [
-            {'role': 'assistant', 'content': res}, 
-            {'role': 'user', 'content': f'[tool-result]{toolcall_res_str}[/tool-result]'}
-        ]
-        if toolcall_errmsgs:
-            msgs.append({'role': 'user', 'content': '\n'.join(toolcall_errmsgs)})
-    
-    return res
-
-def call_llm_with_toolcall_retry(
-    msgs, model_name, 
-    tool_defs, tool_dict, *,
-    retry=10, temp=None, 
-    top_p=None,
-    frequency_penalty=None,
-    presence_penalty=None,
-    max_tokens=None,
-    extra_body=None,
-    parse_output=None
-):
-    for i in range(retry):
-        try:
-            res =  call_llm_with_toolcall(
-                msgs, model_name, 
-                tool_defs, tool_dict,
-                temp=temp, 
-                top_p=top_p,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-                max_tokens=max_tokens,
-                extra_body=extra_body,
-            )
-            return (
-                parse_output(res) 
-                if parse_output else res
-            )    
-        except KeyboardInterrupt:
-            raise
-        except Exception as ex:
-            logger.debug(f'OpenAI retry {i+1}')
-            logger.debug(traceback.format_exc())
-            if i == retry - 1: raise ex
-
-def call_llm_retry(
-    msgs, model_name, *,
-    retry=10, temp=None, 
-    top_p=None,
-    frequency_penalty=None,
-    presence_penalty=None,
-    max_tokens=None,
-    extra_body=None,
-    parse_output=None,
-):
-    for i in range(retry):
-        try:
-            res =  call_llm(
-                msgs, model_name, 
-                temp=temp, 
-                top_p=top_p,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-                max_tokens=max_tokens,
-                extra_body=extra_body,
-            )
-            return (
-                parse_output(res) 
-                if parse_output else res
-            )    
-        except KeyboardInterrupt:
-            raise
-        except Exception as ex:
-            logger.debug(f'OpenAI retry {i+1}')
-            logger.debug(traceback.format_exc())
-            if i == retry - 1: raise ex
-
-def ensure_utf8(text: str) -> str:
-    return text.encode('utf8', 'ignore').decode('utf8', 'ignore')
-
-def call_llm(
-    msgs, model_name, *,
-    temp=None, 
-    top_p=None,
-    frequency_penalty=None,
-    presence_penalty=None,
-    max_tokens=None,
-    extra_body=None,
-):
-    if isinstance(msgs, str):
-        msgs = [{'role': 'user', 'content': msgs}]
-    # 改变指令符号的形式，避免模型出错
-    msgs = repl_ins_token(msgs)
-    if isinstance(extra_body, str):
-        extra_body = json.loads(extra_body)
-    logger.debug(f'ques: {json.dumps(get_msgs_text(msgs), ensure_ascii=False)}')
-    client = openai.OpenAI(
-        base_url=openai.base_url,
-        api_key=openai.api_key,
-        default_headers={'User-Agent': openai.user_agent},
-        timeout=openai.timeout,
-    )
-    res = client.chat.completions.create(
-        messages=msgs,
-        model=model_name,
-        temperature=temp,
-        top_p=top_p,
-        frequency_penalty=frequency_penalty,
-        presence_penalty=presence_penalty,
-        max_tokens=max_tokens,
-        extra_body=extra_body,
-        stream=openai.stream,
-    )
-    if openai.stream:
-        ans = collect_stream_content(res)
-    else:
-        ans = res.choices[0].message.content.strip()
-        check_model_repetition(ans)
-    if not ans: raise ValueError(f'回复为空：{res}')
-    
-    # 还原指令格式
-    ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
-    ans = re.sub(r'<think>[\s\S]+?</think>', '', ans)
-    logger.debug(f'ans: {json.dumps(ans, ensure_ascii=False)}')
-    return ans
-
-def set_openai_props(args):
-    openai.api_key = args.key
-    openai.base_url = args.host
-    openai.user_agent = args.user_agent
-    openai.stream = args.stream
-    openai.timeout = openai.Timeout(
-        read=args.read_timeout,
-        connect=args.conn_timeout,
-        write=None,
-        pool=None,
-    )
-    openai.rpre = args.repetition_regex
-
-def collect_stream_content(resp):
-    content = []
-    for chunk in resp:
-        if chunk.choices and chunk.choices[0].delta.content:
-            pt = chunk.choices[0].delta.content
-            content.append(pt)
-            check_model_repetition(''.join(content))
-            logger.debug(f'stream: {json.dumps(pt, ensure_ascii=False)}')
-    return ''.join(content)
-
-def check_model_repetition(text):
-    if openai.rpre and re.search(openai.rpre, text):
-        raise ValueError('检测到模型复读')
 
 def extname(fname):
     m = re.search(r'\.(\w+)$', fname)
@@ -543,54 +226,6 @@ def ngram_coverage(src: str, gen: str, n: int = 3) -> float:
 ext_code_block = lambda s: re.search(r'```\w*([\s\S]+)```', s).group(1)
 ext_cont_block = lambda s: re.search(r'\[content\]([\s\S]+)\[/content\]', s).group(1)
 
-def call_tti(
-    text, model_name, 
-    size='1024x1024', 
-    ref_img: Optional[bytes]=None,
-):
-    logging.debug(f'tti: {json.dumps(text, ensure_ascii=False)}')
-    client = openai.OpenAI(
-        base_url=openai.base_url,
-        api_key=openai.api_key,
-        default_headers={'User-Agent': openai.user_agent},
-        timeout=openai.timeout,
-    )
-    if 'gpt-image' in model_name and ref_img:
-        ref_img_b64 = base64.b64encode(ref_img).decode('ascii')
-        extra_body = {
-            "image": f"data:image/png;base64,{ref_img_b64}",
-        }
-    else:
-        extra_body = {}
-    img_data = client.images.generate(
-        model=model_name, 
-        size=size,
-        prompt=text,
-        response_format='b64_json',
-        n=1,
-        extra_body=extra_body,
-    ).data[0]
-    if getattr(img_data, 'b64_json', None):
-        return base64.b64decode(img_data.b64_json)
-    elif getattr(img_data, 'url', None):
-        return request_retry('GET', img_data.url).content
-    else:
-        raise ValueError('API 未返回数据')
-
-def call_tti_retry(
-    text, model_name, 
-    size='1024x1024', 
-    ref_img: Optional[bytes]=None, 
-    retry=10, nothrow=True,
-):
-    for i in range(retry):
-        try:
-            return call_tti(text, model_name, size, ref_img)
-        except KeyboardInterrupt:
-            raise
-        except Exception as ex:
-            logging.debug(f'OpenAI retry {i+1}: {str(ex)}')
-            if i == retry - 1 and not nothrow: raise ex
 
 def malloc_trim_linux():
     if sys.platform == 'linux':

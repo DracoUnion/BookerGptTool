@@ -1,5 +1,7 @@
 import yaml
+import openai
 from .util import *
+from .openai import ask_chatgpt_retry, set_openai_props
 
 def check_batch_handle(args):
     print(args)

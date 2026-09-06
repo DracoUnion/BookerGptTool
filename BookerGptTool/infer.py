@@ -1,4 +1,5 @@
 from .util import *
+from .openai import ask_chatgpt_retry, set_openai_props
 import traceback
 
 def tr_infer(dit, args, write_callback):

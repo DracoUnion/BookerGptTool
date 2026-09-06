@@ -6,7 +6,8 @@ import os
 import logging
 from os import path
 from .md2skill_chunker import chunk_markdown
-from .util import group_chunks, set_openai_props, ask_chatgpt_retry, split_md_lines, ext_cont_block, logger as util_logger
+from .util import group_chunks, split_md_lines, ext_cont_block, logger as util_logger
+from .openai import set_openai_props, ask_chatgpt_retry
 
 logging.basicConfig(
     level=logging.INFO, 

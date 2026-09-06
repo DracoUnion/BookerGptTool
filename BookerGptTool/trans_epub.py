@@ -13,20 +13,19 @@ from imgyaso.quant import pngquant
 from .trans_epub_pmt import *
 from .tomd import tomd
 from .util import (
-    set_openai_props, 
-    to_kebab, 
-    read_zip, 
-    is_pic, 
-    get_md_title, 
-    epub2html_pandoc, 
-    group_chunks, 
-    split_md_lines, 
-    ask_chatgpt_retry, 
-    ext_cont_block, 
+    to_kebab,
+    read_zip,
+    is_pic,
+    get_md_title,
+    epub2html_pandoc,
+    group_chunks,
+    split_md_lines,
+    ext_cont_block,
     ext_code_block,
     logger as util_logger,
     malloc_trim_linux,
 )
+from .openai import set_openai_props, ask_chatgpt_retry
 from .fmt import fmt_zh, fmt_publisher
 from .clean_heading import clean_md_llm
 from .trans_epub_models import *

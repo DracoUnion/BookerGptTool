@@ -7,7 +7,8 @@ import yaml
 import os
 from os import path
 from .md2skill_chunker import chunk_markdown
-from .util import ask_chatgpt_retry, set_openai_props, ngram_coverage
+from .util import ngram_coverage
+from .openai import ask_chatgpt_retry, set_openai_props
 from .md2wiki_pmt import *
 
 def tr_make_draft(cand_items, idx, args, write_callback):

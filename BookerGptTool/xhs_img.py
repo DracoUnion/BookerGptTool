@@ -18,7 +18,8 @@ from .xhs_img_models import (
     AudienceProfile, ContentAnalysis,
     STYLES, LAYOUTS, PALETTES, PRESETS, AUTO_SELECTION_TABLE,
 )
-from .util import call_tti_retry, ask_chatgpt_retry, set_openai_props, ext_code_block
+from .util import ext_code_block
+from .openai import call_tti_retry, ask_chatgpt_retry, set_openai_props
 
 logger = logging.getLogger(__name__)
 

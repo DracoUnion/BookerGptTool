@@ -14,7 +14,8 @@ from pydantic import parse_obj_as
 import functools
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-from .util import ask_chatgpt_retry, set_openai_props, extname, ext_code_block
+from .util import extname, ext_code_block
+from .openai import ask_chatgpt_retry, set_openai_props
 from .clean_heading_pmt import *
 from .clean_heading_models import *
 
