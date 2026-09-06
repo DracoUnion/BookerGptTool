@@ -6,7 +6,8 @@ import os
 import logging
 from os import path
 from .md2skill_chunker import chunk_markdown
-from .util import group_chunks, split_md_lines, ext_cont_block, logger as util_logger
+from .util import group_chunks, split_md_lines, ext_cont_block
+from .openai import logger as oai_logger
 from .openai import set_openai_props, ask_chatgpt_retry
 
 logging.basicConfig(
@@ -228,7 +229,7 @@ def fmt_chunk_file(args):
     set_openai_props(args)
     if args.debug:
         logger.setLevel(logging.DEBUG)
-        util_logger.setLevel(logging.DEBUG)
+        oai_logger.setLevel(logging.DEBUG)
     if not args.fname.endswith('.md'):
         logger.critical('请提供 MD 文件')
         return

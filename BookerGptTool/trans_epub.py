@@ -22,9 +22,9 @@ from .util import (
     split_md_lines,
     ext_cont_block,
     ext_code_block,
-    logger as util_logger,
     malloc_trim_linux,
 )
+from .openai import logger as oai_logger
 from .openai import set_openai_props, ask_chatgpt_retry
 from .fmt import fmt_zh, fmt_publisher
 from .clean_heading import clean_md_llm
@@ -339,7 +339,7 @@ class TransEpubDispatcher:
 def trans_epub(args):
     if args.debug:
         logger.setLevel(logging.DEBUG)
-        util_logger.setLevel(logging.DEBUG)
+        oai_logger.setLevel(logging.DEBUG)
     if path.isfile(args.fname):
         fnames = [args.fname]
     else:

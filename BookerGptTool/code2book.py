@@ -16,8 +16,8 @@ from .util import (
     extname,
     ext_code_block,
     ext_cont_block,
-    logger as util_logger
 )
+from .openai import logger as oai_logger
 from .openai import ask_chatgpt_retry, set_openai_props
 from .code2book_pmt import *
 from .code2book_models import *
@@ -717,7 +717,7 @@ def code2book(args):
     """入口函数：创建编排器并运行。"""
     if args.debug:
         logger.setLevel(logging.DEBUG)
-        util_logger.setLevel(logging.DEBUG)
+        oai_logger.setLevel(logging.DEBUG)
     orchestrator = Code2BookOrchestrator(args)
     orchestrator.run()
 

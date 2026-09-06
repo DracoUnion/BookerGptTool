@@ -9,6 +9,11 @@ from typing import *
 from pydantic import BaseModel, parse_obj_as, ValidationError
 
 logging.getLogger("openai._base_client").setLevel(logging.CRITICAL)
+logging.getLogger("httpx").setLevel(logging.CRITICAL)
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 TOOLCALL_PMT = '''

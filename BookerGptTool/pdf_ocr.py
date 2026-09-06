@@ -31,7 +31,6 @@ from .util import (
     to_kebab,
     ext_code_block,
     ext_cont_block,
-    logger as util_logger,
     malloc_trim_linux,
 )
 from .openai import (
@@ -39,7 +38,7 @@ from .openai import (
     ask_chatgpt_retry,
     set_openai_props,
 )
-
+from .openai import logger as oai_logger
 logging.basicConfig(
     level=logging.INFO, 
     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
@@ -578,7 +577,7 @@ def mkgroups(pages: List[Page], args: argparse.Namespace) -> List[Group]:
 def pdf_ocr(args: argparse.Namespace) -> None:
     if args.debug:
         logger.setLevel(logging.DEBUG)
-        util_logger.setLevel(logging.DEBUG)
+        oai_logger.setLevel(logging.DEBUG)
     if path.isfile(args.fname):
         fnames = [args.fname]
     else:

@@ -21,13 +21,6 @@ import tempfile
 import uuid
 from typing import *
 
-logging.getLogger("httpx").setLevel(logging.CRITICAL)
-logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
-)
-logger = logging.getLogger(__name__)
-
 def d(name):
     DIR = path.dirname(path.abspath(__file__))
     return path.join(DIR, name)
