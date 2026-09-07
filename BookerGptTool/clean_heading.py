@@ -14,7 +14,7 @@ from pydantic import parse_obj_as
 import functools
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-from .util import extname, ext_code_block
+from .util import extname, ext_code_block, render_prompt
 from .openai import ask_chatgpt_retry, set_openai_props
 from .clean_heading_pmt import *
 from .clean_heading_models import *
@@ -59,7 +59,7 @@ def clean_md_llm(md, args, nlines=1000):
         'line': l[:50] + '...' if len(l) > 50 else l,
     } for i, l in enumerate(lines[:ed])]
     heading_str = json.dumps({"lines": heading}, ensure_ascii=False)
-    ques = CLEAN_HEAD_PMT.replace('{text}', heading_str)
+    ques = render_prompt(CLEAN_HEAD_PMT, text=heading_str)
     parse_output = lambda s: parse_obj_as(
         List[CleanHeadingLineResult], 
         json_repair.loads(ext_code_block(s))

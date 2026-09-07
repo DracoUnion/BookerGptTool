@@ -48,7 +48,7 @@ def shuffle_group(g):
     g['ens'] = [g['ens'][i] for i in idcs]
 
 def openai_trans(en, prompt, model_name, temp=0, retry=10, max_tokens=None):
-    ques = prompt.replace('{en}', en)
+    ques = render_prompt(prompt, en=en)
     ans = ask_chatgpt_retry(ques, model_name, temp, retry, max_tokens)
     ans = fix_lists(ans)
     return ans

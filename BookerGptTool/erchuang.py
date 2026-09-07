@@ -21,8 +21,10 @@ def erchuang_single(args):
         print(f'{args.fname} 已生成')
         return
     cont = open(args.fname, encoding='utf8').read()
-    ques = PMT_MAP.get(args.style, HUMANIZE_PMT) \
-                  .replace('{text}', cont)
+    ques = render_prompt(
+        PMT_MAP.get(args.style, HUMANIZE_PMT),
+        text=cont,
+    )
     ans = ask_chatgpt_retry(ques, args.model, args)
     ans = ans.replace('[content]', '') \
         .replace('[/content]', '')

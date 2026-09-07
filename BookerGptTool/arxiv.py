@@ -130,7 +130,7 @@ def tr_sum_text_safe(*args, **kw):
 
 def tr_sum_text(it, args, write_func):
     RE_LIST = r'^(?:\x20{4})?(?:\-\x20{3}|\d\.\x20\x20).+?$'
-    ques = ARXIV_SUM_PMT.replace('{text}', '-   ' + it['text'])
+    ques = render_prompt(ARXIV_SUM_PMT, text='-   ' + it['text'])
     ans = ask_chatgpt_retry(ques, args.model, args)
     ans = fix_lists(ans)
     sums = re.findall(RE_LIST, ans, flags=re.M)
@@ -206,8 +206,11 @@ def sum_arxiv(args):
     tex = arxiv_id2text(args.arxiv)
     # title, abs_, chs = ext_chapters(tex)
     title = arxiv_id2title(args.arxiv) or args.arxiv
-    ques = ARXIV_QA_PROMPT.replace('{sum}', tex) \
-            .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
+    ques = render_prompt(
+            ARXIV_QA_PROMPT,
+            sum=tex,
+            ques='\n'.join('-   ' + q for q in sum_queses),
+        )
     ans = ask_chatgpt_retry(ques, args.model, args)
     ans = ans.replace('[content]', '').replace('[/content]', '')
     '''
@@ -245,8 +248,11 @@ def sum_arxiv(args):
     if 'qas' not in tosum:
         summary = '\n'.join([p['summary'] for p in tosum['paras']])
         summary = f'-   标题：{title}\n-   摘要：{abs_}\n{summary}'
-        ques = ARXIV_QA_PROMPT.replace('{sum}', summary) \
-                .replace('{ques}', '\n'.join('-   ' + q for q in sum_queses))
+        ques = render_prompt(
+                ARXIV_QA_PROMPT,
+                sum=summary,
+                ques='\n'.join('-   ' + q for q in sum_queses),
+            )
         for i in range(args.retry):
             ans = call_chatgpt_retry(ques, args.model, args)
             RE_ONE_ANS = r'^\-\x20{3}[\s\S]+?(?=^\-\x20{3}|\Z)'

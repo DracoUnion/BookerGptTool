@@ -22,6 +22,7 @@ from .util import (
     split_md_lines,
     ext_cont_block,
     ext_code_block,
+    render_prompt,
     malloc_trim_linux,
 )
 from .openai import logger as oai_logger
@@ -52,29 +53,29 @@ class EpubTranslatorAgent:
         set_openai_props(args)
 
     def translate_title(self, text: str) -> str:
-        ques = TRANS_TITLE_PMT.replace('{text}', text)
+        ques = render_prompt(TRANS_TITLE_PMT, text=text)
         return ask_chatgpt_retry(ques, self.args.model, self.args)
 
     def format_text(self, text: str) -> str:
-        ques = FMT_PMT.replace('{text}', text)
+        ques = render_prompt(FMT_PMT, text=text)
         return ask_chatgpt_retry(
             ques, self.args.model, self.args,
             parse_output=ext_cont_block,
         )
 
     def translate_body(self, text: str) -> str:
-        ques = TRANS_BODY_PMT.replace('{text}', text)
+        ques = render_prompt(TRANS_BODY_PMT, text=text)
         return ask_chatgpt_retry(
             ques, self.args.model, self.args,
             parse_output=ext_cont_block,
         )
 
     def fix_toc(self, text: str) -> str:
-        ques = TOC_PMT.replace('{text}', text)
+        ques = render_prompt(TOC_PMT, text=text)
         return ask_chatgpt_retry(ques, self.args.model, self.args)
 
     def extract_chapter_toc(self, titles: list) -> List[TocExtResult]:
-        ques = TOC_EXT_PMT.replace('{titles}', json.dumps(titles, ensure_ascii=False))
+        ques = render_prompt(TOC_EXT_PMT, titles=json.dumps(titles, ensure_ascii=False))
         parse_output = lambda s: parse_obj_as(
             List[TocExtResult],
             json.loads(ext_code_block(s)),
@@ -320,7 +321,7 @@ class TransEpubDispatcher:
 
     def _gen_readme(self, name, readme_fname, meta):
         logger.info('[7] 生成 readme')
-        readme = README_TMPL.replace('{name}', name).replace('{name_cn}', meta.name_cn)
+        readme = render_prompt(README_TMPL, name=name, name_cn=meta.name_cn)
         open(readme_fname, 'w', encoding='utf8').write(readme)
 
     def _gen_summary(self, slug, summary_fname, chs, meta):

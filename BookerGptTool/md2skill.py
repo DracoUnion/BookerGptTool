@@ -14,7 +14,7 @@ from threading import Lock
 import functools
 from sentence_transformers import SentenceTransformer
 from typing import Any, Dict, Optional, List, Callable
-from .util import ngram_jaccard, ext_code_block, ext_cont_block
+from .util import ngram_jaccard, ext_code_block, ext_cont_block, render_prompt
 from .openai import ask_chatgpt_retry, set_openai_props
 from .md2skill_pmt import *
 from .md2skill_gen import generate_claude_skills
@@ -305,8 +305,7 @@ class Md2SkillAgent:
 
     def generate_schema(self, toc, preface) -> BookSchema:
         """Step 1: 从目录和前言推断知识结构 schema"""
-        prompt = SCHEMA_PMT.replace('{toc}', toc) \
-            .replace('{preface}', preface)
+        prompt = render_prompt(SCHEMA_PMT, toc=toc, preface=preface)
         parse_output = lambda s: BookSchema.model_validate(
             json.loads(ext_code_block(schema_raw)))
         schema_raw = ask_chatgpt_retry(prompt, self.model, self.args, parse_output)
@@ -316,9 +315,11 @@ class Md2SkillAgent:
         self, book_type: str, content: str, context: str
     ) -> List[RawSkill]:
         """Step 2: 从一个文本块中提取原始技能"""
-        prompt = get_pmt_by_type(book_type) \
-            .replace('{content}', content) \
-            .replace('{context}', context)
+        prompt = render_prompt(
+            get_pmt_by_type(book_type),
+            content=content,
+            context=context,
+        )
         parse_output = lambda s: ext_cont_block(s).split('[split/]')
         raw_texts = ask_chatgpt_retry(prompt, self.model, self.args, parse_output)
         return [rs for rs in (parse_raw_skill(rt) for rt in raw_texts) if rs]
@@ -326,8 +327,11 @@ class Md2SkillAgent:
     def merge_cluster(self, cluster: List[RawSkill]) -> Optional[RawSkill]:
         """Step 3: 将相似技能集群合并为一个"""
         text = '\n\n[split/]\n\n'.join([s.raw_text for s in cluster])
-        prompt = REDUCE_PMT.replace('{count}', str(len(cluster))) \
-            .replace('{skills}', text)
+        prompt = render_prompt(
+            REDUCE_PMT,
+            count=str(len(cluster)),
+            skills=text,
+        )
         merged_text = ask_chatgpt_retry(prompt, self.model, self.args, ext_cont_block)
         return parse_raw_skill(merged_text)
 

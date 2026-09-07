@@ -6,7 +6,7 @@ import os
 import logging
 from os import path
 from .md2skill_chunker import chunk_markdown
-from .util import group_chunks, split_md_lines, ext_cont_block
+from .util import group_chunks, split_md_lines, ext_cont_block, render_prompt
 from .openai import logger as oai_logger
 from .openai import set_openai_props, ask_chatgpt_retry
 
@@ -166,17 +166,17 @@ if (condVar > someVal) {console.log("xxx")}
 
 def tr_fmt_group_multi(text, res, idx, args):
     for i in range(args.round):
-        ques = CRTC_PMT.replace('{text}', text)
+        ques = render_prompt(CRTC_PMT, text=text)
         crtc = ask_chatgpt_retry(ques, args.model, args, ext_cont_block).strip()
         if '[TEXT_PERFECT/]' in crtc:
             res[idx] = text
             break
-        ques = FIX_PMT.replace('{text}', text).replace('{crtc}', crtc)
+        ques = render_prompt(FIX_PMT, text=text, crtc=crtc)
         text = ask_chatgpt_retry(ques, args.model, args, ext_cont_block).strip()
         res[idx] = text
 
 def tr_fmt_group(text, res, idx, args):
-    ques = FMT_PMT.replace('{text}', text)
+    ques = render_prompt(FMT_PMT, text=text)
     ans = ask_chatgpt_retry(ques, args.model, args, ext_cont_block)
     res[idx] = ans
 

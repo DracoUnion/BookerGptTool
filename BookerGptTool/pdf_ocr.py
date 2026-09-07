@@ -31,6 +31,7 @@ from .util import (
     to_kebab,
     ext_code_block,
     ext_cont_block,
+    render_prompt,
     malloc_trim_linux,
 )
 from .openai import (
@@ -111,32 +112,31 @@ class PdfOcrAgent:
             or '<!-- no content -->'
 
     def merge(self, prev_line: str, next_line: str) -> int:
-        ques = MERGE_PMT.replace('{prev}', prev_line) \
-            .replace('{next}', next_line)
+        ques = render_prompt(MERGE_PMT, prev=prev_line, next=next_line)
         ans = ask_chatgpt_retry(ques, self.args.model, self.args)
         return int('[TRUE]' in ans)
 
     def post_proc(self, text: str) -> str:
-        ques = POSTPROC_PMT.replace('{text}', text)
+        ques = render_prompt(POSTPROC_PMT, text=text)
         return ask_chatgpt_retry(
             ques, self.args.model, self.args,
             parse_output=ext_cont_block,
         )
 
     def translate(self, text: str) -> str:
-        ques = TRANS_BODY_PMT.replace('{text}', text)
+        ques = render_prompt(TRANS_BODY_PMT, text=text)
         return ask_chatgpt_retry(
             ques, self.args.model, self.args,
             parse_output=ext_cont_block,
         )
 
     def fix_toc(self, toc_text: str) -> List[List[str]]:
-        ques = TOC_PMT.replace('{text}', toc_text)
+        ques = render_prompt(TOC_PMT, text=toc_text)
         ans = ask_chatgpt_retry(ques, self.args.model, self.args)
         return re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
 
     def trans_title(self, title: str) -> str:
-        ques = TRANS_TITLE_PMT.replace('{text}', title)
+        ques = render_prompt(TRANS_TITLE_PMT, text=title)
         return ask_chatgpt_retry(ques, self.args.model, self.args)
 
 
@@ -486,9 +486,7 @@ class PDFOcrOrchestrator:
                 name_cn = self.agent.trans_title(title=name)
 
             logger.info('[8] 写入 README.md')
-            readme = README_TMPL \
-                .replace('{name}', name) \
-                .replace('{name_cn}', name_cn)
+            readme = render_prompt(README_TMPL, name=name, name_cn=name_cn)
             readme_fname = path.join(
                 pj_dir, 'README.md'
             )

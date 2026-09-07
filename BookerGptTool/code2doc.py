@@ -10,6 +10,7 @@ from .util import (
     ext_code_block,
     ext_cont_block,
     extname,
+    render_prompt,
 )
 from .openai import ask_chatgpt_retry, set_openai_props
 from .code2doc_pmt import *
@@ -40,7 +41,7 @@ class Code2DocAgent:
 
     def gen_overview(self, code: str) -> OverviewResult:
         """根据源码生成设计文档大纲。"""
-        ques = OVVW_PMT.replace('{code}', code)
+        ques = render_prompt(OVVW_PMT, code=code)
         parse_output = lambda s: OverviewResult(
             **json.loads(ext_code_block(s))
         )
@@ -53,8 +54,7 @@ class Code2DocAgent:
         self, code: str, vars_fields: str,
     ) -> VarFieldExtResult:
         """分析全局变量和类字段的类型及描述。"""
-        ques = VAR_FLD_EXT_PMT.replace('{code}', code) \
-            .replace('{vars}', vars_fields)
+        ques = render_prompt(VAR_FLD_EXT_PMT, code=code, vars=vars_fields)
         parse_output = lambda s: VarFieldExtResult(
             **json.loads(ext_code_block(s))
         )
@@ -65,8 +65,7 @@ class Code2DocAgent:
 
     def gen_func_method(self, code: str, func_name: str) -> str:
         """分析单个全局函数或类方法。"""
-        ques = FUNC_MTD_EXT_PMT.replace('{code}', code) \
-            .replace('{func}', func_name)
+        ques = render_prompt(FUNC_MTD_EXT_PMT, code=code, func=func_name)
         return ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
@@ -74,7 +73,7 @@ class Code2DocAgent:
 
     def gen_key_components(self, code: str) -> str:
         """分析源码中的关键组件。"""
-        ques = KEY_CMPN_PMT.replace('{code}', code)
+        ques = render_prompt(KEY_CMPN_PMT, code=code)
         return ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
@@ -82,7 +81,7 @@ class Code2DocAgent:
 
     def gen_advice(self, code: str) -> str:
         """分析源码中的问题和优化建议。"""
-        ques = ADVC_PMT.replace('{code}', code)
+        ques = render_prompt(ADVC_PMT, code=code)
         return ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
@@ -90,7 +89,7 @@ class Code2DocAgent:
 
     def gen_others(self, code: str) -> str:
         """分析详细设计文档中的其它补充项目。"""
-        ques = ETC_PMT.replace('{code}', code)
+        ques = render_prompt(ETC_PMT, code=code)
         return ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
@@ -233,16 +232,17 @@ def build_vars_flds_md(jvars: VarFieldExtResult):
 类型：`{type}`
     '''
     vars_md = '\n\n'.join(
-        tmpl.replace('{name}', var.name)
-            .replace('{desc}', var.desc)
-            .replace('{type}', var.type)
+        render_prompt(tmpl, name=var.name, desc=var.desc, type=var.type)
         for var in jvars.vars
     )
 
     flds_md = '\n\n'.join(
-        tmpl.replace('{name}', field.class_ + '.' + field.name)
-            .replace('{desc}', field.desc)
-            .replace('{type}', field.type)
+        render_prompt(
+            tmpl,
+            name=field.class_ + '.' + field.name,
+            desc=field.desc,
+            type=field.type,
+        )
         for field in jvars.fields
     )
 

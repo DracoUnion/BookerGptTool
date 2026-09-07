@@ -50,7 +50,7 @@ def mknote_file(args):
         (m.span()[0] / total, m.group())
         for m in ms
     ]
-    ques = DFT_PMT.replace('{text}', text)
+    ques = render_prompt(DFT_PMT, text=text)
     ans = ask_chatgpt_retry(ques, args.model, args)
     lines = re.split(r'\n\n(?=\S)', ans)
     total = len(lines)

@@ -16,6 +16,7 @@ from .util import (
     extname,
     ext_code_block,
     ext_cont_block,
+    render_prompt,
 )
 from .openai import logger as oai_logger
 from .openai import ask_chatgpt_retry, set_openai_props
@@ -52,9 +53,12 @@ class Code2BookAgent:
         parts: List[PartClusResult], problem: str
     ) -> List[PartClusResult]:
         parts_str = json.dumps([p.dict() for p in parts])
-        ques = PT_FIX_PMT.replace('{files}', '\n'.join(files)) \
-            .replace('{problem}', problem) \
-            .replace('{parts}', parts_str)
+        ques = render_prompt(
+            PT_FIX_PMT,
+            files='\n'.join(files),
+            problem=problem,
+            parts=parts_str,
+        )
         parse_output = lambda s: parse_obj_as(
             List[PartClusResult],
             json_repair.loads(ext_code_block(s))
@@ -68,7 +72,7 @@ class Code2BookAgent:
         return parts
 
     def cluster_parts(self, files: List[str]) -> List[PartClusResult]:
-        ques = PT_CLUS_PMT.replace('{files}', '\n'.join(files))
+        ques = render_prompt(PT_CLUS_PMT, files='\n'.join(files))
         parse_output = lambda s: parse_obj_as(
             List[PartClusResult],
             json_repair.loads(ext_code_block(s))
@@ -83,8 +87,7 @@ class Code2BookAgent:
 
     def gen_code_desc(self, fname: str, code: str) -> ClsFuncExtResult:
         """根据源码提取类、方法和全局函数描述。"""
-        ques = CLS_FUNC_EXT_PMT.replace('{fname}', fname) \
-            .replace('{code}', code)
+        ques = render_prompt(CLS_FUNC_EXT_PMT, fname=fname, code=code)
         parse_output = lambda s: ClsFuncExtResult(
             **json_repair.loads(ext_code_block(s))
         )
@@ -99,9 +102,12 @@ class Code2BookAgent:
         """根据项目结构和源码描述生成书籍大纲。"""
         fnames_li = '\n'.join(fnames)
         code_desc_str = json.dumps([d.dict() for d in code_desc], ensure_ascii=False)
-        ques = OUTLINE_PMT.replace('{struct}', fnames_li) \
-            .replace('{code_desc}', code_desc_str) \
-            .replace('{readme}', readme)
+        ques = render_prompt(
+            OUTLINE_PMT,
+            struct=fnames_li,
+            code_desc=code_desc_str,
+            readme=readme,
+        )
         parse_output = lambda s: parse_obj_as(
             List[OutlineChapterResult],
             json_repair.loads(ext_code_block(s))
@@ -126,11 +132,14 @@ class Code2BookAgent:
         )
         fnames_li = '\n'.join(fnames)
         code_desc_str = json.dumps([d.dict() for d in code_desc], ensure_ascii=False)
-        ques = OUTLINE_FIX_PMT.replace('{struct}', fnames_li) \
-            .replace('{code_desc}', code_desc_str) \
-            .replace('{readme}', readme) \
-            .replace('{outline}', outline_str) \
-            .replace('{problem}', problem)
+        ques = render_prompt(
+            OUTLINE_FIX_PMT,
+            struct=fnames_li,
+            code_desc=code_desc_str,
+            readme=readme,
+            outline=outline_str,
+            problem=problem,
+        )
         parse_output = lambda s: parse_obj_as(
             List[OutlineChapterResult],
             json_repair.loads(ext_code_block(s))
@@ -152,9 +161,12 @@ class Code2BookAgent:
             [c.dict() for c in outline_chs], 
             ensure_ascii=False
         )
-        ques = SRC_ANLS_DETAIL_PMT.replace('{i}', str(idx + 1)) \
-            .replace('{outline}', outline_str) \
-            .replace('{code}', code_str)
+        ques = render_prompt(
+            SRC_ANLS_DETAIL_PMT,
+            i=str(idx + 1),
+            outline=outline_str,
+            code=code_str,
+        )
         parse_output = lambda s: SrcAnlsDetailResult(
             **json_repair.loads(ext_code_block(s))
         )
@@ -172,10 +184,13 @@ class Code2BookAgent:
             [c.dict() for c in outline_chs], 
             ensure_ascii=False
         )
-        ques = REST_DETAIL_PMT.replace('{detail}', detail.json()) \
-            .replace('{outline}', outline_str) \
-            .replace('{i}', str(idx + 1)) \
-            .replace('{code}', code_str)
+        ques = render_prompt(
+            REST_DETAIL_PMT,
+            detail=detail.json(),
+            outline=outline_str,
+            i=str(idx + 1),
+            code=code_str,
+        )
         parse_output = lambda s: RestDetailResult(
             **json_repair.loads(ext_code_block(s))
         )
@@ -193,12 +208,14 @@ class Code2BookAgent:
             [c.dict() for c in outline_chs], 
             ensure_ascii=False
         )        
-        ques = DETAIL_FIX_PMT \
-            .replace('{i}', str(idx)) \
-            .replace('{outline}', outline_str) \
-            .replace('{detail}', detail.json()) \
-            .replace('{code}', code_str) \
-            .replace('{problem}', problem)
+        ques = render_prompt(
+            DETAIL_FIX_PMT,
+            i=str(idx),
+            outline=outline_str,
+            detail=detail.json(),
+            code=code_str,
+            problem=problem,
+        )
         parse_output = lambda s: Detail(
             **json_repair.loads(ext_code_block(s))
         )
@@ -213,10 +230,13 @@ class Code2BookAgent:
         """根据大纲和细纲生成第 idx 章正文。"""
         outline_str = json.dumps([o.dict() for o in outline_chs], ensure_ascii=False)
         detail_str = detail.json()
-        ques = BODY_PMT.replace('{detail}', detail_str) \
-            .replace('{outline}', outline_str) \
-            .replace('{code}', code_str) \
-            .replace('{i}', str(idx + 1))
+        ques = render_prompt(
+            BODY_PMT,
+            detail=detail_str,
+            outline=outline_str,
+            code=code_str,
+            i=str(idx + 1),
+        )
         return ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
@@ -225,8 +245,7 @@ class Code2BookAgent:
     def check_body(self, body: str, detail: Detail) -> str:
         """校验正文是否符合格式规范，返回修改意见或 [PERFECT/]。"""
         detail_str = detail.json()
-        ques = BODY_CHK_PMT.replace('{body}', body) \
-            .replace('{detail}', detail_str)
+        ques = render_prompt(BODY_CHK_PMT, body=body, detail=detail_str)
         return ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
@@ -237,10 +256,13 @@ class Code2BookAgent:
     ) -> str:
         """根据修改意见和对应源码修改正文。"""
         detail_str = detail.json()
-        ques = BODY_FIX_PMT.replace('{detail}', detail_str) \
-            .replace('{body}', body) \
-            .replace('{comment}', comment) \
-            .replace('{code}', code_str)
+        ques = render_prompt(
+            BODY_FIX_PMT,
+            detail=detail_str,
+            body=body,
+            comment=comment,
+            code=code_str,
+        )
         return ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,

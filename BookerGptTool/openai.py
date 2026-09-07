@@ -7,6 +7,7 @@ import logging
 import traceback
 from typing import *
 from pydantic import BaseModel, parse_obj_as, ValidationError
+from .util import render_prompt
 
 logging.getLogger("openai._base_client").setLevel(logging.CRITICAL)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
@@ -198,7 +199,7 @@ def call_llm_with_toolcall(
     if isinstance(msgs, str):
         msgs = [{'role': 'user', 'content': msgs}]
     tool_defs_str = json.dumps(tool_defs)
-    toolcall_pmt = TOOLCALL_PMT.replace('{tool_def}', tool_defs_str)
+    toolcall_pmt = render_prompt(TOOLCALL_PMT, tool_def=tool_defs_str)
     msgs = [{
         'role': 'system',
         'content': toolcall_pmt
