@@ -155,8 +155,8 @@ def read_ds_file(fname):
     # random.shuffle(ds)
     return ds
 
-def combine_prompt_args(prompt: str, args: Dict[str, Any]):
-    return re.sub(r"{(\w+)}", lambda g: args.get(g.group(1), g.group(0)), prompt)
+def render_prompt(prompt: str, **kw):
+    return re.sub(r"{(\w+)}", lambda g: kw.get(g.group(1), g.group(0)), prompt)
 
 def norm_l2(arr, axis=-1):
     l2 = (arr**2).sum(axis, keepdims=True) ** 0.5
