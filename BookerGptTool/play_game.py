@@ -557,22 +557,22 @@ def reg_subparser(subparsers):
         help='window title (substring) or PID',
     )
     p.add_argument(
-        '--goal',
+        '-g', '--goal',
         default='这是一款游戏。请尽量推进游戏进度、获得更高的分数。',
         help='game goal for the LLM',
     )
-    p.add_argument('--max-steps', type=int, default=1000, help='max loop steps')
+    p.add_argument('-ms', '--max-steps', type=int, default=1000, help='max loop steps')
     p.add_argument(
-        '--interval', type=float, default=0.5,
+        '-i', '--interval', type=float, default=0.5,
         help='seconds to wait between steps',
     )
-    p.add_argument('--save-png', default='', help='dir to save screenshots')
+    p.add_argument('-sp', '--save-png', default='', help='dir to save screenshots')
     p.add_argument(
-        '--list-windows', action='store_true',
+        '-lw', '--list-windows', action='store_true',
         help='list visible windows (PID\\ttitle) and exit',
     )
     p.add_argument(
-        '--list-max', type=int, default=50,
+        '-lm', '--list-max', type=int, default=50,
         help='max windows to print when target not found',
     )
     p.add_argument('-D', '--debug', action='store_true', help='debug mode')
