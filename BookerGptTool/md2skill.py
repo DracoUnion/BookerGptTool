@@ -296,44 +296,8 @@ def ext_toc_preface(md, preface_len=3000):
     return toc, preface
 
 
-class Md2SkillAgent:
-    """封装所有 LLM 调用，一个方法对应一次调用。"""
+from .md2skill_agent import Md2SkillAgent
 
-    def __init__(self, model, args):
-        self.model = model
-        self.args = args
-
-    def generate_schema(self, toc, preface) -> BookSchema:
-        """Step 1: 从目录和前言推断知识结构 schema"""
-        prompt = render_prompt(SCHEMA_PMT, toc=toc, preface=preface)
-        parse_output = lambda s: BookSchema.model_validate(
-            json.loads(ext_code_block(schema_raw)))
-        schema_raw = ask_chatgpt_retry(prompt, self.model, self.args, parse_output)
-        return schema_raw
-
-    def generate_raw_skills(
-        self, book_type: str, content: str, context: str
-    ) -> List[RawSkill]:
-        """Step 2: 从一个文本块中提取原始技能"""
-        prompt = render_prompt(
-            get_pmt_by_type(book_type),
-            content=content,
-            context=context,
-        )
-        parse_output = lambda s: ext_cont_block(s).split('[split/]')
-        raw_texts = ask_chatgpt_retry(prompt, self.model, self.args, parse_output)
-        return [rs for rs in (parse_raw_skill(rt) for rt in raw_texts) if rs]
-
-    def merge_cluster(self, cluster: List[RawSkill]) -> Optional[RawSkill]:
-        """Step 3: 将相似技能集群合并为一个"""
-        text = '\n\n[split/]\n\n'.join([s.raw_text for s in cluster])
-        prompt = render_prompt(
-            REDUCE_PMT,
-            count=str(len(cluster)),
-            skills=text,
-        )
-        merged_text = ask_chatgpt_retry(prompt, self.model, self.args, ext_cont_block)
-        return parse_raw_skill(merged_text)
 
 
 class Md2SkillOrchestrator:

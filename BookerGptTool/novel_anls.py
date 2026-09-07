@@ -26,76 +26,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class NovelAnlsAgent:
-    """统一封装小说分析的结构化 LLM 调用。"""
+from .novel_anls_agent import NovelAnlsAgent
 
-    def __init__(self, args):
-        self.args = args
-        self.model = args.model
-        set_openai_props(args)
-
-    def _call(
-        self,
-        user_prompt: str,
-        response_model,
-        system_prompt: str,
-    ):
-        """发起一次结构化 LLM 调用并解析 JSON 为 Pydantic 响应。"""
-        msgs = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-
-        def parse(raw):
-            data = json_repair.loads(raw)
-            return response_model.model_validate(data)
-
-        return call_llm_retry(
-            msgs, self.model,
-            retry=self.args.retry,
-            temp=getattr(self.args, 'temp', 0.3),
-            max_tokens=self.args.max_tokens,
-            parse_output=parse,
-        )
-
-    def scan_chapter(
-        self,
-        chapter_index: int,
-        chapter_title: str,
-        chapter_text: str,
-    ) -> ChapterSummary:
-        """扫描单章，返回结构化摘要。"""
-        user_prompt = SCAN_PROMPT.format(
-            chapter_index=chapter_index,
-            chapter_title=json.dumps(chapter_title, ensure_ascii=False),
-            chapter_text=chapter_text,
-        )
-        return self._call(
-            user_prompt,
-            ChapterSummary,
-            SCAN_SYSTEM_PROMPT,
-        )
-
-    def aggregate_module(
-        self,
-        module_name: str,
-        summaries: List[ChapterSummary],
-        book_meta: BookMeta,
-    ):
-        """聚合指定模块，返回对应的 Pydantic 模型。"""
-        prompt_template = AGGREGATE_PROMPT_MAP[module_name]
-        user_prompt = prompt_template.format(
-            all_chapter_summaries=json.dumps(
-                [summary.model_dump() for summary in summaries],
-                ensure_ascii=False,
-            ),
-            book_meta=json.dumps(book_meta.model_dump(), ensure_ascii=False),
-        )
-        return self._call(
-            user_prompt,
-            MODULE_CLASS_MAP[module_name],
-            AGGREGATE_SYSTEM_PROMPT,
-        )
 
 
 def extract_text_from_epub(epub_path: str) -> List[Chapter]:
