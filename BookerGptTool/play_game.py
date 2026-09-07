@@ -30,7 +30,7 @@ from .openai import (
     set_openai_props,
 )
 from .openai import logger as oai_logger
-from .util import render_prompt
+from .util import render_prompt, ext_code_block
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,16 +57,18 @@ PLAY_PMT = '''
 
 ## 返回格式
 
-只返回一个 JSON 对象，不要包含任何其它文字、解释或 Markdown 代码块标记。格式如下：
+只返回一个 JSON 对象，包含在三个反引号（```）中：
 
+```
 {"thought": "简短说明你观察到了什么、打算做什么", "actions": [{"type": "click", "x": 100, "y": 200}], "finish": false}
+```
 
 ## 操作类型
 
-- 鼠标点击：{"type": "click", "x": 像素, "y": 像素, "button": "left | right", "clicks": 1}
-- 键盘按键：{"type": "key", "keys": ["space"]}；组合键如 {"type": "key", "keys": ["ctrl", "s"]}
-- 输入文本：{"type": "type", "text": "要输入的字符串"}
-- 等待：{"type": "wait", "ms": 500}
+- 鼠标点击：`{"type": "click", "x": 像素, "y": 像素, "button": "left | right", "clicks": 1}`
+- 键盘按键：`{"type": "key", "keys": ["space"]}；组合键如 {"type": "key", "keys": ["ctrl", "s"]}`
+- 输入文本：`{"type": "type", "text": "要输入的字符串"}`
+- 等待：`{"type": "wait", "ms": 500}`
 
 ## 可用键位
 
@@ -407,7 +409,7 @@ def mouse_click(x: int, y: int, button: str = 'left', clicks: int = 1) -> None:
 
 def parse_res(ans: str) -> PlayGameResp:
     """解析大模型返回的 JSON，容错修复并校验。"""
-    data = json_repair.loads(ans)
+    data = json_repair.loads(ext_code_block(ans))
     if not isinstance(data, dict):
         raise ValueError(f'期望 JSON 对象，实际得到：{type(data).__name__}')
     if 'done' in data and 'finish' not in data:
@@ -506,44 +508,40 @@ def play_game(args) -> None:
     vg_args.retry = min(args.retry, 20)
 
     last = '无'
-    try:
-        for step in range(1, args.max_steps + 1):
-            if restore_if_minimized(hwnd):
-                time.sleep(0.5)
+    for step in range(1, args.max_steps + 1):
+        if restore_if_minimized(hwnd):
+            time.sleep(0.5)
 
-            png, (w, h) = grab_window_png(hwnd)
-            if args.save_png:
-                open(
-                    os.path.join(args.save_png, f'{step:04d}.png'),
-                    'wb'
-                ).write(png)
+        png, (w, h) = grab_window_png(hwnd)
+        if args.save_png:
+            open(
+                os.path.join(args.save_png, f'{step:04d}.png'),
+                'wb'
+            ).write(png)
 
-            prompt = render_prompt(
-                PLAY_PMT,
-                window=title, goal=args.goal,
-                w=str(w), h=str(h), keys=SPECIAL_KEYS, last=last,
-            )
-            resp = call_vlm_retry(
-                png, prompt, model, vg_args,
-                parse_output=parse_res,
-            )
+        prompt = render_prompt(
+            PLAY_PMT,
+            window=title, goal=args.goal,
+            w=str(w), h=str(h), keys=SPECIAL_KEYS, last=last,
+        )
+        resp: PlayGameResp = call_vlm_retry(
+            png, prompt, model, vg_args,
+            parse_output=parse_res,
+        )
 
-            logger.info(f'[step {step}] {resp.thought}')
-            rect = get_client_rect(hwnd)
-            for act in resp.actions:
-                exec_action(act, rect)
-            last = summarize(resp.actions)
-            logger.info(f'  执行：{last}')
+        logger.info(f'[step {step}] {resp.thought}')
+        rect = get_client_rect(hwnd)
+        for act in resp.actions:
+            exec_action(act, rect)
+        last = summarize(resp.actions)
+        logger.info(f'  执行：{last}')
 
-            if resp.finish:
-                logger.info('大模型判定游戏结束，退出循环')
-                break
-            time.sleep(args.interval)
-        else:
-            logger.warn(f'达到最大步数 {args.max_steps}，退出')
-    except KeyboardInterrupt:
-        logger.info('用户中断，退出')
-
+        if resp.finish:
+            logger.info('大模型判定游戏结束，退出循环')
+            break
+        time.sleep(args.interval)
+    else:
+        logger.warn(f'达到最大步数 {args.max_steps}，退出')
 
 # ── 子命令注册 ───────────────────────────────
 
