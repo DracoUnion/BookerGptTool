@@ -30,12 +30,12 @@ from .openai import logger as oai_logger
 from .util import render_prompt, ext_code_block
 
 # pywin32 仅适用于 Windows；受保护导入，保证本模块在非 Windows 也能被正常导入。
-try:
+if sys.platform == 'win32':
     import win32api
     import win32con
     import win32gui
     import win32process
-except ImportError:
+else:
     win32api = win32con = win32gui = win32process = None
 
 logging.basicConfig(
