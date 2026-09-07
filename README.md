@@ -167,6 +167,22 @@ gpt-tool shengcai book.epub
 gpt-tool forward keys.yaml
 ```
 
+### 游戏与桌面自动化
+
+```bash
+# 列出可见窗口（PID 和标题），用于确定目标
+gpt-tool play-game --list-windows
+
+# 以窗口标题（模糊匹配）或进程号指定窗口，让大模型游玩
+gpt-tool play-game "Minesweeper"
+gpt-tool play-game 12345 --goal "尽快通关并获得最高分"
+
+# 可选参数：--interval 每步间隔（秒）、--save-png 保存截图、--max-steps 最大步数
+```
+
+`play-game` 依赖 Windows 平台（通过 Win32 API 模拟鼠标点击与键盘按键），
+Visual 模型使用通用参数 `-vm` 指定，未设置时回退到 `-m`。
+
 小红书信息图卡片生成器：
 
 ```bash

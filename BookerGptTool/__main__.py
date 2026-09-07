@@ -6,7 +6,7 @@ from . import (
     trans, fin_report, md2kg, code2doc, code2book, shengcai, call,
     arxiv, infer, erchuang, note, paper2code, pdf_ocr, gts_fiction,
     md2skill, trans_epub, fmt_chunk, md2wiki, clean_heading, forward,
-    novel_anls, xhs_img,
+    novel_anls, xhs_img, play_game,
 )
 
 def main():
@@ -61,6 +61,7 @@ def main():
     md2kg.reg_subparser(subparsers)
     novel_anls.reg_subparser(subparsers)
     xhs_img.reg_subparser(subparsers)
+    play_game.reg_subparser(subparsers)
 
     args = parser.parse_args()
     args.func(args)
