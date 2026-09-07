@@ -49,6 +49,7 @@ dependencies = [
     "ebooklib",
     "waitress",
     "pyturndown",
+    "pywin32; sys_platform == 'win32'",
 ]
 
 [project.urls]

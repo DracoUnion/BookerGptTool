@@ -7,12 +7,10 @@
 -> 执行鼠标 / 键盘输入 -> 再次截图，如此反复，直到模型判定结束。
 
 窗口通过窗口标题或进程号（PID）指定。
-依赖 Windows API（ctypes）完成窗口定位、截图与输入模拟，
-不引入额外的 GUI 自动化第三方库。
+依赖 pywin32（Win32 API 封装）完成窗口定位、截图与输入模拟。
 """
 
 import copy
-import ctypes
 import io
 import logging
 import os
@@ -22,7 +20,6 @@ import time
 from typing import List, Optional, Tuple
 
 import json_repair
-from ctypes import wintypes
 from pydantic import BaseModel
 
 from .openai import (
@@ -31,6 +28,15 @@ from .openai import (
 )
 from .openai import logger as oai_logger
 from .util import render_prompt, ext_code_block
+
+# pywin32 仅适用于 Windows；受保护导入，保证本模块在非 Windows 也能被正常导入。
+try:
+    import win32api
+    import win32con
+    import win32gui
+    import win32process
+except ImportError:
+    win32api = win32con = win32gui = win32process = None
 
 logging.basicConfig(
     level=logging.INFO,
@@ -111,108 +117,15 @@ class PlayGameResp(BaseModel):
     finish: bool = False
 
 
-# ── Win32 输入结构（跨平台定义，仅在运行时用到 user32）──
+# ── Win32 平台层（pywin32）───────────────────
 
 
-_INPUT_KEYBOARD = 1
-KEYEVENTF_KEYUP = 0x0002
-KEYEVENTF_UNICODE = 0x0004
-SW_RESTORE = 9
-
-_MOUSEEVENTF_LEFTDOWN = 0x0002
-_MOUSEEVENTF_LEFTUP = 0x0004
-_MOUSEEVENTF_RIGHTDOWN = 0x0008
-_MOUSEEVENTF_RIGHTUP = 0x0010
-
-_EnumWindowsProc = ctypes.WINFUNCTYPE(
-    wintypes.BOOL, wintypes.HWND, wintypes.LPARAM
-)
-
-
-class KEYBDINPUT(ctypes.Structure):
-    _fields_ = [
-        ('wVk', wintypes.WORD),
-        ('wScan', wintypes.WORD),
-        ('dwFlags', wintypes.DWORD),
-        ('time', wintypes.DWORD),
-        ('dwExtraInfo', ctypes.c_size_t),
-    ]
-
-
-class _INPUTUNION(ctypes.Union):
-    _fields_ = [
-        ('ki', KEYBDINPUT),
-    ]
-
-
-class INPUT(ctypes.Structure):
-    _anonymous_ = ('u',)
-    _fields_ = [
-        ('type', wintypes.DWORD),
-        ('u', _INPUTUNION),
-    ]
-
-
-# ── Win32 API 惰性初始化 ───────────────────────
-
-
-_WIN_USER32 = None
-_WIN_CHECKED = False
-
-
-def _user32():
-    """惰性获取并配置 user32，保证模块在非 Windows 平台也可被导入。"""
-    global _WIN_USER32, _WIN_CHECKED
-    if not _WIN_CHECKED:
-        if sys.platform != 'win32':
-            raise RuntimeError('play-game 仅支持 Windows 平台')
-        _WIN_CHECKED = True
-    if _WIN_USER32 is None:
-        u = ctypes.windll.user32
-        u.EnumWindows.argtypes = [_EnumWindowsProc, wintypes.LPARAM]
-        u.EnumWindows.restype = wintypes.BOOL
-        u.IsWindowVisible.argtypes = [wintypes.HWND]
-        u.IsWindowVisible.restype = wintypes.BOOL
-        u.GetWindowTextLengthW.argtypes = [wintypes.HWND]
-        u.GetWindowTextLengthW.restype = ctypes.c_int
-        u.GetWindowTextW.argtypes = [
-            wintypes.HWND, wintypes.LPWSTR, ctypes.c_int
-        ]
-        u.GetWindowTextW.restype = ctypes.c_int
-        u.GetWindowThreadProcessId.argtypes = [
-            wintypes.HWND, ctypes.POINTER(wintypes.DWORD)
-        ]
-        u.GetWindowThreadProcessId.restype = wintypes.DWORD
-        u.GetForegroundWindow.restype = wintypes.HWND
-        u.GetWindowRect.argtypes = [
-            wintypes.HWND, ctypes.POINTER(wintypes.RECT)
-        ]
-        u.GetWindowRect.restype = wintypes.BOOL
-        u.GetClientRect.argtypes = [
-            wintypes.HWND, ctypes.POINTER(wintypes.RECT)
-        ]
-        u.GetClientRect.restype = wintypes.BOOL
-        u.ClientToScreen.argtypes = [
-            wintypes.HWND, ctypes.POINTER(wintypes.POINT)
-        ]
-        u.ClientToScreen.restype = wintypes.BOOL
-        u.IsIconic.argtypes = [wintypes.HWND]
-        u.IsIconic.restype = wintypes.BOOL
-        u.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
-        u.ShowWindow.restype = wintypes.BOOL
-        u.SetCursorPos.argtypes = [ctypes.c_int, ctypes.c_int]
-        u.SetCursorPos.restype = wintypes.BOOL
-        u.mouse_event.argtypes = [
-            wintypes.DWORD, wintypes.DWORD, wintypes.DWORD,
-            wintypes.DWORD, ctypes.c_size_t,
-        ]
-        u.mouse_event.restype = None
-        u.SendInput.argtypes = [
-            wintypes.UINT, ctypes.POINTER(INPUT), ctypes.c_int
-        ]
-        u.SendInput.restype = wintypes.UINT
-        _WIN_USER32 = u
-    return _WIN_USER32
+def _need_win32() -> None:
+    """pywin32 仅在 Windows 上可用，缺失时给出清晰提示。"""
+    if win32api is None:
+        raise RuntimeError(
+            'play-game 需要 pywin32（仅 Windows），请先安装：pip install pywin32'
+        )
 
 
 # ── 窗口定位 ─────────────────────────────────
@@ -220,23 +133,19 @@ def _user32():
 
 def _enum_windows() -> List[Tuple[int, int, str]]:
     """枚举所有可见顶层窗口，返回 (hwnd, pid, title)。"""
-    u = _user32()
+    _need_win32()
     res = []
 
     def cb(hwnd, lparam):
-        if not u.IsWindowVisible(hwnd):
-            return True
-        length = u.GetWindowTextLengthW(hwnd)
-        if length == 0:
-            return True
-        buf = ctypes.create_unicode_buffer(length + 1)
-        u.GetWindowTextW(hwnd, buf, length + 1)
-        pid = wintypes.DWORD()
-        u.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-        res.append((int(hwnd), int(pid.value), buf.value))
+        if win32gui.IsWindowVisible(hwnd) and \
+                win32gui.GetWindowTextLength(hwnd) > 0:
+            pid, _tid = win32process.GetWindowThreadProcessId(hwnd)
+            res.append(
+                (int(hwnd), int(pid), win32gui.GetWindowText(hwnd))
+            )
         return True
 
-    u.EnumWindows(_EnumWindowsProc(cb), 0)
+    win32gui.EnumWindows(cb, 0)
     return res
 
 
@@ -254,8 +163,7 @@ def find_window(target: str) -> Optional[int]:
         cand = exact or [w for w in wins if name in w[2].lower()]
     if not cand:
         return None
-    u = _user32()
-    fg = u.GetForegroundWindow()
+    fg = win32gui.GetForegroundWindow()
     for w in cand:
         if w[0] == int(fg):
             return w[0]
@@ -263,20 +171,15 @@ def find_window(target: str) -> Optional[int]:
 
 
 def get_window_title(hwnd: int) -> str:
-    u = _user32()
-    length = u.GetWindowTextLengthW(hwnd)
-    if length == 0:
-        return ''
-    buf = ctypes.create_unicode_buffer(length + 1)
-    u.GetWindowTextW(hwnd, buf, length + 1)
-    return buf.value
+    _need_win32()
+    return win32gui.GetWindowText(hwnd)
 
 
 def restore_if_minimized(hwnd: int) -> bool:
     """窗口最小化时先还原，返回是否执行了还原。"""
-    u = _user32()
-    if u.IsIconic(hwnd):
-        u.ShowWindow(hwnd, SW_RESTORE)
+    _need_win32()
+    if win32gui.IsIconic(hwnd):
+        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
         return True
     return False
 
@@ -286,12 +189,11 @@ def restore_if_minimized(hwnd: int) -> bool:
 
 def get_client_rect(hwnd: int) -> Tuple[int, int, int, int]:
     """返回窗口客户区在屏幕上的绝对坐标 (x0, y0, x1, y1)。"""
-    u = _user32()
-    rect = wintypes.RECT()
-    u.GetClientRect(hwnd, ctypes.byref(rect))
-    pt = wintypes.POINT(0, 0)
-    u.ClientToScreen(hwnd, ctypes.byref(pt))
-    return (pt.x, pt.y, pt.x + rect.right, pt.y + rect.bottom)
+    _need_win32()
+    l, t, r, b = win32gui.GetClientRect(hwnd)
+    x0, y0 = win32gui.ClientToScreen(hwnd, (l, t))
+    x1, y1 = win32gui.ClientToScreen(hwnd, (r, b))
+    return (x0, y0, x1, y1)
 
 
 def grab_window_png(hwnd: int) -> Tuple[bytes, Tuple[int, int]]:
@@ -312,32 +214,19 @@ def grab_window_png(hwnd: int) -> Tuple[bytes, Tuple[int, int]]:
 # ── 输入模拟 ─────────────────────────────────
 
 
-def _key_inp(vk: int = 0, scan: int = 0, flags: int = 0) -> INPUT:
-    inp = INPUT()
-    inp.type = _INPUT_KEYBOARD
-    inp.ki.wVk = vk
-    inp.ki.wScan = scan
-    inp.ki.dwFlags = flags
-    inp.ki.time = 0
-    inp.ki.dwExtraInfo = 0
-    return inp
-
-
-def _send_inputs(inps) -> None:
-    u = _user32()
-    arr = (INPUT * len(inps))(*inps)
-    sent = u.SendInput(len(arr), arr, ctypes.sizeof(INPUT))
-    if sent != len(arr):
-        raise ctypes.WinError()
-
-
 def _tap_unicode(char: str) -> None:
-    """以 Unicode 方式敲入单个字符。"""
+    """以 Unicode 方式敲入单个字符（keybd_event 的 bScan 仅支持单字节）。"""
+    _need_win32()
     code = ord(char)
-    _send_inputs([
-        _key_inp(scan=code, flags=KEYEVENTF_UNICODE),
-        _key_inp(scan=code, flags=KEYEVENTF_UNICODE | KEYEVENTF_KEYUP),
-    ])
+    if code > 0xFF:
+        logger.warn(f'无法以 keybd_event 键入非 ASCII 字符：{char!r}')
+        return
+    win32api.keybd_event(0, code, win32con.KEYEVENTF_UNICODE, 0)
+    win32api.keybd_event(
+        0, code,
+        win32con.KEYEVENTF_UNICODE | win32con.KEYEVENTF_KEYUP,
+        0,
+    )
 
 
 VK_MAP = {
@@ -365,24 +254,23 @@ for _i in range(1, 13):
 
 def press_keys(keys: List[str]) -> None:
     """按下指定键位；多个键表示同时按下（组合键）。"""
+    _need_win32()
     vks = []
     for k in keys:
         k = k.lower()
         if k in VK_MAP:
             vks.append(VK_MAP[k])
         elif len(k) == 1:
-            # 未收录的单个字符（标点、小语种等）直接以 Unicode 输入
+            # 未收录的单个字符（标点等）直接以 Unicode 输入
             _tap_unicode(k)
         else:
             raise ValueError(f'不支持的按键：{k}')
     if not vks:
         return
-    inps = [_key_inp(vk=vk) for vk in vks]
-    inps += [
-        _key_inp(vk=vk, flags=KEYEVENTF_KEYUP)
-        for vk in reversed(vks)
-    ]
-    _send_inputs(inps)
+    for vk in vks:
+        win32api.keybd_event(vk, 0, 0, 0)
+    for vk in reversed(vks):
+        win32api.keybd_event(vk, 0, win32con.KEYEVENTF_KEYUP, 0)
 
 
 def type_text(text: str) -> None:
@@ -393,15 +281,15 @@ def type_text(text: str) -> None:
 
 def mouse_click(x: int, y: int, button: str = 'left', clicks: int = 1) -> None:
     """在屏幕绝对坐标上点击。"""
-    u = _user32()
-    u.SetCursorPos(int(x), int(y))
+    _need_win32()
+    win32api.SetCursorPos((int(x), int(y)))
     if button == 'right':
-        down, up = _MOUSEEVENTF_RIGHTDOWN, _MOUSEEVENTF_RIGHTUP
+        down, up = win32con.MOUSEEVENTF_RIGHTDOWN, win32con.MOUSEEVENTF_RIGHTUP
     else:
-        down, up = _MOUSEEVENTF_LEFTDOWN, _MOUSEEVENTF_LEFTUP
+        down, up = win32con.MOUSEEVENTF_LEFTDOWN, win32con.MOUSEEVENTF_LEFTUP
     for _ in range(max(1, int(clicks))):
-        u.mouse_event(down, 0, 0, 0, 0)
-        u.mouse_event(up, 0, 0, 0, 0)
+        win32api.mouse_event(down, 0, 0, 0, 0)
+        win32api.mouse_event(up, 0, 0, 0, 0)
 
 
 # ── 解析与执行 ───────────────────────────────
@@ -542,6 +430,7 @@ def play_game(args) -> None:
         time.sleep(args.interval)
     else:
         logger.warn(f'达到最大步数 {args.max_steps}，退出')
+
 
 # ── 子命令注册 ───────────────────────────────
 

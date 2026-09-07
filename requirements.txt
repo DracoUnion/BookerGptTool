@@ -14,3 +14,4 @@ flask
 ebooklib
 waitress
 pyturndown
+pywin32; sys_platform == 'win32'
