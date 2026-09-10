@@ -21,16 +21,63 @@ from .md2kg_pmt import (
     EVALUATOR_SYSTEM_PROMPT, EVALUATOR_USER_PROMPT,
 )
 
+# 添加Pydantic导入用于自定义模型
+from pydantic import BaseModel, Field
+
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# Schema归纳提示词（用于无目标Schema时自动归纳）
+# ============================================================================
+SCHEMA_INDUCER_SYSTEM_PROMPT = """
+你是一位知识图谱Schema归纳专家。你的任务是从已抽取的实体和关系中归纳出一个适合的知识图谱Schema（即实体类型和关系类型的集合）。
+
+输出格式必须严格遵循以下 JSON Schema：
+
+```
+{
+  "entity_types": ["类型1", "类型2", ...],
+  "relation_types": ["关系类型1", "关系类型2", ...],
+  "induction_log": ["操作记录"]
+}
+```
+
+归纳规则：
+1. 实体类型应基于实体的语义特征进行泛化（如将"张三"、"李四"归纳为"人物"）。
+2. 关系类型应基于关系的语义特征进行泛化（如"created"、"founded"归纳为"创建"）。
+3. 尽量使用通用的、领域中立的类型，但如果领域明显，可以使用领域特定的类型。
+4. 去重和合并类义的类型。
+5. 记录归纳过程和决策。
+"""
+
+SCHEMA_INDUCER_USER_PROMPT = """
+待归纳的实体列表:
+```
+{entities_json}
+```
+待归纳的关系列表:
+```
+{relations_json}
+```
+
+请根据上述实体和关系，归纳出一个适合的知识图谱Schema。
+"""
+
+
+# Schema归纳结果模型
+class SchemaInductionResult(BaseModel):
+    entity_types: List[str] = Field(..., description="归纳出的实体类型列表")
+    relation_types: List[str] = Field(..., description="归纳出的关系类型列表")
+    induction_log: List[str] = Field(default_factory=list, description="归纳过程日志")
+
+
+# ============================================================================
 # 1. 统一智能体
 # ============================================================================
 from .md2kg_agent import Md2KgAgent
-
 
 
 # ============================================================================
@@ -48,13 +95,78 @@ class KnowledgeGraphOrchestrator:
         # 初始化智能体
         self.agent = Md2KgAgent(args)
 
+    def _induce_schema(self, resolved_graph: ResolvedGraph) -> Dict[str, List[str]]:
+        """
+        从解析后的图谱中归纳出Schema（当用户未提供目标Schema时使用）。
+
+        Args:
+            resolved_graph: 冲突消解后的全局图谱
+
+        Returns:
+            包含entity_types和relation_types的字典
+        """
+        logger.info("开始Schema归纳...")
+        # 准备实体和关系的JSON表示
+        entities_json = json.dumps(
+            [{"canonical_id": e.canonical_id, "name": e.name, "type": e.type, "description": e.description}
+             for e in resolved_graph.entities],
+            indent=2, ensure_ascii=False
+        )
+        relations_json = json.dumps(
+            [{"id": r.id, "source": r.source, "target": r.target, "relation_type": r.relation_type,
+              "evidence": r.evidence, "confidence": r.confidence}
+             for r in resolved_graph.relationships],
+            indent=2, ensure_ascii=False
+        )
+
+        user_prompt = SCHEMA_INDUCER_USER_PROMPT.format(
+            entities_json=entities_json,
+            relations_json=relations_json
+        )
+        parse_output = lambda s: SchemaInductionResult.model_validate_json(ext_code_block(s))
+        try:
+            induction_result = self._call_with_agent(
+                SCHEMA_INDUCER_SYSTEM_PROMPT, user_prompt, parse_output=parse_output
+            )
+            logger.info(f"Schema归纳完成: {len(induction_result.entity_types)} 种实体类型, "
+                        f"{len(induction_result.relation_types)} 种关系类型")
+            logger.debug(f"归纳日志: {induction_result.induction_log}")
+            return {
+                "entity_types": induction_result.entity_types,
+                "relation_types": induction_result.relation_types
+            }
+        except Exception as e:
+            logger.error(f"Schema归纳失败: {e}")
+            # 归纳失败时回退到默认Schema
+            logger.info("回退到默认Schema")
+            return {
+                "entity_types": ["人物", "组织", "地点", "概念", "事件", "作品", "技术", "时间"],
+                "relation_types": ["创建", "属于", "位于", "影响", "包含", "发表", "研究", "使用"]
+            }
+
+    def _call_with_agent(self, system_prompt: str, user_prompt: str,
+                         max_tokens: Optional[int] = None, parse_output: Callable = None) -> Any:
+        """
+        使用智能体的底层调用方法（封装以避免直接访问私有方法）。
+
+        Args:
+            system_prompt: 系统提示词
+            user_prompt: 用户提示词
+            max_tokens: 最大token数
+            parse_output: 输出解析函数
+
+        Returns:
+            解析后的结果
+        """
+        return self.agent._call(system_prompt, user_prompt, max_tokens=max_tokens, parse_output=parse_output)
+
     def build_graph(self, chunks: List[Dict[str, Any]], target_schema: Dict[str, List[str]] = None) -> Dict[str, Any]:
         """
         构建知识图谱
 
         Args:
             chunks: 每个元素包含 'id', 'content', 'summary' (可选)
-            target_schema: 目标Schema定义（可选）
+            target_schema: 目标Schema定义（可选）。如果未提供，将自动归纳Schema。
 
         Returns:
             包含完整处理结果的字典
@@ -109,6 +221,9 @@ class KnowledgeGraphOrchestrator:
 
         # ----- 阶段4：Schema对齐 -----
         logger.info("阶段4：Schema对齐...")
+        if target_schema is None:
+            # 自动归纳Schema
+            target_schema = self._induce_schema(resolved_graph)
         schema_alignment_result = self.agent.align_schema(resolved_graph, target_schema)
 
         # ----- 阶段5：质量评估 -----
