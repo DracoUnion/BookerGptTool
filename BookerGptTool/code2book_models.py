@@ -10,6 +10,7 @@ class FuncExtResult(BaseModel):
     name: str
     desc: str  
     code: List[str]
+    line: str
 
 class ClsExtResult(BaseModel):
     name: str

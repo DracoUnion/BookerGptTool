@@ -33,7 +33,8 @@ CLS_FUNC_EXT_PMT = '''
                         "    statement_2",
                         "    ....",
                         "    return xxx"
-                    ]
+                    ],
+                    "line": "1000-2000"
                 },
                 { ... }
             ]
@@ -50,7 +51,8 @@ CLS_FUNC_EXT_PMT = '''
                 "    statement_2",
                 "    ....",
                 "    return xxx"
-            ]
+            ],
+            "line": "10000-12000"
         },
         { ... }
     ]
