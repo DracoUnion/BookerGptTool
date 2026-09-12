@@ -202,11 +202,18 @@ class Code2BookAgent:
         return res
 
     def gen_rest_detail(
-        self, idx: int, detail: Detail, outline_chs: List[OutlineChapterResult], code_str: str,
+        self, idx: int, 
+        detail: Detail, 
+        outline_chs: List[OutlineChapterResult], 
+        code_desc: List[CodeDescItemResult],
     ) -> RestDetailResult:
         """生成第 idx 章细纲的剩余部分（学习目标、类比、练习等）。"""
         outline_str =  outline_str = json.dumps(
             [c.dict() for c in outline_chs], 
+            ensure_ascii=False
+        )
+        code_desc_str = json.dumps(
+            [d.dict() for d in code_desc], 
             ensure_ascii=False
         )
         ques = render_prompt(
@@ -214,7 +221,7 @@ class Code2BookAgent:
             detail=detail.json(),
             outline=outline_str,
             i=str(idx + 1),
-            code=code_str,
+            code_desc=code_desc_str,
         )
         parse_output = lambda s: RestDetailResult(
             **json_repair.loads(ext_code_block(s))
