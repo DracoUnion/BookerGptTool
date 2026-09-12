@@ -88,14 +88,22 @@ class Code2BookAgent:
 
     def gen_code_desc(self, fname: str, code: str) -> ClsFuncExtResult:
         """根据源码提取类、方法和全局函数描述。"""
-        ques = render_prompt(CLS_FUNC_EXT_PMT, fname=fname, code=code)
         parse_output = lambda s: ClsFuncExtResult(
             **json_repair.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(
-            ques, self.model, self.args,
-            parse_output=parse_output,
-        )
+        res = ClsFuncExtResult(desc="", classes=[], funcs=[])
+        step = self.args.code_limit - self.args.code_overlap
+        for i in range(0, len(code), step):
+            chunk = code[i: i + self.args.code_limit]
+            ques = render_prompt(CLS_FUNC_EXT_PMT, fname=fname, code=chunk)
+            chunk_res: ClsFuncExtResult =  ask_chatgpt_retry(
+                ques, self.model, self.args,
+                parse_output=parse_output,
+            )
+            res.desc += chunk_res.desc
+            res.classes += chunk_res.classes
+            res.funcs += chunk_res.funcs
+        return res
 
     def gen_outline(
         self, fnames: List[str], code_desc: List[CodeDescItemResult], readme: str,
