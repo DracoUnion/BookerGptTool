@@ -1,3 +1,4 @@
+import copy
 import openai
 import os
 from os import path
@@ -474,6 +475,13 @@ class Code2BookOrchestrator:
 
         # 2. 生成源码文件描述
         code_desc = self.step_gen_code_desc(fnames)
+        code_desc_nocode = copy.deepcopy(code_desc)
+        for d in code_desc_nocode:
+            for c in d.classes:
+                for m in c.methods:
+                    m.code = []
+            for f in d.funcs:
+                f.code = []
 
         # 3a 划分部分
         parts = self.step_clus_part(fnames)
