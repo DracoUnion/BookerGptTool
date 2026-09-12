@@ -353,7 +353,7 @@ class Code2BookOrchestrator:
                 prob += '以下函数或方法没有添加到任何单元中：\n' + \
                         '\n'.join(rest_funcs) + '\n'
             logger.warn(f'[4] 细纲 {idx+1} 校验失败：\n{prob}')
-            detail = self.agent.fix_detail(idx, detail, outline_chs, code_str, prob)
+            detail = self.agent.fix_detail(idx, detail, outline_chs, code_desc_ch, prob)
 
         l = len(str(len(outline_chs)))
         detail_fname = f'detail_{str(idx+1).zfill(l)}.yaml'

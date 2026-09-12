@@ -518,7 +518,7 @@ DETAIL_FIX_PMT = '''
 ## 对应源码
 
 [coontent]
-{code}
+{code_desc}
 [/content]
 
 ## 已知问题

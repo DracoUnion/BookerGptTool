@@ -232,20 +232,26 @@ class Code2BookAgent:
         )
 
     def fix_detail(
-        self, idx: int, detail: Detail, outline_chs: List[OutlineChapterResult],
-        code_str: str, problem: str,
+        self, idx: int, detail: Detail, 
+        outline_chs: List[OutlineChapterResult],
+        code_desc: List[CodeDescItemResult], 
+        problem: str,
     ) -> Detail:
         """校验细纲未覆盖所有函数时，补充缺少的函数重写细纲。"""
         outline_str = json.dumps(
             [c.dict() for c in outline_chs], 
             ensure_ascii=False
         )        
+        code_desc_str = json.dumps(
+            [d.dict() for d in code_desc], 
+            ensure_ascii=False
+        )
         ques = render_prompt(
             DETAIL_FIX_PMT,
             i=str(idx),
             outline=outline_str,
             detail=detail.json(),
-            code=code_str,
+            code_desc=code_desc_str,
             problem=problem,
         )
         parse_output = lambda s: Detail(
