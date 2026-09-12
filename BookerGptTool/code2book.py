@@ -279,6 +279,40 @@ class Code2BookOrchestrator:
 
     # ── 步骤 4：生成细纲 ──────────────────────────────────
 
+    @staticmethod
+    def _code_descs_total_funcs(
+        code_descs: List[CodeDescItemResult],
+    ) -> List[str]:
+        total_funcs = [
+            d.file + ':' + fn.name
+            for d in code_descs
+            for fn in d.funcs
+        ]
+        total_funcs += [
+            d.file + ':' + cls_.name + '.' + m.name
+            for d in code_descs
+            for cls_ in d.classes
+            for m in cls_.methods
+        ]
+        total_funcs = {
+            it.replace('\\', '/').replace('()', '')
+            for it in total_funcs
+        }
+        return total_funcs
+
+    @staticmethod
+    def _detail_funcs(detail: Detail):
+        detail_funcs = [
+            c.file + ':' + c.method_or_func
+            for u in detail.units
+            for c in u.codes
+        ]
+        detail_funcs = {
+            it.replace('\\', '/').replace('()', '')
+            for it in detail_funcs
+        }
+        return detail_funcs
+
     def _tr_gen_detail(
         self, 
         outline_chs: List[OutlineChapterResult], 
@@ -297,21 +331,7 @@ class Code2BookOrchestrator:
             d for d in code_desc 
             if d.file in code_fname_set
         ]
-        total_funcs = [
-            d.file + ':' + fn.name
-            for d in code_desc_ch
-            for fn in d.funcs
-        ]
-        total_funcs += [
-            d.file + ':' + cls_.name + '.' + m.name
-            for d in code_desc_ch
-            for cls_ in d.classes
-            for m in cls_.methods
-        ]
-        total_funcs = {
-            it.replace('\\', '/').replace('()', '')
-            for it in total_funcs
-        }
+        total_funcs = self._code_descs_total_funcs(code_desc_ch)
 
         # 源码解析部分
         src_anls_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_str)
@@ -320,15 +340,7 @@ class Code2BookOrchestrator:
         detail = Detail(no=idx, **src_anls_result.dict(), **rest_result.dict())
 
         for _ in range(self.args.check):
-            detail_funcs = [
-                c.file + ':' + c.method_or_func
-                for u in detail.units
-                for c in u.codes
-            ]
-            detail_funcs = {
-                it.replace('\\', '/').replace('()', '')
-                for it in detail_funcs
-            }
+            detail_funcs = self._detail_funcs(detail)
             detail_funcs = set(expand_stars(detail_funcs, total_funcs))
             rest_funcs = total_funcs - detail_funcs
             false_funcs = detail_funcs - total_funcs
@@ -487,11 +499,11 @@ class Code2BookOrchestrator:
         parts = self.step_clus_part(fnames)
 
         # 3. 生成大纲
-        outline = self.step_gen_outline(parts, code_desc)
+        outline = self.step_gen_outline(parts, code_desc_nocode)
 
         # 4. 生成细纲
         outline_chs = sum([pt.chapters for pt in outline], [])
-        details = self.step_gen_details(outline_chs, code_desc)
+        details = self.step_gen_details(outline_chs, code_desc_nocode)
 
         # 5. 生成正文
         self.step_gen_bodies(outline_chs, details)
