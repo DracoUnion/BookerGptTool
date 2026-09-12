@@ -734,7 +734,7 @@ Claude Code 的副作用类型只有（1）写配置文件，（2）通知远端
 ## 对应源码
 
 [content]
-{code}
+{code_desc}
 [/content]
 '''
 
@@ -887,6 +887,6 @@ BODY_FIX_PMT = '''
 ## 对应源码
 
 [content]
-{code}
+{code_desc}
 [/content]
 '''

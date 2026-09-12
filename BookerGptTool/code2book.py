@@ -432,7 +432,7 @@ class Code2BookOrchestrator:
                 break
             logger.info(f'[5] 正文 {idx + 1} 校验未通过')
             logger.info(cmt)
-            body = self.agent.fix_body(detail, body, cmt, code_str)
+            body = self.agent.fix_body(detail, body, cmt, code_desc_ch)
 
         l = len(str(len(outline_chs)))
         body_fname = f'article_{str(idx+1).zfill(l)}.md'

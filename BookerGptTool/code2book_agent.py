@@ -297,16 +297,24 @@ class Code2BookAgent:
         )
 
     def fix_body(
-        self, detail: Detail, body: str, comment: str, code_str: str,
+        self, 
+        detail: Detail, 
+        body: str, 
+        comment: str, 
+        code_desc: List[CodeDescItemResult],
     ) -> str:
         """根据修改意见和对应源码修改正文。"""
         detail_str = detail.json()
+        code_desc_str = json.dumps(
+            [d.dict() for d in code_desc], 
+            ensure_ascii=False
+        )
         ques = render_prompt(
             BODY_FIX_PMT,
             detail=detail_str,
             body=body,
             comment=comment,
-            code=code_str,
+            code_desc=code_desc_str,
         )
         return ask_chatgpt_retry(
             ques, self.model, self.args,
