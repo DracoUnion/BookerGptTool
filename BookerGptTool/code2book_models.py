@@ -9,6 +9,7 @@ class PartClusResult(BaseModel):
 class FuncExtResult(BaseModel):
     name: str
     desc: str  
+    code: List[str]
 
 class ClsExtResult(BaseModel):
     name: str
