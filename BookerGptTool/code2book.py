@@ -128,39 +128,19 @@ class Code2BookOrchestrator:
 
     def step_gen_code_desc(self, fnames: List[str]) -> List[CodeDescItemResult]:
         logger.info('[2] 生成源码文件描述')
-        code_desc_fname = path.join(self.pj_dir, 'code_desc.yaml')
-        if path.isfile(code_desc_fname) and \
-           path.getsize(code_desc_fname):
-            code_desc = yaml.safe_load(
-                open(code_desc_fname, encoding='utf8').read())
-            code_desc = parse_obj_as(
-                List[CodeDescItemResult], code_desc,
-            )
-        else:
-            code_desc = [
-                CodeDescItemResult(
-                    file=f, desc='', classes=[], funcs=[],
-                )
-                for f in fnames
-            ]
-            self._write_yaml(code_desc_fname, code_desc)
+        code_desc = [None for _ in fnames]
 
-        save_step = max(min(len(code_desc) // 5, 100), 1)
         def res_callback(tpl):
             idx, code_desc_i = tpl
             code_desc[idx] = code_desc_i
-        for i, it in enumerate(tqdm(code_desc)):
-            if not it.desc:
-                h = self.pool.submit(
-                    self._tr_gen_code_desc, it.file, i)
-                self.hdls.append(h)
-                if len(self.hdls) > self.args.threads:
-                    self._collect_hdls(res_callback)
-            if i % save_step == 0:
-                self._write_yaml(code_desc_fname, code_desc)
+        for i, f in enumerate(tqdm(fnames)):
+            h = self.pool.submit(
+                self._tr_gen_code_desc, f, i)
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                self._collect_hdls(res_callback)
         
         self._collect_hdls(res_callback)
-        self._write_yaml(code_desc_fname, code_desc)                
         return code_desc
 
     # ── 步骤 3a：划分部分 ──────────────────────────────────
