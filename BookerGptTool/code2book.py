@@ -128,8 +128,8 @@ class Code2BookOrchestrator:
         )
         if path.isfile(desc_fname) and \
            path.getsize(desc_fname):
-           desc = yaml.safe_load(open(desc_fname, encoding='utf8').read())
-           desc = CodeDescItemResult.model_validate(desc)
+            desc = yaml.safe_load(open(desc_fname, encoding='utf8').read())
+            desc = CodeDescItemResult.model_validate(desc)
         else:
             code = self._read_code(fname)
             desc = self.agent.gen_code_desc(fname, code)
