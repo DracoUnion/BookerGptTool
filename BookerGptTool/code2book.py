@@ -444,6 +444,7 @@ class Code2BookOrchestrator:
 
     def step_gen_bodies(
         self, outline_chs, details: List[Detail],
+        code_desc: List[CodeDescItemResult],
     ) -> List[str]:
         logger.info('[5] 生成正文')
         l = len(str(len(outline_chs)))
@@ -463,7 +464,7 @@ class Code2BookOrchestrator:
             else:
                 h = self.pool.submit(
                     self._tr_gen_body, outline_chs,
-                    detail, i,
+                    detail, code_desc, i,
                 )
                 self.hdls.append(h)
                 if len(self.hdls) > self.args.threads:
@@ -510,7 +511,7 @@ class Code2BookOrchestrator:
         details = self.step_gen_details(outline_chs, code_desc)
 
         # 5. 生成正文
-        self.step_gen_bodies(outline_chs, details)
+        self.step_gen_bodies(outline_chs, details, code_desc)
 
         logger.info('[*] 已完成')
 
