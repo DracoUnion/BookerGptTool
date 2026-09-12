@@ -103,9 +103,14 @@ class Code2BookAgent:
         )
         res = ClsFuncExtResult(desc="", classes=[], funcs=[])
         step = self.args.code_limit - self.args.code_overlap
+        start_line = 1
         for i in range(0, len(code), step):
             chunk = code[i: i + self.args.code_limit]
-            ques = render_prompt(CLS_FUNC_EXT_PMT, fname=fname, code=chunk)
+            ques = render_prompt(
+                CLS_FUNC_EXT_PMT, 
+                fname=fname, code=chunk,
+                start=str(start_line)
+            )
             chunk_res: ClsFuncExtResult =  ask_chatgpt_retry(
                 ques, self.model, self.args,
                 parse_output=parse_output,
@@ -113,6 +118,7 @@ class Code2BookAgent:
             res.desc += chunk_res.desc
             res.classes += chunk_res.classes
             res.funcs += chunk_res.funcs
+            start_line += chunk.count('\n')
         return res
 
     def gen_outline(
