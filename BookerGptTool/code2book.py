@@ -517,4 +517,6 @@ def reg_subparser(subparsers):
     code2book_parser.add_argument("-c", "--check", type=int, default=3, help="check times")
     code2book_parser.add_argument("-l", "--chapter-limit", type=int, default=20, help="chapter limit")
     code2book_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
+    code2book_parser.add_argument("-cl", "--code-limit", type=int, default=35_000, help="max code length in single prompt")
+    code2book_parser.add_argument("-co", "--code-overlap", type=int, default=500, help="code overlap in every chunk")
     code2book_parser.set_defaults(func=code2book)
