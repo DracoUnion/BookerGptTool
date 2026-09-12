@@ -404,7 +404,11 @@ class Code2BookOrchestrator:
     # ── 步骤 5：生成正文 ──────────────────────────────────
 
     def _tr_gen_body(
-        self, outline_chs, detail: Detail, idx: int,
+        self, 
+        outline_chs, 
+        detail: Detail, 
+        code_desc: List[CodeDescItemResult],
+        idx: int,
     ) -> Tuple[int, str]:
         logger.info(f'[5] 编写第{idx+1}章正文')
         code_fnames = [
@@ -412,10 +416,12 @@ class Code2BookOrchestrator:
             for u in detail.units
             for c in u.codes
         ]
-        code_dict = self._read_code_dict(code_fnames)
-        code_str = self._code_to_str(code_dict)
-
-        body = self.agent.gen_body(idx, detail, outline_chs, code_str)
+        code_fname_set = set(code_fnames)
+        code_desc_ch = [
+            d for d in code_desc 
+            if d.file in code_fname_set
+        ]
+        body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
 
         # 校验正文
         logger.info(f'[5] 校验正文 {idx + 1}')

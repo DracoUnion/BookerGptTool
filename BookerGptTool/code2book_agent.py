@@ -263,16 +263,23 @@ class Code2BookAgent:
         )
 
     def gen_body(
-        self, idx: int, detail: Detail, outline_chs: List[OutlineChapterResult], code_str: str,
+        self, idx: int, 
+        detail: Detail, 
+        outline_chs: List[OutlineChapterResult], 
+        code_desc: List[CodeDescItemResult],
     ) -> str:
         """根据大纲和细纲生成第 idx 章正文。"""
         outline_str = json.dumps([o.dict() for o in outline_chs], ensure_ascii=False)
         detail_str = detail.json()
+        code_desc_str = json.dumps(
+            [d.dict() for d in code_desc], 
+            ensure_ascii=False
+        )
         ques = render_prompt(
             BODY_PMT,
             detail=detail_str,
             outline=outline_str,
-            code=code_str,
+            code_desc=code_desc_str,
             i=str(idx + 1),
         )
         return ask_chatgpt_retry(
