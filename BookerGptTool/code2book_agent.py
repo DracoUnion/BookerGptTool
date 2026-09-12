@@ -40,6 +40,16 @@ from .code2book_pmt import *
 from .code2book_models import *
 
 
+def expand_stars(ptns, files):
+    res = []
+    for p in ptns:
+        if p.endswith('**'):
+            res += [f for f in files if f.startswith(p[:-2])]
+        elif p.endswith('*'):
+            res += [f for f in files if f.startswith(p[:-1])]
+        else:
+            res.append(p)
+    return res
 
 class Code2BookAgent:
     """封装所有 LLM 调用，每个方法对应一个独立的 prompt 调用。"""

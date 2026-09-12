@@ -29,18 +29,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def expand_stars(ptns, files):
-    res = []
-    for p in ptns:
-        if p.endswith('**'):
-            res += [f for f in files if f.startswith(p[:-2])]
-        elif p.endswith('*'):
-            res += [f for f in files if f.startswith(p[:-1])]
-        else:
-            res.append(p)
-    return res
 
-from .code2book_agent import Code2BookAgent
+from .code2book_agent import Code2BookAgent, expand_stars
 
 
 
