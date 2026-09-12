@@ -325,8 +325,6 @@ class Code2BookOrchestrator:
               for f in pt.src
         ]
         code_fname_set = set(code_fnames)
-        code_dict = self._read_code_dict(code_fnames)
-        code_str = self._code_to_str(code_dict)
         code_desc_ch = [
             d for d in code_desc 
             if d.file in code_fname_set
@@ -334,7 +332,7 @@ class Code2BookOrchestrator:
         total_funcs = self._code_descs_total_funcs(code_desc_ch)
 
         # 源码解析部分
-        src_anls_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_str)
+        src_anls_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_desc_ch)
         # 剩余部分
         rest_result = self.agent.gen_rest_detail(idx, src_anls_result, outline_chs, code_str)
         detail = Detail(no=idx, **src_anls_result.dict(), **rest_result.dict())
@@ -503,7 +501,7 @@ class Code2BookOrchestrator:
 
         # 4. 生成细纲
         outline_chs = sum([pt.chapters for pt in outline], [])
-        details = self.step_gen_details(outline_chs, code_desc_nocode)
+        details = self.step_gen_details(outline_chs, code_desc)
 
         # 5. 生成正文
         self.step_gen_bodies(outline_chs, details)

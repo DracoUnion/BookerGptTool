@@ -313,7 +313,7 @@ SRC_ANLS_DETAIL_PMT = '''
 ## 对应源码
 
 [content]
-{code}
+{code_desc}
 [/content]
 '''
 

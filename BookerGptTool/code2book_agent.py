@@ -173,18 +173,24 @@ class Code2BookAgent:
         return res
 
     def gen_src_anls_detail(
-        self, idx: int, outline_chs: List[OutlineChapterResult], code_str: str,
+        self, idx: int, 
+        outline_chs: List[OutlineChapterResult], 
+        code_desc: List[CodeDescItemResult],
     ) -> SrcAnlsDetailResult:
         """生成第 idx 章细纲的源码解析部分。"""
         outline_str = json.dumps(
             [c.dict() for c in outline_chs], 
             ensure_ascii=False
         )
+        code_desc_str = json.dumps(
+            [d.dict() for d in code_desc], 
+            ensure_ascii=False
+        )
         ques = render_prompt(
             SRC_ANLS_DETAIL_PMT,
             i=str(idx + 1),
             outline=outline_str,
-            code=code_str,
+            code_desc=code_desc_str,
         )
         parse_output = lambda s: SrcAnlsDetailResult(
             **json_repair.loads(ext_code_block(s))
