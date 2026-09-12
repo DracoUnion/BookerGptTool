@@ -26,7 +26,14 @@ CLS_FUNC_EXT_PMT = '''
             "methods": [
                 {
                     "name": "method1",
-                    "desc": "the method ..."
+                    "desc": "the method ...",
+                    "code": [
+                        "def func_name(args):",
+                        "    statement_1",
+                        "    statement_2",
+                        "    ....",
+                        "    return xxx"
+                    ]
                 },
                 { ... }
             ]
@@ -36,7 +43,14 @@ CLS_FUNC_EXT_PMT = '''
     "funcs": [
         {
             "name": "func1",
-            "desc": "the func ..."
+            "desc": "the func ...",
+            "code": [
+                "def func_name(args):",
+                "    statement_1",
+                "    statement_2",
+                "    ....",
+                "    return xxx"
+            ]
         },
         { ... }
     ]
