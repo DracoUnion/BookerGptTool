@@ -122,9 +122,20 @@ class Code2BookOrchestrator:
 
     def _tr_gen_code_desc(self, fname: str, idx: int) -> Tuple[int, CodeDescItemResult]:
         logger.info(f'[2] 生成描述 {fname}')
-        code = self._read_code(fname)
-        descs = self.agent.gen_code_desc(fname, code)
-        return idx, CodeDescItemResult(file=fname, **descs.dict())
+        desc_fname = path.join(
+            self.pj_dir,
+            fname.replace('/', '----') + '_desc.yaml'
+        )
+        if path.isfile(desc_fname) and \
+           path.getsize(desc_fname):
+           desc = yaml.safe_load(open(desc_fname, encoding='utf8').read())
+           desc = CodeDescItemResult.model_validate(desc)
+        else:
+            code = self._read_code(fname)
+            desc = self.agent.gen_code_desc(fname, code)
+            desc = CodeDescItemResult(file=fname, **desc.dict())
+            self._write_yaml(desc_fname, desc)
+        return idx, desc
 
     def step_gen_code_desc(self, fnames: List[str]) -> List[CodeDescItemResult]:
         logger.info('[2] 生成源码文件描述')
