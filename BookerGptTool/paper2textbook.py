@@ -46,13 +46,7 @@ class Paper2TextbookOrchestrator:
         with open(fname, 'w', encoding='utf8') as f:
             yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
 
-    def _load_paper(self):
-        cached = path.join(self.out, 'paper.md')
-        if path.isfile(cached) and path.getsize(cached):
-            return open(cached, encoding='utf8').read()
-        fname = path.abspath(self.args.fname)
-        if not path.isfile(fname):
-            raise ValueError('请提供本地 MD/TEX/TXT/PDF 文件')
+    def _read_one(self, fname):
         ext = extname(fname).lower()
         if ext == 'pdf':
             try:
@@ -60,11 +54,32 @@ class Paper2TextbookOrchestrator:
             except ImportError as ex:
                 raise ValueError('读取 PDF 需要安装 PyMuPDF') from ex
             with fitz.open(fname) as doc:
-                text = '\n\n'.join(page.get_text() for page in doc)
-        elif ext in {'md', 'markdown', 'tex', 'txt'}:
-            text = open(fname, encoding='utf8').read()
+                return '\n\n'.join(page.get_text() for page in doc)
+        if ext in {'md', 'markdown', 'tex', 'txt'}:
+            return open(fname, encoding='utf8').read()
+        raise ValueError(f'不支持的文件类型：{fname}')
+
+    def _load_paper(self):
+        cached = path.join(self.out, 'paper.md')
+        if path.isfile(cached) and path.getsize(cached):
+            return open(cached, encoding='utf8').read()
+        src = path.abspath(self.args.fname)
+        if path.isfile(src):
+            text = self._read_one(src)
+        elif path.isdir(src):
+            files = []
+            for rt, _, fnames in os.walk(src):
+                for f in sorted(fnames):
+                    if extname(f).lower() in {'md', 'markdown', 'tex', 'txt', 'pdf'}:
+                        files.append(path.join(rt, f))
+            if not files:
+                raise ValueError(f'目录 {src} 下没有 MD/TEX/TXT/PDF 文件')
+            text = '\n\n'.join(
+                f'# {path.relpath(f, src)}\n\n{self._read_one(f)}'
+                for f in files
+            )
         else:
-            raise ValueError('仅支持 MD/TEX/TXT/PDF 文件')
+            raise ValueError('请提供本地 MD/TEX/TXT/PDF 文件或其目录')
         open(cached, 'w', encoding='utf8').write(text)
         return text
 
@@ -213,8 +228,8 @@ class Paper2TextbookOrchestrator:
         )
 
     def run(self):
-        if not path.isfile(self.args.fname):
-            raise ValueError('请提供本地 MD/TEX/TXT/PDF 文件')
+        if not path.isfile(self.args.fname) and not path.isdir(self.args.fname):
+            raise ValueError('请提供本地 MD/TEX/TXT/PDF 文件或其目录')
         os.makedirs(self.out, exist_ok=True)
         logger.info(self.args)
         paper = self._load_paper()
@@ -235,7 +250,7 @@ def paper2textbook(args):
 
 def reg_subparser(subparsers):
     parser = subparsers.add_parser('paper2textbook', help='paper to textbook')
-    parser.add_argument('fname', help='本地 MD/TEX/TXT/PDF 文件')
+    parser.add_argument('fname', help='本地 MD/TEX/TXT/PDF 文件，或包含它们的目录')
     parser.add_argument('-o', '--out', type=str, help='output dir name')
     parser.add_argument('-t', '--tier', choices=tuple(TIERS), default='standard', help='lite/standard/deep')
     parser.add_argument('-f', '--format', choices=('md', 'tex', 'html'), default='md', help='output format')
