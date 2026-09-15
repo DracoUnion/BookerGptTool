@@ -126,9 +126,10 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
         outline_chs: List[OutlineChapterResult],
         code_desc: List[CodeDescItemResult],
     ):
+        logger.warn(f'[2] 校验 {detail_fname}')
         detail = self._load_yaml(detail_fname, Detail)
         if detail is None:
-            logger.warn(f'{detail_fname} 加载失败')
+            logger.warn(f'[2] {detail_fname} 加载失败')
             return
         idx = int(re.search(r'detail_(\d+)\.yaml', detail_fname).group(1))
         code_fnames = [
@@ -148,7 +149,7 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
             rest_funcs = total_funcs - detail_funcs
             false_funcs = detail_funcs - total_funcs
             if not rest_funcs and not false_funcs:
-                logger.info(f'[4] 细纲 {idx+1} 校验通过')
+                logger.info(f'[2] 细纲 {idx+1} 校验通过')
                 break
             prob = ''
             if false_funcs:
@@ -157,7 +158,7 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
             if rest_funcs:
                 prob += '以下函数或方法没有添加到任何单元中：\n' + \
                         '\n'.join(rest_funcs) + '\n'
-            logger.warn(f'[4] 细纲 {idx+1} 校验失败：\n{prob}')
+            logger.warn(f'[2] 细纲 {idx+1} 校验失败：\n{prob}')
             detail = self.agent.fix_detail(idx, detail, outline_chs, code_desc_ch, prob)
 
         self._write_yaml(detail_fname, detail)
@@ -190,9 +191,10 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
         detail: Detail, 
         code_desc: List[CodeDescItemResult],
     ):
+        logger.info(f'[2] 校验 {body_fname}')
         body = open(body_fname, encoding='utf8').read()
         if not body:
-            logger.warn(f'{body_fname} 加载失败')
+            logger.warn(f'[2] {body_fname} 加载失败')
             return
         idx = int(re.search(r'article_(\d+)\.md', body_fname).group(1))
         code_fnames = [
@@ -208,13 +210,13 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
         body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
 
         # 校验正文
-        logger.info(f'[5] 校验正文 {idx + 1}')
+        logger.info(f'[2] 校验正文 {idx + 1}')
         for _ in range(self.args.check):
             cmt = self.agent.check_body(body, detail)
             if '[PERFECT/]' in cmt:
-                logger.info(f'[5] 正文 {idx + 1} 校验完成')
+                logger.info(f'[2] 正文 {idx + 1} 校验完成')
                 break
-            logger.info(f'[5] 正文 {idx + 1} 校验未通过')
+            logger.info(f'[2] 正文 {idx + 1} 校验未通过')
             logger.info(cmt)
             body = self.agent.fix_body(detail, body, cmt, code_desc_ch)
 
