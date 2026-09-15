@@ -320,9 +320,10 @@ class Code2BookOrchestrator:
         code_desc: List[CodeDescItemResult],
     ) -> Tuple[int, Detail]:
         logger.info(f'[4] 编写第{idx+1}章细纲')
+
         code_fnames = [
             f for pt in outline_chs[idx].nodes
-              for f in pt.src
+            for f in pt.src
         ]
         code_fname_set = set(code_fnames)
         code_desc_ch = [
@@ -331,11 +332,20 @@ class Code2BookOrchestrator:
         ]
         total_funcs = self._code_descs_total_funcs(code_desc_ch)
 
-        # 源码解析部分
-        src_anls_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_desc_ch)
-        # 剩余部分
-        rest_result = self.agent.gen_rest_detail(idx, src_anls_result, outline_chs, code_desc_ch)
-        detail = Detail(no=idx, **src_anls_result.dict(), **rest_result.dict())
+        detail_fname = f'detail_{str(idx+1).zfill(l)}.yaml'
+        detail_fname = path.join(self.pj_dir, detail_fname)
+        if path.isfile(detail_fname):
+            detail = yaml.safe_load(
+                open(detail_fname, encoding='utf8').read())
+            detail = Detail(**detail)
+            if not self.args.force_check_detail:
+                return idx, detail
+        else:
+            # 源码解析部分
+            src_anls_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_desc_ch)
+            # 剩余部分
+            rest_result = self.agent.gen_rest_detail(idx, src_anls_result, outline_chs, code_desc_ch)
+            detail = Detail(no=idx, **src_anls_result.dict(), **rest_result.dict())
 
         for _ in range(self.args.check):
             detail_funcs = self._detail_funcs(detail)
@@ -374,18 +384,11 @@ class Code2BookOrchestrator:
             details[idx] = detail
 
         for i, ch in enumerate(tqdm(outline_chs)):
-            detail_fname = f'detail_{str(i+1).zfill(l)}.yaml'
-            detail_fname = path.join(self.pj_dir, detail_fname)
-            if path.isfile(detail_fname):
-                detail = yaml.safe_load(
-                    open(detail_fname, encoding='utf8').read())
-                details[i] = Detail(**detail)
-            else:
-                h = self.pool.submit(
-                    self._tr_gen_detail, outline_chs, i, code_desc)
-                self.hdls.append(h)
-                if len(self.hdls) > self.args.threads:
-                    self._collect_hdls(res_callback)
+            h = self.pool.submit(
+                self._tr_gen_detail, outline_chs, i, code_desc)
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                self._collect_hdls(res_callback)
         self._collect_hdls(res_callback)
 
         return details

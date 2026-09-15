@@ -1,0 +1,297 @@
+paper: 2609.00012.pdf
+desc: 该论文提出一个以单块 MD5 为载体的、可按位核验的长程状态跟踪基准：让 LLM 在 64 轮、196 个依赖工具调用中自行维护四个 32 位状态字，并通过从零实现的参考轨迹逐调用对齐；在确定性工具下，约
+  5.5B 活跃参数的 gpt-oss-120b 能完成全流程，在全部原语由投票式 LLM worker 替代时也能从 scratch 计算哈希。论文进一步表明成功主要取决于把模型自身推理保留在上下文中以及对
+  worker 做多数投票，并将剩余失败归因为驱动状态、worker 算术和服务上下文三类。
+concepts:
+- name: MD5-by-hand 长程状态跟踪基准
+  desc: 论文把单块 MD5 改造成一个可按位核验的长程任务，使模型必须在 64 轮、196 个依赖调用中持续维护四个 32 位状态字，从而隔离精确状态传递而非指令理解。
+  is_original: true
+  excerpt:
+  - 'We test this cleanly by having the model compute a cryptographic hash, MD5, step
+    by step: a sequence of 196 dependent tool calls over 64 rounds while it carries
+    four 32-bit words (a, b, c, d) in its own context from one call to the next.'
+  - Our testbed is executing MD5 step by step. MD5 over a single 512-bit block (Rivest
+    1992) is 64 rounds maintaining four 32-bit words (a, b, c, d).
+  - 'This isolates exactly the capability in question: relaying exact intermediate
+    state across a long horizon, and taking many mechanical turns that a computer
+    finds trivial, consistently.'
+  page: 1-2
+- name: Canonical 196-call reference trace
+  desc: 论文为每个输入定义唯一的标准调用轨迹，并以最终 128 位摘要的逐位相等作为硬判据，因此任何错误都能被定位而不能靠猜测或插值掩盖。
+  is_original: true
+  excerpt:
+  - Because we implement MD5 from scratch (no hashlib) as an exact reference, we can
+    align the agent’s calls to the ground-truth trace and check the digest to the
+    bit.
+  - A correct hash is a canonical 196 tool calls (2 setup + 64 × 3 + 2 finalize);
+    the driver’s final answer is a 32-hex digest compared for exact equality with
+    md5(input).
+  - By design MD5 has no exploitable structure (its add-rotate-xor construction targets
+    the avalanche effect, so the digest cannot be guessed or interpolated, only computed
+    step by step).
+  page: 2-4
+- name: State-carrying driver
+  desc: 驱动模型负责调用顺序、轮次推进以及四个状态字的跨调用传递，并自行执行状态更新旋转。
+  is_original: true
+  excerpt:
+  - The driver agent reads a short, fixed instruction library and must call the tools
+    in order while carrying (a, b, c, d) between calls and applying the state-update
+    rotation itself.
+  - 'Algorithm 1: MD5-by-hand driver loop (one 512-bit block). Each call is a tool
+    the driver invokes; in swap mode a call is a worker-LLM majority vote, in CPU
+    mode a wrapper over the reference. The driver owns every variable below.'
+  page: '4'
+- name: Driver/worker 分解
+  desc: 论文将长程状态与序列控制交给 driver，将有限的原语算术交给无状态 worker，并在最强设置中让 worker 替代每一个精确工具。
+  is_original: true
+  excerpt:
+  - In the strongest setting we replace every primitive tool with a second LLM, so
+    a driver and a worker compute the whole hash from scratch with no exact-arithmetic
+    oracle in the loop.
+  - The driver/worker method with self-consistent workers separates state tracking
+    (driver) from primitive arithmetic (worker), and shows the arithmetic is made
+    reliable by majority voting while the state is carried by the driver.
+  - The driver stays at temperature 0. The CPU twin records a pass/fail for each op
+    for our analysis but does not supply values.
+  page: 1-5
+- name: Reasoning-channel-in-context 条件
+  desc: 论文发现关键不只是是否保留推理文本，而是 Harmony 的 reasoning channel 是否作为模型的工作记忆在每一轮回灌。
+  is_original: true
+  excerpt:
+  - The single largest lever is whether the model’s own reasoning trace is kept in
+    its context each turn.
+  - The effect is therefore specific to the reasoning channel being present as the
+    model’s working memory, not to the tokens being visible somewhere.
+  - 'It is also provider plumbing, not weights: some stacks keep the reasoning field
+    on input, others reject it (returning an HTTP 400 on the echoed field), so the
+    same weights behave differently by route.'
+  page: '5'
+- name: Failure-origin taxonomy
+  desc: 论文将失败按 driver 状态错误、worker 算术错误和服务上下文错误三类划分，并指出这些错误来源相互独立。
+  is_original: true
+  excerpt:
+  - 'First, the errors partition cleanly by origin: driver (state), worker (arithmetic),
+    or serving (context), and these are independent, so removing one class (e.g. voting
+    out worker slips) does not remove another.'
+  - Table 2 is the consolidated taxonomy; the counterfactual injection (Sec. Verification)
+    lets us confirm that each failed run has a single originating error whose corruption
+    then propagates.
+  page: '6'
+- name: 40→48 skip 模型签名
+  desc: 论文观察到一种位置锁定的候选模型指纹：部分失败运行会跳过第 40 至 47 轮并直接从第 39 轮跳到第 48 轮。
+  is_original: true
+  excerpt:
+  - 'A striking failure recurs at a fixed location: among the runs that get past round
+    47, several skip exactly rounds 40 through 47, so the driver’s per-round tool
+    calls jump straight from round 39 to round 48 and it finalizes with a short block.'
+  - In our corpus this appears in 7 long runs and, tellingly, in none of the successful
+    ones.
+  - We read this as a candidate model fingerprint rather than a claim that it happens
+    on every run.
+  page: '6'
+methods:
+- name: __overview__
+  desc: 整体方法是让 driver 按固定顺序调用七个工具、自行维护状态；CPU 模式中工具是精确参考，swap 模式中每个工具由无状态 worker LLM
+    通过投票计算。
+  excerpt:
+  - 'Algorithm 1: MD5-by-hand driver loop (one 512-bit block). Each call is a tool
+    the driver invokes; in swap mode a call is a worker-LLM majority vote, in CPU
+    mode a wrapper over the reference.'
+  - '1: M ← prepare_message(text) // sixteen 32-bit words'
+  - '2: (a, b, c, d) ← initial_state()'
+  - '4: for i = 0 to 63 do'
+  - '5: (K, s) ← get_step_constants(i)'
+  - '6: (f, g) ← compute_f_and_g(i, b, c, d)'
+  - '7: new_b ← mix_step(f, a, b, K, M[g], s)'
+  - '8: (a, d, c, b) ← (d, c, b, new_b) // rotation (most error-prone)'
+  - '10: (a, b, c, d) ← add_states(a0, b0, c0, d0, a, b, c, d)'
+  - '11: return to_hex_digest(a, b, c, d)'
+  page: '4'
+- name: From-scratch reference and benchmark construction
+  desc: 论文从零实现 RFC 1321 的 MD5 参考程序，并用 RFC 测试向量验证，以生成精确摘要和标准原语序列。
+  excerpt: []
+  page: '4'
+- name: Ground-truth alignment and counterfactual injection
+  desc: 论文逐调用对齐真实轨迹与标准轨迹，注入首次分歧并计算反事实摘要，以区分新发生的错误与其后续传播。
+  excerpt:
+  - We build the ground-truth call sequence for any input and align it call-for-call
+    against what the agent actually did, rendering a green/red trace, green where
+    the agent’s tool inputs match ground truth, red where they diverge.
+  - We inject each first divergence into the real algorithm to produce a counterfactual
+    digest (“if only this one slip had occurred, the hash would be X”), separating
+    a fresh error from its downstream propagation.
+  - A live mode flags the first state slip in real time, keyed by round index so benign
+    duplicate lookups do not misalign the comparison.
+  page: '4'
+- name: LLM-worker primitive swap
+  desc: 论文把 prepare_message、initial_state、常数查询、轮函数、混合、加法和十六进制输出等原语逐一替换为无状态 worker
+    LLM。
+  excerpt:
+  - Every primitive is swapped onto a worker LLM, also gpt-oss-120b, but served on
+    a fast, thinking-enabled endpoint as a single-shot, stateless computer.
+  - The operation is sampled three times at temperature 0.7 (each with its own fresh
+    context) and the majority value is returned to the driver; ties trigger an escalation
+    round.
+  - The CPU twin records a pass/fail for each op for our analysis but does not supply
+    values.
+  page: 4-5
+- name: Three-sample majority voting
+  desc: 每个 worker 原语在温度 0.7 下独立采样三次并返回多数结果，以抑制模加和模约简中的偶发算术失误。
+  excerpt:
+  - The worker runs at temperature 0.7 with 3-sample majority voting.
+  - This self-consistency suppresses the worker’s occasional modular-arithmetic slips,
+    and the worker’s context is discarded after each call so only the driver stays
+    stateful.
+  page: '5'
+- name: Reasoning-channel echo ablation
+  desc: 论文在相同模型、提示和输入下比较保留、删除以及改变推理通道形式的设置，以检验推理上下文是否是成功条件。
+  excerpt:
+  - gpt-oss emits its intermediate work in a dedicated reasoning channel (the “analysis”
+    channel of OpenAI’s Harmony format); the question is whether that channel is fed
+    back on the next turn.
+  - With it, the driver tracks state across 196 calls; stripped, success collapses
+    on the identical model, prompt, and input.
+  - When we place the reasoning content in the visible assistant message instead of
+    the Harmony reasoning channel, keeping the tokens byte-for-byte identical, the
+    driver still fails, and does so early, usually within the first 12 to 24 of 196
+    steps.
+  page: '5'
+- name: Endpoint-controlled repeated-run protocol
+  desc: 论文固定提示、温度和端点并重复运行，将量化服务中的非确定性视为分布而非单次确定性结果。
+  excerpt:
+  - The driver runs at temperature 0 with a short fixed system prompt and context
+    caching enabled.
+  - In swap mode the worker runs at temperature 0.7 with 3-sample majority voting.
+  - We pin dates and log the endpoint per run; “temperature 0” is not bit-deterministic
+    on quantized serving, so we treat every cell as a distribution and report N.
+  page: '4'
+- name: Failure-origin attribution
+  desc: 论文结合首次分歧定位、反事实注入和逐原语核验，将失败归因到状态携带、算术计算或服务上下文。
+  excerpt:
+  - The counterfactual injection (Sec. Verification) lets us confirm that each failed
+    run has a single originating error whose corruption then propagates.
+  - 'Three points are worth drawing out. First, the errors partition cleanly by origin:
+    driver (state), worker (arithmetic), or serving (context), and these are independent.'
+  - 'Table 2: Failure taxonomy by origin. Driver (state-carrying) errors dominate;
+    worker (arithmetic) errors are rare and self-consistency-correctable; the serving
+    error is an all-or-nothing collapse.'
+  page: '6'
+theorems: []
+findings:
+- name: 196-step end-to-end feasibility
+  desc: '[claim] 在上下文得到管理时，LLM 可以完成 196 步精确依赖流程；[evidence] 作者在多个不同输入上观察到完整 196 调用和正确摘要，Table
+    1 中 Fireworks 为 21/34 个完成运行正确（62%），但正文没有给出这些成功运行的总 N。'
+  excerpt:
+  - 'The driver emits the full canonical 196-call sequence and returns the correct
+    32-hex digest, verified as a match, on multiple distinct inputs: a ∼5.5B-active-parameter
+    MoE model carries exact 32-bit state from step 0 to step 196.'
+  - 'Fireworks: 21 successes, 13 wrong, 34 completed, 62%.'
+  - 'Groq: 0 successes, 2 wrong, 2 completed, 0%.'
+  page: '5'
+- name: Endpoint-dependent completion and correctness
+  desc: '[claim] 同一模型权重在不同服务端点上的完成率和正确率可以显著不同；[evidence] Table 1 显示 Fireworks 与 Groq
+    的完成运行正确率分别为 62% 和 0%，且两端各有 71 次运行没有产生摘要，因而不能把失败简单归因于模型权重。'
+  excerpt:
+  - 'For the same weights, correctness and speed differ sharply by route (Table 1):
+    a fast reasoning endpoint that is excellent single-shot is a poor multi-turn driver,
+    looping or stopping early and rarely emitting a digest at all.'
+  - The 71 Fireworks runs and 71 Groq runs that never emitted a digest (loops / early
+    stops / aborted development runs) are excluded from the ratio.
+  page: '5'
+- name: From-scratch computation without an arithmetic oracle
+  desc: '[claim] driver/worker 组合可以在没有精确算术 oracle 的情况下从 scratch 计算 MD5；[evidence]
+    作者报告六个计算原语在多数投票下的 worker 通过率较高，但所给正文没有列出逐原语的具体样本数或通过率，CPU twin 仅用于核验。'
+  excerpt:
+  - With majority voting, per-op worker pass rates are high across all six computed
+    primitives, so the driver/worker pair computes the hash from scratch with no exact
+    oracle in the loop.
+  - The CPU twin records a pass/fail for each op for our analysis but does not supply
+    values.
+  page: '5'
+- name: ''
+  desc: ''
+  excerpt: []
+  page: '5'
+- name: Reasoning-in-context is the largest lever
+  desc: '[claim] 保留模型自己的推理通道是成功的关键条件；[evidence] 在相同模型、提示和输入下，删除推理通道会使成功崩溃，而把完全相同的文本放入可见
+    assistant message 仍然会在前 12–24 步内失败。'
+  excerpt:
+  - The single largest lever is whether the model’s own reasoning trace is kept in
+    its context each turn.
+  - With it, the driver tracks state across 196 calls; stripped, success collapses
+    on the identical model, prompt, and input.
+  - When we place the reasoning content in the visible assistant message instead of
+    the Harmony reasoning channel, keeping the tokens byte-for-byte identical, the
+    driver still fails, and does so early, usually within the first 12 to 24 of 196
+    steps.
+  page: '5'
+- name: Serving failures often occur before a digest is emitted
+  desc: '[claim] 服务或上下文管线故障常表现为运行早期停止或循环，而不是某个 MD5 原语计算错误；[evidence] 在 105 个 Fireworks
+    gpt-oss-120b 会话中，71 个没有产生摘要，其中近一半在前 24 个调用内停止。'
+  excerpt:
+  - 'Most of the runs that never produce a digest are early collapses: of the 105
+    logged Fireworks gpt-oss-120b sessions, 71 emit no digest at all, and nearly half
+    of those halt within the first 24 of 196 calls.'
+  page: '5'
+- name: State tracking is the harder error source
+  desc: '[claim] 在 swap-all 设置中，剩余失败主要来自 driver 误携带状态，而不是 worker 算错原语；[evidence] 论文报告即使现场纠正所有
+    worker 操作，也不能单独挽救已经发生 driver 状态滑移的运行。'
+  excerpt:
+  - 'When a full run does fail under swap-all it is overwhelmingly the driver mis-carrying
+    state, not the worker computing a primitive wrong: correcting every worker op
+    in place (removing arithmetic error entirely) does not by itself make a driver-slipped
+    run succeed, so the two error sources are independent and state tracking is the
+    harder one.'
+  page: '5'
+- name: Failure taxonomy by origin
+  desc: '[claim] 失败可以 cleanly 分为 driver、worker 和 serving 三类，且这些来源相互独立；[evidence] Table
+    2 将状态旋转错误、漏/重调用、提前停止、40→48 skip、模约简错误和推理通道被剥离分别归类，并指出 driver 错误占主导。'
+  excerpt:
+  - 'First, the errors partition cleanly by origin: driver (state), worker (arithmetic),
+    or serving (context), and these are independent, so removing one class (e.g. voting
+    out worker slips) does not remove another.'
+  - 'Table 2: Failure taxonomy by origin. Driver (state-carrying) errors dominate;
+    worker (arithmetic) errors are rare and self-consistency-correctable; the serving
+    error is an all-or-nothing collapse.'
+  page: '6'
+- name: State-update rotation is the most common fresh driver error
+  desc: '[claim] 最常见的初始 driver 错误是状态更新旋转；[evidence] 绿/红轨迹显示工具本身从不错，第一次变红正是 driver
+    传入误携带的 32 位词，随后错误持续传播，同时还观察到漏调用、重复调用和提前结束。'
+  excerpt:
+  - The most common fresh error is the state-update rotation (a, d, c, b ← d, c, b,
+    new_b).
+  - 'When a run does fail, the tools are never wrong: the green/red trace goes red
+    exactly where the driver feeds a tool a mis-carried 32-bit word and stays red
+    as the corruption propagates.'
+  - Failed runs also show dropped/duplicated calls and early stops (e.g. finalizing
+    in 172 rather than 196 calls).
+  page: '5'
+- name: Position-locked 40→48 skip
+  desc: '[claim] 40→48 skip 是候选模型指纹而非普遍规律；[evidence] 在通过第 47 轮的运行中出现 7 次，成功运行中为 0
+    次，且跳过位置固定在第 40–47 轮，另有运行跳过第 24–31 轮。'
+  excerpt:
+  - 'A striking failure recurs at a fixed location: among the runs that get past round
+    47, several skip exactly rounds 40 through 47, so the driver’s per-round tool
+    calls jump straight from round 39 to round 48 and it finalizes with a short block.'
+  - In our corpus this appears in 7 long runs and, tellingly, in none of the successful
+    ones.
+  - A couple of runs skip rounds 24 to 31 as well (the back half of the G quarter).
+  page: '6'
+- name: Worker modular wrap-around error
+  desc: '[claim] worker 的主要算术错误是模约简时减去错误的 2^32 倍数；[evidence] 论文报告 worker 常能得到正确的未约简和，却减去错误倍数，并常在推理中通过比较量级自我修正，三次多数投票可纠正剩余错误，但未提供逐原语计数。'
+  excerpt:
+  - 'The characteristic worker error is in the modular reduction of mix_step/add_states:
+    it reasons its way to the correct unreduced sum but subtracts the wrong multiple
+    of 232.'
+  - The worker frequently catches and fixes this itself mid-reasoning by comparing
+    magnitudes, and what it misses in one sample is corrected by the majority vote
+    across three.
+  page: 5-6
+- name: Route-dependent latency
+  desc: '[claim] 服务路由会显著改变延迟并可能影响历史正确率；[evidence] 在相同 serverless 权重下，gateway 路径约 2.5
+    秒/步，而 direct 路径约 13 秒/步，差异约 5 倍，但正文只定性提及历史正确率差异。'
+  excerpt:
+  - For the same serverless weights, route changes latency by ∼5× (a gateway path
+    ≈2.5 s per step vs. a direct path ≈13 s per step) and, historically, correctness
+    (dedicated vs. shared; quantization / precision).
+  page: '6'
