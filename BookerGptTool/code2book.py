@@ -332,6 +332,7 @@ class Code2BookOrchestrator:
         ]
         total_funcs = self._code_descs_total_funcs(code_desc_ch)
 
+        l = len(str(len(outline_chs)))
         detail_fname = f'detail_{str(idx+1).zfill(l)}.yaml'
         detail_fname = path.join(self.pj_dir, detail_fname)
         if path.isfile(detail_fname):
@@ -365,9 +366,6 @@ class Code2BookOrchestrator:
             logger.warn(f'[4] 细纲 {idx+1} 校验失败：\n{prob}')
             detail = self.agent.fix_detail(idx, detail, outline_chs, code_desc_ch, prob)
 
-        l = len(str(len(outline_chs)))
-        detail_fname = f'detail_{str(idx+1).zfill(l)}.yaml'
-        detail_fname = path.join(self.pj_dir, detail_fname)
         self._write_yaml(detail_fname, detail)
         return idx, detail
 
@@ -415,6 +413,7 @@ class Code2BookOrchestrator:
             if d.file in code_fname_set
         ]
 
+        l = len(str(len(outline_chs)))
         body_fname = f'article_{str(idx+1).zfill(l)}.md'
         body_fname = path.join(self.pj_dir, body_fname)
         if path.isfile(body_fname) and \
@@ -436,9 +435,6 @@ class Code2BookOrchestrator:
             logger.info(cmt)
             body = self.agent.fix_body(detail, body, cmt, code_desc_ch)
 
-        l = len(str(len(outline_chs)))
-        body_fname = f'article_{str(idx+1).zfill(l)}.md'
-        body_fname = path.join(self.pj_dir, body_fname)
         open(body_fname, 'w', encoding='utf8').write(body)
 
         return idx, body
