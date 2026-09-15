@@ -126,7 +126,7 @@ class Code2BookMixin:
         return detail_funcs
 
 
-class Code2BookCheckOerchestrator(Code2BookMixin):
+class Code2BookCheckOrchestrator(Code2BookMixin):
 
     def __init__(self, args):
         self.args = args
@@ -656,6 +656,13 @@ class Code2BookOrchestrator(Code2BookMixin):
 
         logger.info('[*] 已完成')
 
+def code2book_check(args):
+    """入口函数：创建编排器并运行。"""
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        oai_logger.setLevel(logging.DEBUG)
+    orchestrator = Code2BookCheckOrchestrator(args)
+    orchestrator.run()
 
 def code2book(args):
     """入口函数：创建编排器并运行。"""
@@ -676,3 +683,13 @@ def reg_subparser(subparsers):
     code2book_parser.add_argument("-cl", "--code-limit", type=int, default=35_000, help="max code length in single prompt")
     code2book_parser.add_argument("-co", "--code-overlap", type=int, default=500, help="code overlap in every chunk")
     code2book_parser.set_defaults(func=code2book)
+
+    code2book_parser = subparsers.add_parser("code2book-check", help="code to book checker")
+    code2book_parser.add_argument('dir', help='proj dir name with _code2book')
+    code2book_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    code2book_parser.add_argument("-c", "--check", type=int, default=3, help="check times")
+    code2book_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
+    code2book_parser.add_argument("-co", "--check-outline", action='store_true', help="whether to check outline")
+    code2book_parser.add_argument("-cd", "--check-detail", action='store_true', help="whether to check detail")
+    code2book_parser.add_argument("-cb", "--check-body", action='store_true', help="whether to check body")
+    code2book_parser.set_defaults(func=code2book_check)
