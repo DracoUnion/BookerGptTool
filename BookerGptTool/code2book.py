@@ -191,10 +191,10 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
         detail: Detail, 
         code_desc: List[CodeDescItemResult],
     ):
-        logger.info(f'[2] 校验 {body_fname}')
+        logger.info(f'[3] 校验 {body_fname}')
         body = open(body_fname, encoding='utf8').read()
         if not body:
-            logger.warn(f'[2] {body_fname} 加载失败')
+            logger.warn(f'[3] {body_fname} 加载失败')
             return
         idx = int(re.search(r'article_(\d+)\.md', body_fname).group(1))
         code_fnames = [
@@ -210,13 +210,13 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
         body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
 
         # 校验正文
-        logger.info(f'[2] 校验正文 {idx + 1}')
+        logger.info(f'[3] 校验正文 {idx + 1}')
         for _ in range(self.args.check):
             cmt = self.agent.check_body(body, detail)
             if '[PERFECT/]' in cmt:
-                logger.info(f'[2] 正文 {idx + 1} 校验完成')
+                logger.info(f'[3] 正文 {idx + 1} 校验完成')
                 break
-            logger.info(f'[2] 正文 {idx + 1} 校验未通过')
+            logger.info(f'[3] 正文 {idx + 1} 校验未通过')
             logger.info(cmt)
             body = self.agent.fix_body(detail, body, cmt, code_desc_ch)
 
