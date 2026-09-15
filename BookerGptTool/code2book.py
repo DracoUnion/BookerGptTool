@@ -247,7 +247,36 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
                 self._collect_hdls()
         self._collect_hdls()
 
-        
+    def _check_outline(self, outline_chs, code_desc):
+        pass
+
+    def run(self):
+        outline_fname = path.join(self.pj_dir, 'outline.yaml')
+        outline = self._load_yaml(outline_fname, List[OutlinePartResult])
+        if outline is None:
+            logger.fatal(f'[1] 大纲加载失败')
+            return
+        outline_chs = sum([pt.chapters for pt in outline], [])
+        code_desc_fnames = [
+            path.join(self.pj_dir, f) 
+            for f in os.listdir(self.pj_dir)
+            if re.search(r'_desc\.yaml$', f)
+        ]
+        code_desc = [
+            self._load_yaml(f, CodeDescItemResult)
+            for f in code_desc_fnames
+        ]
+        code_desc = list(filter(None, code_desc))
+        if not code_desc:
+            logger.fatal(f'[1] 源码描述加载失败')
+            return
+        if self.args.check_outline:
+            self._check_outline(outline_chs, code_desc)
+        if self.args.check_detail:
+            self._check_detail(outline_chs, code_desc)
+        if self.args.check_body:
+            self._check_body(outline_chs, code_desc)
+        logger.info('[*] 校验完成')
 
 class Code2BookOrchestrator(Code2BookMixin):
     """编排器：协调文件探索、LLM 调用和持久化，驱动整个 code2book 流程。"""
