@@ -1,0 +1,367 @@
+paper: 2609.00038.pdf
+desc: 该论文提出一个以构造方式获得真值的工具使用智能体轨迹评测框架：用确定性支持台环境、可证明正确的脚本 oracle、六类单故障注入器和重放机制生成 400
+  条带精确标签的轨迹，并在检测、定位、故障分类、校准和成本五个维度比较五类 judge；其核心发现是 outcome-only judge 对结果仍正确的 silent
+  faults 存在显著盲区，而全轨迹 step-rubric 能大幅改善过程检测，但最终回复中的 unsupported claims 仍难以被稳定识别。
+concepts:
+- name: Outcome-survival stratification（结果存续分层）
+  desc: 将故障按客户可见结果是否保持正确分为 silent 与 loud，以避免 pooled recall 掩盖 outcome-only 评测的结构性盲区。
+  is_original: true
+  excerpt:
+  - The stratification by outcome survival is the move that makes the measurement
+    possible.
+  - A fault is silent iff y ∧ω and loud iff y ∧¬ω.
+  - Pooled over all faults, the outcome-only judge’s recall is a respectable-looking
+    0.61. Split it, and the number decomposes into 0.840 on faults that broke the
+    answer against 0.451 on faults that did not.
+  page: 1-2, 5-6
+- name: Correct-by-construction ground truth（构造式真值）
+  desc: 通过确定性环境、可证明正确的 oracle、单点故障注入和一致性重放，使每条轨迹天然带有故障性、故障步骤、故障类型和结果存续标签，而无需人工标注。
+  is_original: true
+  excerpt:
+  - We escape the circle by construction.
+  - 'Every trajectory therefore carries an exact label at zero annotation cost: faulty
+    or not, at which step, of which type, and whether the customer-visible outcome
+    survived.'
+  page: 1-3
+- name: Permissive environment and strict checker（宽松环境与严格检查器）
+  desc: 环境允许代理跳过流程或违反规则后仍产生正确结果，而 checker 负责判定过程错误；这种不对称设计使 silent failures 可被测量。
+  is_original: true
+  excerpt:
+  - The environment is permissive and the checker is strict.
+  - issue_refund will refund an order whose eligibility was never checked, exactly
+    as a real payments API would. Nothing in the world stops an agent from skipping
+    the process; only the rule checker says it was wrong.
+  page: 3, 12
+- name: Six-type fault taxonomy（六类故障分类体系）
+  desc: 论文定义了六类单故障：skipped_precondition、hallucinated_argument、ignored_observation、premature_stop、wrong_tool
+    和 unsupported_claim，并明确每类故障的规则覆盖率与结果存续情况。
+  is_original: true
+  excerpt:
+  - Table 1 lists the six types.
+  - 'skipped_precondition: refund without the eligibility check; hallucinated_argument:
+    policy fetched for an invented SKU; ignored_observation: refund of an unauthorised
+    amount; premature_stop: truncated before acting or replying; wrong_tool: re-fetches
+    the order instead of the policy; unsupported_claim: invented promise appended
+    to the reply.'
+  page: 4, 13
+- name: Single-fault mutation and replay consistency（单故障突变与重放一致性）
+  desc: 每次注入只修改 oracle 调用列表中的一个步骤，并在新鲜环境中重放以重新生成观察，从而保证突变轨迹内部一致且只违反一条规则。
+  is_original: true
+  excerpt:
+  - Each mutation edits the call list only (one edit, one step) and then replays the
+    edited list against a fresh environment, regenerating every observation.
+  - mutations are constructed to break exactly one rule.
+  page: 3, 13
+- name: Judge view as experimental variable（judge 视图隔离）
+  desc: 论文将 judge 是否能看到完整轨迹作为唯一实验变量，比较 outcome-only 视图 Vout=(g,a) 与 full-trajectory
+    视图 Vstep。
+  is_original: true
+  excerpt:
+  - The outcome-only view is Vout(τ) = (g, a); the step view Vstep(τ) is the full
+    rendering.
+  - 'The two single-pass LLM judges are the same judge with a different view: identical
+    model, decoding, procedure text, taxonomy, and confidence instruction; the only
+    free variable is whether the rendering includes the steps.'
+  page: 3-4
+- name: Structural zero and rule expressibility（结构性零覆盖与规则可表达性）
+  desc: 规则检查器对 wrong_tool 和 unsupported_claim 的零覆盖率不是随机误差，而是由规则语言的表达能力决定：规则不表达工具意图，也不读取回复文本。
+  is_original: true
+  excerpt:
+  - 'The two zeros are the point: a plausible-but-wrong tool choice breaks no rule,
+    and an invented sentence in the reply is not a rule violation at all; both need
+    something that reads.'
+  - none of them expresses tool intent ... and none of them reads reply text
+  page: 4, 12
+- name: Unsupported claim（无证据支持的最终声明）
+  desc: unsupported_claim 是指代理完整遵循流程，却在最终回复中加入观察结果不支持的承诺或事实；该故障位于最终答案中，难以被轨迹级 judge
+    捕获。
+  is_original: true
+  excerpt:
+  - unsupported_claim follows the procedure perfectly and appends one invented sentence
+    to the reply.
+  - Giving a judge the whole trajectory makes it better at everything except the failure
+    that lives in the answer
+  page: 7, 13
+- name: Capability floor and always-say-faulty baseline（能力下限与全报故障基线）
+  desc: 论文指出高 recall 可能只是 judge 倾向于报告 faulty 的结果，因此必须用 always-say-faulty 基线检查候选 judge
+    的能力下限。
+  is_original: true
+  excerpt:
+  - step (8B) is the always-say-faulty baseline wearing a judge’s clothes
+  page: '7'
+- name: Detection, localisation and typing separation（检测、定位与分类分离）
+  desc: 发现故障、定位故障步骤和命名故障类型是不同任务；高检测率不保证高归因准确率。
+  is_original: true
+  excerpt:
+  - Detecting a fault and naming it are different problems.
+  - The step judge detects nearly everything (F1 0.923) and misattributes a third
+    of what it detects (type macro-F1 0.606).
+  page: '8'
+- name: Capability versus prevalence（能力与流行率分离）
+  desc: 均匀注入故障用于测量 judge 能捕获什么，而自然故障分布用于描述部署中故障多常发生；两者不能混为一谈。
+  is_original: true
+  excerpt:
+  - The benchmark measures what a judge is capable of catching, not how often each
+    fault occurs in deployment.
+  page: '8'
+- name: Vote-share calibration coarseness（投票比例校准的结构性粗糙）
+  desc: 在 k=3 的 self-consistency ensemble 中，投票比例只能表达 2/3 和 1 两个置信度值，因此其校准对象比单一 judge
+    的连续自报置信度更粗糙。
+  is_original: true
+  excerpt:
+  - the ensemble’s vote share ... is structurally coarser than a stated number at
+    small k.
+  - at k=3 can express exactly two values, 2/3 and 1.
+  page: 2, 5, 7-8
+- name: Offline-reproducible artifact（离线可复现制品）
+  desc: 论文发布环境、oracle、注入器、400 条轨迹、2000 个原始 verdict 和分析管线，使所有表格、图形和区间无需模型调用即可重建。
+  is_original: true
+  excerpt:
+  - Every number in this paper regenerates offline.
+  - The released artifact carries the environment, oracle, injector, and judges; the
+    400 labelled trajectories and all 2000 raw verdicts; and the analysis pipeline
+  page: '9'
+methods:
+- name: __overview__
+  desc: 论文整体方法论是固定代理和真实标签，将五类 judge 放在同一组 400 条轨迹上进行检测、定位、分类、校准和成本比较。
+  excerpt:
+  - 'This paper holds the agent fixed and puts the judges on the bench: every judge
+    error is attributable to the judge.'
+  - A controlled comparison of five judge designs on five axes (detection, localisation,
+    typing, calibration, cost) with stratified bootstrap confidence intervals
+  page: 1-2
+- name: Deterministic support-desk testbed（确定性支持台测试环境）
+  desc: 构建包含七个工具、六类实例分层和书面 SOP 的客户支持环境，用环境的确定性生成可重复轨迹。
+  excerpt:
+  - The environment is a customer-support desk with seven tools (get_customer, lookup_order,
+    get_policy, check_eligibility, issue_refund, escalate, reply) and a written standard
+    operating procedure
+  - Instances are generated in six strata
+  page: 3, 11-12
+- name: Correct oracle policy with tests（带测试的可证明正确 oracle）
+  desc: 使用固定六步脚本 oracle，并通过覆盖所有实例的测试断言其不违反规则且达到预期结果。
+  excerpt:
+  - 'The oracle is a fixed six-step script, identical across strata up to one branch:
+    verify, look up, read the policy for the SKU returned by the lookup observation,
+    check eligibility, then refund the authorised amount if eligible and escalate
+    otherwise, and reply.'
+  - A test parametrised over all instances asserts it violates no rule and reaches
+    the expected outcome; correctness is computed, not assumed.
+  page: 3, 13
+- name: Six-type single-fault injector（六类单故障注入器）
+  desc: 在 oracle 调用列表的已知步骤上进行一次编辑，生成六类故障，并在新鲜环境中重放以保持观察一致性。
+  excerpt:
+  - Each mutation edits the call list only (one edit, one step) and then replays the
+    edited list against a fresh environment, regenerating every observation.
+  - Injection is string-seeded per (instance, type), so the set is deterministic.
+  page: 3-4, 13
+- name: Rule-engine checker（规则引擎检查器）
+  desc: 规则引擎对轨迹进行一次从左到右的扫描，维护 grounded values 池并执行八条关于 grounding、顺序、金额、身份和终止性的规则。
+  excerpt:
+  - A checker walks each trajectory once, maintaining a pool of grounded values seeded
+    from the goal, and enforces eight rules over grounding, ordering, amounts, identity,
+    and terminality
+  - The rule engine ... covers four of the six fault types at 100% and two at exactly
+    0%, structurally.
+  page: 3-4, 12
+- name: Controlled five-judge comparison（五类 judge 的受控比较）
+  desc: 比较 rules、outcome-only 14B、step 14B、step 8B 和 self-consistency ensemble；两个单
+    pass LLM judge 使用相同模型设置、SOP、分类体系和置信度指令，仅改变可见轨迹范围。
+  excerpt:
+  - Both LLM judges receive the same standard operating procedure and the same failure
+    taxonomy, word for word.
+  - The context window is set explicitly (num_ctx=8192) because the serving default
+    would silently truncate a rendered trajectory
+  page: 4-5
+- name: Self-consistency ensemble（自一致性集成）
+  desc: 对 step judge 进行三次温度采样，以严格多数投票形成 verdict，并将投票比例作为置信度。
+  excerpt:
+  - The self-consistency ensemble runs the step judge k=3 times at T=0.7 with a strict-majority
+    vote; its confidence is the vote share
+  page: 4, 7
+- name: Five-axis evaluation metrics（五维评估指标）
+  desc: 检测使用 precision、recall 和 F1；定位使用故障步骤精确匹配；分类使用六类 macro-F1；校准使用 ECE 和 Brier score；成本使用单轨迹
+    wall-clock seconds。
+  excerpt:
+  - 'Detection is binary at the trajectory level: precision, recall, and F1 over all
+    400 trajectories, plus the three-way partition that carries the paper: silent
+    recall, loud recall, and the false-alarm rate on clean trajectories.'
+  - Calibration is expected calibration error ... with ten equal-width bins, population-weighted,
+    against the binary verdict
+  page: '5'
+- name: Stratified paired bootstrap（分层配对 bootstrap）
+  desc: 在八个设计单元内保持样本边际进行 10,000 次分层配对百分位 bootstrap，并用同一重采样索引计算 judge 之间的 paired deltas。
+  excerpt:
+  - 'Every interval in this paper is a 95% stratified paired percentile bootstrap
+    over trajectories: B=10,000 replicates, resampling within the eight design cells'
+  - one shared resample across all five judges per replicate, which is what licenses
+    the paired deltas
+  page: 5, 15
+- name: Organic agent episodes（自然智能体片段）
+  desc: 额外让 qwen2.5:14b 在相同流程下运行 60 个自然 agent 片段，并将自然故障分布与受控注入实验分开报告。
+  excerpt:
+  - To check what the distribution looks like in the wild, we let qwen2.5:14b drive
+    the agent for 60 episodes under the same procedure text the judges receive
+  - Those are different questions, and only the first is answered here.
+  page: 8, 15-16
+- name: Offline reproducibility pipeline（离线复现管线）
+  desc: 通过固定种子、命名测试、原始 verdict、分析脚本和持续集成，确保论文中的数字可以从提交的数据离线重建并在漂移时失败。
+  excerpt:
+  - Continuous integration rebuilds the published tables from the committed raw verdicts
+    and fails on any drift
+  - 'Determinism is pinned by named tests: seeded instance generation, string-seeded
+    mutation, byte-identical report rebuilds, and a deterministic shuffle'
+  page: '9'
+theorems:
+- name: Proposition 1 — Ground truth by construction
+  desc: 在确定性环境、正确 oracle、单点突变和重放一致性的组合下，每条轨迹的故障性、故障步骤、故障类型和结果存续标签可由构造确定，无需人工标注。
+  excerpt:
+  - 'Every trajectory therefore carries an exact label at zero annotation cost: faulty
+    or not, at which step, of which type, and whether the customer-visible outcome
+    survived.'
+  - correctness is computed, not assumed.
+  page: 1, 3
+- name: Proposition 2 — Silent-fault observability
+  desc: 只有当环境允许代理违反过程规则却仍产生正确客户可见结果时，silent fault 才能被观测和测量；宽松环境是实验成立的必要条件。
+  excerpt:
+  - The environment is permissive and the checker is strict.
+  - without it there would be no silent failures to measure
+  page: '3'
+- name: Proposition 3 — Structural rule coverage
+  desc: 规则检查器对四类故障实现 100% 覆盖，但对 wrong_tool 和 unsupported_claim 实现结构性 0% 覆盖；这两个零不是估计误差，而是规则表达能力造成的。
+  excerpt:
+  - It covers four of the six fault types at 100% and two at exactly 0%, structurally.
+  - Both zeros are pinned by a test that fails if they ever change.
+  page: 3-4, 12
+- name: Proposition 4 — View-isolation effect
+  desc: 在模型、解码、流程文本、分类体系和置信度指令完全相同的情况下，仅将输入从最终答案扩展到完整轨迹，就会显著提高 silent recall 并消除 false
+    alarms。
+  excerpt:
+  - The outcome and step judges are the same model, decoding, procedure, and taxonomy;
+    the only difference is the view.
+  - Changing Vout to Vstep moves silent recall from 0.451 to 0.766 ... and false alarms
+    from 0.330 to zero.
+  page: '6'
+- name: Proposition 5 — Recall near false-alarm rate is not detection
+  desc: 当 recall 接近 judge 在干净轨迹上的 false-alarm rate 时，该 recall 主要反映 judge 报告 faulty
+    的基线倾向，而不是检测能力。
+  excerpt:
+  - recall at or near a judge’s false-alarm rate is not detection; it measures the
+    judge’s baseline willingness to say faulty
+  - step (8B) ... flags 397 of 400 trajectories
+  page: 5, 7
+- name: Proposition 6 — Detection and attribution are distinct
+  desc: 轨迹级检测性能不能直接迁移到故障类型归因性能；一个 judge 可以几乎检测所有故障，却仍错误命名大量故障类型。
+  excerpt:
+  - Detecting a fault and naming it are different problems.
+  - The step judge detects nearly everything (F1 0.923) and misattributes a third
+    of what it detects (type macro-F1 0.606).
+  page: '8'
+- name: Proposition 7 — Ensemble confidence resolution at k=3
+  desc: 三次投票的 ensemble 只能输出两个置信度值，因此投票比例在结构上无法提供细粒度校准；若错误是系统性的，投票也不会消除错误。
+  excerpt:
+  - at k=3 can express exactly two values, 2/3 and 1.
+  - voting sharpened nothing because the errors are not sampling noise
+  page: 5, 7
+- name: Proposition 8 — Capability and prevalence are separate targets
+  desc: 均匀故障注入实验测量的是 judge 的能力边界，而自然运行中的故障比例测量的是部署流行率；两者必须分开报告。
+  excerpt:
+  - The benchmark measures what a judge is capable of catching, not how often each
+    fault occurs in deployment.
+  page: '8'
+findings:
+- name: Outcome-only judge has a silent-fault blind spot
+  desc: '[claim] 作者认为 outcome-only evaluation 对过程故障存在结构性盲区；[evidence] Table 3 显示 loud
+    recall 为 0.840 [0.78, 0.90]，silent recall 仅为 0.451 [0.38, 0.52]，同时在 100 条干净轨迹上产生
+    0.330 [0.24, 0.43] 的 false-alarm rate。'
+  excerpt:
+  - The outcome-only judge catches 84% of loud faults but 45% of silent ones while
+    flagging 33% of correct trajectories
+  - The outcome judge catches 0.840 [0.78, 0.90] of loud faults but only 0.451 [0.38,
+    0.52] of silent ones, while flagging 0.330 [0.24, 0.43] of clean trajectories.
+  page: 1, 5-6
+- name: Step-rubric 14B closes most of the silent blind spot
+  desc: '[claim] 作者主张全轨迹 step-rubric 能在不牺牲干净轨迹特异性的情况下显著改善过程检测；[evidence] step 14B
+    的 silent recall 为 0.766 [0.74, 0.80]、loud recall 为 0.984、clean false alarms 为
+    0，步骤精确定位为 0.973(223)，ECE 为 0.033，但成本升至 10.4 s/traj。'
+  excerpt:
+  - the step judge at the same model reaches 0.766 [0.74, 0.80] silent recall with
+    zero false alarms across 100 clean trajectories
+  - Its localisation is nearly exact (0.973 over its 223 scored cases) and its stated
+    confidence is nearly honest (ECE 0.033 against the outcome judge’s 0.253).
+  page: 5-6
+- name: Rule engine is free and exact where faults are rule-expressible
+  desc: '[claim] 作者认为规则引擎在规则可表达的故障上是零成本、无假阳性且定位完美的基线；[evidence] rules 的 loud recall=1.000、false
+    alarms=0、step exact=1.000(200)、type F1=0.667、cost=0，但 silent recall 只有 0.429，因为两类故障超出规则表达能力。'
+  excerpt:
+  - The rule engine is free, perfectly localised, never false-alarms, and types faults
+    better than any model (0.667 macro-F1)
+  - 'It still misses more than half the silent faults (0.429), with no better version
+    possible: two of the six types are outside what rules can express.'
+  page: '5'
+- name: Unsupported claims are not reliably caught by any judge
+  desc: '[claim] 作者认为 unsupported_claim 暴露了最终回复证据核验与轨迹核验之间的缺口；[evidence] rules 对该类故障为
+    0%，step 14B 为 0.18 [0.08, 0.30]，ensemble 为 0.16，而 outcome judge 的 0.50 仅略高于其 0.330
+    的假阳性基线。'
+  excerpt:
+  - 'The rule engine catches it 0% of the time, structurally: no rule reads the reply.'
+  - The step judge, which is shown the reply and has the type in its taxonomy, catches
+    0.18 [0.08, 0.30]; the ensemble 0.16.
+  - The outcome judge’s 0.50 looks better until read against its 0.330 false-alarm
+    rate
+  page: 7, 13
+- name: Self-consistency ensembling gives no quality return for 3× cost
+  desc: '[claim] 作者将 self-consistency 的结果作为负面发现，认为系统性错误不会被多数投票消除；[evidence] 相比单次 step
+    judge，ensemble 的 F1、silent recall、type F1 和定位差异均在重采样噪声内，ECE 反而增加 0.051 [0.039,
+    0.071]，成本从 10.4 增至 30.2 s/traj，unsupported_claim recall 从 0.18 降至 0.16。'
+  excerpt:
+  - every quality delta is within resampling noise ... while calibration is measurably
+    worse ... and cost is deterministically 3×
+  - unsupported_claim goes 0.18 →0.16, meaning all three samples miss the same invented
+    promises.
+  page: 7-8
+- name: The 8B judge behaves like an always-say-faulty baseline
+  desc: '[claim] 作者认为 step 8B 的高 recall 不能解释为真实能力，而应视为 always-say-faulty 基线；[evidence]
+    它在 400 条轨迹中标记 397 条，false-alarm rate=1.000，F1=0.852，且其理由平均只有 57 个 completion tokens，而
+    14B judge 为 391 个。'
+  excerpt:
+  - step (8B) is the always-say-faulty baseline wearing a judge’s clothes
+  - it flags 397 of 400 trajectories, so its recall is 1.00 nearly everywhere, its
+    false-alarm rate is 1.00, and its F1 of 0.852 is the base rate of faults in the
+    set
+  page: '7'
+- name: Detection performance does not imply accurate fault typing
+  desc: '[claim] 作者主张检测与归因必须分开评估；[evidence] step 14B 的检测 F1 为 0.923，但类型 macro-F1 仅
+    0.606；它找出全部 50 个 hallucinated_argument 案例，却将其中 35 个误标为 wrong_tool。'
+  excerpt:
+  - The step judge detects nearly everything (F1 0.923) and misattributes a third
+    of what it detects (type macro-F1 0.606).
+  - it finds all 50 hallucinated_argument cases and calls 35 of them wrong_tool.
+  page: 8, 15-16
+- name: Pooled recall hides the outcome-survival gap
+  desc: '[claim] 作者认为不区分结果存续会严重误导 judge 评测；[evidence] outcome-only judge 的 pooled
+    recall 看似为 0.61，但分解后 loud recall=0.840、silent recall=0.451，二者差距为 +0.389 [0.296,
+    0.482]。'
+  excerpt:
+  - Pooled over all faults, the outcome-only judge’s recall is a respectable-looking
+    0.61. Split it, and the number decomposes into 0.840 ... against 0.451
+  - Within the outcome judge, the loud−silent gap is +0.389 [0.296, 0.482].
+  page: 1-2, 6
+- name: Organic faults are concentrated and unlike the injected distribution
+  desc: '[claim] 作者认为注入实验回答的是能力问题，而不是部署流行率问题；[evidence] 60 个自然片段中 13 个被标记或得到错误结果，其中
+    10 个破坏结果、3 个 silent；所有规则可见故障都是 premature_stop，且 10/10 already_refunded 片段失败、3/10
+    wrong_customer 片段失败。'
+  excerpt:
+  - 13 of 60 episodes are flagged or reach a wrong outcome; 10 break the customer-visible
+    outcome and 3 are silent.
+  - Every rule-visible fault is a premature_stop
+  - The organic distribution is nothing like uniform
+  page: 8, 15-16
+- name: All reported numbers are offline-reproducible
+  desc: '[claim] 作者宣称论文中的每个数字都可以离线重建；[evidence] 发布物包含 400 条标注轨迹、2000 个原始 verdict、环境、oracle、注入器、judge
+    和分析管线，并通过持续集成检查表格漂移。'
+  excerpt:
+  - Every number in this paper regenerates offline.
+  - The released artifact carries the environment, oracle, injector, and judges; the
+    400 labelled trajectories and all 2000 raw verdicts; and the analysis pipeline
+  page: '9'
