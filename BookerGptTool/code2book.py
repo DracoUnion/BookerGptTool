@@ -175,6 +175,7 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
         outline_chs: List[OutlineChapterResult],
         code_desc: List[CodeDescItemResult],
     ):
+        logger.info('[2] 校验细纲')
         detail_fnames = [
             path.join(self.pj_dir, f)
             for f in os.listdir(self.pj_dir)
@@ -220,6 +221,32 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
 
         open(body_fname, 'w', encoding='utf8').write(body)
 
+    def _check_body(
+        self,
+        outline_chs: List[OutlineChapterResult], 
+        code_desc: List[CodeDescItemResult],
+    ):
+        logger.info('[3] 校验正文')
+        body_fnames = [
+            path.join(self.pj_dir, f)
+            for f in os.listdir(self.pj_dir)
+            if re.search(r'^article_\d+\.md$', f)
+        ]
+        for f in tqdm(body_fnames):
+            idx = int(re.search(r'article_(\d+)\.md$', f).group(1))
+            detail_fname = path.join(self.pj_dir, f'detail_{idx}.yaml')
+            detail = self._load_yaml(detail_fname, Detail)
+            if detail is None:
+                logger.warn(f'[3] {detail_fname} 不存在')
+                continue
+            h = self.pool.submit(
+                self._tr_check_body,
+                f, outline_chs, detail, code_desc,
+            )
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                self._collect_hdls()
+        self._collect_hdls()
 
         
 
