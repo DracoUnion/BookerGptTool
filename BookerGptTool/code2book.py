@@ -33,7 +33,34 @@ logger = logging.getLogger(__name__)
 
 from .code2book_agent import Code2BookAgent, expand_stars
 
-class Code2BookCheckOerchestrator:
+class YamlMixin:
+    # ── 持久化工具 ──────────────────────────────────────────
+
+    def _load_yaml(self, fname: str, model: type):
+        if path.isfile(fname) and \
+           path.getsize(fname):
+            try:
+                obj = yaml.safe_load(
+                    open(fname, encoding='utf8').read())
+            except yaml.error.YAMLError:
+                return None
+            return parse_obj_as(model, obj)
+
+    def _write_yaml(self, fname: str, obj: BaseModel | List[BaseModel]):
+        """在主线程中将 meta 写回 yaml 文件。"""
+        if isinstance(obj, BaseModel):
+            obj = obj.dict()
+        elif isinstance(obj, list):
+            obj = [
+                it.dict() if isinstance(it, BaseModel) else it
+                for it in obj
+            ]
+        with open(fname, 'w', encoding='utf8') as f:
+            f.write(yaml.safe_dump(obj, allow_unicode=True))
+            f.flush()
+
+
+class Code2BookCheckOerchestrator(YamlMixin):
 
     def __init__(self, args):
         self.args = args
@@ -45,7 +72,7 @@ class Code2BookCheckOerchestrator:
     def _check_detail(self):
 
 
-class Code2BookOrchestrator:
+class Code2BookOrchestrator(YamlMixin):
     """编排器：协调文件探索、LLM 调用和持久化，驱动整个 code2book 流程。"""
 
     SUPPORTED_EXTS = [
@@ -78,30 +105,6 @@ class Code2BookOrchestrator:
                write_callback()
         self.hdls = []
     
-    # ── 持久化工具 ──────────────────────────────────────────
-
-    def _load_yaml(self, fname: str, model: type):
-        if path.isfile(fname) and \
-           path.getsize(fname):
-            try:
-                obj = yaml.safe_load(
-                    open(fname, encoding='utf8').read())
-            except yaml.error.YAMLError:
-                return None
-            return parse_obj_as(model, obj)
-
-    def _write_yaml(self, fname: str, obj: BaseModel | List[BaseModel]):
-        """在主线程中将 meta 写回 yaml 文件。"""
-        if isinstance(obj, BaseModel):
-            obj = obj.dict()
-        elif isinstance(obj, list):
-            obj = [
-                it.dict() if isinstance(it, BaseModel) else it
-                for it in obj
-            ]
-        with open(fname, 'w', encoding='utf8') as f:
-            f.write(yaml.safe_dump(obj, allow_unicode=True))
-            f.flush()
 
     # ── 文件探索 ────────────────────────────────────────────
 
