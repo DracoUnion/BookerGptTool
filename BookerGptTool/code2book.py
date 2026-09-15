@@ -412,7 +412,7 @@ class Code2BookOrchestrator:
     ) -> Tuple[int, str]:
         logger.info(f'[5] 编写第{idx+1}章正文')
         
-        body_fname = f'article_{str(i+1).zfill(l)}.md'
+        body_fname = f'article_{str(idx+1).zfill(l)}.md'
         body_fname = path.join(self.pj_dir, body_fname)
         if path.isfile(body_fname) and \
            path.getsize(body_fname):
