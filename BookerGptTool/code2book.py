@@ -169,10 +169,9 @@ class Code2BookOrchestrator:
     ):
         logger.info('[3] 划分部分')
         part_clus_fname = path.join(self.pj_dir, 'parts.yaml')
-        if path.isfile(part_clus_fname):
-            parts = yaml.safe_load(
-                open(part_clus_fname, encoding='utf8').read())
-            return parse_obj_as(List[PartClusResult], parts)
+        parts = self._load_yaml(part_clus_fname, List[PartClusResult])
+        if parts is not None:
+            return parts
 
         if len(fnames) <= self.args.chapter_limit:
             parts = [PartClusResult(no=1, title='全书', files=fnames)]
@@ -342,10 +341,8 @@ class Code2BookOrchestrator:
         l = len(str(len(outline_chs)))
         detail_fname = f'detail_{str(idx+1).zfill(l)}.yaml'
         detail_fname = path.join(self.pj_dir, detail_fname)
-        if path.isfile(detail_fname):
-            detail = yaml.safe_load(
-                open(detail_fname, encoding='utf8').read())
-            detail = Detail(**detail)
+        detail = self._load_yaml(detail_fname, Detail)
+        if detail is not None:
             return idx, detail
         
         code_fnames = [
