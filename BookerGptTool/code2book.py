@@ -33,6 +33,16 @@ logger = logging.getLogger(__name__)
 
 from .code2book_agent import Code2BookAgent, expand_stars
 
+class Code2BookCheckOerchestrator:
+
+    def __init__(self, args):
+        self.args = args
+        self.agent = Code2BookAgent( args)
+        self.pj_dir = args.dir
+        self.pool = ThreadPoolExecutor(args.threads)
+        self.hdls: List[Future] = []
+
+    def _check_detail(self):
 
 
 class Code2BookOrchestrator:
@@ -70,7 +80,17 @@ class Code2BookOrchestrator:
     
     # ── 持久化工具 ──────────────────────────────────────────
 
-    def _write_yaml(self, fname, obj):
+    def _load_yaml(self, fname: str, model: type):
+        if path.isfile(fname) and \
+           path.getsize(fname):
+            try:
+                obj = yaml.safe_load(
+                    open(fname, encoding='utf8').read())
+            except yaml.error.YAMLError:
+                return None
+            return parse_obj_as(model, obj)
+
+    def _write_yaml(self, fname: str, obj: BaseModel | List[BaseModel]):
         """在主线程中将 meta 写回 yaml 文件。"""
         if isinstance(obj, BaseModel):
             obj = obj.dict()
