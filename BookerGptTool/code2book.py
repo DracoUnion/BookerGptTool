@@ -404,6 +404,17 @@ class Code2BookOrchestrator:
     ) -> Tuple[int, str]:
         logger.info(f'[5] 编写第{idx+1}章正文')
         
+        code_fnames = [
+            c.file
+            for u in detail.units
+            for c in u.codes
+        ]
+        code_fname_set = set(code_fnames)
+        code_desc_ch = [
+            d for d in code_desc 
+            if d.file in code_fname_set
+        ]
+
         body_fname = f'article_{str(idx+1).zfill(l)}.md'
         body_fname = path.join(self.pj_dir, body_fname)
         if path.isfile(body_fname) and \
@@ -412,16 +423,6 @@ class Code2BookOrchestrator:
             if not self.args.force_check_body: 
                 return idx, body
         else:
-            code_fnames = [
-                c.file
-                for u in detail.units
-                for c in u.codes
-            ]
-            code_fname_set = set(code_fnames)
-            code_desc_ch = [
-                d for d in code_desc 
-                if d.file in code_fname_set
-            ]
             body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
 
         # 校验正文
