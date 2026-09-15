@@ -126,7 +126,11 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
         outline_chs: List[OutlineChapterResult],
         code_desc: List[CodeDescItemResult],
     ):
-        idx = int(re.search(r'\d+', detail_fname).group(1))
+        detail = self._load_yaml(detail_fname, Detail)
+        if detail is None:
+            logger.warn(f'{detail_fname} 加载失败')
+            return
+        idx = int(re.search(r'detail_(\d+)\.yaml', detail_fname).group(1))
         code_fnames = [
             f for pt in outline_chs[idx].nodes
             for f in pt.src
@@ -178,6 +182,45 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
                 self._collect_hdls()
         self._collect_hdls()
             
+
+    def _tr_check_body(
+        self,
+        body_fname: str,
+        outline_chs: List[OutlineChapterResult], 
+        detail: Detail, 
+        code_desc: List[CodeDescItemResult],
+    ):
+        body = open(body_fname, encoding='utf8').read()
+        if not body:
+            logger.warn(f'{body_fname} 加载失败')
+            return
+        idx = int(re.search(r'article_(\d+)\.md', body_fname).group(1))
+        code_fnames = [
+            c.file
+            for u in detail.units
+            for c in u.codes
+        ]
+        code_fname_set = set(code_fnames)
+        code_desc_ch = [
+            d for d in code_desc 
+            if d.file in code_fname_set
+        ]
+        body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
+
+        # 校验正文
+        logger.info(f'[5] 校验正文 {idx + 1}')
+        for _ in range(self.args.check):
+            cmt = self.agent.check_body(body, detail)
+            if '[PERFECT/]' in cmt:
+                logger.info(f'[5] 正文 {idx + 1} 校验完成')
+                break
+            logger.info(f'[5] 正文 {idx + 1} 校验未通过')
+            logger.info(cmt)
+            body = self.agent.fix_body(detail, body, cmt, code_desc_ch)
+
+        open(body_fname, 'w', encoding='utf8').write(body)
+
+
         
 
 class Code2BookOrchestrator(Code2BookMixin):
