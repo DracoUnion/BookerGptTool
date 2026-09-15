@@ -141,12 +141,12 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
         outline_chs: List[OutlineChapterResult],
         code_desc: List[CodeDescItemResult],
     ):
-        logger.warn(f'[2] 校验 {detail_fname}')
+        idx = int(re.search(r'detail_(\d+)\.yaml', detail_fname).group(1))
+        logger.warn(f'[2] 校验细纲 {idx+1}')
         detail = self._load_yaml(detail_fname, Detail)
         if detail is None:
-            logger.warn(f'[2] {detail_fname} 加载失败')
+            logger.warn(f'[2] 细纲 {idx+1} 加载失败')
             return
-        idx = int(re.search(r'detail_(\d+)\.yaml', detail_fname).group(1))
         code_desc_ch = self._code_desc_ch(detail, code_desc)
         total_funcs = self._code_descs_total_funcs(code_desc_ch)
 
@@ -198,12 +198,12 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
         detail: Detail, 
         code_desc: List[CodeDescItemResult],
     ):
-        logger.info(f'[3] 校验 {body_fname}')
+        idx = int(re.search(r'article_(\d+)\.md', body_fname).group(1))
+        logger.info(f'[3] 校验正文 {idx+1}')
         body = open(body_fname, encoding='utf8').read()
         if not body:
-            logger.warn(f'[3] {body_fname} 加载失败')
+            logger.warn(f'[3] 正文 {idx+1} 加载失败')
             return
-        idx = int(re.search(r'article_(\d+)\.md', body_fname).group(1))
         code_desc_ch = self._code_desc_ch(detail, code_desc)
         body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
 
