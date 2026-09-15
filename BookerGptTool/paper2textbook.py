@@ -1,0 +1,598 @@
+# -*- coding: utf-8 -*-
+"""
+paper2textbook.py —— 多篇论文到可溯源教科书的完整编排器。
+
+流程：
+1. 读取/抽取多篇论文，形成带页码与原文摘录的概念卡片；
+2. 按知识主题聚类论文，并校验论文覆盖；
+3. 依据论文聚类、概念卡片和领域综述生成章—知识点大纲；
+4. 逐章生成概念解析、学习目标、概念地图、练习等细纲并校验覆盖；
+5. 逐章生成正文，执行格式检查、跨章一致性检查和修订；
+6. 执行引用审计，合并章节并导出 Markdown/LaTeX/PDF。
+"""
+
+import html
+import json
+import logging
+import os
+import re
+import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from os import path
+from typing import Dict, List, Tuple
+
+import yaml
+from pydantic import BaseModel
+
+from .openai import logger as oai_logger
+from .paper2textbook_agent import Paper2TextbookAgent
+from .paper2textbook_models import *
+from .paper2textbook_pmt import *
+from .util import extname
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+SUPPORTED_PAPER_EXTS = {'md', 'markdown', 'tex', 'txt', 'pdf'}
+SUPPORTED_SURVEY_EXTS = {'md', 'markdown', 'tex', 'txt'}
+FORMAT_LABELS = {'md': 'Markdown', 'tex': 'LaTeX'}
+
+
+class Paper2TextbookOrchestrator:
+    """编排论文拆解、教学设计、章节写作和教材交付。"""
+
+    def __init__(self, args):
+        self.args = args
+        self.agent = Paper2TextbookAgent(args)
+        self.pool = ThreadPoolExecutor(max_workers=args.threads)
+        self.out = path.abspath(args.out)
+        self._paper_cache: Dict[str, str] = {}
+
+    # ── 通用 I/O 与缓存 ─────────────────────────────────
+
+    def _read_text(self, fname: str) -> str:
+        return open(fname, encoding='utf8').read()
+
+    def _write_text(self, fname: str, text: str) -> None:
+        os.makedirs(path.dirname(fname), exist_ok=True)
+        open(fname, 'w', encoding='utf8').write(text)
+
+    def _write_yaml(self, fname: str, obj) -> None:
+        data = obj.model_dump() if isinstance(obj, BaseModel) else obj
+        os.makedirs(path.dirname(fname), exist_ok=True)
+        with open(fname, 'w', encoding='utf8') as f:
+            yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+
+    def _read_yaml(self, fname: str, model):
+        if not path.isfile(fname) or not path.getsize(fname):
+            return None
+        data = yaml.safe_load(open(fname, encoding='utf8').read())
+        if isinstance(model, type) and issubclass(model, BaseModel):
+            return model(**data)
+        # 用于 List[...] 这类泛型模型
+        return [model(**item) for item in data]
+
+    def _json_dump(self, obj) -> str:
+        if isinstance(obj, BaseModel):
+            obj = obj.model_dump()
+        return json.dumps(obj, ensure_ascii=False, indent=2)
+
+    def _json_load(self, text: str, model):
+        return model(**json.loads(text))
+
+    def _cache_file(self, stage: str, name: str, ext: str) -> str:
+        return path.join(self.out, stage, name + ext)
+
+    # ── 论文读取 ────────────────────────────────────────
+
+    def _discover_papers(self, source: str) -> List[Tuple[str, str]]:
+        if path.isfile(source):
+            if extname(source).lower() not in SUPPORTED_PAPER_EXTS:
+                raise ValueError(f'不支持的论文格式：{source}')
+            return [(path.basename(source), source)]
+        if path.isdir(source):
+            result = []
+            for root, _, files in os.walk(source):
+                for fname in sorted(files):
+                    full = path.join(root, fname)
+                    if extname(fname).lower() in SUPPORTED_PAPER_EXTS:
+                        rel = path.relpath(full, source).replace('\\', '/')
+                        result.append((rel, full))
+            if not result:
+                raise ValueError(f'目录 {source} 下没有 MD/TEX/TXT/PDF 文件')
+            return result
+        raise ValueError('请提供论文文件、论文目录或 ARXIV ID')
+
+    def _read_one(self, fname: str) -> str:
+        ext = extname(fname).lower()
+        if ext in {'md', 'markdown', 'tex', 'txt'}:
+            return self._read_text(fname)
+        if ext == 'pdf':
+            try:
+                import fitz
+            except ImportError as ex:
+                raise ValueError('读取 PDF 需要安装 PyMuPDF') from ex
+            with fitz.open(fname) as doc:
+                return '\n\n'.join(page.get_text() for page in doc)
+        raise ValueError(f'不支持的论文格式：{fname}')
+
+    def _load_papers(self) -> List[Tuple[str, str, str]]:
+        loaded = []
+        for paper_id, fname in self._discover_papers(self.args.dir):
+            cached = path.join(self.out, 'papers', paper_id)
+            if path.isfile(cached) and path.getsize(cached):
+                text = self._read_text(cached)
+            else:
+                text = self._read_one(fname)
+                os.makedirs(path.dirname(cached), exist_ok=True)
+                self._write_text(cached, text)
+            self._paper_cache[paper_id] = text
+            loaded.append((paper_id, fname, text))
+        return loaded
+
+    def _paper_list_text(self, papers: List[Tuple[str, str, str]]) -> str:
+        rows = []
+        for pid, fname, text in papers:
+            title = self._first_heading(text) or pid
+            abstract = self._abstract_text(text)
+            rows.append(
+                f'### {pid}\n\n- 文件：`{fname}`\n- 标题：{title}\n\n'
+                f'[content]\n{abstract}\n[/content]'
+            )
+        return '\n\n'.join(rows)
+
+    @staticmethod
+    def _first_heading(text: str) -> str:
+        m = re.search(r'^\s*#\s+(.+?)\s*$', text, re.M)
+        return m.group(1).strip() if m else ''
+
+    @staticmethod
+    def _abstract_text(text: str) -> str:
+        m = re.search(
+            r'(?is)(?:\\begin\{abstract\}|(?:^|\n)##?\s+Abstract\b)'
+            r'(.*?)(?:\\end\{abstract\}|(?=\n##?\s))',
+            text,
+        )
+        if m:
+            return m.group(1).strip()
+        return text[:4000]
+
+    # ── 概念卡片 ────────────────────────────────────────
+
+    def _extract_concepts(
+        self, paper_id: str, fname: str, text: str,
+    ) -> PaperConcepts:
+        cached = self._cache_file('concept_cards', paper_id, '.yaml')
+        saved = self._read_yaml(cached, PaperConcepts)
+        if saved:
+            return saved
+        # PDF 文本按页保留页码标记；其它格式从第 1 页开始。
+        start = '1'
+        if extname(fname).lower() == 'pdf':
+            start = '1'
+        result = self.agent.ext_concepts(text, paper_id, start)
+        self._write_yaml(cached, result)
+        return result
+
+    def step_extract_concepts(
+        self, papers: List[Tuple[str, str, str]],
+    ) -> List[PaperConcepts]:
+        logger.info('[1] 拆解论文并生成概念卡片')
+        cards = []
+        futures = [self.pool.submit(self._extract_concepts, *p) for p in papers]
+        for future in as_completed(futures):
+            cards.append(future.result())
+        cards.sort(key=lambda c: self._paper_id(c.paper))
+        all_cards = [self._json_dump(c) for c in cards]
+        self._write_text(path.join(self.out, 'concept_cards.json'), '\n\n'.join(all_cards))
+        return cards
+
+    @staticmethod
+    def _paper_id(pid: str) -> str:
+        m = re.search(r'(\d+)', str(pid))
+        return m.group(1) if m else str(pid)
+
+    # ── 聚类 ────────────────────────────────────────────
+
+    def _cluster_cache(self) -> str:
+        return path.join(self.out, 'parts.yaml')
+
+    def step_cluster_papers(
+        self, papers: List[Tuple[str, str, str]], cards: List[PaperConcepts],
+    ) -> PaperClusResult:
+        logger.info('[2] 按知识主题聚类论文')
+        cached = self._cluster_cache()
+        saved = self._read_yaml(cached, PaperClusResult)
+        if saved:
+            return saved
+        paper_list = self._paper_list_text(papers)
+        result = self.agent.cluster_papers(paper_list)
+        for _ in range(self.args.check):
+            problem = self._coverage_problem(papers, result.parts)
+            if not problem:
+                logger.info('[2] 论文覆盖校验通过')
+                break
+            logger.warning('[2] 论文覆盖校验失败：\n%s', problem)
+            result = self.agent.fix_cluster(
+                paper_list, self._json_dump(result), problem,
+            )
+        self._write_yaml(cached, result)
+        return result
+
+    @staticmethod
+    def _coverage_problem(papers, parts) -> str:
+        paper_ids = {p[0] for p in papers}
+        clustered = {p for part in parts for p in part.papers}
+        missing = sorted(paper_ids - clustered)
+        unknown = sorted(clustered - paper_ids)
+        if not missing and not unknown:
+            return ''
+        lines = []
+        if missing:
+            lines.append('以下论文未出现在任何部分中：\n' + '\n'.join(missing))
+        if unknown:
+            lines.append('以下论文 ID 不存在：\n' + '\n'.join(unknown))
+        return '\n'.join(lines)
+
+    # ── 大纲 ────────────────────────────────────────────
+
+    def _outline_cache(self) -> str:
+        return path.join(self.out, 'outline.yaml')
+
+    def step_gen_outline(
+        self, parts: PaperClusResult, cards: List[PaperConcepts],
+    ) -> OutlineResult:
+        logger.info('[3] 生成章—知识点大纲')
+        cached = self._outline_cache()
+        saved = self._read_yaml(cached, OutlineResult)
+        if saved:
+            return saved
+        survey = self._load_survey()
+        cards_json = '\n\n'.join(self._json_dump(c) for c in cards)
+        result = self.agent.gen_outline(
+            self._json_dump(parts), cards_json, survey,
+        )
+        for _ in range(self.args.check):
+            problem = self._outline_coverage_problem(cards, result)
+            if not problem:
+                logger.info('[3] 概念卡片覆盖校验通过')
+                break
+            logger.warning('[3] 大纲覆盖校验失败：\n%s', problem)
+            result = self.agent.fix_outline(
+                self._json_dump(result), self._json_dump(parts), cards_json,
+                survey, problem,
+            )
+        self._write_yaml(cached, result)
+        return result
+
+    def _load_survey(self) -> str:
+        survey = self.args.survey
+        if not survey:
+            return ''
+        if path.isfile(survey):
+            return self._read_text(survey)
+        if path.isdir(survey):
+            texts = []
+            for root, _, files in os.walk(survey):
+                for fname in sorted(files):
+                    if extname(fname).lower() in SUPPORTED_SURVEY_EXTS:
+                        texts.append(self._read_text(path.join(root, fname)))
+            return '\n\n'.join(texts)
+        raise ValueError(f'领域综述路径不存在：{survey}')
+
+    @staticmethod
+    def _outline_coverage_problem(cards, outline) -> str:
+        # 大纲节点的 src 里列出的是支撑该知识点的论文 ID。
+        used_papers = {
+            src.paper for ch in outline.chapters for n in ch.nodes for src in n.src
+        }
+        missing = sorted(
+            card.paper for card in cards if card.paper not in used_papers
+        )
+        if missing:
+            return '以下论文/概念卡片未纳入大纲：\n' + '\n'.join(missing)
+        return ''
+
+    # ── 细纲 ────────────────────────────────────────────
+
+    def _chapter_sources(self, chapter, cards) -> List[str]:
+        ids = {src.paper for n in chapter.nodes for src in n.src}
+        return [c.paper for c in cards if c.paper in ids]
+
+    def _gen_detail_one(self, chapter, cards, idx: int) -> ChapterDetail:
+        logger.info(f'[4] 编写第 {idx + 1} 章细纲')
+        width = max(2, len(str(len(cards))))
+        detail_fname = path.join(
+            self.out, 'details', f'detail_{idx + 1:0{width}d}.yaml'
+        )
+        saved = self._read_yaml(detail_fname, ChapterDetail)
+        if saved:
+            return saved
+        paper_desc = self._paper_desc_for_chapter(chapter, cards)
+        outline_json = self._json_dump(chapter)
+        concept_part = self.agent.gen_concept_anls_detail(
+            str(idx + 1), outline_json, paper_desc,
+        )
+        detail = ChapterDetail(
+            no=idx + 1,
+            **concept_part.model_dump(),
+            **self.agent.gen_rest_detail(
+                str(idx + 1), outline_json,
+                self._json_dump(concept_part), paper_desc,
+            ).model_dump(),
+        )
+        for _ in range(self.args.check):
+            problem = self._detail_coverage_problem(chapter, cards, detail)
+            if not problem:
+                logger.info(f'[4] 第 {idx + 1} 章细纲覆盖校验通过')
+                break
+            logger.warning('[4] 第 %d 章细纲覆盖校验失败：\n%s', idx + 1, problem)
+            detail = self.agent.fix_detail(
+                str(idx + 1), self._json_dump(detail), outline_json,
+                paper_desc, problem,
+            )
+        self._write_yaml(detail_fname, detail)
+        return detail
+
+    def _paper_desc_for_chapter(self, chapter, cards) -> str:
+        ids = {src.paper for n in chapter.nodes for src in n.src}
+        chunks = []
+        for card in cards:
+            if card.paper in ids:
+                chunks.append(
+                    f'## {card.paper}\n\n'
+                    f'[content]\n{self._paper_cache.get(card.paper, "")}\n[/content]'
+                )
+        return '\n\n'.join(chunks)
+
+    @staticmethod
+    def _detail_coverage_problem(chapter, cards, detail) -> str:
+        required = {
+            src.paper for n in chapter.nodes for src in n.src
+        }
+        used = {s.paper for u in detail.units for s in u.sources}
+        missing = sorted(required - used)
+        return '以下论文未在细纲中引用：\n' + '\n'.join(missing) if missing else ''
+
+    def step_gen_details(
+        self, outline: OutlineResult, cards: List[PaperConcepts],
+    ) -> List[ChapterDetail]:
+        logger.info('[4] 生成章节细纲')
+        details = []
+        futures = [
+            self.pool.submit(self._gen_detail_one, ch, cards, i)
+            for i, ch in enumerate(outline.chapters)
+        ]
+        for future in as_completed(futures):
+            details.append(future.result())
+        details.sort(key=lambda d: d.no)
+        return details
+
+    # ── 正文 ────────────────────────────────────────────
+
+    def _gen_body_one(self, chapter, detail, cards, idx: int) -> str:
+        logger.info(f'[5] 编写第 {idx + 1} 章正文')
+        width = max(2, len(str(len(chapter.nodes))))
+        body_fname = path.join(
+            self.out, 'chapters', f'chapter_{idx + 1:0{width}d}.md'
+        )
+        if path.isfile(body_fname) and path.getsize(body_fname):
+            return self._read_text(body_fname)
+        paper_desc = self._paper_desc_for_chapter(chapter, cards)
+        body = self.agent.gen_body(
+            str(idx + 1), self._json_dump(chapter), self._json_dump(detail), paper_desc,
+        )
+        for _ in range(self.args.check):
+            comment = self.agent.check_body(body, self._json_dump(detail))
+            if '[PERFECT/]' in comment:
+                logger.info(f'[5] 第 {idx + 1} 章正文检查通过')
+                break
+            logger.info('[5] 第 %d 章正文检查意见：\n%s', idx + 1, comment)
+            body = self.agent.fix_body(body, comment, paper_desc)
+        self._write_text(body_fname, body)
+        return body
+
+    def step_gen_bodies(
+        self, outline: OutlineResult, details: List[ChapterDetail],
+        cards: List[PaperConcepts],
+    ) -> List[str]:
+        logger.info('[5] 生成章节正文')
+        bodies = []
+        futures = [
+            self.pool.submit(self._gen_body_one, ch, detail, cards, i)
+            for i, (ch, detail) in enumerate(zip(outline.chapters, details))
+        ]
+        for future in as_completed(futures):
+            bodies.append(future.result())
+        order = {ch.no: i for i, ch in enumerate(outline.chapters)}
+        bodies = [b for _, b in sorted(
+            zip([order[ch.no] for ch in outline.chapters], bodies), key=lambda x: x[0]
+        )]
+        return bodies
+
+    # ── 辅助增强 ────────────────────────────────────────
+
+    def _gen_glossary(self, papers: List[Tuple[str, str, str]]) -> List[GlossaryEntry]:
+        cached = path.join(self.out, 'glossary.yaml')
+        saved = self._read_yaml(cached, List[GlossaryEntry])
+        if saved is not None:
+            return saved
+        result = self.agent.gen_glossary(self._paper_list_text(papers))
+        self._write_yaml(cached, result)
+        return result
+
+    def _consistency_check(self, bodies: List[str]) -> List[str]:
+        comments = []
+        previous = ''
+        for i, body in enumerate(bodies, 1):
+            comment = self.agent.check_consistency(previous, body)
+            if '[PERFECT/]' not in comment:
+                comments.append(f'第 {i} 章：{comment}')
+            previous += '\n\n' + body
+        return comments
+
+    def _citation_audit(self, book: str, papers: List[Tuple[str, str, str]]) -> CitationAudit:
+        cached = path.join(self.out, 'citation_audit.yaml')
+        saved = self._read_yaml(cached, CitationAudit)
+        if saved:
+            return saved
+        result = self.agent.audit_citations(book, self._paper_list_text(papers))
+        self._write_yaml(cached, result)
+        return result
+
+    # ── 组装与导出 ──────────────────────────────────────
+
+    def _assemble_markdown(
+        self, title: str, outline: OutlineResult, bodies: List[str],
+        glossary: List[GlossaryEntry], audit: CitationAudit,
+    ) -> str:
+        lines = [f'# {title}', '']
+        lines += ['## 术语对照表', '']
+        if glossary:
+            lines += ['| 标准术语 | 同义词 | 首次出现 |', '|---|---|---|']
+            for item in glossary:
+                lines.append(
+                    f'| {item.canonical} | {", ".join(item.aliases)} | {item.first_seen} |'
+                )
+        else:
+            lines.append('（未生成术语对照表）')
+        lines += ['', '## 正文', '']
+        for i, body in enumerate(bodies, 1):
+            lines += [f'# 第 {i} 章', '', body, '']
+        lines += ['## 引用审计', '', '```json', self._json_dump(audit), '```']
+        text = '\n'.join(lines)
+        self._write_text(path.join(self.out, 'book.md'), text)
+        return text
+
+    def _assemble_tex(self, title: str, bodies: List[str]) -> str:
+        lines = [
+            '\\documentclass[UTF8,11pt]{ctexart}',
+            '\\usepackage{amsmath,amssymb,booktabs,hyperref}',
+        ]
+        escaped_title = title.replace('&', '\\&')
+        lines.append(f'\\title{{{escaped_title}}}')
+        lines += ['\\begin{document}', '\\maketitle', '']
+        for i, body in enumerate(bodies, 1):
+            lines += [f'\\section{{第 {i} 章}}', '', body, '']
+        lines += ['\\end{document}', '']
+        text = '\n'.join(lines)
+        self._write_text(path.join(self.out, 'main.tex'), text)
+        return text
+
+    def _assemble_pdf(self, title: str, bodies: List[str]) -> str:
+        md = path.join(self.out, 'book.md')
+        pdf_path = path.join(self.out, 'book.pdf')
+        try:
+            import subprocess as subp
+            subp.run(
+                ['pandoc', md, '-o', pdf_path, '--pdf-engine=xelatex'],
+                check=True, capture_output=True,
+            )
+            return pdf_path
+        except Exception as ex:
+            logger.warning('[6] 无法通过 pandoc 生成 PDF（%s），改用 HTML 兜底', ex)
+            return self._assemble_html(title, bodies)
+
+    def _assemble_html(self, title: str, bodies: List[str]) -> str:
+        nav = ' '.join(
+            f'<a href="#chapter-{i}">第 {i} 章</a>' for i in range(1, len(bodies) + 1)
+        )
+        body = []
+        for i, content in enumerate(bodies, 1):
+            body.append(
+                f'<section id="chapter-{i}"><h2>第 {i} 章</h2>'
+                f'{content}</section>'
+            )
+        template = (
+            '<!doctype html><html lang="zh"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            f'<title>{html.escape(title)}</title>'
+            '<style>body{{max-width:860px;margin:0 auto;padding:2rem;'
+            'font:16px/1.7 Georgia,serif;color:#202a30}}'
+            'nav{{background:#f5f7f7;padding:1rem;position:sticky;top:0}}'
+            'nav a{{margin-right:1rem;color:#315a66}}'
+            'h1,h2,h3{{font-family:Arial,sans-serif;color:#315a66}}'
+            'section{{margin:3rem 0}} code,pre{{font-family:monospace}}</style>'
+            '</head><body><h1>' + html.escape(title) + '</h1>'
+            '<nav>' + nav + '</nav>' + '\n'.join(body) + '</body></html>'
+        )
+        out = path.join(self.out, 'book.html')
+        self._write_text(out, template)
+        return out
+
+    def step_assemble(
+        self, title: str, outline: OutlineResult, bodies: List[str],
+        papers: List[Tuple[str, str, str]], glossary: List[GlossaryEntry],
+    ) -> None:
+        logger.info('[6] 组装教材并执行引用审计')
+        audit = CitationAudit()
+        md = self._assemble_markdown(title, outline, bodies, glossary, audit)
+        audit = self._citation_audit(md, papers)
+        self._write_yaml(path.join(self.out, 'citation_audit.yaml'), audit)
+        self._assemble_markdown(title, outline, bodies, glossary, audit)
+        if self.args.format == 'tex':
+            self._assemble_tex(title, bodies)
+        elif self.args.format == 'pdf':
+            self._assemble_pdf(title, bodies)
+        elif self.args.format == 'html':
+            self._assemble_html(title, bodies)
+        self._write_text(
+            path.join(self.out, 'README.md'),
+            '# paper2textbook 输出\n\n'
+            f'- 教材：`book.{self.args.format}`\n'
+            '- 中间结果保存在各阶段目录，可重复运行并断点续作。\n',
+        )
+
+    # ── 主流程 ──────────────────────────────────────────
+
+    def run(self):
+        if not path.exists(self.args.dir):
+            raise ValueError('请提供论文文件、论文目录或 ARXIV ID')
+        os.makedirs(self.out, exist_ok=True)
+        logger.info(self.args)
+        papers = self._load_papers()
+        cards = self.step_extract_concepts(papers)
+        parts = self.step_cluster_papers(papers, cards)
+        outline = self.step_gen_outline(parts, cards)
+        details = self.step_gen_details(outline, cards)
+        bodies = self.step_gen_bodies(outline, details, cards)
+        glossary = self._gen_glossary(papers) if self.args.glossary else []
+        if self.args.consistency:
+            comments = self._consistency_check(bodies)
+            if comments:
+                logger.warning('[6] 跨章一致性检查发现问题：\n%s', '\n'.join(comments))
+        self.step_assemble(
+            self.args.title or path.basename(path.abspath(self.args.dir)),
+            outline, bodies, papers, glossary,
+        )
+        logger.info('[DONE] 教材已写入 %s', self.out)
+
+
+def paper2textbook(args):
+    """入口函数：创建编排器并运行。"""
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        oai_logger.setLevel(logging.DEBUG)
+    Paper2TextbookOrchestrator(args).run()
+
+
+def reg_subparser(subparsers):
+    parser = subparsers.add_parser(
+        'paper2textbook',
+        help='多篇论文到可溯源教科书',
+    )
+    parser.add_argument('dir', help='论文文件、论文目录或 ARXIV ID（暂以本地文件/目录为主）')
+    parser.add_argument('-o', '--out', required=True, help='输出目录')
+    parser.add_argument('-f', '--format', choices=('md', 'tex', 'pdf'), default='md', help='输出格式')
+    parser.add_argument('-T', '--threads', type=int, default=4, help='并行线程数')
+    parser.add_argument('-c', '--check', type=int, default=3, help='覆盖/格式检查次数')
+    parser.add_argument('-s', '--survey', help='领域综述 Markdown/TXT 文件')
+    parser.add_argument('--title', help='教材标题')
+    parser.add_argument('--glossary', action='store_true', help='生成术语对照表')
+    parser.add_argument('--consistency', action='store_true', help='执行跨章一致性检查')
+    parser.add_argument('-D', '--debug', action='store_true', help='调试模式')
+    parser.set_defaults(func=paper2textbook)
