@@ -321,6 +321,16 @@ class Code2BookOrchestrator:
     ) -> Tuple[int, Detail]:
         logger.info(f'[4] 编写第{idx+1}章细纲')
 
+
+        l = len(str(len(outline_chs)))
+        detail_fname = f'detail_{str(idx+1).zfill(l)}.yaml'
+        detail_fname = path.join(self.pj_dir, detail_fname)
+        if path.isfile(detail_fname):
+            detail = yaml.safe_load(
+                open(detail_fname, encoding='utf8').read())
+            detail = Detail(**detail)
+            return idx, detail
+        
         code_fnames = [
             f for pt in outline_chs[idx].nodes
             for f in pt.src
@@ -331,22 +341,11 @@ class Code2BookOrchestrator:
             if d.file in code_fname_set
         ]
         total_funcs = self._code_descs_total_funcs(code_desc_ch)
-
-        l = len(str(len(outline_chs)))
-        detail_fname = f'detail_{str(idx+1).zfill(l)}.yaml'
-        detail_fname = path.join(self.pj_dir, detail_fname)
-        if path.isfile(detail_fname):
-            detail = yaml.safe_load(
-                open(detail_fname, encoding='utf8').read())
-            detail = Detail(**detail)
-            if not self.args.force_check_detail:
-                return idx, detail
-        else:
-            # 源码解析部分
-            src_anls_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_desc_ch)
-            # 剩余部分
-            rest_result = self.agent.gen_rest_detail(idx, src_anls_result, outline_chs, code_desc_ch)
-            detail = Detail(no=idx, **src_anls_result.dict(), **rest_result.dict())
+        # 源码解析部分
+        src_anls_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_desc_ch)
+        # 剩余部分
+        rest_result = self.agent.gen_rest_detail(idx, src_anls_result, outline_chs, code_desc_ch)
+        detail = Detail(no=idx, **src_anls_result.dict(), **rest_result.dict())
 
         for _ in range(self.args.check):
             detail_funcs = self._detail_funcs(detail)
@@ -402,6 +401,14 @@ class Code2BookOrchestrator:
     ) -> Tuple[int, str]:
         logger.info(f'[5] 编写第{idx+1}章正文')
         
+        l = len(str(len(outline_chs)))
+        body_fname = f'article_{str(idx+1).zfill(l)}.md'
+        body_fname = path.join(self.pj_dir, body_fname)
+        if path.isfile(body_fname) and \
+           path.getsize(body_fname):
+            body = open(body_fname, encoding='utf8').read()
+            return idx, body
+        
         code_fnames = [
             c.file
             for u in detail.units
@@ -412,17 +419,7 @@ class Code2BookOrchestrator:
             d for d in code_desc 
             if d.file in code_fname_set
         ]
-
-        l = len(str(len(outline_chs)))
-        body_fname = f'article_{str(idx+1).zfill(l)}.md'
-        body_fname = path.join(self.pj_dir, body_fname)
-        if path.isfile(body_fname) and \
-           path.getsize(body_fname):
-            body = open(body_fname, encoding='utf8').read()
-            if not self.args.force_check_body: 
-                return idx, body
-        else:
-            body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
+        body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
 
         # 校验正文
         logger.info(f'[5] 校验正文 {idx + 1}')
