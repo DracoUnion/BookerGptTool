@@ -1,3 +1,4 @@
+import re
 import copy
 import openai
 import os
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 from .code2book_agent import Code2BookAgent, expand_stars
 
-class YamlMixin:
+class Code2BookMixin:
     # ── 持久化工具 ──────────────────────────────────────────
 
     def _load_yaml(self, fname: str, model: type):
@@ -59,8 +60,58 @@ class YamlMixin:
             f.write(yaml.safe_dump(obj, allow_unicode=True))
             f.flush()
 
+    def _collect_hdls(self, 
+        res_callback: Optional[Callable] = None,
+        write_callback: Optional[Callable] = None,
+    ) -> None:
+        """等待所有已提交任务完成并清空。
+        on_done: 每个子线程完成后在主线程中调用的回调。
+        """
+        save_step = max(min(len(self.hdls) // 5, 100), 1)
+        for i, h in enumerate(self.hdls):
+            r = h.result()
+            if res_callback: res_callback(r)
+            if write_callback and \
+               (i % save_step == 0 or i == len(self.hdls) - 1):
+               write_callback()
+        self.hdls = []
 
-class Code2BookCheckOerchestrator(YamlMixin):
+    @staticmethod
+    def _code_descs_total_funcs(
+        code_descs: List[CodeDescItemResult],
+    ) -> List[str]:
+        total_funcs = [
+            d.file + ':' + fn.name
+            for d in code_descs
+            for fn in d.funcs
+        ]
+        total_funcs += [
+            d.file + ':' + cls_.name + '.' + m.name
+            for d in code_descs
+            for cls_ in d.classes
+            for m in cls_.methods
+        ]
+        total_funcs = {
+            it.replace('\\', '/').replace('()', '')
+            for it in total_funcs
+        }
+        return total_funcs
+
+    @staticmethod
+    def _detail_funcs(detail: Detail):
+        detail_funcs = [
+            c.file + ':' + c.method_or_func
+            for u in detail.units
+            for c in u.codes
+        ]
+        detail_funcs = {
+            it.replace('\\', '/').replace('()', '')
+            for it in detail_funcs
+        }
+        return detail_funcs
+
+
+class Code2BookCheckOerchestrator(Code2BookMixin):
 
     def __init__(self, args):
         self.args = args
@@ -69,10 +120,67 @@ class Code2BookCheckOerchestrator(YamlMixin):
         self.pool = ThreadPoolExecutor(args.threads)
         self.hdls: List[Future] = []
 
-    def _check_detail(self):
+    def _tr_check_detail(
+        self, 
+        detail_fname: str, 
+        outline_chs: List[OutlineChapterResult],
+        code_desc: List[CodeDescItemResult],
+    ):
+        idx = int(re.search(r'\d+', detail_fname).group(1))
+        code_fnames = [
+            f for pt in outline_chs[idx].nodes
+            for f in pt.src
+        ]
+        code_fname_set = set(code_fnames)
+        code_desc_ch = [
+            d for d in code_desc 
+            if d.file in code_fname_set
+        ]
+        total_funcs = self._code_descs_total_funcs(code_desc_ch)
 
+        for _ in range(self.args.check):
+            detail_funcs = self._detail_funcs(detail)
+            detail_funcs = set(expand_stars(detail_funcs, total_funcs))
+            rest_funcs = total_funcs - detail_funcs
+            false_funcs = detail_funcs - total_funcs
+            if not rest_funcs and not false_funcs:
+                logger.info(f'[4] 细纲 {idx+1} 校验通过')
+                break
+            prob = ''
+            if false_funcs:
+                prob += f'以下函数或方法在源文件中不存在：\n' + \
+                        '\n'.join(false_funcs) + '\n'
+            if rest_funcs:
+                prob += '以下函数或方法没有添加到任何单元中：\n' + \
+                        '\n'.join(rest_funcs) + '\n'
+            logger.warn(f'[4] 细纲 {idx+1} 校验失败：\n{prob}')
+            detail = self.agent.fix_detail(idx, detail, outline_chs, code_desc_ch, prob)
 
-class Code2BookOrchestrator(YamlMixin):
+        self._write_yaml(detail_fname, detail)
+
+    def _check_detail(
+        self,
+        outline_chs: List[OutlineChapterResult],
+        code_desc: List[CodeDescItemResult],
+    ):
+        detail_fnames = [
+            path.join(self.pj_dir, f)
+            for f in os.listdir(self.pj_dir)
+            if re.search(r'^detail_\d+\.yaml$', f)
+        ]
+        for f in tqdm(detail_fnames):
+            h = self.pool.submit(
+                self._tr_check_detail,
+                f, outline_chs, code_desc,
+            )
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                self._collect_hdls()
+        self._collect_hdls()
+            
+        
+
+class Code2BookOrchestrator(Code2BookMixin):
     """编排器：协调文件探索、LLM 调用和持久化，驱动整个 code2book 流程。"""
 
     SUPPORTED_EXTS = [
@@ -89,21 +197,6 @@ class Code2BookOrchestrator(YamlMixin):
         self.pool = ThreadPoolExecutor(args.threads)
         self.hdls: List[Future] = []
 
-    def _collect_hdls(self, 
-        res_callback: Optional[Callable] = None,
-        write_callback: Optional[Callable] = None,
-    ) -> None:
-        """等待所有已提交任务完成并清空。
-        on_done: 每个子线程完成后在主线程中调用的回调。
-        """
-        save_step = max(min(len(self.hdls) // 5, 100), 1)
-        for i, h in enumerate(self.hdls):
-            r = h.result()
-            if res_callback: res_callback(r)
-            if write_callback and \
-               (i % save_step == 0 or i == len(self.hdls) - 1):
-               write_callback()
-        self.hdls = []
     
 
     # ── 文件探索 ────────────────────────────────────────────
@@ -293,40 +386,6 @@ class Code2BookOrchestrator(YamlMixin):
         return outline
 
     # ── 步骤 4：生成细纲 ──────────────────────────────────
-
-    @staticmethod
-    def _code_descs_total_funcs(
-        code_descs: List[CodeDescItemResult],
-    ) -> List[str]:
-        total_funcs = [
-            d.file + ':' + fn.name
-            for d in code_descs
-            for fn in d.funcs
-        ]
-        total_funcs += [
-            d.file + ':' + cls_.name + '.' + m.name
-            for d in code_descs
-            for cls_ in d.classes
-            for m in cls_.methods
-        ]
-        total_funcs = {
-            it.replace('\\', '/').replace('()', '')
-            for it in total_funcs
-        }
-        return total_funcs
-
-    @staticmethod
-    def _detail_funcs(detail: Detail):
-        detail_funcs = [
-            c.file + ':' + c.method_or_func
-            for u in detail.units
-            for c in u.codes
-        ]
-        detail_funcs = {
-            it.replace('\\', '/').replace('()', '')
-            for it in detail_funcs
-        }
-        return detail_funcs
 
     def _tr_gen_detail(
         self, 
