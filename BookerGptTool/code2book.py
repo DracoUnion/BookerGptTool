@@ -35,6 +35,21 @@ logger = logging.getLogger(__name__)
 from .code2book_agent import Code2BookAgent, expand_stars
 
 class Code2BookMixin:
+
+    @staticmethod
+    def _code_desc_ch(detail: Detail, code_desc: List[CodeDescItemResult]):
+        code_fnames = [
+            c.file
+            for u in detail.units
+            for c in u.codes
+        ]
+        code_fname_set = set(code_fnames)
+        code_desc_ch = [
+            d for d in code_desc 
+            if d.file in code_fname_set
+        ]
+        return code_desc_ch
+
     # ── 持久化工具 ──────────────────────────────────────────
 
     def _load_yaml(self, fname: str, model: type):
@@ -132,15 +147,7 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
             logger.warn(f'[2] {detail_fname} 加载失败')
             return
         idx = int(re.search(r'detail_(\d+)\.yaml', detail_fname).group(1))
-        code_fnames = [
-            f for pt in outline_chs[idx].nodes
-            for f in pt.src
-        ]
-        code_fname_set = set(code_fnames)
-        code_desc_ch = [
-            d for d in code_desc 
-            if d.file in code_fname_set
-        ]
+        code_desc_ch = self._code_desc_ch(detail, code_desc)
         total_funcs = self._code_descs_total_funcs(code_desc_ch)
 
         for _ in range(self.args.check):
@@ -197,16 +204,7 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
             logger.warn(f'[3] {body_fname} 加载失败')
             return
         idx = int(re.search(r'article_(\d+)\.md', body_fname).group(1))
-        code_fnames = [
-            c.file
-            for u in detail.units
-            for c in u.codes
-        ]
-        code_fname_set = set(code_fnames)
-        code_desc_ch = [
-            d for d in code_desc 
-            if d.file in code_fname_set
-        ]
+        code_desc_ch = self._code_desc_ch(detail, code_desc)
         body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
 
         # 校验正文
@@ -448,15 +446,7 @@ class Code2BookOrchestrator(Code2BookMixin):
         if detail is not None:
             return idx, detail
         
-        code_fnames = [
-            f for pt in outline_chs[idx].nodes
-            for f in pt.src
-        ]
-        code_fname_set = set(code_fnames)
-        code_desc_ch = [
-            d for d in code_desc 
-            if d.file in code_fname_set
-        ]
+        code_desc_ch = self._code_desc_ch(detail, code_desc)
         total_funcs = self._code_descs_total_funcs(code_desc_ch)
         # 源码解析部分
         src_anls_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_desc_ch)
@@ -526,16 +516,7 @@ class Code2BookOrchestrator(Code2BookMixin):
             body = open(body_fname, encoding='utf8').read()
             return idx, body
         
-        code_fnames = [
-            c.file
-            for u in detail.units
-            for c in u.codes
-        ]
-        code_fname_set = set(code_fnames)
-        code_desc_ch = [
-            d for d in code_desc 
-            if d.file in code_fname_set
-        ]
+        code_desc_ch = self._code_desc_ch(detail, code_desc)
         body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
 
         # 校验正文
