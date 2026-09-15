@@ -209,7 +209,6 @@ class Code2BookCheckOerchestrator(Code2BookMixin):
         body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
 
         # 校验正文
-        logger.info(f'[3] 校验正文 {idx + 1}')
         for _ in range(self.args.check):
             cmt = self.agent.check_body(body, detail)
             if '[PERFECT/]' in cmt:
