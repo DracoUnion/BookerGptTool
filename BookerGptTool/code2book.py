@@ -137,11 +137,8 @@ class Code2BookOrchestrator:
             self.pj_dir,
             fname.replace('/', '----') + '_desc.yaml'
         )
-        if path.isfile(desc_fname) and \
-           path.getsize(desc_fname):
-            desc = yaml.safe_load(open(desc_fname, encoding='utf8').read())
-            desc = CodeDescItemResult.model_validate(desc)
-        else:
+        desc = self._load_yaml(desc_fname, CodeDescItemResult)
+        if desc is None:
             code = self._read_code(fname)
             desc = self.agent.gen_code_desc(fname, code)
             desc = CodeDescItemResult(file=fname, **desc.dict())
