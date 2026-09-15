@@ -64,6 +64,26 @@ class Adb:
             return [self.adb, '-s', self.serial, *list(args)]
         return [self.adb, *list(args)]
 
+    def wm_size(self):
+        wm = self.run('shell', 'wm size').strip()
+        res = wm.split(':')[-1].strip()
+        fw, fh = res.lower().split('x')
+        w, h = int(fw), int(fh)
+        return w, h
+
+    def tap(self, x: int, y: int):
+        return self.run('shell', f'input tap {x} {y}')
+
+    def swipe(self, x: int, y: int, x2: int, y2: int, ms: int):
+        return self.run('shell', f'input swipe {x} {y} {x2} {y2} {ms}')
+
+    def key(self, key: str):
+        return self.run('shell', f'input keyevent {key}')
+
+    def text(self, text: str):
+        safe = (text or '').replace(' ', '%s')
+        return self.run('shell', f'input text {safe}')
+
     def run(self, *args: str, timeout: int = 60) -> str:
         """运行一条 adb 命令，返回 stdout 文本；失败时抛出 RuntimeError。"""
         cmd = self._args(*args)
@@ -123,7 +143,7 @@ def exec_action(adb: Adb, act: GameAction, w: int, h: int) -> None:
             return
         x = max(0, min(int(act.x), w - 1))
         y = max(0, min(int(act.y), h - 1))
-        adb.run('shell', f'input tap {x} {y}')
+        adb.tap(x, y)
     elif act.type == 'swipe':
         if act.x is None or act.y is None:
             logger.warn(f'swipe 缺少坐标，跳过：{act}')
@@ -135,14 +155,13 @@ def exec_action(adb: Adb, act: GameAction, w: int, h: int) -> None:
             y2 = max(0, min(int(act.y) + int(dy), h - 1))
         else:
             x2, y2 = act.x, act.y
-        adb.run('shell', f'input swipe {act.x} {act.y} {x2} {y2} {act.ms}')
+        adb.swipe(act.x, act.y, x2, y2, act.ms)
     elif act.type == 'key':
         for key in (act.keys or []):
-            adb.run('shell', f'input keyevent {key}')
+            adb.key(key)
     elif act.type == 'text':
         # %s 是 adb 的空格转义，禁止其它危险字符注入
-        safe = (act.text or '').replace(' ', '%s')
-        adb.run('shell', f'input text {safe}')
+        adb.text(act.text)
     elif act.type == 'wait':
         time.sleep(max(0, act.ms) / 1000)
     else:
@@ -295,10 +314,7 @@ def play_android_game(args) -> None:
     # 获取逻辑分辨率（像素），失败时兜底
     w, h = 1080, 1920
     try:
-        wm = adbc.run('shell', 'wm size').strip()
-        res = wm.split(':')[-1].strip()
-        fw, fh = res.lower().split('x')
-        w, h = int(fw), int(fh)
+        w, h = adbc.wm_size()
     except Exception as e:
         logger.warn(f'获取分辨率失败：{e}，使用 1080×1920 兜底')
 
