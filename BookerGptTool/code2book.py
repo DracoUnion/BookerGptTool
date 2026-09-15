@@ -250,12 +250,8 @@ class Code2BookOrchestrator:
     ) -> List[OutlinePartResult]:
         logger.info('[3] 生成大纲')
         outline_fname = path.join(self.pj_dir, 'outline.yaml')
-
-        if path.isfile(outline_fname):
-            outline = yaml.safe_load(
-                open(outline_fname, encoding='utf8').read())
-            outline = parse_obj_as(List[OutlinePartResult], outline)
-        else:
+        outline = self._load_yaml(outline_fname, List[OutlinePartResult])
+        if outline is None:
             outline = [
                 OutlinePartResult(**pt.dict(), chapters=[]) 
                 for pt in parts
