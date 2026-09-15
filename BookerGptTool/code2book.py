@@ -685,7 +685,7 @@ def reg_subparser(subparsers):
     code2book_parser.set_defaults(func=code2book)
 
     code2book_parser = subparsers.add_parser("code2book-check", help="code to book checker")
-    code2book_parser.add_argument('dir', help='proj dir name with _code2book')
+    code2book_parser.add_argument('dir', help='proj dir name ending with _code2book')
     code2book_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
     code2book_parser.add_argument("-c", "--check", type=int, default=3, help="check times")
     code2book_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
