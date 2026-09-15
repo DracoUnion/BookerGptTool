@@ -522,6 +522,4 @@ def reg_subparser(subparsers):
     code2book_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
     code2book_parser.add_argument("-cl", "--code-limit", type=int, default=35_000, help="max code length in single prompt")
     code2book_parser.add_argument("-co", "--code-overlap", type=int, default=500, help="code overlap in every chunk")
-    code2book_parser.add_argument("-cb", "--force-check-body", action='store_true', help="whether to forcefully check body")
-    code2book_parser.add_argument("-cd", "--force-check-detail", action='store_true', help="whether to forcefully check detail")
     code2book_parser.set_defaults(func=code2book)
