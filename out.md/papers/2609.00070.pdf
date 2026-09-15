@@ -1,0 +1,1369 @@
+AutoXRD: Autonomous LLM Agents and Comprehensive
+Evaluation for Powder Diffraction Analysis
+Yuetong Wu†
+The Chinese University of Hong Kong
+Hong Kong, China
+yuetongwu@link.cuhk.edu.hk
+Maojun Sun†*
+The Hong Kong Polytechnic University
+Hong Kong, China
+mj.sun@connect.polyu.hk
+Abstract
+Powder X-ray diffraction (XRD) is central to materials character-
+ization, yet reliable end-to-end automation remains challenging.
+An XRD agent must interpret diffraction evidence, operate refine-
+ment software, manage coupled parameters in a defensible order,
+and distinguish numerical improvement from physical validity. In
+this paper, we propose AutoXRD, an autonomous large language
+model (LLM) agent framework that organizes powder-XRD analy-
+sis as stepwise refinement, grounds actions in observed evidence,
+and applies deterministic crystallographic and physical checks be-
+fore accepting results. We further introduce XRDBench with two
+complementary tracks. XRDBench-QA contains 100 bounded diag-
+nostic tasks that isolate scientific reasoning and decision-making,
+whereas XRDBench-E2E contains 34 executable workflows that
+test whether agents can compose these capabilities into complete
+analyses requiring file inspection, crystallographic-software exe-
+cution, iterative refinement, evidence preservation, and reporting.
+We evaluate ten recent LLMs across 1,340 model–task runs. Models
+average only 57.8 out of 100, falling from 61.9 on XRDBench-QA to
+53.7 on XRDBench-E2E. They perform best on refinement-history
+assessment and result acceptance, but remain substantially weaker
+on refinement-action selection, phase quantification, indexing, and
+Rietveld refinement. GPT-5.6 Sol achieves the highest overall score
+of 81.1, GPT-5.6 Terra the highest XRDBench-E2E point estimate
+of 81.0, and GPT-5.6 Luna the best score–cost trade-off. Ablations
+show that all six AutoXRD components consistently improve perfor-
+mance, supporting the framework design. Finally, execution-trace
+analysis reveals recurring failures in coupled-parameter control,
+quantitative reasoning, evidence preservation, and workflow ter-
+mination, motivating stronger scientific constraints, uncertainty-
+aware decisions, and more efficient planning.
+§ https://stephen-smj.github.io/AutoXRD/
+CCS Concepts
+• Computing methodologies →Intelligent agents; Natural
+language processing; • Applied computing →Physical sciences
+and engineering.
+Keywords
+scientific agents, benchmark, powder diffraction, Rietveld refine-
+ment, AI for science
+†Equal contribution.
+*Corresponding author.
+1
+Introduction
+Powder X-ray diffraction (XRD) compresses three-dimensional
+reciprocal-space information into a one-dimensional intensity pro-
+file. Peak overlap, background, instrumental aberrations, preferred
+orientation, finite crystallite size, strain, and phase mixtures can
+therefore produce similar observations. Rietveld refinement ad-
+dresses overlap by fitting the complete profile [26, 50], but it does
+not turn analysis into an unconstrained curve-fitting problem. The
+parameters governing the crystal structure, specimen, and instru-
+ment are strongly coupled; successful practice depends on releasing
+them in a defensible order and inspecting the observed, calculated,
+and difference patterns after each stage [40, 41].
+These requirements expose two related gaps in current language-
+agent research. First, tool-using language models can interleave
+reasoning and external actions [30, 48], and domain agents have
+automated parts of chemistry and experimentation [2, 3], but a gen-
+eral tool loop provides no scientific guarantee. A syntactically valid
+action may jointly release non-identifiable parameters, a lower 𝑅wp
+may arise from an incorrect structural or peak-profile hypothesis,
+and a fluent report may conceal an impossible occupancy or an
+unresolved phase. Second, current XRD-agent evaluation is not
+yet systematic. Existing studies demonstrate the feasibility of LLM-
+assisted Rietveld refinement [19, 32], but evaluations are often based
+on selected cases, isolated questions, or final fit statistics. No single
+criterion is sufficient: exact matching cannot accommodate valid
+open-ended analyses, fit metrics do not establish physical correct-
+ness, and judging only the final report cannot reveal whether a
+failure arose from scientific reasoning, software execution, missing
+artifacts, or poor termination. The field therefore lacks a unified
+protocol that tests both individual XRD decisions and complete
+executable workflows while measuring scientific quality, execution
+validity, efficiency, and failure behavior across models.
+Our abstraction treats refinement as a stepwise graph of scien-
+tific decisions. A node stores a complete fit state; an edge stores
+one structured action, the evidence that supports it, and predic-
+tions that can falsify its rationale. Numerical software computes
+the candidate child state, but deterministic checks—not the lan-
+guage model—decide whether the step is accepted. Rejected edges
+remain first-class evidence, enabling failure analysis and future
+policy distillation.
+Figure 1 summarizes AutoXRD. At runtime, the language model
+maintains session context and memory, plans with ten XRD-specific
+skills, and invokes permissioned tools within a sandbox. The skills
+translate domain procedures into executable scientific plans that
+specify the refinement stage, parameters or code, numerical bounds,
+required evidence, and expected outcomes. The scientific action
+layer parses diffraction patterns and structures, enforces parameter
+arXiv:2609.00070v1  [cond-mat.mtrl-sci]  30 Aug 2026
+
+
+Wu and Sun
+AutoXRD
+Powder XRD Input
+Observed Pattern  yobs
+Calculated Pattern  ycalc
+Residual  yobs − ycalc
+Bragg Positions
+Radiation: Cu Kα (λ = 1.5406 Å)
+Geometry: Bragg–Brentano   
+Range: 5° – 90°
+Step: 0.02°
+Time/Step: 2 s/step  
+Temp: 298 K
+Phase 1
+Phase 2
+Phase 3
+Evidence Extractors
+①AutoXRD Agent Runtime
+Large 
+Language
+Model
+Session & 
+Memory
+Tool
+Manager
+Permissions
+& Sandbox
+Artifact
+Context
+②XRD Skill-Guided Planning – 10 Core Skills
+Le Bail Matching
+Lattice Refinement
+Phase Quantification
+Residual Diagnosis
+Physical Audit
+Scientific Plan / Executable Workflow
+{stage, parameters/code, bounds, evidence, predictions}
+③Scientific Action Execution Layer
+Pattern Parser
+Structure Parser
+FullProf Engine
+Residual Extractor
+Physical Validator
+Artifact Store
+Evidence-Gated Refinement Graph
+S₀
+S1
+S₅
+e1
+e2
+e4
+e6
+e7
+Profile Refinement
+GSAS-II Engine
+Instrument / Scan Metadata
+Candidate Crystal Structures
+Fit Evidence
+Bounds & Constraints
+S3
+S4
+S2
+e3
+Accepted candidate state
+Evidence-backed action
+accepted transition
+rejected transition
+XRDBench
+Evaluation protocol
+XRDBench-QA
+XRDBench-E2E
+XRDBench-QA
+100 diagnostic tasks
+Difficulty split
+30
+Easy
+40
+Medium
+30
+Hard
+Exact
+Structured
+decisions
+Objective
+Parameters · phases
+· fit metrics
+LLM Judge
+Scientific
+correctness
+Diagnostic question answering and end-to-end executable XRD workflows
+20
+Maximum Steps ≤ 20
+per case  ·  budget enforced  ·  logged
+Evaluation criteria
+XRDBench-E2E
+34 End-to-End Powder-Diffraction Tasks
+Maximum steps ≤ 50 
+Execution and physical gates
+Artifact Validity 15% · Hard Metrics 55% · Judge 30%
+Evaluation
+Performance
+Quality of results
+Efficiency
+Tokens · time · steps · cost
+Failures
+Gate failures & error analysis
+✓
+rejected candidate state
+e5
+Figure 1: Overview of AutoXRD and the XRDBench evaluation protocol. AutoXRD combines an autonomous agent runtime,
+skill-guided powder-diffraction workflows, executable crystallographic backends, and evidence-based scientific validation. XRD-
+Bench evaluates diagnostic reasoning through XRDBench-QA and autonomous end-to-end XRD analysis through XRDBench-
+E2E.
+constraints, executes FullProf, GSAS-II, or task-appropriate nu-
+merical routines, and stores the resulting artifacts. Pattern-quality,
+residual, structural, and uncertainty evidence is then used to ac-
+cept or reject candidate transitions in an evidence-gated refinement
+graph.
+The right panel of Figure 1 presents XRDBench, designed to
+address the evaluation gap through two complementary tracks.
+XRDBench-QA contains 100 bounded diagnostic tasks that isolate
+scientific reasoning and decisions, enabling reliable exact, objec-
+tive, and reference-guided assessment. XRDBench-E2E contains
+34 executable workflows over measured patterns, requiring agents
+to inspect inputs, implement and run numerical analyses, validate
+intermediate results, and deliver auditable artifacts. Neither track is
+sufficient alone: the former diagnoses what an agent understands,
+whereas the latter tests whether those capabilities can be composed
+into a functioning analysis. Together they evaluate the same XRD
+process at different degrees of integration and report performance,
+efficiency, and failure behavior under a common protocol. Using
+XRDBench, we evaluate ten recent LLMs in 1,340 agent runs. Av-
+erage performance decreases from 61.9 on XRDBench-QA to 53.7
+on XRDBench-E2E, and the two track scores are only moderately
+correlated (𝑟= 0.56, 𝜌= 0.65), showing that diagnostic competence
+does not reliably translate into autonomous execution. Models per-
+form best on refinement-history assessment and result acceptance,
+but remain substantially weaker on refinement-action selection,
+phase quantification, indexing, and Rietveld refinement.
+To summarize, our main contributions are:
+• A scientifically grounded autonomous XRD agent. We in-
+troduce AutoXRD, which combines XRD skill-guided planning,
+executable crystallographic backends, and deterministic scien-
+tific validation. Rather than accepting a step merely because the
+software runs or the fit residual decreases, AutoXRD requires
+the predicted evidence change and crystallographic checks to
+pass, while preserving both accepted and rejected actions in an
+auditable refinement trajectory.
+• A two-track benchmark for XRD reasoning and execution.
+We introduce XRDBench, comprising 100 bounded XRDBench-
+QA diagnostic tasks and 34 executable XRDBench-E2E work-
+flows across eleven powder-diffraction task families. Its com-
+plementary evaluation protocols measure scientific decisions,
+numerical results, physical validity, artifact completeness, effi-
+ciency, and failure behavior.
+
+
+AutoXRD: Autonomous LLM Agents and Comprehensive Evaluation for Powder Diffraction Analysis
+• A large-scale empirical study of LLMs for XRD. We evaluate
+ten recent LLMs across 1,340 agent runs, 22,135 model turns,
+and 625.6M selected-trajectory tokens. Our analysis shows that
+diagnostic performance does not reliably transfer to autonomous
+execution and identifies refinement-action selection, phase quan-
+tification, indexing, and Rietveld refinement as major remaining
+bottlenecks.
+2
+Background and Related Work
+2.1
+Rietveld Refinement and Its Failure Modes
+Let 𝑥𝑖denote the diffraction coordinate (e.g., 2𝜃, time of flight, or 𝑑-
+spacing), 𝑦𝑖the observed intensity, 𝜎𝑖its standard uncertainty, and
+ˆ𝑦𝑖(𝜃) the profile calculated from parameters 𝜃. Classical Rietveld
+refinement minimizes weighted least squares [26]:
+𝜃∗= arg min
+𝜃∈Θ 𝜒2(𝜃),
+𝜒2(𝜃) =
+𝑛
+∑︁
+𝑖=1
+𝑤𝑖
+
+𝑦𝑖−ˆ𝑦𝑖(𝜃)
+2,
+(1)
+where 𝑤𝑖= 𝜎−2
+𝑖
+when uncertainties are available. The vector 𝜃
+includes scale, background, zero shift, lattice, profile, atomic coor-
+dinates, displacement factors, occupancies, preferred orientation,
+and microstructure terms. Le Bail profile matching can align the
+cell, background, and peak profile before atomic parameters are
+exposed [1]. For a fully crystalline mixture with all relevant phases
+included in the refinement model, phase weight fractions can be
+derived from refined scale factors and phase-specific 𝑍𝑀𝑉terms,
+where 𝑍, 𝑀, and 𝑉denote formula units per cell, formula mass, and
+unit-cell volume [15]. Preferred orientation and line shape require
+specialized models [11, 38].
+No scalar fit index establishes structural correctness. For example,
+the weighted-profile factor
+𝑅wp = 100
+√︄Í
+𝑖𝑤𝑖(𝑦𝑖−ˆ𝑦𝑖)2
+Í
+𝑖𝑤𝑖𝑦2
+𝑖
+(2)
+depends on data quality and uncertainty conventions; a wrong
+model on weak data may achieve a lower value than an excel-
+lent model on precise data [40]. This motivates explicit checks of
+residual structure, parameter correlations, chemistry, bounds, and
+unresolved peaks.
+2.2
+Automation of XRD Analysis
+Crystallographic engines such as FullProf [28] and GSAS-II [42]
+provide mature numerical capabilities. Automation has progressed
+from high-throughput wrappers (SrRietveld) [39], to expert systems
+(AutoFP) [10], reinforcement learning (PowderBot) [13], black-box
+optimization (BBO-Rietveld) [25], derivative-guided recipe selection
+[41], and learned parameter prediction [24]. Robotic PXRD systems
+have integrated sample preparation, measurement, and automated
+analysis [49].
+Phase identification is related but distinct. Deep models can
+learn multi-phase labels from synthetic patterns [18, 31]; XCA
+performs autonomous probabilistic phase identification without
+a language agent [23]; CrystalShift uses symmetry-constrained
+pseudo-refinement and Bayesian comparison [7]; Dara searches
+and refines multiple phase combinations [12]; and RADAR-PD
+couples mismatch-tolerant prediction with Rietveld verification
+[46]. Recent end-to-end pipelines broaden this scope: AGAPI-XRD
+combines database matching, a fine-tuned structure generator, and
+GSAS-II/BGMN refinement [4], while MatDiffract couples hierar-
+chical retrieval with full-pattern refinement and quantitative phase
+fitting [44]. COD [14], opXRD [16], SimXRD-4M [5], and SIMPOD
+[27] improve data availability. These advances automate engines,
+prediction, or search. Our focus is complementary: constraining
+and evaluating the sequence of decisions made by a language agent
+operating scientific software.
+Table 1 compares five language agents by their supported XRD
+modules, callable scientific resources, and evaluation scope. The
+multimodal LLM-CSP agent combines pattern predictors, a knowl-
+edge graph, and search for structure and space-group classification,
+but does not execute iterative refinement [6]. The AI X-ray Scientist
+closes the loop over detector observations and motor commands
+for single-crystal beamline alignment [9]. Rongzai and AgentBuild-
+Rietveld operate GSAS-II for powder refinement and fit diagno-
+sis, whereas NeuDiff connects neutron-data reduction, structure
+refinement, validation, and provenance [19, 32, 45]. Their evalua-
+tions remain specialized: five neutron-powder tasks for Rongzai,
+eight X-ray cases for AgentBuild, and one repeated reference work-
+flow for NeuDiff. OPENXRD provides a complementary non-agent
+benchmark of 217 crystallography questions over 74 language and
+multimodal models, but does not test scientific software execution
+[43]. XRDBench unifies these two evaluation needs through 100
+diagnostic tasks and 34 executable powder-diffraction workflows
+across eleven families, evaluated with ten LLM agents under one
+protocol.
+2.3
+Tool-Using and Scientific Agents
+ReAct interleaves language reasoning with actions [48], while Tool-
+former learns when and how to call APIs [30]. AgentBench [20],
+𝜏-bench [47], MLAgentBench [17], and DSAEval [37] show that
+endpoint success alone can hide long-horizon failures and incon-
+sistency. Scientific-agent work includes chemistry agents [3], au-
+tonomous laboratory orchestration [2], and broad research automa-
+tion [21, 33–36]. ScienceAgentBench argues for authentic, task-level
+assessment before claims of end-to-end discovery [8].
+AutoXRD applies this lesson to a narrow scientific domain
+with unusually sharp validity constraints. It differs from generic
+agents by making action schemas, falsifiable predictions, stage or-
+der, coupled-parameter exclusions, mandatory physical checks, and
+rejected steps part of the executable protocol.
+3
+Problem Formulation
+3.1
+Refinement States and Structured Actions
+An input instance is
+I = (D, M, C),
+D = {(𝑥𝑖,𝑦𝑖, 𝜎𝑖)}𝑛
+𝑖=1,
+(3)
+where M is instrument metadata and C is a set of candidate struc-
+tures. At step 𝑡, the agent observes
+𝑠𝑡= (𝜃𝑡,𝑞𝑡,𝑟𝑡, 𝑣𝑡,𝑐𝑡, O𝑡),
+(4)
+where𝑞𝑡= (𝑅wp,𝑡, 𝑅exp,𝑡, GoF𝑡) contains fit scalars,𝑟𝑡contains resid-
+ual features, 𝑣𝑡is a set of physical violations,𝑐𝑡describes complexity
+and correlations, and O𝑡indexes backend output files. Here 𝑅wp
+
+
+Wu and Sun
+Table 1: Comparison of language agents for X-ray and neutron diffraction. ✓/✗indicate explicit support or evaluation/absence or
+no report. The five module columns cover phase or structure analysis, executable refinement, fit diagnosis, scientific validation,
+and structured reporting. Skills counts named procedures; Tools counts scientific callable interfaces, including skill-linked
+Python programs but excluding general file and shell tools. E2E requires agent-controlled execution of a material-specific task;
+Mtls. gives the number and source type of test materials, where sim. and real denote simulated and measured data; – denotes
+not reported or not applicable. Runs count model–task executions; LLM counts exclude judges and meta-optimizers.
+Supported XRD modules
+Agent resources
+Agent evaluation scope
+System
+Phase/Struct.
+Refine
+Fit Diag.
+Valid.
+Report
+Skills
+Tools
+Task
+QA
+E2E
+Mtls.
+Tasks
+Runs
+LLMs
+LLM-CSP Agent [6]
+✓
+✗
+✗
+✓
+✗
+0
+5
+PXRD structure pred.
+✗
+✓
+∼6.4K sim.
+∼6.4K ∼6.4K
+1
+AI X-ray Scientist [9]
+✗
+✗
+✗
+✓
+✓
+0
+3
+SCXRD alignment
+✗
+✓
+2 real
+1
+22
+3
+Rongzai Agent [19]
+✗
+✓
+✓
+✓
+✓
+–
+4
+NPD refinement
+✗
+✓
+5 real
+5
+20
+4
+AgentBuild-Rietveld [32]
+✗
+✓
+✓
+✓
+✓
+0
+6
+PXRD refinement
+✗
+✓
+3 real
+8
+34
+1
+NeuDiff Agent [45]
+✓
+✓
+✓
+✓
+✓
+0
+4
+SCND structure det.
+✗
+✓
+1 real
+1
+10
+2
+AutoXRD (ours)
+✓
+✓
+✓
+✓
+✓
+10
+9
+PXRD/NPD, 11 families
+✓
+✓
+34 real
+134
+1,340
+10
+is the weighted-profile residual, 𝑅exp is the statistically expected
+residual, and GoF = 𝑅wp/𝑅exp denotes goodness of fit.
+AutoXRD supports two complementary execution modes. In the
+validated refinement path, the agent proposes a structured action
+𝑎𝑡= (𝑘𝑡,𝑔𝑡, 𝑃𝑡, 𝐵𝑡, Z𝑡, Π𝑡),
+(5)
+where 𝑘𝑡is an action kind, 𝑔𝑡a refinement stage, 𝑃𝑡a parameter
+subset, 𝐵𝑡optional bounds, Z𝑡cited evidence, and Π𝑡falsifiable
+predictions. Each evidence item is (𝑓,𝜈,𝜏, src): feature name, ob-
+served value, decision threshold, and data source. A prediction
+𝜋= (𝑚,𝑑,𝛿) specifies metric 𝑚, required direction 𝑑∈{−1, +1},
+and minimum effect 𝛿≥0. In the native code-agent path, actions
+may instead read, create, edit, or execute task files. These broader
+actions are retained verbatim in the trajectory and are evaluated
+through execution, artifact, and physical gates.
+The deterministic backend produces a candidate
+(𝑠′
+𝑡+1, O𝑡+1) = 𝐹(𝑠𝑡,𝑎𝑡; D),
+(6)
+but the transition is not automatically accepted. This distinguishes
+three questions: (i) did the optimizer find a numerically better point;
+(ii) did the intervention change the feature predicted by its stated
+mechanism; and (iii) is the child state physically and statistically
+admissible?
+3.2
+Refinement Decision Graph
+A refinement decision graph is 𝐺= (𝑉, E+, E−). Each 𝑠∈𝑉is a
+fit state, E+ contains accepted actions, and E−contains rejected
+actions. Let 𝐻(𝑠,𝑎,𝑠′) ∈{0, 1} denote hard admissibility and
+𝑀(𝑠,𝑎,𝑠′) =
+Ö
+𝜋∈Π(𝑎)
+I
+
+𝑑𝜋
+ 𝑚𝜋(𝑠′) −𝑚𝜋(𝑠) ≥𝛿𝜋
+
+(7)
+denote support for the action’s expected outcome. The candidate
+child is accepted only if
+Accept(𝑠,𝑎,𝑠′) = 𝐻(𝑠,𝑎,𝑠′) 𝑀(𝑠,𝑎,𝑠′)I[𝑈(𝑠′) −𝑈(𝑠) > 0] = 1.
+(8)
+Crucially, utility cannot compensate for 𝐻= 0 or 𝑀= 0.
+4
+AutoXRD
+4.1
+Layered Agent Architecture
+As shown in Figure 1, AutoXRD separates five responsibilities. The
+agent controller manages the model, tools, sessions, and budgets.
+An XRD procedure library provides ten skills: pattern quality con-
+trol, structure validity checking, executable GSAS-II workflows,
+Le Bail initialization, validated PCR generation, staged refinement,
+residual extraction, residual diagnosis, result acceptance, and final
+scientific review. The XRD execution layer parses patterns and
+structures, invokes GSAS-II, FullProf, or task-appropriate numeri-
+cal crystallography code, and extracts reproducible measurements.
+Pre-execution and post-execution checks enforce parameter, fit,
+residual, and physical constraints. Finally, a run-history store and
+report generator expose the complete sequence of accepted and
+rejected steps.
+The language model is therefore a planner, implementer, and
+explainer, not the numerical optimizer or final scientific authority.
+This division follows a capability principle: use language models for
+context-dependent hypothesis selection, mature crystallographic
+engines for nonlinear optimization, and deterministic code for in-
+variants that can be expressed exactly.
+4.2
+Deterministic Residual Evidence
+For residuals 𝑒𝑖= 𝑦𝑖−ˆ𝑦𝑖, the feature extractor estimates robust
+scale
+ˆ𝜎𝑒= median𝑖|𝑒𝑖−median(𝑒)|
+0.67448975
+(9)
+and standardized residuals 𝑧𝑖= (𝑒𝑖−median(𝑒))/ˆ𝜎𝑒. Let ˜𝑒𝑖= 𝑒𝑖−¯𝑒,
+where ¯𝑒= 𝑛−1 Í
+𝑖𝑒𝑖. The extractor reports normalized absolute
+residual, lag-one autocorrelation
+𝜌1 =
+Í𝑛−1
+𝑖=1 ˜𝑒𝑖˜𝑒𝑖+1
+Í𝑛
+𝑖=1 ˜𝑒2
+𝑖
+,
+(10)
+low/high-angle signed bias, the fraction of points in contiguous
+regions with |𝑧𝑖| ≥5, and an unexplained-peak ratio. These features
+make diagnoses testable. For example, a nearly angle-independent
+peak-position offset can motivate zero-shift refinement. Geometry-
+dependent specimen-displacement and calibration effects must first
+
+
+AutoXRD: Autonomous LLM Agents and Comprehensive Evaluation for Powder Diffraction Analysis
+be excluded, and the action must predict a minimum decrease in
+a position-bias feature. If 𝑅wp decreases but the predicted feature
+does not, Equation 7 rejects the causal explanation.
+4.3
+Validated PCR Generation
+FullProf PCR files are positional and contain codewords that can
+couple multiple parameters. The PCR validator and generator parses
+comment-anchored semantic slots into a catalog, freezes catalogued
+codeword groups, and releases only selectors permitted by 𝑘𝑡. It
+validates stage membership, selector coverage, constraints, phase
+count, pattern count, and mode before writing a new file. The source
+is never overwritten.
+Let Γ(𝑘) be the allowed semantic selector set for action kind 𝑘
+and cl(𝑃) the closure of 𝑃under existing constraint groups. Com-
+pilation is permitted only when
+𝑃⊆Γ(𝑘),
+cl(𝑃) \ 𝑃= ∅,
+(11)
+unless the expansion is explicitly declared. This prevents a seem-
+ingly local edit from silently releasing unrelated parameters.
+4.4
+Scientific Validity Checks and Candidate
+Ranking
+The pre-execution check rejects actions outside their stage and
+high-risk actions without bounds. It also rejects or requires explicit
+constraints for strongly correlated parameter combinations, such
+as simultaneous refinement of occupancy and displacement pa-
+rameters or poorly identifiable combinations of zero shift, lattice
+parameters, and wavelength. After execution, 𝐻(𝑠𝑡,𝑎𝑡,𝑠′
+𝑡+1) = 0 if a
+new physical violation appears, 𝑅wp regresses by more than 2%, the
+unexplained-peak ratio increases by more than 0.02, the maximum
+absolute correlation exceeds 0.98, or any declared prediction fails.
+Among states that pass all mandatory checks, the current imple-
+mentation ranks candidates with
+𝑈(𝑠) = −
+
+𝑅wp(𝑠)
+max(𝑅exp(𝑠),𝜖) + 2𝑅(𝑠) + 3𝑄(𝑠) + 0.002𝐾(𝑠)
++ 10[𝐶max(𝑠) −0.90 ]+ + 10|𝑣(𝑠)|
+
+,
+(12)
+where 𝑅is residual score, 𝑄unexplained-peak ratio, 𝐾parameter
+count, and 𝐶max maximum absolute correlation. Here 𝜖> 0 is
+a numerical stabilizer. Weights are transparent policy constants
+rather than learned scientific truth. Equation 8 uses this score only
+after all mandatory checks pass.
+4.5
+Complete Refinement History
+Each run record contains (𝑎𝑡,𝑠𝑡,𝑠′
+𝑡+1, dec𝑡, O𝑡+1), where dec𝑡is the
+acceptance decision and O𝑡+1 lists the corresponding code, back-
+end inputs, outputs, and evidence artifacts. The history records the
+proposed action, supporting observations, before/after states, vali-
+dation results, and output-file paths for every accepted or rejected
+step. Retaining rejected attempts makes the final result reproducible
+and allows scientists to review which hypotheses were tried, why
+they failed, and how the accepted refinement path was obtained.
+5
+XRDBench
+5.1
+From Bounded Questions to Executable
+Workflows
+An autonomous diffraction analysis combines local scientific judg-
+ments with implementation, backend use, evidence preservation,
+and termination. Endpoint-only evaluation reveals whether a work-
+flow succeeded but obscures why; bounded questions isolate the
+failure but cannot establish autonomy. XRDBench therefore con-
+tains two complementary parts that evaluate the same process at
+different levels of integration:
+B𝑄
+|{z}
+bounded XRD questions
+−→
+B𝐸
+|{z}
+state-changing workflows
+,
+(13)
+where the arrow denotes increasing task integration, not informa-
+tion flow.
+The first part is XRDBench-QA. Here QA denotes question an-
+swering under bounded evidence and output requirements, not only
+multiple choice. Thirty cases require exact option sets, 40 require
+structured evidence-grounded reports, and 30 require quantitative
+outcomes plus reports. XRDBench-E2E contains 34 open work-
+flows in which the agent must inspect files, implement and execute
+an analysis, revise failures, and package the evidence supporting its
+answer. Figure 2 summarizes the two tracks, their capability strata,
+and their task families; the complete task inventory is provided in
+the supplementary material.
+The QA track uses three evaluation forms: exact matching for 30
+scientific decisions, reference-guided assessment for 40 structured
+diagnoses, and recomputed objective metrics plus report assess-
+ment for 30 quantitative outcomes. The end-to-end track instead
+evaluates executed reports and artifacts through execution and
+physical gates, task-specific numerical metrics, and scientific judg-
+ing. The complete protocol table is included in the supplementary
+material.
+5.2
+XRDBench-QA
+XRDBench-QA evaluates whether an agent can make scientifically
+grounded decisions from bounded diffraction evidence. Its 100 tasks
+cover nine capabilities spanning refinement decisions, evidence in-
+terpretation, residual diagnosis, and quantitative recovery. Seventy
+tasks use deterministically generated inputs and ground truth, while
+the remaining 30 are constructed from experimental quantitative-
+phase-analysis data reported by the IUCr and phase-identification
+cases adapted from Dara [12, 22]. Each public task provides the
+relevant pattern or refinement-trajectory evidence together with a
+required response format, whereas ground-truth answers, numeri-
+cal targets, and scoring rubrics are retained by the evaluator.
+For an objective metric 𝑚, baseline 𝑏, and oracle 𝑜, higher- and
+lower-is-better utilities are
+𝑢↑(𝑚) = clip
+𝑚−𝑏
+𝑜−𝑏, 0, 1
+
+,
+𝑢↓(𝑚) = clip
+𝑏−𝑚
+𝑏−𝑜, 0, 1
+
+.
+(14)
+Parameter recovery combines mechanism detection and normalized
+errors; QPA combines phase-set F1, fraction error/closure, amor-
+phous accuracy, and report quality; phase identification combines
+phase-set F1, indexed coverage, unknown handling, and report
+
+
+Wu and Sun
+QA
+100
+E2E
+34
+Evidence interpretation
+Quantitative recovery
+Decision control
+Search &
+composition
+Profile &
+inference
+Structure &
+refinement
+Residual
+interpretation
+Pattern
+interpretation
+History
+assessment
+Parameter
+recovery
+Phase
+identification
+Phase
+quantification
+Result
+acceptance
+Action
+selection
+Residual
+diagnosis
+Phase
+quantification
+Phase
+identification
+Peak
+analysis
+Structure
+determination
+Rietveld
+refinement
+XRDBench
+N = 134
+Inner Ring: Evaluation Track
+Difficulty
+XRDBench-QA: 100 tasks
+XRDBench-E2E: 34 tasks
+QA: 30 Easy / 40 Medium / 30 Hard
+E2E: 11 Medium / 23 Hard
+Middle Ring: Capability Stratum
+QA - Evidence interpretation: 40
+QA - Quantitative recovery: 30
+QA - Decision control: 30
+E2E - Search & composition: 11
+E2E - Profile & inference: 10
+E2E - Structure & refinement: 13
+Outer Ring: Task Family
+XRDBench-QA
+XRDBench-E2E
+History assessment: 10
+Pattern interpretation: 10
+Residual interpretation: 20
+Parameter recovery: 10
+QA phase identification: 10
+QA phase quantification: 10
+Action selection: 10
+Residual diagnosis: 10
+Result acceptance: 10
+Database Retrieval: 2
+Phase Identification: 4
+Phase Quantification: 5
+Crystallite Analysis: 2
+Defect Disorder: 2
+Material Property Prediction: 1
+Pattern Prediction: 2
+Peak Analysis: 3
+Indexing: 2
+Rietveld Refinement: 8
+Structure Determination: 3
+Ring areas encode task counts.
+Figure 2: Composition of XRDBench. The inner ring separates the 100 diagnostic tasks from the 34 executable end-to-end
+workflows; the middle ring groups related capabilities; and the outer ring shows nine XRDBench-QA capability categories and
+eleven XRDBench-E2E task families.
+quality. With normalized case scores 𝑢(𝑄)
+𝑗
+∈[0, 1], the QA track
+score is 𝑆𝑄= Í100
+𝑗=1 𝑢(𝑄)
+𝑗
+.
+5.3
+XRDBench-E2E
+The end-to-end track evaluates whether an agent can transform
+diffraction inputs into a complete, executable, and scientifically sup-
+ported analysis. It contains 34 workflows spanning eleven powder-
+diffraction task families, including phase identification and quan-
+tification, pattern prediction, indexing, peak and microstructure
+analysis, structure determination, database retrieval, and Rietveld
+refinement. The workflows use 30 Cu K𝛼patterns derived from
+two opXRD sources [16] and four neutron-diffraction examples
+distributed with FullProf, with 11 categorized as Medium and 23 as
+Hard. Each task provides the diffraction data, instrument informa-
+tion, and executable workspace required by the agent, while target
+results and scoring criteria remain evaluator-side. For detailed anal-
+ysis, we report all eleven task families separately;
+Each fresh, networkless workspace provides public inputs, native
+file/code tools, task-relevant XRD procedures, GSAS-II, FullProf,
+and numerical libraries. The agent must deliver final_report.md
+plus task-specific executed code and evidence. An execution gate
+checks input inspection, state change, successful execution, evi-
+dence, deliverables, and oracle isolation; an independent physical
+gate rejects numerical or crystallographic contradictions. Let 𝑔𝑗=
+𝑔exec
+𝑗
+𝑔phys
+𝑗
+∈{0, 1} be their joint outcome. Let 𝜙𝐴,𝑗,𝜙𝑀,𝑗,𝜙𝐽,𝑗∈[0, 1]
+denote artifact integrity, task-specific numerical correctness, and
+evidence-grounded scientific judging, respectively. The case and
+track scores are
+𝑆𝐸,𝑗= 100𝑔𝑗
+ 0.15𝜙𝐴,𝑗+ 0.55𝜙𝑀,𝑗+ 0.30𝜙𝐽,𝑗
+ ,
+𝑆𝐸= 1
+34
+34
+∑︁
+𝑗=1
+𝑆𝐸,𝑗.
+(15)
+5.4
+Aggregation and Reproducibility
+We primarily report (𝑆𝑄,𝑆𝐸) and use
+𝑆overall = 0.5𝑆𝑄+ 0.5𝑆𝐸
+(16)
+All runs record trajectories, commands, artifacts, time, model turns,
+tool calls, and tokens; public cases enable audit, while future claims
+require sequestered extensions [29].
+6
+Experiments
+6.1
+Experimental Setup
+We evaluate GPT-5.6 Sol, Terra, and Luna; MiMo-V2.5-Pro and
+MiMo-V2.5; DeepSeek-V4-Pro and Flash; MiniMax-M2.7; Claude
+Haiku 4.5; and Gemini 3.1 Pro Low under the AutoXRD agent frame-
+work. On XRDBench-QA, each case permits at most 20 tool calls
+and 8,192 output tokens per turn; On XRDBench-E2E, each work-
+flow permits at most 50 agent steps and 32,768 output tokens per
+turn; GPT-5.6 Sol supplies the scientific-judgment component after
+execution and physical gates and objective metrics are evaluated.
+The complete protocol is provided in the supplementary material.
+6.2
+Research Questions and Statistical Analysis
+We ask: RQ1, which XRD capabilities current models master; RQ2,
+whether they compose into reliable workflows; RQ3, how ranks
+
+
+AutoXRD: Autonomous LLM Agents and Comprehensive Evaluation for Powder Diffraction Analysis
+Figure 3: Overall performance, ordered by the overall score. The wider, hatched bar denotes Overall, followed by XRDBench-QA
+and XRDBench-E2E.
+and failure modes change with integration; and RQ4, how effi-
+ciency and component choices affect performance. Our evaluation
+comprises 1,340 runs across ten models, involving 22,135 model
+turns. All intervals use 20,000 stratified task-bootstrap replicates;
+model differences use paired resampling within track. Thus inter-
+vals describe task variation, not decoding stochasticity.
+7
+Results
+7.1
+Scientific Capability and Workflow
+Integration
+Figure 3 compares model performance across the two tracks and the
+overall benchmark. GPT-5.6 Sol and GPT-5.6 Terra lead overall with
+81.09 and 79.41, followed by GPT-5.6 Luna at 68.87. The ten-model
+mean falls by 8.22 points, from 61.89 on XRDBench-QA to 53.67 on
+XRDBench-E2E, and seven models score lower on the end-to-end
+track. Although the tracks contain different tasks, the consistent
+decrease and the gate failures below show that composing scien-
+tific decisions into executable analyses remains substantially more
+difficult than answering bounded questions.
+On XRDBench-QA, models are strongest at refinement-history
+assessment (88.0) and result acceptance (81.0), but weak at next-
+action selection (44.0) and quantitative phase analysis (33.0). They
+therefore judge completed evidence more reliably than they control
+coupled parameters or recover phase fractions. All models miss the
+high-risk occupancy/zero–cell coupling cases; nine also accept a
+lower-𝑅wp state that introduces an unexplained peak, allowing a
+familiar scalar metric to override contradictory residual evidence.
+End-to-end workflows expose different bottlenecks. Figure 5 con-
+trasts workflow validity and completion with result quality across
+the eleven task families. Indexing is weakest (37.72) despite 90%
+scoring-gate passage, 80% complete deliverables, and 86.2 artifact
+validity: its objective-metric score is only 26.9 and its scientific-
+judge score is 33.2, showing that agents often execute and docu-
+ment a workflow but recover inaccurate cells or HKL assignments.
+Rietveld refinement instead combines a low final score (48.58) with
+the lowest scoring-gate rate (71.25%) and only 50% complete deliv-
+erables, indicating that workflow validity and evidence completion
+are major bottlenecks in addition to result quality. Crystallite and
+defect/disorder analyses score only 48.30 and 47.52, although their
+small family sizes make these comparisons descriptive. Peak analy-
+sis passes the scoring gate in 96.7% of runs and produces complete
+deliverables in 90.0%, yet scores only 57.60, further separating suc-
+cessful execution from scientific correctness. Figure 4 places the
+nine XRDBench-QA capabilities and nine end-to-end reporting
+domains on one profile per model.
+7.2
+Rank Transfer, Completion, and Efficiency
+XRDBench-QA and XRDBench-E2E scores are moderately corre-
+lated (Pearson 𝑟= 0.557; Spearman 𝜌= 0.648), but rankings change
+materially. DeepSeek-V4-Pro and Gemini 3.1 Pro Low gain 16.46 and
+20.58 points and rise to third and fifth on XRDBench-E2E, whereas
+MiMo-V2.5-Pro, MiMo-V2.5, and DeepSeek-V4-Flash lose 21.8–27.6
+points. These reversals show that diagnostic scores do not fully
+predict autonomous workflow performance. The overall estimates
+of Sol (81.09) and Terra (79.41) differ by 1.68 points with paired 95%
+interval [−1.46, 4.80]; neither is significantly ahead.
+Figure 7 compares performance with resource use across all 134
+tasks per model. Terra approaches Sol’s score while using 298.7K
+rather than 349.2K tokens and costing $0.68 rather than $1.97 per
+task. Luna offers the strongest score–cost trade-off (68.87 at $0.07),
+
+
+Wu and Sun
+Figure 4: Fine-grained performance across 18 dimensions: nine XRDBench-QA capabilities and nine end-to-end reporting
+domains. Each model has a separate 0–100 radar; numeric radial labels are omitted.
+Final
+score
+Scoring
+gate
+Complete
+deliverable
+Artifact
+validity
+Objective
+metrics
+Scientific
+judge
+Property prediction   n = 1
+Database retrieval   n = 2
+Pattern prediction   n = 2
+Phase quantification   n = 5
+Peak analysis   n = 3
+Structure determination   n = 3
+Phase identification   n = 4
+Rietveld refinement   n = 8
+Crystallite analysis   n = 2
+Defect / disorder   n = 2
+Indexing   n = 2
+64.8
+90.0
+70.0
+85.0
+64.4
+55.5
+62.0
+90.0
+70.0
+78.8
+59.9
+57.5
+60.7
+85.0
+70.0
+81.2
+58.2
+55.0
+57.9
+86.0
+56.0
+69.6
+58.1
+51.7
+57.6
+96.7
+90.0
+94.2
+54.0
+45.8
+57.5
+96.7
+70.0
+83.3
+52.0
+54.7
+56.0
+97.5
+75.0
+86.2
+48.7
+54.2
+48.6
+71.2
+50.0
+66.2
+48.6
+39.8
+48.3
+85.0
+65.0
+77.5
+40.8
+47.5
+47.5
+90.0
+65.0
+71.2
+40.5
+48.5
+37.7
+90.0
+80.0
+86.2
+26.9
+33.2
+0
+25
+50
+75
+100
+Mean score or rate (%)
+Figure 5: XRDBench-E2E bottlenecks across eleven task fam-
+ilies, averaged over ten models. Rows are ordered by final
+score; gate and completion columns are pass rates, while the
+remaining columns are effective 0–100 components.
+but its 435-second duration exceeds Terra’s 239 seconds, showing
+that monetary and latency efficiency need not coincide.
+7.3
+Failure Analysis
+Trace inspection exposes three recurring failure types in end-to-
+end workflows. First, scientific outcome failures occur after genuine
+execution: indexing often produces inaccurate cells or HKL assign-
+ments despite passing the gate, while refinement may improve fit
+statistics without a valid structural result. Second, execution and ev-
+idence failures prevent scoring or completion: 46 of 340 runs (13.5%)
+fail at least one execution or physical gate, while 117 (34.4%) fail
+0
+5
+10
+15
+20
+Score improvement from component (points)
+Staged refinement
+Residual reasoning
+Pattern QC
+Domain procedures
+Final scientific review
+Result acceptance checks
++1.1
++1.3
++1.6
++2.5
++17.1
++17.5
+Figure 6: Component ablations on XRDBench-QA. Bars show
+the full-system score minus component removal.
+at least one full-completion requirement, commonly because code,
+backend outputs, or required evidence is missing or invalid. Third,
+termination failures consume almost the full 50-step budget without
+producing a valid deliverable. These traces explain why aggregate
+QA competence transfers only partially to autonomous workflows
+and separate runnable-but-wrong science from incomplete execu-
+tion.
+7.4
+Ablation and Component Analysis
+Figure 6 summarizes the component effects on GPT-5.6 Luna. Each
+of the six tested components improves downstream performance.
+Result-acceptance checks and final scientific review yield the largest
+
+
+AutoXRD: Autonomous LLM Agents and Comprehensive Evaluation for Powder Diffraction Analysis
+Figure 7: Full-benchmark efficiency and cost-effectiveness. Resource means pool all 134 task runs per model; the vertical axis is
+the overall score.
+gains (17.5 and 17.1 points). Domain procedures add 2.5 points,
+while pattern quality control, residual reasoning, and staged refine-
+ment add 1.1–1.6 points. The consistent gains support combining
+procedural guidance with explicit verification.
+8
+Discussion
+XRDBench-QA and XRDBench-E2E expose complementary failure
+modes. The former diagnoses whether a model recognizes a valid ac-
+tion or scientific outcome; the latter adds implementation, backend
+operation, evidence preservation, physical validation, and delivery.
+Low Rietveld joint gate passage indicates incomplete or physically
+invalid workflows, whereas low Indexing accuracy despite high
+joint gate passage indicates incorrect science after genuine execu-
+tion. The former calls for stronger execution contracts and stopping
+controls; the latter for better candidate generation and uncertainty-
+aware algorithms.
+Even the strongest models occasionally accept an invalid refine-
+ment because a single fit statistic improves, despite clear deteriora-
+tion in the residual pattern. In end-to-end workflows, models may
+also produce convincing reports without retaining the output files
+and intermediate results needed to verify their conclusions. These
+findings show that reliable XRD agents must evaluate numerical
+fit, physical validity, and reproducible execution evidence together.
+Accordingly, XRD-agent evaluation should report not only final
+performance, but also execution success, physical-check passage,
+artifact completeness, and computational cost.
+9
+Conclusion
+AutoXRD combines LLM planning, crystallographic tools, and deter-
+ministic validation; XRDBench evaluates diagnostic reasoning and
+end-to-end workflows. Across ten models and 1,340 runs, diagnostic
+competence only moderately predicts autonomous performance:
+indexing is executable but inaccurate, while Rietveld refinement is
+limited by completion and validity. Reliable diffraction agents must
+expose the evidence and invariants supporting each conclusion, not
+merely produce plausible reports.
+Ethical Considerations
+Incorrect autonomous diffraction conclusions can affect materials
+decisions and downstream experiments. AutoXRD is decision sup-
+port rather than expert certification: it exposes uncertainty and
+
+
+Wu and Sun
+validation failures, while users remain responsible for provenance,
+safety, calibration, licensing, and independent scientific review.
+References
+[1]
+A. Le Bail, H. Duroy, and J.L. Fourquet. 1988. Ab-initio structure determination of LiSbWO6 by
+X-ray powder diffraction. Materials Research Bulletin 23, 3 (1988), 447–452. doi:10.1016/0025-
+5408(88)90019-0
+[2]
+Daniil A. Boiko, Robert MacKnight, Ben Kline, and Gabe Gomes. 2023. Autonomous Chemical
+Research with Large Language Models. Nature 624 (2023), 570–578. doi:10.1038/s41586-023-
+06792-0
+[3]
+Andres M. Bran, Sam Cox, Oliver Schilter, Carlo Baldassari, Andrew D. White, and Philippe
+Schwaller. 2024. Augmenting Large Language Models with Chemistry Tools. Nature Machine
+Intelligence 6 (2024), 525–535. doi:10.1038/s42256-024-00832-8
+[4]
+Charles Rhys Campbell, Justin Ely, Jaehyung Lee, Frank M. Abel, and Kamal Choudhary.
+2026. Hybrid DiffractGPT–Rietveld Refinement Framework for Automated X-ray Diffraction
+Analysis. arXiv:2607.08890
+[5]
+Bin Cao, Yang Liu, Zinan Zheng, Ruifeng Tan, Jia Li, and Tong-Yi Zhang. 2025. SimXRD-
+4M: Big Simulated X-ray Diffraction Data and Crystal Symmetry Classification Benchmark.
+In International Conference on Learning Representations. https://openreview.net/forum?id=
+mkuB677eMM
+[6]
+Qian Cao, Yin Xu, and Mingjun Xiao. 2025. LLM-Agent Framework for Multimodal Crystal
+Structure Prediction. Computer Systems Applications 34, 8 (2025), 33–42. doi:10.15888/j.cnki.
+csa.009893
+[7]
+Ming-Chiang Chang, Sebastian Ament, Maximilian Amsler, Duncan R. Sutherland, Lan Zhou,
+John M. Gregoire, Carla P. Gomes, R. Bruce van Dover, and Michael O. Thompson. 2025.
+Probabilistic phase labeling and lattice refinement for autonomous materials research. npj
+Computational Materials 11 (2025). doi:10.1038/s41524-025-01627-0
+[8]
+Ziru Chen, Shijie Chen, Yuting Ning, Qianheng Zhang, Boshi Wang, Botao Yu, Yifei Li,
+Zeyi Liao, Chen Wei, Zitong Lu, Vishal Dey, Mingyi Xue, Frazier N. Baker, Benjamin
+Burns, Daniel Adu-Ampratwum, Xuhui Huang, Xia Ning, Song Gao, Yu Su, and Huan
+Sun. 2025.
+ScienceAgentBench: Toward Rigorous Assessment of Language Agents for
+Data-Driven Scientific Discovery. In International Conference on Learning Representations.
+https://openreview.net/forum?id=6z4YKr0GK6
+[9]
+Zhantao Chen, Alexander N. Petsch, Aidan J. Israelski, Rajan Plumley, Lingjia Shen, Cong
+Wang, Cheng Peng, Yuan Ni, Arun Bansil, Sugata Chowdhury, Mingda Li, Jana B. Thayer,
+Vivek Thampy, and Joshua J. Turner. 2026. An Agentic Artificially Intelligent X-Ray Scientist.
+Nature Machine Intelligence 8 (2026), 1075–1086. doi:10.1038/s42256-026-01261-5
+[10]
+Xiaopeng Cui, Zhenjie Feng, Yuan Jin, Yiming Cao, Dongmei Deng, Hao Chu, Shixun Cao,
+Cheng Dong, and Jincang Zhang. 2015. AutoFP: A GUI for Highly Automated Rietveld Refine-
+ment Using an Expert System Algorithm Based on FullProf. Journal of Applied Crystallography
+48 (2015), 1581–1586. doi:10.1107/S1600576715015125
+[11]
+W. A. Dollase. 1986. Correction of intensities for preferred orientation in powder diffractometry:
+application of the March model. Journal of Applied Crystallography 19 (1986), 267–272. doi:10.
+1107/S0021889886089458
+[12]
+Yuxing Fei, Matthew J. McDermott, Christopher L. Rom, Shilong Wang, and Gerbrand Ceder.
+2026. Dara: Automated Multiple-Hypothesis Phase Identification and Refinement from Powder
+X-Ray Diffraction. Chemistry of Materials 38, 3 (2026), 1364–1376. doi:10.1021/acs.chemmater.
+5c02820
+[13]
+Zhenjie Feng, Qiang Hou, Yonglei Zheng, Wei Ren, Jun-Yi Ge, Tao Li, Cheng Cheng, Wencong
+Lu, Shixun Cao, Jincang Zhang, and Tongyi Zhang. 2019. Method of artificial intelligence
+algorithm to improve the automation level of Rietveld refinement. Computational Materials
+Science 156 (2019), 310–314. doi:10.1016/j.commatsci.2018.10.006
+[14]
+Saulius Gražulis, Adriana Daškevič, Andrius Merkys, Daniel Chateigner, Luca Lutterotti, Miguel
+Quirós, Nadezhda R. Serebryanaya, Peter Moeck, Robert T. Downs, and Armel Le Bail. 2012.
+Crystallography Open Database (COD): an open-access collection of crystal structures and
+platform for world-wide collaboration. Nucleic Acids Research 40, D1 (2012), D420–D427.
+doi:10.1093/nar/gkr900
+[15]
+R. J. Hill and C. J. Howard. 1987. Quantitative phase analysis from neutron powder diffraction
+data using the Rietveld method. Journal of Applied Crystallography 20, 6 (1987), 467–474.
+doi:10.1107/S0021889887086199
+[16]
+Daniel Hollarek, Henrik Schopmans, Jona Östreicher, Jonas Teufel, Bin Cao, Adie Alwen,
+Simon Schweidler, Mriganka Singh, Tim Kodalle, Hanlin Hu, Gregoire Heymans, Maged
+Abdelsamie, Arthur Hardiagon, Alexander Wieczorek, Siarhei Zhuk, Ruth Schwaiger, Sebastian
+Siol, François-Xavier Coudert, Moritz Wolf, Carolin M. Sutter-Fella, Ben Breitung, Andrea M.
+Hodge, Tong-yi Zhang, and Pascal Friederich. 2026. opXRD: Open Experimental Powder X-Ray
+Diffraction Database. Advanced Intelligent Discovery (2026). doi:10.1002/aidi.202500044
+[17]
+Qian Huang, Jian Vora, Percy Liang, and Jure Leskovec. 2024. MLAgentBench: Evaluating
+Language Agents on Machine Learning Experimentation. In Proceedings of the 41st International
+Conference on Machine Learning, Vol. 235. PMLR, 20271–20309.
+[18]
+Jin-Woong Lee, Woon Bae Park, Jin Hee Lee, Satendra Pal Singh, and Kee-Sun Sohn. 2020. A
+deep-learning technique for phase identification in multiphase inorganic compounds using
+synthetic XRD powder patterns. Nature Communications 11 (2020), 86. doi:10.1038/s41467-
+019-13749-3
+[19]
+Qingmeng Li, Hao Wang, Dongbo Xiong, Jiajun Zhong, Wenhai Ji, Hao Hu, Yiyu Zhang, Bolun
+Zhang, Hong Wang, Yongfeng Zhu, Rong Du, Zhengde Zhang, Fazhi Qi, and Junrong Zhang.
+2026. Rongzai Agent: A Large Language Model-Based Autonomous Assistant for Rietveld
+Refinement of Neutron Diffraction Data. arXiv:2605.13911
+[20]
+Xiao Liu, Hao Yu, Hanchen Zhang, Yifan Xu, Xuanyu Lei, Hanyu Lai, Yu Gu, Hangliang Ding,
+Kaiwen Men, Kejuan Yang, Shudan Zhang, Xiang Deng, Aohan Zeng, Zhengxiao Du, Chenhui
+Zhang, Shengqi Shen, Tianjun Zhang, Yu Su, Huan Sun, Minlie Huang, Yuxiao Dong, and Jie
+Tang. 2024. AgentBench: Evaluating LLMs as Agents. In International Conference on Learning
+Representations. https://openreview.net/forum?id=zAdUB0aCTQ
+[21]
+Chris Lu, Cong Lu, Robert Tjarko Lange, Jakob Foerster, Jeff Clune, and David Ha. 2024. The
+AI Scientist: Towards Fully Automated Open-Ended Scientific Discovery. arXiv:2408.06292
+[22]
+Ian C. Madsen, Nicola V. Y. Scarlett, Lachlan M. D. Cranswick, and Thaung Lwin. 2001. Out-
+comes of the International Union of Crystallography Commission on Powder Diffraction Round
+Robin on Quantitative Phase Analysis: Samples 1a to 1h. Journal of Applied Crystallography
+34, 4 (2001), 409–426. doi:10.1107/S0021889801007476
+[23]
+Phillip M. Maffettone, Lars Banko, Peng Cui, Yury Lysogorskiy, Marc A. Little, Daniel Olds,
+Alfred Ludwig, and Andrew I. Cooper. 2021. Crystallography Companion Agent for High-
+Throughput Materials Discovery. Nature Computational Science 1, 4 (2021), 290–297. doi:10.
+1038/s43588-021-00059-2
+[24]
+Suk Jin Mun, Yoonsoo Nam, and Sungkyun Choi. 2026. Automation of Rietveld refinement
+through machine learning. Journal of Applied Crystallography 59, 2 (2026), 564–577. doi:10.
+1107/S1600576726001494
+[25]
+Yoshihiko Ozaki, Yuta Suzuki, Takafumi Hawai, Kotaro Saito, Masaki Onishi, and Kanta Ono.
+2020. Automated crystal structure analysis based on blackbox optimisation. npj Computational
+Materials 6 (2020), 75. doi:10.1038/s41524-020-0330-9
+[26]
+H. M. Rietveld. 1969. A profile refinement method for nuclear and magnetic structures. Journal
+of Applied Crystallography 2, 2 (1969), 65–71. doi:10.1107/S0021889869006558
+[27]
+Sergio Rincón, Gabriel González, Mario A. Macías, and Pablo Arbeláez. 2025. A new benchmark
+for machine learning applied to powder X-ray diffraction. Scientific Data 12 (2025), 1186.
+doi:10.1038/s41597-025-05534-3
+[28]
+Juan Rodríguez-Carvajal. 1993. Recent advances in magnetic structure determination by
+neutron powder diffraction. Physica B: Condensed Matter 192, 1–2 (1993), 55–69. doi:10.1016/
+0921-4526(93)90108-I
+[29]
+Oscar Sainz, Jon Ander Campos, Iker García-Ferrero, Julen Etxaniz, Oier Lopez de Lacalle,
+and Eneko Agirre. 2023. NLP Evaluation in trouble: On the Need to Measure LLM Data
+Contamination for each Benchmark. In Findings of the Association for Computational Linguistics:
+EMNLP 2023. 10776–10787. arXiv:2310.18018 doi:10.18653/v1/2023.findings-emnlp.722
+[30]
+Timo Schick, Jane Dwivedi-Yu, Roberto Dessi, Roberta Raileanu, Maria Lomeli, Eric Hambro,
+Luke Zettlemoyer, Nicola Cancedda, and Thomas Scialom. 2023. Toolformer: Language Models
+Can Teach Themselves to Use Tools. In Advances in Neural Information Processing Systems,
+Vol. 36. 68539–68551.
+[31]
+Jan Schuetzke, Alexander Benedix, Ralf Mikut, and Markus Reischl. 2021. Enhancing deep-
+learning training for phase identification in powder X-ray diffractograms. IUCrJ 8 (2021),
+408–420. doi:10.1107/S2052252521002402
+[32]
+Woong Shin, Craig A. Bridges, Marshall T. McDonnell, and Rafael Ferreira da Silva. 2026.
+Fantastic Scientific Agents and How to Build Them: AgentBuild for Rietveld Refinement.
+arXiv:2606.12834
+[33]
+Maojun Sun, Ruijian Han, Binyan Jiang, Houduo Qi, Defeng Sun, Yancheng Yuan, and Jian
+Huang. 2026. LAMBDA: A Large Model Based Data Agent. J. Amer. Statist. Assoc. 121, 553
+(2026), 1–13. doi:10.1080/01621459.2025.2510000
+[34]
+Maojun Sun, Ruijian Han, Binyan Jiang, Houduo Qi, Defeng Sun, Yancheng Yuan, and Jian
+Huang. 2026. Rejoinder to the Discussions on “A Survey on Large Language Model-Based
+Agents for Statistics and Data Science” A Statistical View of LLM-Based Data Science Agents:
+Reasoning, Uncertainty, and Reliability. The American Statistician 80, 3 (2026), 352–359.
+[35]
+Maojun Sun, Ruijian Han, Binyan Jiang, Houduo Qi, Defeng Sun, Yancheng Yuan, and Jian
+Huang. 2026. Rejoinder to the Discussions on “LAMBDA: A Large Model Based Data Agent”.
+J. Amer. Statist. Assoc. 121, 553 (2026), 36–43. doi:10.1080/01621459.2025.2612245
+[36]
+Maojun Sun, Ruijian Han, Binyan Jiang, Houduo Qi, Defeng Sun, Yancheng Yuan, and Jian
+Huang. 2026. A Survey on Large Language Model-Based Agents for Statistics and Data Science.
+The American Statistician 80, 3 (2026), 331–344. doi:10.1080/00031305.2025.2561140
+[37]
+Maojun Sun, Yifei Xie, Yue Wu, Ruijian Han, Binyan Jiang, Defeng Sun, Yancheng Yuan, and
+Jian Huang. 2026. DSAEval: Evaluating Data Science Agents on a Wide Range of Real-World
+Data Science Problems. arXiv:2601.13591
+[38]
+P. Thompson, D. E. Cox, and J. B. Hastings. 1987. Rietveld Refinement of Debye–Scherrer
+Synchrotron X-Ray Data from Al2O3. Journal of Applied Crystallography 20 (1987), 79–83.
+doi:10.1107/S0021889887087090
+[39]
+P. Tian, W. Zhou, J. Liu, Y. Shang, C. L. Farrow, P. Juhás, and S. J. L. Billinge. 2013. SrRietveld:
+A Program for Automating Rietveld Refinements for High-Throughput Powder Diffraction
+Studies. Journal of Applied Crystallography 46 (2013), 255–258. doi:10.1107/S0021889812045967
+[40]
+Brian H. Toby. 2006. R Factors in Rietveld Analysis: How Good Is Good Enough? Powder
+Diffraction 21, 1 (2006), 67–70. doi:10.1154/1.2179804
+[41]
+B. H. Toby. 2024. A simple solution to the Rietveld refinement recipe problem. Journal of
+Applied Crystallography 57 (2024), 175–180. doi:10.1107/S1600576723011032
+[42]
+Brian H. Toby and Robert B. Von Dreele. 2013. GSAS-II: The Genesis of a Modern Open-Source
+All-Purpose Crystallography Software Package. Journal of Applied Crystallography 46, 2 (2013),
+544–549. doi:10.1107/S0021889813003531
+[43]
+Ali Vosoughi, Ayoub Shahnazari, Yufeng Xi, Zeliang Zhang, Griffin Hess, Chenliang Xu, and
+Niaz Abdolrahim. 2026. OPENXRD: A Comprehensive Benchmark Framework for LLM/MLLM
+XRD Question Answering. Digital Discovery 5 (2026), 1991–2015. doi:10.1039/D5DD00519A
+[44]
+Hongqing Wang, Mingwei Chen, Hongjie Luo, Yin Wen, Fazhi Qi, Xuqing Chai, Miao Liu, and
+Fengyao Hou. 2026. MatDiffract: A Material-Informed Automated Analysis Platform for X-ray
+Powder Diffraction. arXiv:2607.20880
+[45]
+Zhongcan Xiao, Leyi Zhang, Guannan Zhang, and Xiaoping Wang. 2026. NeuDiff Agent:
+A Governed AI Workflow for Single-Crystal Neutron Crystallography. Journal of Applied
+Crystallography 59, 4 (2026), 1102–1111. doi:10.1107/S1600576726004474
+[46]
+Lalit Yadav, Yongqiang Cheng, and Mathieu Doucet. 2026. Automated Multiphase Identifi-
+cation and Refinement in Powder Diffraction Using Mismatch-Tolerant Machine Learning.
+arXiv:2605.12478
+[47]
+Shunyu Yao, Noah Shinn, Pedram Razavi, and Karthik Narasimhan. 2025. 𝜏-bench: A Bench-
+mark for Tool-Agent-User Interaction in Real-World Domains. In International Conference on
+Learning Representations. https://openreview.net/forum?id=roNSXZpUDN
+[48]
+Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan
+Cao. 2023. ReAct: Synergizing Reasoning and Acting in Language Models. In International
+Conference on Learning Representations. https://openreview.net/forum?id=WE_vluYUL-X
+[49]
+Yuto Yotsumoto, Yusaku Nakajima, Ryusei Takamoto, Yasuo Takeichi, and Kanta Ono. 2024.
+Autonomous robotic experimentation system for powder X-ray diffraction. Digital Discovery 3
+(2024), 2523–2532. doi:10.1039/D4DD00190G
+[50]
+Robert A. Young (Ed.). 1993. The Rietveld Method. Oxford University Press. doi:10.1093/oso/
+9780198555773.001.0001

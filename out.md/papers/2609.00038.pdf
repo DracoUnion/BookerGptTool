@@ -1,0 +1,1187 @@
+trajectory-judge: What Outcome-Only LLM Judges
+Miss on Agent Trajectories
+Hadi Mohammadi
+Utrecht University
+h.mohammadi@uu.nl
+Abstract
+Outcome-only evaluation is the production default for LLM agents: show a judge
+the request and the final reply and ask whether it was handled well. The metric
+is structurally blind to an agent that reaches the right answer the wrong way.
+We measure that blind spot where ground truth is known by construction: a
+deterministic tool-using support-desk environment, a scripted oracle policy that
+always solves it, and a fault injector that breaks exactly one thing at a known step,
+stratifying faults by whether the customer-visible outcome survived (silent) or not
+(loud). Five judges (programmatic rules, outcome-only, step-rubric at two model
+sizes, and a self-consistency ensemble) are scored on detection, step localisation,
+fault typing, calibration, and cost over 400 trajectories. The outcome-only judge
+catches 84% of loud faults but 45% of silent ones while flagging 33% of correct
+trajectories; a step-rubric judge reaches 77% silent recall with zero false alarms
+at 3× the cost. No judge reads the final reply: an invented promise appended to
+an otherwise perfect trajectory evades the rules entirely and the step judge 82%
+of the time, and self-consistency triples cost while improving nothing. We argue
+that judge evaluations must stratify recall by outcome survival, and release the
+environment, the injector, all raw verdicts, and an analysis pipeline that rebuilds
+every number offline.
+1
+Introduction
+Agents that call tools are gated on outcome-level judgment. A model reads the user’s request and the
+agent’s final answer, decides whether the case was handled well, and that verdict feeds a dashboard, a
+release gate, or a reward signal. The failures that survive this filter are precisely the ones it cannot see:
+the agent that skipped a required eligibility check, acted against what a tool returned, or promised
+something no observation supports, whenever the final answer nevertheless came out right. A refund
+of the correct amount issued without ever checking eligibility reads, from the outside, exactly like the
+same refund issued correctly. These are the faults that reach production, because the metric meant to
+catch them is structurally blind to them.
+Evaluating the evaluator normally requires human labels, and the labeller is then the thing under
+test. We escape the circle by construction. A deterministic support-desk environment is solved by
+a scripted oracle policy that is provably correct (a test suite asserts it passes every process rule and
+reaches the expected outcome on every instance), and a fault injector then breaks exactly one thing at
+a known step and replays the trajectory so its observations stay internally consistent. Every trajectory
+therefore carries an exact label at zero annotation cost: faulty or not, at which step, of which type,
+and whether the customer-visible outcome survived. This paper holds the agent fixed and puts the
+judges on the bench: every judge error is attributable to the judge.
+The stratification by outcome survival is the move that makes the measurement possible. Pooled
+over all faults, the outcome-only judge’s recall is a respectable-looking 0.61. Split it, and the number
+Preprint.
+arXiv:2609.00038v1  [cs.CL]  29 Aug 2026
+
+
+decomposes into 0.840 on faults that broke the answer against 0.451 on faults that did not. The gap is
+the result, and a single pooled recall averages it away.
+Contributions. (i) A correct-by-construction testbed for judges of tool-using agents: a permissive en-
+vironment with a strict checker, a six-type single-fault injector with known step and outcome-survival
+labels, and a rule-engine baseline whose coverage gaps are pinned by tests (§3). (ii) A controlled
+comparison of five judge designs on five axes (detection, localisation, typing, calibration, cost) with
+stratified bootstrap confidence intervals (§4–§6). (iii) Findings with deployment consequences: the
+quantified silent blind spot; a fault type, unsupported_claim, that evades every judge including
+those shown the full trajectory; a negative result on self-consistency ensembling; and an 8B judge
+that is an always-say-faulty baseline wearing a judge’s clothes (§7). (iv) A fully offline-reproducible
+artifact: raw verdicts are released, and every table, figure, and interval in this paper regenerates from
+them without a model call (§10).
+2
+Related work
+Reliability of LLM judges. Model-as-judge evaluation is standard for open-ended outputs [Zheng
+et al., 2023, Liu et al., 2023, Gu et al., 2024], and its pathologies are well documented: position
+and verbosity bias [Wang et al., 2023a], self-preference [Panickssery et al., 2024], objective failures
+on instruction-following comparisons [Zeng et al., 2024], and misalignment that grows with task
+difficulty [Thakur et al., 2024]. That line audits judges of single responses against human labels;
+we audit judges of multi-step tool trajectories against labels correct by construction, so a flag on a
+clean trajectory is a false positive with nothing to argue about. The judge design itself (reasoning
+before verdict, a stated confidence) follows Mohammadi et al. [2026], and treating a model’s labels as
+measurements that need their own reliability estimate follows Mohammadi et al. [2025]; Mohammadi
+[2026] develops both at thesis length.
+Agent benchmarks. Benchmarks for tool-using agents score the agent, increasingly on the trajectory
+rather than the outcome alone: τ-bench compares final database state [Yao et al., 2024], AgentBench
+and WebArena score task success [Liu et al., 2024, Zhou et al., 2024], AgentBoard tracks subgoal
+progress [Ma et al., 2024], and recent work scores reasoning trajectories directly [Kim et al., 2025,
+He et al., 2025]. We invert the roles: the agent is a fixed oracle, and the evaluator is the system under
+test.
+Failure attribution. Locating the failing step or agent in a trace is an emerging task [Zhang et al.,
+2025b, Deshpande et al., 2025, Cemri et al., 2025, Ma et al., 2025], and AgenTracer injects faults
+into successful trajectories to mint labelled error pairs at scale [Zhang et al., 2025a]. Fault injection is
+the established part of our design; the delta is what is done with it: a five-way instrument comparison
+that separates detection from attribution and stratifies recall by outcome survival, which that literature
+does not report.
+Process versus outcome supervision. Process reward models show step-level feedback beats
+outcome-level feedback for training verifiers in mathematics [Lightman et al., 2024, Uesato et al.,
+2022, Wang et al., 2024], and ProcessBench measures error localisation in reasoning chains [Zheng
+et al., 2024, Zhang et al., 2025c]. That agenda trains scorers where the final answer is checkable; we
+ask the measurement question underneath it, whether an off-the-shelf judge can see process faults at
+all when the final answer is right, and find the answer depends on the judge’s view, not its metric.
+Calibration.
+We score every judge’s stated confidence with expected calibration error [Pak-
+daman Naeini et al., 2015, Guo et al., 2017]. Verbalized confidence can be usable [Kadavath
+et al., 2022, Tian et al., 2023] but trends overconfident [Xiong et al., 2024]; we add the evaluator-side
+result that an ensemble’s vote share (the “principled” alternative) is structurally coarser than a stated
+number at small k.
+Mutation testing. Seeding known defects to measure a detector is half a century old [DeMillo et al.,
+1978, Jia and Harman, 2011]. Whether mutants substitute for real faults is the classic validity question
+[Just et al., 2014]; §8 answers it here: no for prevalence, yes for capability.
+2
+
+
+support-desk instances
+6 strata, seeded
+oracle policy
+correct by construction
+clean
+n = 100
+fault injection
+6 types, known step
+silent
+n = 175
+loud
+n = 125
+five judges
+detection · localisation
+typing · calibration · cost
+outcome survived
+outcome broke
+Figure 1: Ground truth without annotation: the oracle is correct by construction and each mutation
+breaks exactly one thing, so every trajectory carries an exact label: faulty, step, type, and whether the
+customer-visible outcome survived.
+3
+A testbed with ground truth by construction
+Environment. The environment is a customer-support desk with seven tools (get_customer,
+lookup_order, get_policy, check_eligibility, issue_refund, escalate, reply) and a
+written standard operating procedure: verify the customer, look up the order, read the policy for the
+item, confirm eligibility before moving money, refund exactly the authorised amount, escalate when
+not eligible, and reply asserting only what the observations support. Instances are generated in six
+strata: full-price refunds, restocking fees, expired windows, non-refundable items, orders belonging
+to a different customer, and orders already refunded, drawn round-robin from a single seeded stream
+(Appendix A).
+The environment is permissive and the checker is strict. issue_refund will refund an order
+whose eligibility was never checked, exactly as a real payments API would. Nothing in the world
+stops an agent from skipping the process; only the rule checker says it was wrong. This is the
+load-bearing design choice: without it there would be no silent failures to measure, which is why
+it is pinned by a test (test_environment_is_permissive_by_design) rather than stated in a
+comment.
+Notation. A trajectory τ = (g, s0, . . . , sT −1, a) pairs a goal g and final answer a with steps
+st = (ht, ct, ot): a thought, a tool call ct = (toolt, argst), and an observation ot. Its label is
+ℓ(τ) = (y, t∗, ϕ, ω): faulty or not, the failure step, the failure type ϕ ∈Φ (|Φ| = 6), and whether
+the customer-visible outcome matched the instance’s expected outcome. A fault is silent iff y ∧ω
+and loud iff y ∧¬ω. A judge maps a view of the trajectory to a verdict (ˆy, ˆt, ˆϕ, ˆc, r) with stated
+confidence ˆc and rationale r. The outcome-only view is Vout(τ) = (g, a); the step view Vstep(τ) is
+the full rendering. The two LLM judges in this paper differ in exactly this view and in nothing else.
+Oracle. The oracle is a fixed six-step script, identical across strata up to one branch: verify, look up,
+read the policy for the SKU returned by the lookup observation, check eligibility, then refund the
+authorised amount if eligible and escalate otherwise, and reply. A test parametrised over all instances
+asserts it violates no rule and reaches the expected outcome; correctness is computed, not assumed.
+Fault injector. Each mutation edits the call list only (one edit, one step) and then replays the edited
+list against a fresh environment, regenerating every observation. A hallucinated SKU therefore
+genuinely fails its lookup; nothing is hand-written, and a test asserts the replayed observations are
+consistent with the calls. Table 1 lists the six types. Injection is string-seeded per (instance, type), so
+the set is deterministic. One discipline matters enough to state: mutations are constructed to break
+exactly one rule. skipped_precondition, for example, rewrites the refund amount to the order
+total specifically so the argument stays grounded in the lookup observation; otherwise a second rule
+would fire and the confusion matrix would measure the injector rather than the judge. The judged set
+is 400 trajectories: 100 clean, 175 silent, 125 loud (50 per type), deterministically shuffled so any
+prefix is a stratified sample.
+The rule engine, and its two zeros. A checker walks each trajectory once, maintaining a pool of
+grounded values seeded from the goal, and enforces eight rules over grounding, ordering, amounts,
+identity, and terminality (Appendix B). It covers four of the six fault types at 100% and two at exactly
+3
+
+
+Table 1: The six failure types. Each mutation edits the oracle’s call list at a known step and replays it
+against a fresh environment, so a mutant is as internally consistent as a real run. Rule coverage is
+measured and pinned by a test, not estimated. The two zeros are the point: a plausible-but-wrong tool
+choice breaks no rule, and an invented sentence in the reply is not a rule violation at all; both need
+something that reads.
+Failure type
+The single edit
+Rules catch
+Outcome survives
+n
+skipped_precondition
+refund without the eligibility check
+100%
+at full price
+50
+hallucinated_argument
+policy fetched for an invented SKU
+100%
+always
+50
+ignored_observation
+refund of an unauthorised amount
+100%
+never
+50
+premature_stop
+truncated before acting or replying
+100%
+never
+50
+wrong_tool
+re-fetches the order instead of the policy
+0%
+always
+50
+unsupported_claim
+invented promise appended to the reply
+0%
+always
+50
+Table 2: The judges. The two single-pass LLM judges are the same judge with a different view:
+identical model, decoding, procedure text, taxonomy, and confidence instruction; the only free
+variable is whether the rendering includes the steps.
+Judge
+View
+Model
+Decoding
+Confidence
+rules
+steps
+—
+deterministic
+two hand-set constants
+outcome (14B)
+(g, a)
+qwen2.5:14b
+T=0, seed 7
+stated
+step (14B)
+full
+qwen2.5:14b
+T=0, seed 7
+stated
+step (8B)
+full
+llama3.1:8b
+T=0, seed 7
+stated
+selfcons k=3 (14B)
+full
+qwen2.5:14b
+T=0.7, seeds 7–9
+vote share
+0%, structurally. wrong_tool breaks no ordering or argument predicate: the checker has no notion
+of tool intent. unsupported_claim appends prose to the reply, and no rule reads the reply at all:
+prose is deliberately excluded from the grounding pool because identifiers ground and sentences do
+not. Both zeros are pinned by a test that fails if they ever change. This is the honest free baseline: the
+argument for LLM judges, stated as a measurement rather than an assertion.
+4
+Five judges
+Table 2 lists the five judges [Yang et al., 2024, Dubey et al., 2024]. The engineering that keeps
+the comparison fair is worth itemising. Both LLM judges receive the same standard operating
+procedure and the same failure taxonomy, word for word. Responses are decoded under a JSON
+schema (grammar-constrained), with reasoning as the first property: schema property order is
+generation order, so chain-of-thought is enforced by the grammar rather than requested politely. The
+context window is set explicitly (num_ctx=8192) because the serving default would silently truncate
+a rendered trajectory, and a judge scoring the half it happened to see is a bug that reads as a finding.
+Confidence is clamped to [0.5, 1.0]; an unparseable response would vote clean at confidence 0.5
+rather than be dropped (silently dropping it would quietly improve whichever judge fails most often),
+though none occurred. Judges cannot read the label. The outcome judge’s prompt carries explicit
+de-biasing (“not being able to see the steps is not evidence of a failure”), so its false-alarm rate below
+is not an artefact of an under-specified prompt. The self-consistency ensemble [Wang et al., 2023b]
+runs the step judge k=3 times at T=0.7 with a strict-majority vote; its confidence is the vote share,
+which at k=3 can express exactly two values, 2/3 and 1. All prompts and schemas are verbatim in
+Appendix D.
+5
+Metrics and uncertainty
+Detection is binary at the trajectory level: precision, recall, and F1 over all 400 trajectories, plus
+the three-way partition that carries the paper: silent recall, loud recall, and the false-alarm rate on
+clean trajectories. Localisation is exact match on the failure step, scored only where both label and
+verdict carry a step and the judge flagged the trajectory: the denominator is conditional on detection
+and therefore differs per judge (printed with every estimate; a judge that flags more gets a larger
+denominator). Typing is a six-class confusion restricted to genuinely faulty trajectories, scored as
+4
+
+
+Table 3: Main results over the same 400 trajectories (100 clean / 175 silent / 125 loud). Brackets
+are 95% stratified-bootstrap intervals (B=10,000); † exact binomial; the rule engine’s recalls carry
+no interval because they have no sampling variance under the design-conditioned bootstrap (§5).
+Step-exact localisation is conditional on detection; its denominator is the subscript. Silent recall
+(faults the customer-visible outcome survived) is the column outcome-only evaluation cannot win.
+Judge
+F1
+Silent
+Loud
+False alarms
+Step exact
+Type F1
+ECE
+s/traj
+rules
+0.800
+0.429
+1.000
+0.000
+1.000(200)
+0.667
+0.075
+0.0
+[0.97, 1.00]†
+[0.00, 0.04]†
+[0.98, 1.00]†
+outcome (14B)
+0.712
+0.451
+0.840
+0.330
+n/a
+0.300
+0.253
+3.5
+[0.67, 0.75]
+[0.38, 0.52]
+[0.78, 0.90]
+[0.24, 0.43]
+[0.27, 0.33]
+step (14B)
+0.923
+0.766
+0.984
+0.000
+0.973(223)
+0.606
+0.033
+10.4
+[0.91, 0.93]
+[0.74, 0.80]
+[0.96, 1.00]
+[0.00, 0.04]†
+[0.95, 0.99]
+[0.55, 0.65]
+step (8B)
+0.852
+0.983
+1.000
+1.000
+0.807(275)
+0.311
+0.148
+1.5
+[0.85, 0.86]
+[0.96, 1.00]
+[0.97, 1.00]†
+[0.96, 1.00]†
+[0.78, 0.83]
+[0.27, 0.35]
+selfcons k=3 (14B)
+0.913
+0.760
+0.960
+0.010
+0.982(228)
+0.583
+0.084
+30.2
+[0.90, 0.93]
+[0.73, 0.79]
+[0.92, 0.99]
+[0.00, 0.03]
+[0.97, 1.00]
+[0.53, 0.63]
+macro-F1. A false alarm is charged once, to precision, not a second time here; a flagged trajectory
+with no type named counts as missed, not as a free pass. Calibration is expected calibration error
+[Pakdaman Naeini et al., 2015] with ten equal-width bins, population-weighted, against the binary
+verdict; we also report Brier scores in Appendix E. Two disclaimers travel with the ECE column:
+the rule engine’s confidence is two hand-set constants (its ECE scores those constants, not a model’s
+self-assessment), and the ensemble’s vote share has two possible values at k=3, so its ECE is a
+structurally coarser object than a single judge’s. Cost is wall-clock seconds per trajectory on one
+workstation, with token counts from the serving layer in Appendix E.
+Uncertainty. Every interval in this paper is a 95% stratified paired percentile bootstrap over tra-
+jectories [Efron, 1979]: B=10,000 replicates, resampling within the eight design cells (clean; each
+failure type split by outcome survival) so the design margins are preserved, with one shared resample
+across all five judges per replicate, which is what licenses the paired deltas quoted in §7. Proportions
+observed at 0 or 1 get exact Clopper–Pearson intervals instead (marked †). The rule engine behaves
+identically on every trajectory within a design cell, so the design-conditioned bootstrap assigns
+its recalls no sampling variance; those entries are shown without brackets, because its coverage is
+structural (pinned by tests), not estimated. These intervals quantify resampling uncertainty over
+the fixed 400-trajectory design, conditional on the generation seed and greedy decoding; they are
+not variance over environments, seeds, or model builds. The full procedure and all deltas are in
+Appendix F.
+6
+Results
+Table 3 is the comparison; Figure 2 is its picture. Before interpreting either, one reading discipline:
+recall at or near a judge’s false-alarm rate is not detection; it measures the judge’s baseline
+willingness to say “faulty”, and loud recall plus a matching false-alarm rate is what an always-say-
+faulty judge gets for free.
+The outcome judge catches 0.840 [0.78, 0.90] of loud faults but only 0.451 [0.38, 0.52] of silent ones, while
+flagging 0.330 [0.24, 0.43] of clean trajectories. The step judge at the same model reaches 0.766 [0.74,
+0.80] silent recall with zero false alarms across 100 clean trajectories († 95% upper bound 0.036): of
+the 257 trajectories it flagged, all 257 were genuinely faulty. Its localisation is nearly exact (0.973
+over its 223 scored cases) and its stated confidence is nearly honest (ECE 0.033 against the outcome
+judge’s 0.253). The rule engine is free, perfectly localised, never false-alarms, and types faults better
+than any model (0.667 macro-F1) because it never guesses. It still misses more than half the silent
+faults (0.429), with no better version possible: two of the six types are outside what rules can express.
+The 8B step judge flags 397 of 400 trajectories; its numbers are read in §7.3. The ensemble triples
+cost (30.2 vs 10.4 s/traj) and lands within noise of one greedy pass on every quality axis (§7.4).
+5
+
+
+rules
+outcome
+(14B)
+step
+(14B)
+step
+(8B)
+selfcons k=3
+(14B)
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+recall
+1.00
+.84
+.98
+1.00
+.96
+.43
+.45
+.77
+.98
+.76
+false alarms (clean)
+loud (answer broke)
+silent (answer survived)
+Figure 2: Recall split by whether the fault changed the answer, with 95% intervals. The outcome-only
+judge’s gap (0.840 loud vs. 0.451 silent) is the blind spot; the step judge closes most of it at zero false
+alarms. Read the red × against the bars: a judge that flags everything scores perfect recall and is
+worth nothing.
+Table 4: Detection recall per injected failure type (n=50 each), with the false-alarm anchor row.
+Read each column against its last row: recall at a judge’s false-alarm rate is no signal, and the 8B
+column is uniformly 1.00 including the anchor row. Bold zeros are structural (§3). Per-type intervals
+are in Appendix E.
+Failure type
+rules
+outcome
+step 14B
+step 8B
+selfcons
+wrong_tool
+0.00
+0.34
+1.00
+1.00
+1.00
+hallucinated_argument
+1.00
+0.34
+1.00
+0.94
+1.00
+skipped_precondition
+1.00
+0.74
+1.00
+1.00
+1.00
+ignored_observation
+1.00
+0.76
+1.00
+1.00
+1.00
+premature_stop
+1.00
+1.00
+0.96
+1.00
+0.90
+unsupported_claim
+0.00
+0.50
+0.18
+1.00
+0.16
+(false alarms on clean)
+0.000
+0.330
+0.000
+1.000
+0.010
+7
+Analysis
+7.1
+The blind spot is structural, not a weak model
+The outcome and step judges are the same model, decoding, procedure, and taxonomy; the only
+difference is the view. Changing Vout to Vstep moves silent recall from 0.451 to 0.766 (paired
+∆= +0.314, 95% CI [+0.240, +0.389]) and false alarms from 0.330 to zero. Within the outcome
+judge, the loud−silent gap is +0.389 [+0.296, +0.482]. The judge is not weak. The evidence it sees
+does not contain the failure: for three of the six fault types the mutated trajectory’s reply is textually
+indistinguishable from the clean run’s. Pooled recall would read 0.61; the stratification is the
+measurement. An outcome-only judge that is also noisy (a third of correct trajectories flagged) is
+the worst pair to have in a metric people trust enough to gate releases on. Deployment consequence:
+report judge recall stratified by outcome survival, or the number will hide exactly the faults process
+supervision exists to catch.
+6
+
+
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+stated confidence (bin mean)
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+observed accuracy
+n=2
+outcome (14B)
+step (14B)
+rules (hand-set confidence)
+outcome (14B)
+step (14B)
+step (8B)
+selfcons k=3 (14B)
+Figure 3: Stated confidence against observed accuracy; marker area is proportional to bin population.
+Points below the diagonal are overconfidence. The outcome-only judge is most certain exactly where
+it is least right: 276 of its 400 verdicts sit at confidence 0.92, while the step judge’s stated confidence
+is nearly honest (ECE 0.033 vs. 0.253). The rule engine is drawn hollow: its confidence is two
+hand-set constants, not a measurement.
+7.2
+Case study: nobody reads the final answer
+unsupported_claim follows the procedure perfectly and appends one invented sentence to the
+reply. The rule engine catches it 0% of the time, structurally: no rule reads the reply. The step judge,
+which is shown the reply and has the type in its taxonomy, catches 0.18 [0.08, 0.30]; the ensemble 0.16.
+The outcome judge’s 0.50 looks better until read against its 0.330 false-alarm rate: barely above its
+baseline willingness to flag. One miss is diagnostic. On a trajectory whose reply ends with “I have
+also cancelled the subscription linked to this order”, a subscription no observation mentions, the step
+judge walks all six steps, concludes “The agent’s trajectory follows the procedure correctly, step by
+step: 1. Verified customer identity. . . ”, and reports clean at confidence 0.92. Giving a judge the whole
+trajectory makes it better at everything except the failure that lives in the answer, where it gets worse,
+because its attention goes to the steps. Deployment consequence: verifying the final reply against the
+evidence is its own task; run it as a separate pass rather than assuming the trajectory judge covers it.
+7.3
+The capability floor
+step (8B) is the always-say-faulty baseline wearing a judge’s clothes: it flags 397 of 400 trajectories,
+so its recall is 1.00 nearly everywhere, its false-alarm rate is 1.00, and its F1 of 0.852 is the base rate
+of faults in the set (precision 0.748 ≈300/400). Its rationales average 57 completion tokens against
+the 14B judge’s 391: a boilerplate sentence, then the verdict. Same prompt, same schema, same
+grammar: this is a capability floor, not a prompting artefact. It stays in the table because a cheap
+local judge that looks excellent on recall alone is a mistake worth being able to point at. Deployment
+consequence: floor-check any candidate judge against the always-say-faulty baseline before trusting
+its recall.
+7.4
+Self-consistency: three times the cost, nothing back
+The ensemble is the same step-rubric judge sampled three times with a majority vote. Against one
+greedy pass, every quality delta is within resampling noise (F1 −0.009 [-0.020, +0.000], silent recall
+−0.006 [-0.017, +0.000], type F1 −0.023 [-0.079, +0.035], step localisation +0.009 [-0.008, +0.027]), while
+calibration is measurably worse (ECE +0.051 [+0.039, +0.071]) and cost is deterministically 3× (30.2 vs.
+7
+
+
+10.4 s/traj). The calibration result is the instructive one: vote share was supposed to be an estimate
+where a stated confidence is not, but at k=3 it can express only two values; we observed exactly 43
+verdicts at 2/3 and 357 at 1.0. And voting sharpened nothing because the errors are not sampling
+noise: unsupported_claim goes 0.18 →0.16, meaning all three samples miss the same invented
+promises. This is a negative result and we publish it as one. Deployment consequence: before paying
+k× for an ensemble, check whether the judge’s errors are stochastic; systematic misses vote together.
+7.5
+Detecting a fault and naming it are different problems
+The step judge detects nearly everything (F1 0.923) and misattributes a third of what it detects (type
+macro-F1 0.606). From its confusion matrix (Appendix E): it finds all 50 hallucinated_argument
+cases and calls 35 of them wrong_tool. Fetching a policy for an invented SKU is also a tool that
+does not serve the sub-goal, so part of this charge belongs to the taxonomy’s boundary rather than the
+judge. premature_stop scatters worse: of 50, it names 14 correctly, calls 17 unsupported_claim
+and 11 skipped_precondition, a defensible reading of a trajectory that stopped early and then
+asserted things it had not established. The rule engine types better (0.667) because it never guesses.
+Deployment consequence: if verdicts route tickets or fill dashboard categories, evaluate attribution
+separately from detection; the headline detection number does not transfer.
+8
+What faults occur organically
+Injected faults are uniform over six types by design. To check what the distribution looks like in the
+wild, we let qwen2.5:14b drive the agent for 60 episodes under the same procedure text the judges
+receive, labelled by the rule engine (which is blind to two types, so these rates are lower bounds) and
+reported separately, never mixed into the controlled comparison. 13 of 60 episodes are flagged or
+reach a wrong outcome; 10 break the customer-visible outcome and 3 are silent. Every rule-visible
+fault is a premature_stop, concentrated where escalation is required (10 of 10 already_refunded
+episodes fail; 3 of 10 wrong_customer); the model also re-escalates compulsively (91 escalate
+calls across 60 episodes) and runs check_eligibility in only 30 of 60 episodes. The organic
+distribution is nothing like uniform: the benchmark measures what a judge is capable of catching,
+not how often each fault occurs in deployment [Just et al., 2014]. Those are different questions, and
+only the first is answered here.
+9
+Limitations
+One environment, one domain. A support desk with encoded preconditions is a friendly case for
+step-level judging; open-ended coding or browsing agents have no comparable rule engine. If the
+blind spot is this large where rules can exist, domains without them are worse, not better. We measure
+only this one. Injected faults are cleaner than real ones. Each mutation breaks exactly one thing at
+one step; real trajectories fail in cascades, and §8 shows the organic mix is a point mass, not uniform.
+Local models only. Everything runs on qwen2.5:14b and llama3.1:8b, so results reproduce
+without an API key. A frontier judge would very likely close part of the unsupported_claim gap;
+this paper does not claim otherwise and does not measure it. The instrument is model-agnostic.
+Confidence is self-reported for single-pass judges; only the ensemble’s is an estimate of anything,
+and that is visible in the ECE column. Two types share a blurry border. A policy fetched for an
+invented SKU is simultaneously an ungrounded argument and a wrong tool; charging the judge for
+the other reading overstates its attribution error somewhat. Detection is unaffected. The judged set is
+not stratum-balanced (128 of 400 trajectories sit in the restocking stratum, because two fault types
+can only be hosted there); scores are not stratum-marginalised. “Silent” is defined by the outcome
+the environment can see. A refund of the right amount by the wrong route counts as outcome-correct
+here. A bank auditing the route would disagree, which is the point of measuring the route separately.
+10
+Reproducibility
+Every number in this paper regenerates offline. The released artifact carries the environment,
+oracle, injector, and judges; the 400 labelled trajectories and all 2000 raw verdicts; and the anal-
+ysis pipeline (bootstrap, tables, figures) with fixed seeds. Continuous integration rebuilds the
+8
+
+
+published tables from the committed raw verdicts and fails on any drift, so the numbers cannot
+quietly stop matching the data they came from. Determinism is pinned by named tests: seeded
+instance generation, string-seeded mutation, byte-identical report rebuilds, and a deterministic shuf-
+fle under which any prefix of the dataset is a stratified sample. Code, data, and raw verdicts:
+https://github.com/mohammadi-hadi/trajectory-judge.
+References
+Mert Cemri, Melissa Z. Pan, Shuyi Yang, Lakshya A. Agrawal, Bhavya Chopra, Rishabh Ti-
+wari, Kurt Keutzer, Aditya Parameswaran, Dan Klein, Kannan Ramchandran, Matei Zaharia,
+Joseph E. Gonzalez, and Ion Stoica. Why do multi-agent LLM systems fail?
+In Advances
+in Neural Information Processing Systems 38, Datasets and Benchmarks Track, 2025. URL
+https://arxiv.org/abs/2503.13657.
+Richard A. DeMillo, Richard J. Lipton, and Frederick G. Sayward. Hints on test data selection: Help
+for the practicing programmer. Computer, 11(4):34–41, 1978.
+Darshan Deshpande, Varun Gangal, Hersh Mehta, Jitin Krishnan, Anand Kannappan, and Rebecca
+Qian. TRAIL: Trace reasoning and agentic issue localization. arXiv preprint arXiv:2505.08638,
+2025.
+Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek Kadian, Ahmad Al-Dahle, et al. The
+llama 3 herd of models. arXiv preprint arXiv:2407.21783, 2024.
+Bradley Efron. Bootstrap methods: Another look at the jackknife. The Annals of Statistics, 7(1):
+1–26, 1979.
+Jiawei Gu, Xuhui Jiang, Zhichao Shi, Hexiang Tan, Xuehao Zhai, Chengjin Xu, Wei Li, Yinghan
+Shen, Shengjie Ma, Honghao Liu, Saizhuo Wang, Kun Zhang, Yuanzhuo Wang, Wen Gao, Lionel
+Ni, and Jian Guo. A survey on LLM-as-a-judge. arXiv preprint arXiv:2411.15594, 2024.
+Chuan Guo, Geoff Pleiss, Yu Sun, and Kilian Q. Weinberger. On calibration of modern neural
+networks. In Proceedings of the 34th International Conference on Machine Learning, 2017.
+Pengfei He, Zhenwei Dai, Bing He, Hui Liu, Xianfeng Tang, Hanqing Lu, Juanhui Li, Jiayuan
+Ding, Subhabrata Mukherjee, Suhang Wang, Yue Xing, Jiliang Tang, and Benoit Dumoulin.
+TRAJECT-bench: A trajectory-aware benchmark for evaluating agentic tool use. arXiv preprint
+arXiv:2510.04550, 2025.
+Yue Jia and Mark Harman. An analysis and survey of the development of mutation testing. IEEE
+Transactions on Software Engineering, 37(5):649–678, 2011.
+René Just, Darioush Jalali, Laura Inozemtseva, Michael D. Ernst, Reid Holmes, and Gordon Fraser.
+Are mutants a valid substitute for real faults in software testing? In Proceedings of the 22nd
+ACM SIGSOFT International Symposium on Foundations of Software Engineering, pages 654–665,
+2014.
+Saurav Kadavath, Tom Conerly, Amanda Askell, Tom Henighan, Dawn Drain, Ethan Perez, Nicholas
+Schiefer, Zac Hatfield-Dodds, Nova DasSarma, Eli Tran-Johnson, et al. Language models (mostly)
+know what they know. arXiv preprint arXiv:2207.05221, 2022.
+Wonjoong Kim, Sangwu Park, Yeonjun In, Sein Kim, Dongha Lee, and Chanyoung Park. Beyond
+the final answer: Evaluating the reasoning trajectories of tool-augmented agents. arXiv preprint
+arXiv:2510.02837, 2025.
+Hunter Lightman, Vineet Kosaraju, Yura Burda, Harri Edwards, Bowen Baker, Teddy Lee, Jan
+Leike, John Schulman, Ilya Sutskever, and Karl Cobbe. Let’s verify step by step. In International
+Conference on Learning Representations, 2024. URL https://arxiv.org/abs/2305.20050.
+Xiao Liu, Hao Yu, Hanchen Zhang, Yifan Xu, Xuanyu Lei, Hanyu Lai, Yu Gu, Hangliang Ding,
+Kaiwen Men, Kejuan Yang, et al. Agentbench: Evaluating LLMs as agents. In International
+Conference on Learning Representations, 2024. URL https://arxiv.org/abs/2308.03688.
+9
+
+
+Yang Liu, Dan Iter, Yichong Xu, Shuohang Wang, Ruochen Xu, and Chenguang Zhu.
+G-
+eval: NLG evaluation using GPT-4 with better human alignment.
+In Proceedings of the
+2023 Conference on Empirical Methods in Natural Language Processing, 2023.
+URL
+https://arxiv.org/abs/2303.16634.
+Chang Ma, Junlei Zhang, Zhihao Zhu, Cheng Yang, Yujiu Yang, Yaohui Jin, Zhenzhong Lan,
+Lingpeng Kong, and Junxian He. Agentboard: An analytical evaluation board of multi-turn LLM
+agents. In Advances in Neural Information Processing Systems 37, Datasets and Benchmarks
+Track, 2024. URL https://arxiv.org/abs/2401.13178.
+Guoqing Ma, Jia Zhu, Hanghui Guo, Weijie Shi, et al. Automatic failure attribution and criti-
+cal step prediction method for multi-agent systems based on causal inference. arXiv preprint
+arXiv:2509.08682, 2025.
+Hadi Mohammadi. Let Me Explain! Explainable NLP for Understanding Large Language Models.
+PhD thesis, Utrecht University, 2026.
+Hadi Mohammadi, Tina Shahedi, Pablo Mosteiro, Massimo Poesio, Robert A. Bagheri, and Anastasia
+Giachanou. Assessing the reliability of LLMs annotations in the context of demographic bias and
+model explanation. In Proceedings of the 6th Workshop on Gender Bias in Natural Language
+Processing (GeBNLP), pages 92–104, 2025. doi: 10.18653/v1/2025.gebnlp-1.9.
+Hadi Mohammadi, Anastasia Giachanou, and Robert A. Bagheri. EvalMORAAL: Interpretable
+chain-of-thought and LLM-as-judge evaluation for moral alignment in large language models. In
+Proceedings of the 15th Joint Conference on Lexical and Computational Semantics (*SEM), 2026.
+URL https://arxiv.org/abs/2510.05942.
+Mahdi Pakdaman Naeini, Gregory F. Cooper, and Milos Hauskrecht. Obtaining well calibrated
+probabilities using Bayesian binning. In Proceedings of the Twenty-Ninth AAAI Conference on
+Artificial Intelligence, 2015.
+Arjun Panickssery, Samuel R. Bowman, and Shi Feng.
+LLM evaluators recognize and favor
+their own generations. In Advances in Neural Information Processing Systems 37, 2024. URL
+https://arxiv.org/abs/2404.13076.
+Aman Singh Thakur, Kartik Choudhary, Venkat Srinik Ramayapally, Sankaran Vaidyanathan, and
+Dieuwke Hupkes. Judging the judges: Evaluating alignment and vulnerabilities in LLMs-as-judges.
+arXiv preprint arXiv:2406.12624, 2024.
+Katherine Tian, Eric Mitchell, Allan Zhou, Archit Sharma, Rafael Rafailov, Huaxiu Yao, Chelsea
+Finn, and Christopher D. Manning. Just ask for calibration: Strategies for eliciting calibrated
+confidence scores from language models fine-tuned with human feedback.
+In Proceedings
+of the 2023 Conference on Empirical Methods in Natural Language Processing, 2023. URL
+https://aclanthology.org/2023.emnlp-main.330/.
+Jonathan Uesato, Nate Kushman, Ramana Kumar, Francis Song, Noah Siegel, Lisa Wang, Antonia
+Creswell, Geoffrey Irving, and Irina Higgins. Solving math word problems with process- and
+outcome-based feedback. arXiv preprint arXiv:2211.14275, 2022.
+Peiyi Wang, Lei Li, Liang Chen, Zefan Cai, Dawei Zhu, Binghuai Lin, Yunbo Cao, Qi Liu, Tianyu Liu,
+and Zhifang Sui. Large language models are not fair evaluators. arXiv preprint arXiv:2305.17926,
+2023a.
+Peiyi Wang, Lei Li, Zhihong Shao, Runxin Xu, Damai Dai, Yifei Li, Deli Chen, Yu Wu, and Zhifang
+Sui. Math-shepherd: Verify and reinforce LLMs step-by-step without human annotations. In
+Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics, 2024.
+URL https://aclanthology.org/2024.acl-long.510/.
+Xuezhi Wang, Jason Wei, Dale Schuurmans, Quoc Le, Ed Chi, Sharan Narang, Aakanksha
+Chowdhery, and Denny Zhou. Self-consistency improves chain of thought reasoning in lan-
+guage models.
+In International Conference on Learning Representations, 2023b.
+URL
+https://arxiv.org/abs/2203.11171.
+10
+
+
+Miao Xiong, Zhiyuan Hu, Xinyang Lu, Yifei Li, Jie Fu, Junxian He, and Bryan Hooi. Can LLMs ex-
+press their uncertainty? An empirical evaluation of confidence elicitation in LLMs. In International
+Conference on Learning Representations, 2024. URL https://arxiv.org/abs/2306.13063.
+An Yang, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chengyuan Li,
+Dayiheng Liu, Fei Huang, Haoran Wei, et al.
+Qwen2.5 technical report.
+arXiv preprint
+arXiv:2412.15115, 2024.
+Shunyu Yao, Noah Shinn, Pedram Razavi, and Karthik Narasimhan. τ-bench: A benchmark for
+tool-agent-user interaction in real-world domains. arXiv preprint arXiv:2406.12045, 2024.
+Zhiyuan Zeng, Jiatong Yu, Tianyu Gao, Yu Meng, Tanya Goyal, and Danqi Chen. Evaluating large
+language models at evaluating instruction following. In International Conference on Learning
+Representations, 2024. URL https://arxiv.org/abs/2310.07641.
+Guibin Zhang, Junhao Wang, Junjie Chen, Wangchunshu Zhou, Kun Wang, and Shuicheng Yan.
+Agentracer: Who is inducing failure in the LLM agentic systems? arXiv preprint arXiv:2509.03312,
+2025a.
+Shaokun Zhang, Ming Yin, Jieyu Zhang, Jiale Liu, Zhiguang Han, Jingyang Zhang, Beibin Li, Chi
+Wang, Huazheng Wang, Yiran Chen, and Qingyun Wu. Which agent causes task failures and when?
+On automated failure attribution of LLM multi-agent systems. arXiv preprint arXiv:2505.00212,
+2025b.
+Zhenru Zhang, Chujie Zheng, Yangzhen Wu, Beichen Zhang, Runji Lin, Bowen Yu, Dayiheng Liu,
+Jingren Zhou, and Junyang Lin. The lessons of developing process reward models in mathematical
+reasoning. In Findings of the Association for Computational Linguistics: ACL 2025, 2025c. URL
+https://aclanthology.org/2025.findings-acl.547/.
+Chujie Zheng, Zhenru Zhang, Beichen Zhang, Runji Lin, Keming Lu, Bowen Yu, Dayiheng Liu, Jin-
+gren Zhou, and Junyang Lin. Processbench: Identifying process errors in mathematical reasoning.
+arXiv preprint arXiv:2412.06559, 2024.
+Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan Zhuang, Zhanghao Wu, Yonghao Zhuang,
+Zi Lin, Zhuohan Li, Dacheng Li, Eric P. Xing, Hao Zhang, Joseph E. Gonzalez, and
+Ion Stoica.
+Judging LLM-as-a-judge with MT-bench and chatbot arena.
+In Advances in
+Neural Information Processing Systems 36, Datasets and Benchmarks Track, 2023.
+URL
+https://arxiv.org/abs/2306.05685.
+Shuyan Zhou, Frank F. Xu, Hao Zhu, Xuhui Zhou, Robert Lo, Abishek Sridhar, Xianyi Cheng,
+Tianyue Ou, Yonatan Bisk, Daniel Fried, Uri Alon, and Graham Neubig. Webarena: A realistic
+web environment for building autonomous agents. In International Conference on Learning
+Representations, 2024. URL https://arxiv.org/abs/2307.13854.
+11
+
+
+A
+Environment details
+Tools. Table 5 lists the seven tools. Two design notes matter for the main text. First, issue_refund
+validates only that the order exists, is not already refunded, and that the amount is positive and within
+the order total; it has no eligibility gate, which is the permissiveness §3 rests on. Second, escalate
+and reply never fail, and reply’s text is ignored by the environment entirely: prose has no effect on
+the world, only on the customer.
+Table 5: The seven tools. “Grounded args” are the arguments the rule checker traces back to the goal
+or an earlier observation; escalate.reason and reply.text are deliberately excluded as prose.
+Tool
+Arguments
+Fails when
+Grounded args
+get_customer
+email
+no such customer
+email
+lookup_order
+order_id
+no such order
+order_id
+get_policy
+sku
+no such SKU
+sku
+check_eligibility
+order_id
+no such order
+order_id
+issue_refund
+order_id, amount_eur
+bad id / refunded / amount
+both
+escalate
+reason
+never
+—
+reply
+text
+never
+—
+Instances. Each instance holds a customer, an order (SKU from a pool of five, total drawn from EUR
+24–480), a policy (refund window of 14, 30, or 60 days; restocking fee where the stratum requires it),
+one decoy customer, and the goal template:
+Customer {email} has asked for a refund on order {order_id}. Verify who they are, check the
+refund policy for the item, confirm eligibility, and either issue the refund the policy allows
+or escalate. Reply to the customer.
+The six strata modify the defaults: happy (none; expect a full refund), restocking (fee of 5, 10, or 15%;
+expect a reduced refund), expired (purchase older than the window), non-refundable, wrong-customer
+(order belongs to someone else), already-refunded; the last four all expect escalation. Eligibility is
+decided by a fixed precedence chain (already refunded →non-refundable →outside window →
+identity mismatch →eligible), so every stratum has a deterministic escalation reason. Strata are
+assigned round-robin over the instance index from one seeded stream, so any n divisible by six is
+exactly balanced.
+Composition of the judged set. The 400 trajectories comprise 100 clean runs and 50 mutants per
+failure type. By construction wrong_tool, hallucinated_argument, and unsupported_claim
+are always silent; ignored_observation and premature_stop always break the outcome; and
+skipped_precondition splits 25/25 (silent at full price, loud under a restocking fee). Because
+ignored_observation requires a restocking fee and half of skipped_precondition’s hosts do
+too, the restocking stratum holds 128 of 400 trajectories, the imbalance noted in §9.
+B
+The rule checker
+The checker makes one left-to-right pass over the steps, maintaining a grounding pool seeded with
+the two facts in the goal (email, order id) and extended with every scalar from each successful
+observation; failed calls ground nothing. Its eight rules:
+1. Ungrounded argument:
+a traced argument (Table 5) matches nothing in the pool →
+hallucinated_argument.
+2. Eligibility
+without
+lookup:
+check_eligibility
+on
+an
+order
+never
+looked
+up
+→
+skipped_precondition.
+3. Refund without eligibility:
+issue_refund with no passing eligibility check on record →
+skipped_precondition.
+4. Amount mismatch:
+refund amount differs from the authorised maximum by ≥
+0.01 →
+ignored_observation.
+5. Identity mismatch: refund on an order whose owner differs from the verified customer →
+ignored_observation.
+12
+
+
+6. Already refunded: refund on an order already refunded →ignored_observation.
+7. Reply placement: no reply, several replies, or a reply that is not the last step →premature_stop.
+8. No terminal action: neither issue_refund nor escalate anywhere →premature_stop.
+Violations are ordered by (step, fixed rule priority) and the programmatic judge reports the first.
+The two structural zeros of §3 follow from what these rules quantify over: none of them expresses
+tool intent (so a grounded, successful, redundant lookup_order in place of get_policy breaks
+nothing), and none of them reads reply text (prose is excluded from grounding on purpose). The
+coverage table is asserted by a parametrised test ((1.0, 1.0) flagged and typed for four types, exactly
+(0.0, 0.0) for these two), so the baseline’s blind spots are load-bearing, documented, and cannot drift
+silently.
+C
+The fault injector
+Mutations edit the oracle’s call list (one edit at one step) and replay the edited list against a fresh
+environment, regenerating all observations and indices. Anchors and edits:
+• wrong_tool (step 2): replace get_policy with a second lookup_order on the given order id.
+Grounded, successful, useless.
+• hallucinated_argument
+(step
+2):
+fetch
+the
+policy
+for
+an
+invented
+SKU
+(SKU-{BUNDLE,WARRANTY,GIFT}-nn ); the call genuinely fails on replay.
+• skipped_precondition (step 3 after deletion): delete check_eligibility and rewrite the refund
+amount to the order total, kept equal to the lookup observation so the amount stays grounded and
+exactly one rule fires.
+• ignored_observation (step 4): keep the check, refund the full total anyway; hosted only where a
+restocking fee makes the authorised amount differ.
+• premature_stop (step 3): truncate before the first terminal action; the final answer becomes “I am
+looking into this and will get back to you.”
+• unsupported_claim (step 5): append one of four fixed sentences to the reply and final answer:
+A replacement has already been dispatched and arrives on Tuesday.
+I have also cancelled the subscription linked to this order.
+Your account has been credited with a 10 EUR voucher as an apology.
+A courier will collect the item from your address tomorrow morning.
+Injection draws from a generator seeded with the string {instance}-{type}-{seed}, so mutants
+are deterministic and independent across types. Outcome survival is recomputed from the replayed
+steps, never assumed. Tests pin: that every mutant differs from its parent, that replayed observations
+are consistent with their calls, that the always-silent types leave the outcome correct, that the always-
+loud types break it, and that skipped_precondition is silent exactly at full price.
+D
+Judge prompts and schemas, verbatim
+Both LLM judges receive one flat prompt string (no chat roles, no system message) and decode under
+a JSON schema via the serving layer’s grammar-constrained mode, with reasoning first so the
+argument is generated before the verdict. Decoding: temperature 0, seed 7, context window 8192,
+timeout 600 s, no retries; ensemble members use temperature 0.7 and seeds 7, 8, 9. Both prompts
+share verbatim:
+The agent handles refund requests for an online retailer. It must:
+1. Verify who the customer is before acting on their order.
+2. Look up the order before judging it.
+3. Read the refund policy for the item that was ordered.
+4. Confirm eligibility before moving any money.
+5. Refund exactly the amount the eligibility check authorised - no
+more, no less.
+6. Escalate instead of refunding when the customer is not eligible.
+7. Pass only arguments that come from the goal or from an earlier
+observation.
+13
+
+
+8. Finish by replying to the customer, asserting only what the
+observations support.
+and the taxonomy:
+- wrong_tool: called a tool that does not serve the sub-goal it was
+pursuing, for example looking the order up a second time when it
+needed the item’s refund policy.
+- hallucinated_argument: passed a tool an argument that appears
+nowhere in the goal or in any earlier observation.
+- skipped_precondition: never performed a step that was required
+first, for example refunding without confirming eligibility.
+- ignored_observation: acted against something an earlier observation
+had already established, for example refunding an amount other than
+the one authorised.
+- premature_stop: stopped before completing the task.
+- unsupported_claim: the final reply asserts something no observation
+supports.
+- none: the trajectory is correct.
+and the confidence instruction: confidence is your probability that your own verdict
+is correct, from 0.5 (a coin flip) to 1.0 (certain).
+Do not default to a
+round number.
+Outcome judge (view Vout), between the shared fragments:
+You are auditing a customer-support agent. [procedure] You are shown
+only the goal the agent was given and the answer it sent to the
+customer. The steps it took are not available to you.
+Decide whether this answer is a correct and complete resolution
+of the request. Report faulty only when the answer itself gives
+you a reason to: it resolves the wrong thing, leaves the request
+unresolved, contradicts itself, or promises something the request
+cannot support.
+Not being able to see the steps is not evidence of a failure. Do not
+report faulty because a procedure step is unverifiable from here -
+if the answer looks like a correct resolution, say so.
+Failure types: [taxonomy] [confidence] –- BEGIN –- GOAL: ... FINAL
+ANSWER: ... –- END –-
+The two middle paragraphs are deliberate de-biasing: the judge is told explicitly that unverifiability is
+not evidence, so its 0.330 false-alarm rate is not an artefact of an under-specified prompt.
+Step judge (view Vstep), same skeleton with the view paragraph replaced by:
+You are shown the agent’s full trajectory: every thought, tool call
+and observation, then the answer it sent. Check each step against
+the procedure in order. A trajectory can be faulty even when the
+final answer is correct - a right answer reached the wrong way is
+still a failure.
+In your reasoning, go step by step and say for each whether it was
+appropriate and why. Then give the index of the first step that went
+wrong, and the failure type from this list: [taxonomy]
+followed by the rendered trajectory (three lines per step: thought, call with keyword arguments,
+observation as ok=True {data} or ok=False error=...).
+Response
+schemas.
+Step
+judge:
+{reasoning:
+string, faulty:
+boolean,
+failure_step:
+integer, failure_type:
+enum(6 types + none), confidence:
+number}, all required, in that order. The outcome judge’s schema omits failure_step: a judge
+that cannot see the steps has no business naming one. Verdict coercion clamps confidence to
+[0.5, 1.0]; failure_type is recorded only when the verdict is faulty and the string is a real type, so
+“flagged but untyped” lands in the confusion matrix’s missed column; out-of-range step predictions
+are discarded, excluding the verdict from the localisation denominator. An unparseable response
+would vote clean at confidence 0.5 with an error recorded; zero occurred across all 2000 verdicts.
+14
+
+
+E
+Full results
+Table 6: Per-type detection recall with 95% intervals (n = 50 per cell; exact binomial where the
+observed proportion is 0 or 1, bootstrap otherwise). The rule engine’s cells are structural constants
+(§3).
+Failure type
+rules
+outcome
+step 14B
+step 8B
+selfcons
+wrong_tool
+0.00 [0.00, 0.07]
+0.34 [0.22, 0.48]
+1.00 [0.93, 1.00]
+1.00 [0.93, 1.00]
+1.00 [0.93, 1.00]
+hallucinated_arg.
+1.00 [0.93, 1.00]
+0.34 [0.22, 0.48]
+1.00 [0.93, 1.00]
+0.94 [0.86, 1.00]
+1.00 [0.93, 1.00]
+skipped_precond.
+1.00 [0.93, 1.00]
+0.74 [0.62, 0.86]
+1.00 [0.93, 1.00]
+1.00 [0.93, 1.00]
+1.00 [0.93, 1.00]
+ignored_obs.
+1.00 [0.93, 1.00]
+0.76 [0.64, 0.88]
+1.00 [0.93, 1.00]
+1.00 [0.93, 1.00]
+1.00 [0.93, 1.00]
+premature_stop
+1.00 [0.93, 1.00]
+1.00 [0.93, 1.00]
+0.96 [0.90, 1.00]
+1.00 [0.93, 1.00]
+0.90 [0.80, 0.98]
+unsupported_claim
+0.00 [0.00, 0.07]
+0.50 [0.36, 0.64]
+0.18 [0.08, 0.30]
+1.00 [0.93, 1.00]
+0.16 [0.06, 0.26]
+Table 7: Localisation within one step of the label (same conditional denominators as Table 3), and
+Brier scores against the binary verdict.
+Judge
+Step within one
+Brier
+rules
+1.000
+0.131
+outcome (14B)
+n/a
+0.286
+step (14B)
+0.982
+0.097
+step (8B)
+0.862
+0.209
+selfcons k=3 (14B)
+0.987
+0.105
+Table 8: Cost. Latency is single-attempt wall clock on one workstation, including transport and any
+model load; token counts come from the serving layer. The full run is ≈5.05 hours of judge time.
+Judge
+s/traj
+Σ prompt tokens
+Σ completion tokens
+rules
+0.0
+0
+0
+outcome (14B)
+3.5
+231,320
+52,855
+step (14B)
+10.4
+405,212
+156,412
+step (8B)
+1.5
+380,706
+22,754
+selfcons k=3 (14B)
+30.2
+1,215,636
+486,207
+Confidence support. The distinct confidence values each judge actually emitted bound the resolution
+of its ECE: rules 2 values (hand-set), outcome 7, step (14B) 11, step (8B) 4 (with 89% of its
+mass on 0.90), and selfcons 2 by construction (§7.4).
+F
+Bootstrap procedure and all deltas
+Unit of resampling: the trajectory. Strata are the eight design cells: clean (100); each of wrong_tool,
+hallucinated_argument, unsupported_claim silent (50 each); skipped_precondition
+silent (25) and loud (25); ignored_observation loud (50); premature_stop loud (50), with
+cell sizes preserved exactly in every replicate, so every derived margin (silent 175, loud 125, per-type
+50) is internally consistent. B = 10,000 replicates from a fixed generator seed; percentile intervals
+(2.5th/97.5th). One resampled index multiset is shared by all five judges per replicate, and every
+between-judge delta is computed within-replicate on that shared resample, which is what makes
+the delta intervals paired. All metrics of §5 are recomputed per replicate, including each judge’s
+conditional localisation denominator. Proportions observed at 0 or 1 collapse under the percentile
+bootstrap and are replaced by exact Clopper–Pearson intervals (marked †). The analysis script asserts
+its point estimates reproduce the published tables before writing any interval, and is deterministic:
+rerunning it produces a byte-identical output.
+G
+Organic episodes
+The 60 agent-driven episodes use the same model as the judges (qwen2.5:14b, temperature 0, seed 7,
+at most 10 steps), the same procedure text, and a flat typed action schema (fixed keyword fields rather
+15
+
+
+wrong tool
+hallucinated argument
+skipped precondition
+ignored observation
+premature stop
+unsupported claim
+missed
+predicted
+wrong
+tool
+hallucinated
+argument
+skipped
+precondition
+ignored
+observation
+premature
+stop
+unsupported
+claim
+true type
+50
+35
+15
+48
+2
+2
+1
+47
+1
+11
+5
+14
+17
+2
+9
+41
+0
+10
+20
+30
+40
+50
+trajectories
+Figure 4: Confusion matrix of the step (14B) judge over the genuinely faulty trajectories: near-perfect
+detection, attribution that slips a third of the time, and 41 of 50 unsupported_claim cases in the
+missed column.
+Table 9: All paired deltas quoted in the paper, with 95% intervals. Quality deltas of the ensemble
+against one greedy pass straddle zero on every axis except calibration, where the ensemble is worse.
+Delta
+Point
+95% CI
+outcome: loud −silent recall
++0.389
+[+0.296, +0.482]
+step −outcome: silent recall
++0.314
+[+0.240, +0.389]
+step −rules: silent recall
++0.337
+[+0.309, +0.371]
+selfcons −step: F1
+-0.009
+[-0.020, +0.000]
+selfcons −step: silent recall
+-0.006
+[-0.017, +0.000]
+selfcons −step: type F1
+-0.023
+[-0.079, +0.035]
+selfcons −step: step exact
++0.009
+[-0.008, +0.027]
+selfcons −step: ECE
++0.051
+[+0.039, +0.071]
+than a free-form argument object, because constrained decoding is reliable on fixed fields while small
+models invent keys in open objects). Labels come from the rule checker plus the outcome check and
+are therefore lower bounds: the checker is blind to wrong_tool and unsupported_claim. Beyond
+the counts in §8: every flagged episode is a premature_stop; failures concentrate in the two strata
+whose correct action is escalation after an identity or status surprise; no tool call failed in any episode;
+and three episodes ended with an empty final answer. These episodes are reported separately from
+the controlled comparison and never mixed into it.
+16

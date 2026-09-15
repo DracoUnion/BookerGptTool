@@ -1,0 +1,3525 @@
+FaVOR: LLM-Based Agentic Framework for Factor Mining via Empirical
+Validation
+Hyeonjin Kim1*, Minseok Kim1*, Seunghyeon Jung1*, Sujin Pyo2, Huisu Jang3, Woojin Lee1†
+1Department of Computer Science and Artificial Intelligence, Dongguk University-Seoul
+2Department of Industrial Engineering, Seoul National University
+3School of Finance, Soongsil University
+{tkrhk8011, cdi6578296, alzkdpf23, wj926}@dgu.ac.kr,
+psj1103@snu.ac.kr, yej523@ssu.ac.kr
+Abstract
+Traditional finance relies on experts to hand-
+craft factors through a principled process
+grounded in economic rationale. Recent LLM-
+based multi-agent systems have automated
+this process, scaling factor mining far beyond
+manual effort.
+However, these automated
+approaches optimize directly for returns and
+rarely check whether a generated factor still ex-
+presses the economic hypothesis that motivated
+it. We identify this inconsistency between math-
+ematical form and economic meaning as a struc-
+tural failure mode of return-oriented automa-
+tion. The resulting factors blur the line between
+real signals and spurious correlations and break
+down across regime shifts. We propose Fa-
+VOR (Factor Validation through Observable
+Reasoning), an agentic framework that restruc-
+tures factor mining around hypothesis-level ev-
+idence rather than return outcomes. In place
+of the standard hypothesis-to-formula leap, Fa-
+VOR enforces a three-stage consistency loop
+tying mathematical form to economic ratio-
+nale throughout. (1) Decomposition splits a
+broad economic hypothesis into independent
+observable conditions. (2) Validation checks
+whether each factor reflects its intended condi-
+tion. (3) Integration merges them into a com-
+posite whose structure remains interpretable.
+On the CSI 500 and S&P 500 in 2025, FaVOR
+outperforms existing baselines while remaining
+effective across regimes. FaVOR shows that
+hypothesis-grounded factor discovery produces
+signals that are interpretable by construction,
+regime-robust, and economically faithful. The
+code is available at https://github.com/d
+amilab/FaVOR.
+1
+Introduction
+Large language models (LLMs) are increasingly
+being applied to financial analysis and invest-
+ment decision-making (Kim et al., 2026). Within
+*Equal contribution.
+†Corresponding author.
+this broader trend, multi-agent systems built on
+LLMs are reshaping quantitative investment re-
+search (Lopez-Lira, 2025; Cheng and Chin, 2024;
+Zhang et al., 2024). These systems convert qualita-
+tive investment ideas into economic hypotheses and
+then translate those hypotheses into computable
+factors for investment decisions (Wang et al., 2025;
+Li et al., 2025; Tang et al., 2025).
+Compared
+with traditional factor design, LLM-based frame-
+works can scale factor mining beyond manual ef-
+fort and report excess returns over benchmark in-
+dices (Duan et al., 2025; Luo et al., 2025a).
+Traditional factor generation begins with market
+observation. Researchers first identify a market
+state, an economic condition reflected in price and
+trading activity (Karpoff, 1987; Cochrane, 2009).
+From these observations, they formulate an eco-
+nomic hypothesis that links excess returns to struc-
+tural risks, market frictions, or temporary imbal-
+ances. The hypothesis becomes a factor only after
+rigorous empirical validation (Fama and French,
+1993). A factor in this tradition is not merely a pre-
+dictive formula, but a quantitative measurement of
+a clearly defined economic mechanism in historical
+data (Cochrane, 2011; Fama and French, 1996).
+Current LLM-driven approaches largely opti-
+mize factors for predictive returns, but they provide
+limited evidence that a factor’s mathematical form
+reflects its intended economic mechanism (Bailey
+et al., 2014; McLean and Pontiff, 2016; Lopez de
+Prado and Zoonekynd, 2025). Without such valida-
+tion, formulas that merely fit opaque correlations in
+the training window can appear indistinguishable
+from factors built on genuine economic mecha-
+nisms. Such formulas look strong in-sample but
+tend to break down when market regimes shift.
+Robustness across regimes therefore requires a
+structurally interpretable factor whose form maps
+back to the hypothesis that produced it (Kou et al.,
+2024). For LLM-based pipelines, verifying this
+mapping is difficult because the model returns a
+arXiv:2608.30192v1  [cs.AI]  31 Aug 2026
+
+
+Traditional Finance
+Market Observation
+Economic Hypothesis
+(e.g., Value, Size, Risk)
+Factor Generation
+ Empirical Validation
+Distributional consistency
+Distribution thresholds
+Return
+1
+2
+3
+4
+5
+Factor 
+Consistency
+Factor
+FaVOR (Our Method)
+LLM-generated Hypotheses
+Hypothesis Decomposition
+Observable 
+Condition 1
+Economic
+Hypothesis
+Observable 
+Condition 3
+Observable 
+Condition 2
+Candidate Factor Generation
+Candidate Factor Generation
+ Factor Validation
+Return
+Distribution thresholds
+Q1
+Q2
+Q3
+Q4
+Factor Consistency
+Q5
+Validated Factor Combination
+Factor
+LLM-based 
+LLM-generated Hypotheses
+Automated Factor Generation
+No Empirical Validation
+Optimization 
+Loop
+Factor Consistency
+[ BACKTEST ]
+IR
+RETURN
+Factor
+Figure 1: Comparison of three approaches to factor discovery and validation. Traditional factor design relies
+on expert hypotheses and manual construction, supporting interpretability but limiting scalability. LLM-based
+automated mining scales generation but lacks pre-backtest validation that a factor captures its intended economic
+mechanism. FaVOR decomposes hypotheses into observable market conditions and validates candidates with
+distributional evidence before backtesting, combining scalability with factor-level validation.
+complete formula without exposing the interme-
+diate economic reasoning that produced it. An
+explicit checking step is needed to separate fac-
+tors that reflect the intended economic signal from
+those that overfit to noise (Jiang et al., 2025).
+We propose FaVOR (Factor Validation through
+Observable Reasoning), an agentic framework that
+evaluates factor consistency through a three-stage
+process. Decomposition breaks a hypothesis into
+observable market conditions. Validation checks
+whether each generated factor reflects its intended
+condition. Integration identifies the combination
+of validated factors that best reconstructs the orig-
+inal hypothesis. By admitting only factors that
+pass all three stages, FaVOR builds structurally
+interpretable factors that combine empirical perfor-
+mance with economic rationale.
+On the Chinese CSI 500 and U.S. S&P 500 in the
+2025 out-of-sample testing window, FaVOR deliv-
+ers consistent performance across both markets. Af-
+ter transaction costs, the framework achieves a cu-
+mulative excess return of 0.2225 with IR of 1.5295
+on the CSI 500 and 0.1123 with IR of 1.1315 on
+the S&P 500. These results suggest that hypothesis-
+centered empirical validation can improve the eco-
+nomic reliability of automated factor mining.
+2
+Related Work
+Traditional Foundations of Factor Investing.
+Traditional quantitative research treats a factor
+as a measure of a specific economic mecha-
+nism rather than a formula optimized only for re-
+turns (Cochrane, 2009; Bender et al., 2013). This
+framing rests on the principle of informational ef-
+ficiency, under which latent market states are re-
+flected in prices and trading activity (Fama, 1970).
+Researchers therefore use empirical validation to
+test whether a market signal aligns with an explicit
+economic hypothesis (Hou et al., 2015; Banz, 1981;
+Sloan, 1996; Baker et al., 2011).
+Prior studies show how this logic appears in
+factor research. Basu (1977) links valuation ra-
+tios to expected returns, while Jegadeesh and Tit-
+man (1993) studies momentum as a return pat-
+tern grounded in market behavior. Models with
+multiple factors extend this idea by combining ob-
+servable firm characteristics and market indicators.
+Fama and French (1993, 2015) integrate market
+risk, size, value, profitability, and investment pat-
+terns to explain the cross section of expected stock
+returns, and Kakushadze (2016) shows that combin-
+ing many independent alpha formulas from price,
+volume, and fundamentals can improve portfolio
+diversification and return stability. These factors
+remain economically interpretable, but the process
+depends on manual testing by domain experts and
+does not scale to a large candidate space.
+Automated Factor Mining. Recent LLM-based
+approaches automate factor generation by using
+the financial knowledge encoded in the models and
+their ability to enumerate candidates. FAMA (Li
+et al., 2024) introduces sample based selection and
+
+
+Human Market Insights
+Hypothesis 
+ Agent
+Decomposition
+Observation 
+ Agent
+PASS
+FAIL
+Post Sell-off 
+State
+Intraday
+Recovery
+Elevated 
+Trading Activity
+Hypothesis:
+“Following a sharp 
+sell-off, stocks that 
+recover intraday—
+closing near the 
+day’s high—reflect 
+renewed buying 
+pressure
+…
+increasing the 
+likelihood of a short-
+term rebound.”
+STAGE 1
+Integration
+STAGE 3
+STAGE 2
+Validated Factor Combination
+Win/Loss Ratio ↑ or Return ↑
+Human Market Insights
+Hypothesis 
+ Agent
+Decomposition
+Observation 
+ Agent
+Post Sell-off 
+State
+Intraday
+Recovery
+Elevated 
+Trading Activity
+Hypothesis:
+“Following a sharp 
+sell-off, stocks that 
+recover intraday—
+closing near the 
+day’s high—reflect 
+renewed buying 
+pressure
+…
+increasing the 
+likelihood of a short-
+term rebound.”
+STAGE 1
+Joint 
+threshold
+Factor Combination
+Validated 
+Factor
+Validated 
+Factor
+Validated 
+Factor
+Validation
+Return  
+to
+PASS
+FAIL
+Validated 
+Factor
+Validated 
+Factor
+Validated 
+Factor
+Optimization & Backtesting
+Optimize thresholds
+Backtest
+Market-State Evidence Construction for Factor Validation
+Factor Specification
+Observable Condition o_i
+Factor Formula  f_ij
+Factor Evaluation over Historical Data
+“Following a sharp sell-off, 
+stocks that recover intraday
+      Factor 
+Agent
+Factor-Level Validation 
+Non-trivial 
+Tail Behavior
+Central 
+Tendency
+Semantic 
+Consistency
+Statistical 
+Consistency
+Validation 
+Agent
+STAGE 2
+Factor 
+Value
+OHLCV
+Factor-Conditioned Market Statistics 
+Volume
+Price 
+ Position
+Price 
+Range
+Intraday 
+Return
+Figure 2: Overview of the FaVOR framework: a three-stage pipeline for hypothesis-driven factor mining. Stage
+1 decomposes a high-level hypothesis into observable market conditions and generates candidate factors via the
+Hypothesis, Observation, and Factor agents. Stage 2 validates each candidate by constructing factor-conditioned
+market-state statistics, with pass/fail gates that route rejected factors back to the Factor agent. Stage 3 integrates the
+validated factors under a joint threshold and runs threshold optimization and out-of-sample backtesting to produce
+stable, hypothesis-consistent trading signals.
+an experience based mechanism to reduce redun-
+dancy. Cheng and Tang (2024) show that GPT-4
+can synthesize useful factors through financial rea-
+soning alone. Frameworks with multiple agents
+push the idea further by coordinating specialized
+agents in a collaborative search and optimization
+pipeline. Alpha-GPT (Wang et al., 2025) trans-
+lates researchers’ ideas into formulas and optimizes
+them algorithmically. RD-Agent-Quant (Li et al.,
+2025) jointly optimizes factors and machine learn-
+ing models across the workflow from hypothesis to
+code. AlphaAgent (Tang et al., 2025) adds regular-
+ized exploration to promote hypothesis consistency
+and resist alpha decay.
+Despite these advances, agents based on LLMs
+still evaluate candidate factors mainly through se-
+mantic fit or realized performance. Recent verifica-
+tion mechanisms in this line of work (Wang et al.,
+2024; Luo et al., 2025b; Lee et al., 2025; Ding
+et al., 2025) provide useful checks, but natural lan-
+guage explanations alone do not show that a factor
+reflects an underlying market state. This leaves a
+gap between automated factor generation and the
+empirical validation that supports interpretability
+and reliability in traditional finance (Kang and Liu,
+2023; Tatsat and Shater, 2025).
+3
+Methods
+We propose FaVOR, an agentic framework that
+constructs structurally interpretable factors from
+economic hypotheses. The framework does not
+evaluate a hypothesis solely by its final return. In-
+stead, it first decomposes the hypothesis into ob-
+servable market conditions, then checks whether
+candidate factors measure those conditions, and fi-
+nally integrates the validated factors into executable
+trading signals. Figure 2 summarizes this three-
+stage pipeline.
+3.1
+Stage 1 : Hypothesis Decomposition
+Stage 1 turns a high-level economic hypothesis into
+measurable components. FaVOR first generates the
+hypothesis from market insights, then decomposes
+it into observable market conditions, and finally
+generates candidate factors that give each condition
+a quantitative form.
+3.1.1
+Hypothesis Generation
+The hypothesis agent AH takes human market
+insights I and returns an economic hypothesis
+AH(I) = h. The hypothesis h is a descriptive
+statement about market states and their expected
+impact on price movements.
+3.1.2
+Hypothesis Decomposition
+The hypothesis h is written in natural language, so
+it cannot be validated directly against raw market
+data. The observation agent AO decomposes h into
+m observable market conditions, AO(h) = {oi |
+i = 1, . . . , m}, where each oi captures a distinct
+and independent aspect of the hypothesis.
+
+
+3.1.3
+Candidate Factor Generation
+Given an observable market condition oi, the
+factor agent AF generates ni candidate factors,
+AF (oi) = Fi = {fi,j}ni
+j=1. Each candidate fac-
+tor fi,j is a formula computed from market data
+and intended to measure oi. To keep the formulas
+interpretable and executable, AF draws operators
+from the predefined set in Appendix A. The result-
+ing candidate factors enter Stage 2 for empirical
+consistency checks.
+3.2
+Stage 2 : Factor-Level Validation
+This stage evaluates the factor consistency of the
+candidate factors from Stage 1. Factor-level vali-
+dation verifies whether each formula embodies the
+economic rationale of its corresponding observable
+market condition. It uses market variables observed
+at time t rather than future returns at t+T, where T
+denotes the holding horizon of the trading strategy.
+We use an LLM agent because the same statistical
+pattern can support one rationale while contradict-
+ing another. Consistency must therefore be judged
+against the hypothesis context.
+Observable Market Conditions
+“Intraday votatility expansion with downward bias”
+DIR(Direction) becomes 
+more negative
+&
+MAG(Magnitude) 
+increases
+Construct-Aligned Factor
+Factor A
+Misaligned Factor
+Factor B
+Quantile-based Evidence (Distributions)
+MAG & DIR --> Directional Increase & Reduction
+Consistent Distributional Shift
+(DIR --> Directional Reduction)
+Inconsistent Shift
+Direction
+Q1
+Q1
+Q2
+Q2
+Q3
+Q3
+Q4
+Q4
+Q5
+Q5
+Volume
+Position
+Q1
+Q1
+Q2
+Q2
+Q3
+Q3
+Q4
+Q4
+Q5
+Q5
+Range
+Direction
+Q1
+Q1
+Q2
+Q2
+Q3
+Q3
+Q4
+Q4
+Q5
+Q5
+Volume
+Position
+Q1
+Q1
+Q2
+Q2
+Q3
+Q3
+Q4
+Q4
+Q5
+Q5
+Range
+PASS
+Systematic Shift
+Consistency
+No Contradation
+Validation Agent
+No Contradation
+Systematic Shift
+Consistency
+FAIL
+Figure 3: Illustration of factor-level validation using
+quantile-based distributional evidence. A construct-
+aligned factor (Factor A) shows systematic distribu-
+tional shifts across ordered quantile bins that match the
+corresponding observable market condition. It therefore
+passes validation. In contrast, a misaligned factor (Fac-
+tor B) shows unstable or contradictory patterns across
+bins, leading to validation failure.
+3.2.1
+Historical Evidence for Consistency
+Evaluation
+The validation agent AV checks whether a candi-
+date factor measures the observable market condi-
+tion it was generated for. The goal is to test whether
+stronger factor values correspond to stronger ev-
+idence of the market state described in oi, not
+whether the factor predicts future returns.
+For each candidate factor, we compute factor
+values on the training data, sort stocks within each
+date, and split them into quintile bins Q1, . . . , Q5
+ordered from low to high. To describe the market
+state in each bin, we use four OHLCV-based vari-
+ables that capture intraday return (C −O), daily
+price range (H −L), close position within the daily
+range ((C −L)/(H −L)), and trading volume (V ).
+We denote this set by X. For each bin and each
+x ∈X, we compute standard descriptive statistics
+(mean, median, q10, q90, and dispersion measures),
+and collect them into the statistical profile Si,j that
+AV uses to assess factor consistency.
+3.2.2
+Factor Consistency Evaluation Criteria
+Given the profile Si,j, the validation agent AV de-
+cides whether the empirical patterns are consis-
+tent with the intended economic rationale oi. Each
+check applies fixed rules to the statistics in Si,j.
+The LLM is used only to map the textual obser-
+vation oi to the relevant variables in X and their
+expected directions. Given this mapping, the final
+pass/fail decision is deterministic because it is the
+conjunction of four explicit rule checks.
+We apply four consistency checks: (i) a system-
+atic shift in central tendency of some x ∈X across
+the ordered factor bins, (ii) non-trivial variation
+in the tail spread of x across bins, (iii) agreement
+across at least two complementary statistics of the
+same x, and (iv) semantic agreement with oi. The
+precise definitions and decision rule are deferred to
+Appendix B.
+The validated factor set for each condition is
+ˆFi = {fi,j ∈Fi | AV (oi, fi,j, Si,j) = pass}.
+Once ˆFi is built for every condition, the pipeline
+moves to factor integration.
+3.3
+Stage 3: Factor Integration
+This stage shifts the unit of analysis from a single
+factor to a combination of validated factors, and
+asks whether such a combination realizes the orig-
+inal hypothesis h. We test this by examining how
+the combination’s joint trading signal behaves as
+the entry rule becomes more selective.
+3.3.1
+Candidate Combinations
+For each observable condition oi, let ˆFi denote the
+set of validated factors from Stage 2, which typ-
+
+
+ically contains two or three formulas. We form
+candidate combinations by taking the Cartesian
+product C = ˆF1 × ˆF2 × · · · × ˆFm with cardinal-
+ity |C| = Qm
+i=1 | ˆFi|, and each f ∈C selects one
+validated factor per observable condition.
+3.3.2
+Directional Selectivity
+Each combination f ∈C needs an entry rule that we
+can vary in selectivity, so we can test whether the
+direction of its realized return remains stable as the
+rule tightens. We call this property Directional Se-
+lectivity. The entry rule uses a common selectivity
+level σ ∈(0, 1) that determines the cross-sectional
+extremeness required from each factor. For each
+fi,j in the combination, an observation signal trig-
+gers when fi,j crosses its in-sample σ-quantile in
+the direction implied by oi (its polarity). A trad-
+ing signal Signal(f, σ) = 1 is triggered only when
+every constituent factor of f triggers its observa-
+tion signal simultaneously, and Signal(f, σ) = 0
+otherwise.
+Increasing σ tightens each factor’s quantile cut-
+off and makes the joint signal more selective. It
+reduces the number of trading opportunities and
+keeps only stronger realizations of the hypothe-
+sized market state.
+3.3.3
+Evaluation Criteria
+We evaluate Directional Selectivity by tracking how
+signal outcomes change across a ladder of selec-
+tivity levels σ1 < σ2 < · · · . For a factor com-
+bination f, we divide its triggered signals at each
+level into winning signals SW with positive real-
+ized returns and losing signals SL with negative
+realized returns. The average realized return is
+higher under stricter σ, confirming that selectiv-
+ity targets more profitable market states. The win
+rate |SW |/(|SW | + |SL|) is higher under stricter
+σ, indicating fewer false positives as the signal
+strengthens.
+We apply these criteria at the ticker level. A
+ticker supports the combination only when at least
+one of these behaviors holds across the ladder.
+We then retain a factor combination only when
+its ticker-level support rate exceeds a fixed pass-
+rate threshold, and discard combinations below this
+threshold because stricter entry conditions do not
+improve the quality of their signals.
+3.4
+Optimization and Backtesting
+In Section 3.3, Stage 3 selects factor combinations.
+We turn these into executable trading signals and
+evaluate their realized performance. The selectivity
+sweep in Stage 3 is used for structural screening on
+the training set, while the final execution thresholds
+are optimized on a held-out validation set defined
+in Section 4.1. Because each factor in a combi-
+nation targets a distinct observable condition, we
+treat its activation cutoff as independent and opti-
+mize factor-specific thresholds for each validated
+combination with Optuna (Akiba et al., 2019).
+The optimization objective is the Calmar ra-
+tio (Eling and Schuhmacher, 2007). It is defined as
+Calmar = AR/|MDD|, where AR denotes the
+annualized return and MDD the maximum draw-
+down. This objective accounts for both return and
+downside risk. The selected thresholds are then
+fixed and backtested on the held-out test period.
+Evaluation outcomes are used only in the outer-
+loop hypothesis memory. After each iteration, Fa-
+VOR records prior hypothesis IDs, observation de-
+scriptions, formula names, and a single scalar sum-
+mary of average information ratio. The memory
+does not store raw returns, formula definitions, or
+fitted thresholds, and the pipeline code and hyperpa-
+rameters are fixed before held-out evaluation. Feed-
+back accumulates as hypothesis memory across
+iterations.
+4
+Experiments
+4.1
+Experiment Settings
+Metrics.
+We evaluate portfolio performance with
+four metrics. Annualized Return (AR) measures
+the average yearly excess return over the bench-
+mark. Information Ratio (IR) measures excess
+return scaled by tracking risk. Cumulative Return
+(CR) measures the total excess return over the full
+evaluation period. Maximum Drawdown (MDD)
+measures the largest decline in the portfolio’s own
+equity curve from a previous peak. Appendix C
+provides the mathematical definitions.
+Datasets.
+We conduct backtests with Qlib (Yang
+et al., 2020) on two equity universes.
+The
+CSI 500 covers the Chinese A-share market, and
+the S&P 500 covers the U.S. equity market. Raw
+CSI 500 data are obtained from Baostock, and
+S&P 500 data are obtained from Yahoo Finance.
+We split the data into training (2022-01-01 to
+2023-12-31), validation (2024-01-01 to 2024-12-
+31), and testing (2025-01-01 to 2025-12-31) pe-
+riods. Factor validation and integration are per-
+formed on the training set, threshold optimization
+is performed on the validation set, and the testing
+
+
+Market
+CSI 500
+S&P 500
+Category
+Method
+AR
+IR
+MDD
+CR
+AR
+IR
+MDD
+CR
+ML/DL
+Linear (Pedregosa et al., 2011)
+-0.0702
+-0.5008
+-0.1649
+-0.0778
+-0.0010
+-0.0104
+-0.1403
+-0.0055
+XGBoost (Chen, 2016)
+-0.0123
+-0.1642
+-0.1370
+-0.0152
+-0.0357
+-0.3345
+-0.2326
+-0.0426
+LightGBM (Ke et al., 2017)
+-0.1576
+-1.3954
+-0.2173
+-0.1530
+-0.0302
+-0.3389
+-0.2154
+-0.0353
+MLP (Rumelhart et al., 1986)
+-0.0493
+-0.4812
+-0.1725
+-0.0537
+-0.0895
+-0.8041
+-0.1686
+-0.0956
+Transformer (Vaswani et al., 2017)
+-0.0521
+-0.3943
+-0.1760
+-0.0597
+-0.1744
+-1.5509
+-0.1860
+-0.1729
+RL
+AlphaForge (Shi et al., 2025)
+-0.0133
+-0.1255
+-0.1260
+-0.0167
+-0.0833
+-0.8617
+-0.2093
+-0.0819
+AlphaQCM (Zhu and Zhu, 2025)
+0.0869
+1.0604
+-0.1396
+0.0803
+0.0619
+0.8250
+-0.2345
+0.0583
+LLM-based
+RD-Agent (Li et al., 2025)
+0.1382
+1.3360
+-0.1427
+0.1452
+0.0604
+0.8028
+-0.1704
+0.0624
+AlphaAgent (Tang et al., 2025)
+-0.0192
+-0.1490
+-0.1369
+-0.0275
+-0.0060
+-0.0631
+-0.1428
+-0.0110
+FaVOR
+0.2067
+1.5295
+-0.0853
+0.2225
+0.1062
+1.1315
+-0.0443
+0.1123
+Table 1: Main results on CSI 500 and S&P 500 excess returns using train, validation, and test splits within 2022–
+2025. Bold marks the best result and underline marks the second best.
+Jan
+Feb
+Mar
+Apr
+May
+Jun
+Jul
+Aug
+Sep
+Oct
+Nov
+Dec
+Jan
+−0.2
+−0.1
+0.0
+0.1
+0.2
+Cumulative excess return
+CSI500 benchmark
+LightGBM
+Linear
+MLP
+Transformer
+XGBoost
+AlphaForge
+AlphaQCM
+RD-Agent
+AlphaAgent
+FaVOR
+Jan
+Feb
+Mar
+Apr
+May
+Jun
+Jul
+Aug
+Sep
+Oct
+Nov
+Dec
+Jan
+−0.2
+−0.1
+0.0
+0.1
+0.2
+Cumulative excess return
+S&P 500 benchmark
+LightGBM
+Linear
+MLP
+Transformer
+XGBoost
+AlphaForge
+AlphaQCM
+RD-Agent
+AlphaAgent
+FaVOR
+Figure 4: Comparison of cumulative excess returns of various baselines on the CSI 500 (left) and S&P 500 (right).
+period is reserved exclusively for out-of-sample
+evaluation. Backtests use only the daily OHLCV
+fields $open, $high, $low, $close, and $volume.
+Backtest Settings.
+After the trading signals and
+thresholds are fixed, they are applied unchanged
+throughout the testing period. A signal is triggered
+at time t when the factor combination indicates
+that the hypothesized market state holds. Positions
+are opened according to the predefined execution
+protocol and closed according to predefined exit
+rules, such as the holding horizon T or stop con-
+ditions. All backtest results include proportional
+transaction costs per traded value. For CSI 500, the
+cost rates are 0.0005 for buys and 0.0015 for sells.
+For S&P 500, the cost rate is 0.0005 for sells only.
+Full hyperparameter values used across all stages
+are listed in Appendix D.
+Agent Settings.
+FaVOR uses four LLM-based
+agents, and we adopt GPT-4o (Hurst et al., 2024)
+as the default backbone for all main-table results.
+Decoding temperatures are set higher for the gener-
+ative agents and low for the validation agent, bal-
+ancing idea diversity against verdict stability. Ex-
+act values are listed in Appendix D. The prompt
+templates for all four agents are provided in Ap-
+pendix E.
+Baselines.
+We compare FaVOR against baselines
+that span the paradigms most directly compara-
+ble to its hypothesis-driven, validation-centric de-
+sign. (i) ML/DL methods: Linear (Pedregosa et al.,
+2011), XGBoost (Chen, 2016), LightGBM (Ke
+et al., 2017), MLP (Rumelhart et al., 1986), and
+Transformer (Vaswani et al., 2017). (ii) Reinforce-
+ment Learning methods, which optimize a return-
+driven reward signal under a different search for-
+mulation: AlphaForge (Shi et al., 2025) and Al-
+phaQCM (Zhu and Zhu, 2025). (iii) LLM-based
+methods: R&D-Agent-Quant (Li et al., 2025) and
+AlphaAgent (Tang et al., 2025).
+4.2
+Main Results
+Table 1 reports performance on the CSI 500 and
+S&P 500, evaluated on excess returns. On the
+CSI 500, FaVOR achieves the best result across all
+four metrics, reaching AR of 0.2067, IR of 1.5295,
+MDD of −0.0853, and CR of 0.2225, simultane-
+ously improving return generation and reducing
+downside risk relative to every compared method.
+On the S&P 500, FaVOR again attains the best
+result across all four metrics, reaching AR of
+0.1062, IR of 1.1315, MDD of −0.0443, and CR
+
+
+Hypothesis: After a sharp sell-off, stocks that exhibit intraday recovery, closing nearer to the daily high, tend to enter early
+stabilization, which is associated with a short-term rebound over the next 3 trading days.
+Observable
+Condition
+Candidate Factor
+Validation reasoning based on distributional evidence
+O1: Post
+Sell-off
+State
+TS_ZSCORE(C,10)
+Reasoning: "As factor intensity increases, prices close progressively lower within
+the daily range, indicating sustained downside pressure. This shift is consistently
+supported by aligned location and tail behavior, with DIR mean and median decreasing
+(0.14 →−0.11) ... and tail statistics moving downward together, characterizing a post
+sell-off state."
+Decision: PASS (✓)
+TS_ZSCORE(V,
+10)
+*
+TS_Z
+SCORE(DELTA(C,
+1), 10)
+Reasoning:
+"The factor does not induce a stable separation of post sell-off
+states.
+Upper-tail expansion (q90 + 24–157%) ...
+coincides with sharp kurtosis
+compression(−46–49%), producing internally conflicting tail signals."
+Decision: FAIL (×)
+O2:
+Intraday
+Recovery
+(close
+-
+TS_MIN(low,
+3))
+/
+(high - TS_MIN(low
+, 3) + eps)
+Reasoning: "The factor captures a clear shift in closing position within the daily range,
+with prices closing progressively nearer to the intraday high as factor strength increases.
+POS mean and median increase monotonically (0.083→0.914) ... and the upper tail
+also rises (POS q90 →1.0), indicating strengthening intraday buying pressure."
+Decision: PASS (✓)
+-CORR(rank(DELTA
+(logV)),
+rank(DIR))
+Reasoning: "The induced trend does not align with the intended interpretation of
+factor intensity. Although the polarity is defined as ‘higher-is-more-true’, the evidence
+decreases across bins ... directly contradicting the expected intraday recovery pattern.
+As a result, the factor fails to provide a meaningful proxy for intraday recovery."
+Decision: FAIL (×)
+O3: Early
+Stabiliza-
+tion
+(TS_MIN(low,
+3)
+-
+low) / (high - low
++ eps)
+Reasoning: "The factor captures a consistent narrowing of the daily range as factor
+strength increases. MAG mean and median both decrease (-21% and -18%) ... and
+tail evidence compresses (MAG q90 -20.5%), with increased central concentration
+(kurtosis +10.9%). This pattern is consistent with early stabilization."
+Decision: PASS (✓)
+1 / (eps + TS_STD(C,
+20))
+Reasoning: "The factor does not provide a coherent narrowing pattern as factor strength
+increases. Tail indicators are internally inconsistent, with kurtosis decreasing (-28.4%)
+... while q90 shows little change (+1.8%). This inconsistency prevents a stable charac-
+terization of early stabilization."
+Decision: FAIL (×)
+Table 2: Case study of factor-level validation under a single hypothesis. The table reports candidate factors generated
+from decomposed observable market conditions and their corresponding validation outcomes. For each candidate
+factor, we show the rationale produced by the validation agent, with underlined phrases highlighting the evidence
+used in factor-level validation.
+of 0.1123. This consistency suggests that FaVOR’s
+validation step generalizes across distinct equity
+markets, producing effective factor combinations
+in both the Chinese A-share and U.S. universes.
+Appendix F reports the run-to-run variance over 10
+independent runs and confirms that these headline
+numbers are reproducible.
+Across the method families in Table 1, only Fa-
+VOR combines adaptive factor generation with an
+explicit distributional check between each factor
+and the market state it should measure, and this
+combination delivers the strongest return and risk
+profile in both markets. Appendix G reports the
+trade-level distribution and shows that gains are
+spread broadly across many trades.
+Figure 4 traces cumulative excess returns. On
+the CSI 500, FaVOR captures an early-year gain
+and preserves it while most baselines drift sideways
+and turn negative by year-end. On the S&P 500, Fa-
+VOR remains near zero through early months and
+compounds steadily from mid-year onward, ending
+as the strongest trajectory while most baselines stay
+weakly positive or drift negative. Appendix H char-
+acterizes the 2025 market paths for both universes.
+4.3
+Case Study: Factor-level Validation
+Table 2 reports factor-level validation outcomes
+for candidates generated under a single hypothe-
+sis. Under the intraday-recovery observation (O2),
+the two candidates yield opposite verdicts. The
+passing candidate captures intraday recovery con-
+sistently. As factor strength increases across quan-
+tile bins, stocks close progressively nearer to the
+
+
+CSI 500
+S&P 500
+Backbone
+AR
+IR
+MDD
+CR
+AR
+IR
+MDD
+CR
+GPT-4o (default)
+0.2067
+1.5295
+-0.0853
+0.2225
+0.1062
+1.1315
+-0.0443
+0.1123
+GPT-5.4-mini
+0.1039
+1.3246
+-0.0443
+0.1079
+0.0299
+0.2553
+-0.1186
+0.0244
+Gemini-2.5-Flash
+0.0732
+0.4998
+-0.1418
+0.0657
+0.0808
+0.7039
+-0.0621
+0.0807
+Claude-Sonnet-4.6
+0.0541
+0.5364
+-0.0878
+0.0511
+0.0072
+0.0817
+-0.0898
+0.0035
+Llama-3.3-70B
+0.0449
+0.4183
+-0.1313
+0.0407
+0.0146
+0.1545
+-0.0801
+0.0107
+Qwen3-235B
+0.0948
+1.0598
+-0.0936
+0.0967
+0.0174
+0.1670
+-0.1033
+0.0126
+Table 3: Sensitivity of FaVOR to the LLM backbone on the CSI 500 and S&P 500. All pipeline settings other
+than the backbone are held fixed. The best result in each column is shown in bold, and the second-best result is
+underlined.
+Jan
+Feb
+Mar
+Apr
+May
+Jun
+Jul
+Aug
+Sep
+Oct
+Nov
+Dec
+Jan
+−0.10
+−0.05
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+Cumulative excess return
+CSI500 benchmark
+gpt-4o
+gpt-5.4-mini
+gemini-2.5-flash
+claude-sonnet-4-6
+llama-3.3-70B
+qwen3-235B
+Jan
+Feb
+Mar
+Apr
+May
+Jun
+Jul
+Aug
+Sep
+Oct
+Nov
+Dec
+Jan
+−0.10
+−0.05
+0.00
+0.05
+0.10
+0.15
+0.20
+0.25
+Cumulative excess return
+S&P 500 benchmark
+gpt-4o
+gpt-5.4-mini
+gemini-2.5-flash
+claude-sonnet-4-6
+llama-3.3-70B
+qwen3-235B
+Figure 5: Comparison of cumulative excess returns of various baselines on the CSI 500 (left) and S&P 500 (right).
+upper end of the intraday price range, central ten-
+dency statistics shift consistently, and the upper tail
+strengthens.
+The failing candidate is defined so that higher
+values should indicate stronger intraday recovery,
+yet the observed distributional behavior moves in
+the opposite direction as factor strength increases.
+This mismatch between factor strength and distri-
+butional response prevents the factor from consis-
+tently measuring the intraday-recovery observation.
+The same PASS/FAIL contrast holds for the post
+sell-off (O1) and early-stabilization (O3) observa-
+tions in Table 2. Factor consistency therefore sepa-
+rates at the observation level through distributional
+behavior alone, which is the central role that our
+validation framework plays.
+4.4
+Impact of Factor Validation and
+Integration
+We ablate Stage 2 (Factor Validation) and Stage 3
+(Factor Integration) of FaVOR, and Table 4 reports
+the results. Removing Stage 2 lets unvalidated fac-
+tors enter the integration stage, and MDD more
+than doubles in magnitude as the integration step
+admits weaker signals that yield little risk-adjusted
+return. Removing Stage 3 produces the largest de-
+terioration in return, because validated factors fire
+individually rather than through a jointly checked
+combination. The mutual consistency enforced
+by the combination step is essential for translat-
+ing individual factor signals into coherent trading
+decisions.
+Setting
+AR
+IR
+MDD
+FaVOR
+0.2067
+1.5295
+-0.0853
+w/o Stage 2
+0.0492
+0.1526
+-0.2091
+w/o Stage 3
+-0.3902
+-1.2748
+-0.4260
+w/o Stage 2 & Stage 3
+-0.2793
+-1.4316
+-0.3087
+Table 4: Ablation on CSI 500 out-of-sample 2025. All
+rows share the hypothesis and Stage 4 configuration of
+the main result. Best per column in bold.
+Removing both stages reduces FaVOR to un-
+constrained factor generation, and every metric in
+Table 4 turns negative. Factor validation and in-
+tegration are therefore jointly responsible for the
+existence of usable trading signals, not merely a
+refinement on top of an already-working pipeline.
+4.5
+Sensitivity to LLM Backbone
+Because FaVOR delegates hypothesis generation,
+observation decomposition, formula synthesis, and
+construct validation to language-model agents,
+the choice of backbone is a natural axis of ro-
+bustness analysis.
+We hold all other pipeline
+components fixed and replace only the default
+GPT-4o (Hurst et al., 2024) with five alterna-
+tives: the closed-source GPT-5.4-mini (OpenAI,
+
+
+2026), Gemini-2.5-Flash (Comanici et al., 2025),
+and Claude-Sonnet-4.6 (Anthropic, 2026), and
+the open-weight Llama-3.3-70B (Grattafiori et al.,
+2024) and Qwen3-235B (Yang et al., 2025). Ta-
+ble 3 reports the resulting metrics on both the
+CSI 500 and S&P 500, while Figures 5 present
+the corresponding cumulative-return curves.
+FaVOR retains positive annualized return (AR)
+and information ratio (IR) on both markets across
+all evaluated backbones, indicating that its effec-
+tiveness is not tied to a single proprietary model.
+On the CSI 500, the open-weight Qwen3-235B
+achieves an IR of 1.0598 and remains competitive
+with several closed-source alternatives. This result
+demonstrates that FaVOR can retain meaningful
+predictive performance when paired with an open-
+weight backbone.
+On the S&P 500, the default GPT-4o is the
+strongest configuration, ranking first across all four
+metrics. Gemini-2.5-Flash ranks second, achiev-
+ing an AR of 0.0808, an IR of 0.7039, an MDD
+of −0.0621, and a CR of 0.0807.
+The open-
+weight Llama-3.3-70B and Qwen3-235B also pro-
+duce positive AR and IR, although their perfor-
+mance is weaker than that of the leading closed-
+source backbones. Overall, the uniformly positive
+returns suggest that FaVOR’s hypothesis-centric
+pipeline transfers across different LLM families,
+whereas the performance dispersion across back-
+bones shows that backbone choice still affects the
+strength and robustness of the resulting factors.
+5
+Conclusion
+We introduced FaVOR, a hypothesis-driven agen-
+tic framework that grounds factor mining in struc-
+tural validity. Given a hypothesis, FaVOR decom-
+poses it into observable market conditions, per-
+forms the first factor-level validation against target
+conditions, and integrates the subset that best re-
+constructs the hypothesis. On the CSI 500 and
+S&P 500, FaVOR delivers stable and interpretable
+performance against competitive baselines, and ab-
+lations confirm that the Validation and Integration
+stages are each essential.
+Limitations
+Scope of Directional Selectivity.
+Our selection
+criterion targets factor combinations whose pre-
+dicted direction stays consistent as the threshold
+becomes stricter. It is not designed for reversal-
+type signals (e.g., contrarian patterns at extreme
+deciles) whose direction flips under stricter thresh-
+olds. Such factors fall outside the scope of this
+work.
+Cost Model.
+Our backtests use daily-bar data,
+where market impact and slippage are typically
+negligible at the trade sizes and holding periods we
+consider. Appendix G confirms an average holding
+period of 9.64 days, which keeps turnover low. Fu-
+ture work targeting higher-frequency trading may
+require a high-fidelity execution simulator to cap-
+ture market impact and slippage.
+Ethical Considerations
+The market data we use are aggregated OHLCV
+fields containing no personally identifiable infor-
+mation, and we use only daily price and volume.
+FaVOR uses LLMs to propose and select candidate
+factors. Every LLM output is verified against his-
+torical return statistics rather than accepted at face
+value, and no personally identifiable or proprietary
+information is included in any prompt.
+All artifacts used in this work are employed
+following their intended research use and license
+terms. These include market data from Baostock
+and Yahoo Finance, the Qlib backtesting frame-
+work, the Optuna hyperparameter optimization li-
+brary, the baseline implementations, and the GPT-
+4o, Claude, Gemini, Llama, and Qwen large lan-
+guage models.
+Acknowledgements
+This work was supported in part by the Na-
+tional Research Foundation of Korea (NRF) grant
+funded by the Korea government (MSIT) (RS-
+2025-00556289), in part by the MSIT (Ministry
+of Science and ICT), Korea, under the ITRC (In-
+formation Technology Research Center) support
+program (IITP-2026-RS-2020-II201789) and the
+Artificial Intelligence Convergence Innovation Hu-
+man Resources Development (IITP-2026-RS-2023-
+00254592), supervised by the IITP (Institute for
+Information & Communications Technology Plan-
+ning & Evaluation).
+
+
+References
+Takuya Akiba, Shotaro Sano, Toshihiko Yanase, Takeru
+Ohta, and Masanori Koyama. 2019. Optuna: A next-
+generation hyperparameter optimization framework.
+In Proceedings of the 25th ACM SIGKDD Interna-
+tional Conference on Knowledge Discovery & Data
+Mining, KDD ’19, page 2623–2631, New York, NY,
+USA. Association for Computing Machinery.
+Anthropic. 2026. Claude sonnet 4.6 system card. Sys-
+tem card, Anthropic.
+David H Bailey, Jonathan M Borwein, Marcos López
+De Prado, and Qiji Jim Zhu. 2014. Pseudomathemat-
+ics and financial charlatanism: The effects of backtest
+over fitting on out-of-sample performance. Notices
+of the AMS, 61(5):458–471.
+Malcolm Baker, Brendan Bradley, and Jeffrey Wurgler.
+2011. Benchmarks as limits to arbitrage: Understand-
+ing the low-volatility anomaly. Financial Analysts
+Journal, 67(1):40–54.
+Rolf W Banz. 1981. The relationship between return
+and market value of common stocks.
+Journal of
+financial economics, 9(1):3–18.
+Sanjoy Basu. 1977. Investment performance of com-
+mon stocks in relation to their price-earnings ratios:
+A test of the efficient market hypothesis. The journal
+of Finance, 32(3):663–682.
+Jennifer Bender, Remy Briand, Dimitris Melas, and
+Raman Aylur Subramanian. 2013. Foundations of
+factor investing. Available at SSRN 2543990.
+Tianqi Chen. 2016. Xgboost: A scalable tree boosting
+system. Cornell University.
+Junyan Cheng and Peter Chin. 2024. Empirical asset
+pricing with large language model agents. arXiv
+preprint arXiv:2409.17266.
+Yuhan Cheng and Ke Tang. 2024. Gpt’s idea of stock
+factors. Quantitative Finance, 24(9):1301–1326.
+J.H. Cochrane. 2009. Asset Pricing: Revised Edition.
+Princeton University Press.
+John H Cochrane. 2011. Presidential address: Discount
+rates. The Journal of finance, 66(4):1047–1108.
+Gheorghe Comanici, Eric Bieber, Mike Schaekermann,
+Ice Pasupat, Noveen Sachdeva, Inderjit Dhillon, Mar-
+cel Blistein, Ori Ram, Dan Zhang, Evan Rosen, and
+1 others. 2025. Gemini 2.5: Pushing the frontier with
+advanced reasoning, multimodality, long context, and
+next generation agentic capabilities. arXiv preprint
+arXiv:2507.06261.
+Hongjun Ding, Binqi Chen, Jinsheng Huang, Taian
+Guo, Zhengyang Mao, Guoyi Shao, Lutong Zou,
+Luchen Liu, and Ming Zhang. 2025.
+Alphaeval:
+A comprehensive and efficient evaluation frame-
+work for formula alpha mining.
+arXiv preprint
+arXiv:2508.13174.
+Yitong Duan, chuheng zhang, and Jian Li. 2025. Factor-
+mad: A multi-agent debate framework based on large
+language models for interpretable stock alpha factor
+mining. In Proceedings of the 6th ACM International
+Conference on AI in Finance, pages 605–613.
+Martin Eling and Frank Schuhmacher. 2007. Does the
+choice of performance measure influence the evalua-
+tion of hedge funds? Journal of Banking & Finance,
+31(9):2632–2647.
+Eugene F Fama. 1970. Efficient capital markets: A
+review of theory and empirical work. The journal of
+Finance, 25(2):383–417.
+Eugene F Fama and Kenneth R French. 1993. Com-
+mon risk factors in the returns on stocks and bonds.
+Journal of financial economics, 33(1):3–56.
+Eugene F Fama and Kenneth R French. 1996. Multi-
+factor explanations of asset pricing anomalies. The
+journal of finance, 51(1):55–84.
+Eugene F Fama and Kenneth R French. 2015. A five-
+factor asset pricing model. Journal of financial eco-
+nomics, 116(1):1–22.
+Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri,
+Abhinav Pandey, Abhishek Kadian, Ahmad Al-
+Dahle, Aiesha Letman, Akhil Mathur, Alan Schelten,
+Alex Vaughan, and 1 others. 2024. The llama 3 herd
+of models. arXiv preprint arXiv:2407.21783.
+Kewei Hou, Chen Xue, and Lu Zhang. 2015. Digesting
+anomalies: An investment approach. The Review of
+Financial Studies, 28(3):650–705.
+Aaron Hurst, Adam Lerer, Adam P Goucher, Adam
+Perelman, Aditya Ramesh, Aidan Clark, AJ Ostrow,
+Akila Welihinda, Alan Hayes, Alec Radford, and 1
+others. 2024. Gpt-4o system card. arXiv preprint
+arXiv:2410.21276.
+Narasimhan Jegadeesh and Sheridan Titman. 1993. Re-
+turns to buying winners and selling losers: Impli-
+cations for stock market efficiency. The Journal of
+Finance, 48(1):65–91.
+Zuoyou Jiang, Li Zhao, Rui Sun, Ruohan Sun,
+Zhongjian Li, Jing Li, Daxin Jiang, Zuo Bai, and
+Cheng Hua. 2025. Alpha-r1: Alpha screening with
+llm reasoning via reinforcement learning.
+arXiv
+preprint arXiv:2512.23515.
+Zura Kakushadze. 2016. 101 formulaic alphas. Wilmott,
+2016(84):72–81.
+Haoqiang Kang and Xiao-Yang Liu. 2023. Deficiency
+of large language models in finance: An empiri-
+cal examination of hallucination.
+arXiv preprint
+arXiv:2311.15548.
+Jonathan M Karpoff. 1987. The relation between price
+changes and trading volume: A survey. Journal of
+Financial and quantitative Analysis, 22(1):109–126.
+
+
+Guolin Ke, Qi Meng, Thomas Finley, Taifeng Wang,
+Wei Chen, Weidong Ma, Qiwei Ye, and Tie-Yan Liu.
+2017. Lightgbm: A highly efficient gradient boost-
+ing decision tree. Advances in neural information
+processing systems, 30.
+Hyeonjin Kim, Jiwoo Jeong, Hyungjin Ko, and Woo-
+jin Lee. 2026. Large language models as financial
+analysts: Sector-aware reasoning for investment deci-
+sions. Computational Economics, pages 1–31.
+Zhizhuo Kou, Holam Yu, Junyu Luo, Jingshu Peng,
+Xujia Li, Chengzhong Liu, Juntao Dai, Lei Chen,
+Sirui Han, and Yike Guo. 2024. Automate strategy
+finding with llm in quant investment. seed, 1:3.
+Hoyoung Lee, Junhyuk Seo, Suhwan Park, Junhyeong
+Lee, Wonbin Ahn, Chanyeol Choi, Alejandro Lopez-
+Lira, and Yongjae Lee. 2025. Your ai, not your view:
+The bias of llms in investment analysis. In Proceed-
+ings of the 6th ACM International Conference on AI
+in Finance, pages 150–158.
+Yuante Li, Xu Yang, Xiao Yang, Minrui Xu, Xisen
+Wang, Weiqing Liu, and Jiang Bian. 2025. R&d-
+agent-quant: A multi-agent framework for data-
+centric factors and model joint optimization. arXiv
+preprint arXiv:2505.15155.
+Zhiwei Li, Ran Song, Caihong Sun, Wei Xu, Zheng-
+tao Yu, and Ji-Rong Wen. 2024. Can large language
+models mine interpretable financial factors more ef-
+fectively? a neural-symbolic factor mining agent
+model. In Findings of the Association for Computa-
+tional Linguistics ACL 2024, pages 3891–3902.
+Marcos Lopez de Prado and Vincent Zoonekynd. 2025.
+Why has factor investing failed?: The role of spec-
+ification errors. The Role of Specification Errors
+(January 18, 2024). FEB-RN Research Paper No.
+101.
+Alejandro Lopez-Lira. 2025.
+Can large language
+models trade? testing financial theories with llm
+agents in market simulations.
+arXiv preprint
+arXiv:2504.10789.
+Haochen Luo, Ho Tin Ko, David Sun, Yuan Zhang,
+and Chen Liu. 2025a. Evoalpha: Evolutionary al-
+pha factor discovery with large language models. In
+NeurIPS 2025 Workshop: Generative AI in Finance.
+Yichen Luo, Yebo Feng, Jiahua Xu, Paolo Tasca, and
+Yang Liu. 2025b. Llm-powered multi-agent system
+for automated crypto portfolio management. arXiv
+preprint arXiv:2501.00826.
+R David McLean and Jeffrey Pontiff. 2016. Does aca-
+demic research destroy stock return predictability?
+The Journal of Finance, 71(1):5–32.
+Microsoft. 2025. Alpha 158 from Microsoft Qlib. ht
+tps://github.com/microsoft/qlib/blob/85c
+c74846b5af2e3e6d18666a2f6e399396980b9/ql
+ib/contrib/data/loader.py#L61. Accessed:
+2025-05-12.
+OpenAI. 2026. Gpt-5.4 thinking system card. OpenAI
+Deployment Safety.
+Fabian Pedregosa, Gaël Varoquaux, Alexandre Gram-
+fort, Vincent Michel, Bertrand Thirion, Olivier Grisel,
+Mathieu Blondel, Peter Prettenhofer, Ron Weiss, Vin-
+cent Dubourg, and 1 others. 2011. Scikit-learn: Ma-
+chine learning in python. the Journal of machine
+Learning research, 12:2825–2830.
+David E Rumelhart, Geoffrey E Hinton, and Ronald J
+Williams. 1986. Learning representations by back-
+propagating errors. nature, 323(6088):533–536.
+Hao Shi, Weili Song, Xinting Zhang, Jiahe Shi, Cuicui
+Luo, Xiang Ao, Hamid Arian, and Luis Angel Seco.
+2025. Alphaforge: A framework to mine and dynam-
+ically combine formulaic alpha factors. In Proceed-
+ings of the AAAI Conference on Artificial Intelligence,
+volume 39, pages 12524–12532.
+Richard G Sloan. 1996. Do stock prices fully reflect
+information in accruals and cash flows about future
+earnings? Accounting review, pages 289–315.
+Ziyi Tang, Zechuan Chen, Jiarui Yang, Jiayao Mai,
+Yongsen Zheng, Keze Wang, Jinrui Chen, and Liang
+Lin. 2025. Alphaagent: Llm-driven alpha mining
+with regularized exploration to counteract alpha de-
+cay. In Proceedings of the 31st ACM SIGKDD Con-
+ference on Knowledge Discovery and Data Mining V.
+2, pages 2813–2822.
+Hariom Tatsat and Ariye Shater. 2025. Beyond the
+black box: Interpretability of llms in finance. arXiv
+preprint arXiv:2505.24650.
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob
+Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz
+Kaiser, and Illia Polosukhin. 2017. Attention is all
+you need. Advances in neural information processing
+systems, 30.
+Saizhuo Wang, Hang Yuan, Lionel M Ni, and Jian Guo.
+2024. Quantagent: Seeking holy grail in trading by
+self-improving large language model. arXiv preprint
+arXiv:2402.03755.
+Saizhuo Wang, Hang Yuan, Leon Zhou, Lionel Ni, He-
+ung Yeung Shum, and Jian Guo. 2025. Alpha-gpt:
+Human-ai interactive alpha mining for quantitative in-
+vestment. In Proceedings of the 2025 Conference on
+Empirical Methods in Natural Language Processing:
+System Demonstrations, pages 196–206.
+An Yang, Anfeng Li, Baosong Yang, Beichen Zhang,
+Binyuan Hui, Bo Zheng, Bowen Yu, Chengyuan
+Gao, Chengen Huang, Chenxu Lv, and 1 others.
+2025.
+Qwen3 technical report.
+arXiv preprint
+arXiv:2505.09388.
+Xiao Yang, Weiqing Liu, Dong Zhou, Jiang Bian,
+and Tie-Yan Liu. 2020.
+Qlib:
+An ai-oriented
+quantitative investment platform.
+arXiv preprint
+arXiv:2009.11189.
+
+
+Wentao Zhang, Lingxuan Zhao, Haochong Xia, Shuo
+Sun, Jiaze Sun, Molei Qin, Xinyi Li, Yuqing Zhao,
+Yilei Zhao, Xinyu Cai, and 1 others. 2024. A multi-
+modal foundation agent for financial trading: Tool-
+augmented, diversified, and generalist. In Proceed-
+ings of the 30th acm sigkdd conference on knowledge
+discovery and data mining, pages 4314–4325.
+Zhoufan Zhu and Ke Zhu. 2025. Alphaqcm: Alpha
+discovery in finance with distributional reinforcement
+learning. In Proceedings of the 42nd International
+Conference on Machine Learning (ICML).
+A
+The operator set
+To ensure interpretability, reproducibility, and a
+controlled search space, all observation functions
+are constructed using a predefined library of de-
+terministic operators.
+The Formula Construc-
+tion Agent AF is restricted to composing formu-
+las exclusively from these operators applied to
+raw OHLCV inputs.
+The library covers cross-
+sectional normalization, time-series transforma-
+tions, smoothing operators, mathematical primi-
+tives, conditional logic, regression utilities, and
+common technical indicators. This constraint pre-
+vents arbitrary black-box expressions and ensures
+that all generated formulas remain transparent and
+economically interpretable.
+Type
+Operators
+Cross-sectional
+RANK, ZSCORE, MEAN, STD, SKEW,
+KURT, MAX, MIN, MEDIAN
+Time-series
+DELTA,
+DELAY,
+TS_MEAN,
+TS_SUM,
+TS_RANK,
+TS_ZSCORE,
+TS_MEDIAN,
+TS_PCTCHANGE,
+TS_MIN,
+TS_MAX,
+TS_ARGMAX,
+TS_ARGMIN, TS_QUANTILE, TS_STD,
+TS_VAR, TS_CORR, TS_COVARIANCE,
+TS_MAD,
+PERCENTILE,
+HIGHDAY,
+LOWDAY, SUMAC
+Moving
+av-
+erages
+&
+smoothing
+SMA, WMA, EMA, DECAYLINEAR
+Mathematical
+operations
+PROD, LOG, SQRT, POW, SIGN, EXP,
+ABS, INV, FLOOR
+Conditional &
+logical
+COUNT, SUMIF, FILTER
+Regression
+&
+residual
+SEQUENCE, REGBETA, REGRESI
+Technical indi-
+cators
+RSI, MACD, BB_MIDDLE, BB_UPPER,
+BB_LOWER
+Table 5: Operator library used for observation function
+construction.
+B
+Stage 2 Validation Criteria
+This appendix gives the precise definitions of the
+four consistency checks summarized in §3.2.2. The
+validation agent AV applies these checks to the sta-
+tistical profile Si,j of a candidate factor fi,j, and the
+factor is accepted only when all four are satisfied.
+(i) Central tendency shift.
+A valid factor should
+separate the market state described by its observ-
+able condition. We therefore check whether at least
+one state variable x ∈X changes systematically
+across the ordered factor bins Q1, . . . , Ql. For each
+bin Qk, we compute the bin-wise mean and me-
+dian,
+µk(x) = E[xs,t | (s, t) ∈Qk],
+mk(x) = Median[xs,t | (s, t) ∈Qk].
+The shift may be increasing or decreasing depend-
+ing on the semantic direction of the condition. We
+require that the two statistics move in the same
+direction across adjacent bins,
+sign
+ µk+1(x) −µk(x)
+
+= sign
+ mk+1(x) −mk(x)
+
+,
+k = 1, . . . , l −1,
+together with a non-zero correlation between the
+bin index k and µk(x).
+(ii) Tail behavior.
+A valid factor should also af-
+fect more than the average case. For each bin Qk
+and each x ∈X, we define the tail spread as
+∆tail
+k (x) = q0.9(x | Qk) −q0.1(x | Qk),
+where qp(· | Qk) is the empirical pth quantile of x
+conditional on (s, t) ∈Qk. We require non-trivial
+variation across bins: there exist k1̸ = k2 such that
+∆tail
+k1 (x) −∆tail
+k2 (x)
+ > ϵ,
+for a tolerance threshold ϵ.
+(iii) Statistical consistency.
+The observed pat-
+tern should not depend on a single statistic. The
+same state variable x must yield evidence in at
+least two complementary statistics drawn from
+{µk(x), mk(x), ∆tail
+k (x)}, rather than relying on
+a single summary measure.
+(iv) Semantic consistency.
+The induced distribu-
+tional pattern must agree with the meaning of the
+observable market condition oi. For example, for
+a factor generated for intraday recovery, stronger
+factor values should correspond to stronger recov-
+ery evidence, not the opposite pattern. This check
+is delegated to AV , which compares the empirical
+pattern in Si,j against the textual description of oi.
+
+
+Decision rule.
+Let K = {c1, c2, c3, c4} denote
+the four criteria above. AV implements the deter-
+ministic decision
+AV (oi, fi,j, Si,j)
+= I
+" ^
+c∈K
+c(oi, fi,j, Si,j)
+#
+,
+where I[·] is the pass/fail indicator. The validated
+factor set for condition oi is then
+ˆFi =
+
+fi,j ∈Fi : AV (oi, fi,j, Si,j) = pass
+	
+.
+A candidate factor is therefore retained only when
+all four criteria jointly hold.
+C
+Evaluation Metrics
+We evaluate the time-series performance of the
+resulting trading strategies using standard portfolio-
+level performance metrics. These metrics assess
+profitability, risk-adjusted efficiency, and downside
+risk characteristics of the implemented strategies
+over time.
+C.1
+Annualized Return (AR)
+Let Rp
+t and Rb
+t denote the portfolio and benchmark
+returns at period t, and define the active return
+At = Rp
+t −Rb
+t. Let N be the number of trading
+periods per year.
+The annualized excess return is defined as
+AR =
+ T
+Y
+t=1
+(1 + At)
+! N
+T
+−1,
+which corresponds to the geometric annualization
+of the strategy’s excess return over the benchmark.
+C.2
+Information Ratio (IR)
+The Information Ratio evaluates risk-adjusted ex-
+cess performance relative to a benchmark. Let Rp
+t
+and Rb
+t denote the portfolio and benchmark returns
+at time t, respectively. Define the active return as
+At = Rp
+t −Rb
+t.
+The annualized Information Ratio is computed
+as
+IR =
+√
+N E[At]
+Std[At] ,
+where E[At] and Std[At] denote the sample mean
+and standard deviation of the active returns. A
+higher IR indicates more efficient generation of
+excess returns per unit of tracking risk.
+C.3
+Maximum Drawdown (MDD)
+Maximum drawdown measures the largest peak-to-
+trough decline of the portfolio’s own cumulative
+wealth (not the excess equity curve). Let the cumu-
+lative net asset value of the portfolio be
+Vt =
+tY
+τ=1
+(1 + Rp
+τ).
+The drawdown at time t is
+DDt =
+Vt
+maxτ≤t Vτ
+−1, ∈[−1, 0],
+and the maximum drawdown over the evaluation
+period is
+MDD = min
+1≤t≤T DDt.
+An MDD value closer to zero indicates better
+downside risk control and capital preservation
+C.4
+Cumulative Return (CR)
+Cumulative Return measures the total excess return
+of the strategy over the entire investment horizon.
+It is defined as
+CR =
+T
+Y
+t=1
+(1 + At) −1,
+where At = Rp
+t −Rb
+t is the active return defined
+above. This metric summarizes full-period perfor-
+mance relative to the benchmark without annual-
+ization.
+D
+Hyperparameter Summary
+FaVOR does not rely on extensive hyperparame-
+ter tuning. Most values are deterministic design
+parameters held constant across all experiments
+and across both equity universes. Table 6 lists the
+LLM agent decoding temperatures. Table 7 reports
+the pre-backtest Stage 1–3 parameters. Table 8
+specifies the Stage 4 backtest configuration.
+Parameter
+Value
+Hypothesis agent temperature
+0.9
+Observation agent temperature
+0.7
+Formula agent temperature
+0.7
+Validation agent temperature
+0.1
+Table 6: LLM decoding temperatures by agent role.
+
+
+Parameter
+Value
+Candidate formulas per observation ni
+2–3
+Quantile bins l
+5
+Min. valid bins to retain a factor
+3
+Max. refinement iterations
+5
+Strictness levels
+q50, q70, q90
+Directional Selectivity threshold
+0.8
+Cross-ticker pass-rate (PASS)
+0.5
+Cross-ticker pass-rate (strict)
+0.7
+Combination pass-rate to Stage 4
+0.5
+Table 7: Pipeline parameters for Stages 1–3 (factor gen-
+eration, factor-level validation, and factor integration).
+Parameter
+Value
+Threshold σ search range
+[0.55, 0.95]
+Combined-signal quantile q
+0.9
+Holding horizon T
+7
+Objective
+Calmar
+Number of Optuna trials
+20
+Entry-confirmation rule
+raw signal entry
+Outer-loop iterations
+3
+Stage-4 combo workers
+4
+Stage-4 Optuna jobs per combo
+1
+Table 8: FaVOR-specific Stage 4 search and runtime
+configuration. The holding horizon T is LLM-selected
+from {1, . . . , 10}; we list the value used for the main
+result.
+The remaining trading-strategy environment is
+shared by FaVOR and every baseline. Data splits,
+transaction costs, Qlib execution rule, and stop-loss
+policy are applied identically across all methods.
+Each baseline model is trained and tuned using the
+Qlib (Yang et al., 2020) reference workflow config-
+uration without modification. This covers the input
+feature set, label horizon, training objective, hyper-
+parameter search budget, validation usage, and ran-
+dom seed handling. For the ML and DL baselines
+the input feature set is Alpha158 (Microsoft, 2025),
+and the same feature set is provided to FaVOR and
+the LLM-based baselines as the underlying observ-
+able column set. Table 9 summarizes this shared
+backtest environment.
+Parameter
+Value
+Train / Validation / Test
+2022–2023 / 2024 / 2025
+CSI 500 buy / sell fee
+0.0005 / 0.0015
+S&P 500 buy / sell fee
+0 / 0.0005
+Execution rule
+TopkDropout (k=50, n=5)
+Stop-loss
+Disabled
+Table 9: Shared backtest environment applied identi-
+cally to FaVOR and all baselines: data splits, transaction
+costs, Qlib execution rule, and stop-loss policy.
+E
+Prompt Configuration
+We employ four specialized language-model-based
+agents for hypothesis construction, observation de-
+composition, formula generation, and construct
+validation. For full reproducibility, every prompt
+template used at runtime is reproduced here from
+the released codebase. Placeholders of the form
+{...} are filled in at runtime with task-specific
+contents (e.g., the seed idea, retrieved knowledge,
+the current observation plan, or the function li-
+brary description). Each agent may be invoked
+once per round. The generation prompts serve
+as the default per-round entry point and may re-
+ceive prior-round context such as {feedback} or
+{formula_memory}. The regeneration and refine-
+ment prompts are reserved for explicit revision trig-
+gers within a round.
+Prompt template for Hypothesis Agent AH
+(generation).
+BEHAVIORAL_HYPOTHESIS_SYSTEM_
+PROMPT =
+You are a Trading Hypothesis Generation
+Agent in quantitative finance.
+Your role is to convert a high-level trading
+idea into a concise, causal trading hypothesis
+that explains WHY a particular price behavior
+may occur.
+The hypothesis is intended for research
+on daily OHLCV panel data (across many
+stocks), and will later be translated into a
+single common quantitative specification. Do
+NOT design strategies, factors, indicators,
+signals, rules, or validation logic.
+CORE PRINCIPLES:
+- Explain WHY a particular price behavior
+may occur, using plain, economic language.
+- Refer to realistic market participants and con-
+straints (e.g., liquidity providers, short-term
+traders).
+- Describe tendencies or pressures,
+not
+guaranteed outcomes.
+- The Trading Idea may be abstract (e.g.,
+momentum, downside mean reversion), not a
+specific scenario.
+
+
+- When the Trading Idea is abstract, you
+MUST propose a concrete and plausible
+market state that can recur across many stocks.
+- The hypothesis MUST be grounded in a
+specific market state or dislocation that is
+observable using daily OHLCV only.
+- The hypothesis MUST describe the source of
+a temporary price distortion or reinforcement.
+- The hypothesis MUST imply a return
+direction (mean reversion or continuation).
+OBSERVABILITY & DATA CONSTRAINTS
+(IMPORTANT):
+- Assume access ONLY to daily OHLCV data.
+- Any proposed state or mechanism MUST be
+expressible using daily OHLCV behavior.
+- Do NOT reference or imply external
+information not observable in OHLCV (e.g.,
+news, earnings, macro events, fundamentals,
+intrinsic or fair value).
+- Use only measurement-friendly language
+(e.g., sharp sell-off, volume surge, range
+expansion, stabilization).
+STYLE & STRUCTURE:
+- Write in a neutral, academic hypothesis style
+(not narrative or commentary).
+- Use a consistent causal structure: [OHLCV-
+defined market state] →[behavioral/structural
+pressure] →[price distortion or reinforce-
+ment] →[short-term rebound or continuation].
+- Keep the hypothesis concise and readable
+(1–3 sentences).
+- Do NOT include observational criteria,
+examples, or pattern names in the hypothesis;
+reserve those for downstream observation
+modules.
+- Do NOT write trading rules, thresholds,
+indicators, or formulas.
+HORIZON DAYS:
+- You MUST specify ’horizon_days’ as an
+integer between 1 and 10.
+- Treat horizon_days as the intended holding
+period / time-stop window to evaluate the
+hypothesized effect.
+- This represents the typical time window over
+which the behavioral effect is likely to play
+out.
+- The chosen horizon_days MUST be causally
+consistent with the described behavioral
+mechanism.
+- Use Iteration Feedback / Existing Hypotheses
+context to ADAPT horizon_days:
+- If recent hypotheses with a similar mecha-
+nism performed poorly out-of-sample, pick a
+DIFFERENT horizon_days.
+- Avoid reusing the same horizon_days as the
+most recent 2 hypotheses unless you have a
+strong causal reason.
+- When unsure, deliberately explore a different
+horizon (e.g., move from 2–4 days to 5–7
+days, or vice versa).
+OUTPUT
+CONSTRAINT
+(TOOL-CALL
+ONLY):
+- You MUST respond by calling the "hypothe-
+sis_tool" function.
+- Call "hypothesis_tool" with an array contain-
+ing EXACTLY ONE hypothesis object.
+- The hypothesis MUST include:
+- hy-
+pothesis_id - hypothesis_name - behav-
+ioral_description - horizon_days
+Prompt template for Hypothesis Agent AH
+(outer-loop regeneration).
+BEHAVIORAL_HYPOTHESIS_REGEN_
+SYSTEM_PROMPT =
+You are a Behavioral Hypothesis REGENER-
+ATION Agent in quantitative finance.
+Your role is to convert a high-level trading idea
+into a concise, causal behavioral hypothesis
+that explains WHY a particular price behavior
+may occur.
+This is NOT a blank-slate generation. You
+are in an outer-loop refinement step: previous
+hypotheses have already been tested (IS/OOS),
+and you must propose a NEW hypothesis that
+addresses what failed.
+The hypothesis is intended for research
+on daily OHLCV panel data (across many
+stocks), and will later be translated into a
+single common quantitative specification. Do
+
+
+NOT design strategies, factors, indicators,
+signals, rules, or validation logic.
+CORE PRINCIPLES:
+- Explain WHY a particular price behavior
+may occur, using plain, economic language.
+- Refer to realistic market participants and con-
+straints (e.g., liquidity providers, short-term
+traders).
+- Describe tendencies or pressures,
+not
+guaranteed outcomes.
+- The Trading Idea may be abstract (e.g.,
+momentum, downside mean reversion), not a
+specific scenario.
+- When the Trading Idea is abstract, you
+MUST propose a concrete and plausible
+market state that can recur across many stocks.
+- The hypothesis MUST be grounded in a
+specific market state or dislocation that is
+observable using daily OHLCV only.
+- The hypothesis MUST describe the source of
+a temporary price distortion or reinforcement.
+- The hypothesis MUST imply a return
+direction (mean reversion or continuation).
+OBSERVABILITY & DATA CONSTRAINTS
+(IMPORTANT):
+- Assume access ONLY to daily OHLCV data.
+- Any proposed state or mechanism MUST be
+expressible using daily OHLCV behavior.
+- Do NOT reference or imply external
+information not observable in OHLCV (e.g.,
+news, earnings, macro events, fundamentals,
+intrinsic or fair value).
+- Use only measurement-friendly language
+(e.g., sharp sell-off, volume surge, range
+expansion, stabilization).
+STYLE & STRUCTURE:
+- Write in a neutral, academic hypothesis style
+(not narrative or commentary).
+- Use a consistent causal structure: [OHLCV-
+defined market state] →[behavioral/structural
+pressure] →[price distortion or reinforce-
+ment] →[short-term rebound or continuation].
+- Keep the hypothesis concise and readable
+(1–3 sentences).
+- Do NOT include observational criteria,
+examples, or pattern names in the hypothesis;
+reserve those for downstream observation
+modules.
+- Do NOT write trading rules, thresholds,
+indicators, or formulas.
+REGENERATION RULES:
+- Use the provided Existing Hypotheses +
+Iteration Feedback to avoid repeating the same
+idea.
+- Aim to change something material vs. recent
+hypotheses:
+- Prefer changing the causal mechanism /
+market state (not just rephrasing), but small
+adjustments are acceptable if the feedback
+strongly supports them.
+HORIZON DAYS:
+- You MUST specify ’horizon_days’ as an
+integer between 1 and 10.
+- Treat horizon_days as the intended holding
+period / time-stop window to evaluate the
+hypothesized effect.
+- This represents the typical time window over
+which the behavioral effect is likely to play
+out.
+- The chosen horizon_days MUST be causally
+consistent with the described behavioral
+mechanism.
+- Use Iteration Feedback / Existing Hypotheses
+context to ADAPT horizon_days:
+- Avoid reusing the same horizon_days as the
+most recent 2 hypotheses unless you have a
+strong causal reason.
+- If OOS performance has been consistently
+weak at the current horizon range, consider
+exploring a different range (e.g., move from
+2–4 days to 6–10 days, or vice versa).
+OUTPUT
+CONSTRAINT
+(TOOL-CALL
+ONLY):
+- You MUST respond by calling the "hypothe-
+sis_tool" function.
+- Call "hypothesis_tool" with an array contain-
+ing EXACTLY ONE hypothesis object.
+- The hypothesis MUST include:
+- hy-
+pothesis_id - hypothesis_name - behav-
+ioral_description - horizon_days
+BEHAVIORAL_HYPOTHESIS_USER_
+PROMPT_TEMPLATE =
+
+
+Trading Idea:
+{concept_text}
+Allowed Columns:
+{columns}
+Retrieved Knowledge (background context
+only):
+{knowledge}
+Iteration Feedback (optional):
+{feedback}
+Existing Hypotheses:
+{existing_hypotheses}
+Existing Hypothesis IDs:
+{existing_ids}
+Task:
+Write
+ONE
+concise
+trading
+hypothesis
+explaining the expected price behavior and its
+underlying mechanism.
+Keep it short (1–3 sentences) and aligned with
+the idea.
+Return EXACTLY ONE trading hypothesis
+following the required schema fields.
+Prompt template for Observation Agent
+AO.
+OBSERVATION_SYSTEM_PROMPT =
+You are an Observation Planning Agent in
+quantitative finance.
+Your role is to decompose a Behavioral
+Hypothesis into a small set of
+observable market conditions that describe
+BOTH:
+1) The market SETUP state (the situation/con-
+text)
+2) Early TRANSITION signals that increase
+the probability of the hypothesized outcome
+Assume daily bar data (one record per trading
+day per ticker). Observations
+must be describable using only the provided
+columns and simple derivations
+from them.
+Observations represent DISTINCT aspects of
+the current market state that may
+co-occur within the same short window, rather
+than strict simultaneity.
+Each observation should capture a different
+facet of the state, answering
+a different question about what the market
+looks like at that moment.
+CORE GUIDELINES:
+- Observations should include BOTH setup
+conditions AND early transition signals.
+For each hypothesis, include at least one
+transition observation that
+describes evidence the current market state is
+evolving in a way that
+supports the hypothesized direction, expressed
+ONLY through directly
+observable OHLCV behavior, and framed as
+the absence or weakening of
+forces opposing the hypothesis rather than as
+an asserted outcome
+(e.g., no stabilization, support, or reversal
+claims).
+- Each observation must capture ONE distinct
+dimension of the market state
+(e.g., price displacement, trading activity,
+directional bias,
+volatility/instability, or price extension relative
+to recent behavior).
+- Decompose the hypothesis into conditions
+that address DIFFERENT aspects
+of the market state, rather than describing the
+same phenomenon from
+multiple angles.
+- Prefer state-level descriptions over single-
+candle or intraday-specific
+descriptions;
+intraday volatility or range
+should only be used if it
+represents a distinct market state not already
+implied by price movement
+and trading activity.
+- Do NOT define multiple observations that
+describe the same underlying
+market condition (e.g., price being unusually
+low) using different
+expressions such as changes,
+levels,
+or
+
+
+deviations; represent each
+condition only once.
+- Describe market states conceptually but
+ONLY in terms of directly
+observable OHLCV behavior;
+do NOT
+reference inferred intent, stabilization,
+support,
+recovery,
+or
+specific
+technical
+constructs such as moving averages,
+oscillators, or named indicators, which should
+be handled at the formula stage.
+- Do NOT restate or paraphrase explanatory
+mechanisms or causal language
+from the behavioral hypothesis; observations
+must be directly observable
+market states, not inferred causes or valua-
+tions.
+- If one observation already captures an
+extreme downside price state,
+do NOT add another observation describing
+price weakness using
+alternative references such as recent ranges,
+new lows, or breakdowns.
+- For price-related conditions,
+represent
+extreme downside price weakness
+using AT MOST ONE observation, regardless
+of whether it is expressed
+in terms of changes, levels, ranges, or
+extensions.
+CONSISTENCY REQUIREMENTS:
+- All observations must be able to hold true
+within the same short window.
+- Observations must be independent in
+meaning, even if they conceptually
+correspond to different phases of a potential
+transition.
+SELF-CHECK (before responding):
+Ask yourself:
+1) Does any observation describe extreme
+downside price conditions
+that are already captured by another observa-
+tion?
+2) Does any observation restate explanatory
+language from the hypothesis
+rather than a directly observable market state?
+3) Have I included at least one transition
+observation that reflects
+whether the current market state is strengthen-
+ing, weakening,
+or persisting in the direction implied by the
+hypothesis?
+4) Do all observations describe conditions that
+can plausibly co-occur?
+5) Does any observation implicitly assume
+another observation,
+rather than describing an independently
+observable state?
+6) Is the transition observation expressed as a
+specific observable fact
+(e.g., frequency of new lows) rather than a
+summarized market judgment?
+OUTPUT CONSTRAINT:
+- Respond ONLY by calling the "observa-
+tion_plan_tool".
+- Return EXACTLY ONE observation plan
+following the required schema.
+OBSERVATION_USER_PROMPT_
+TEMPLATE =
+Hypothesis ID:
+{hypothesis_id}
+Behavioral Hypothesis:
+{hypothesis_json}
+Allowed Columns:
+{columns}
+Task:
+List the observable market conditions (daily
+bar context) that characterize when this
+phenomenon is present. Include BOTH:
+1) SETUP conditions that define the context/s-
+tate, and
+2) At least one TRANSITION observation
+expressed as OHLCV-only evidence that
+forces
+opposing the hypothesis are weakening (avoid
+outcome words like stabilization/support/re-
+versal).
+Each observation should capture a distinct as-
+pect of the market state and may co-occur
+within the same short window (not necessarily
+the exact same day).
+
+
+Prompt template for Formula & Code
+Agent AF (generation).
+BEHAVIORAL_FORMULA_SYSTEM_
+PROMPT =
+You are an Observation-to-Formula Agent in
+quantitative finance.
+Your role is to turn a behavioral hypothesis
+into continuous numeric observation formulas
+that make the behavior observable.
+1. Core Rules:
+- **Must create 2–3 formulas per observa-
+tion.**
+- No performance claims.
+- No future reference / lookahead. Use only
+past-window TS_* functions.
+- Each observation formula definition must be
+continuous numeric (NOT boolean).
+-
+Polarity
+is
+fixed
+by
+mean-
+ing
+("higher_is_more_true"
+or
+"lower_is_more_true").
+- Comparisons/logical conditions may be used
+ONLY inside C of COUNT/SUMIF/FILTER;
+the final definition must be numeric.
+2. Formula Pool & Generation Rules:
+- Use ‘observation_id‘ to link formulas to their
+source observation.
+- Each formula for the same observation
+MUST use a DIFFERENT approach.
+- Each formula definition must be unique.
+3. Expression Language Constraints:
+- Use ONLY the allowed expression opera-
+tions.
+- Use column names WITHOUT a ’$’ prefix.
+- Use UPPERCASE function names.
+- Allowed arithmetic operators: +, -, *, / and
+parentheses.
+- Window/period parameters (n, p, d, m) must
+be literal constants, not computed values
+(e.g., use DELTA(close, 5), not DELTA(close,
+LOWDAY(close, 10))).
+4. Design Constraints:
+- **Data Preprocessing and Standardization:**
+- Avoid using raw prices and volumes directly
+due to scale differences
+- Use relative changes or standardized data
+(e.g., RANK(), ZSCORE())
+- Convert prices to returns, e.g. ‘(DELTA(close,
+1)/close)‘ instead of price levels
+- Transform volume into relative changes, e.g.
+‘(DELTA(volume, 1)/volume)‘
+- **Time Series Processing:**
+- Consider appropriate sample periods for
+indicators requiring historical data
+- Choose suitable window sizes for moving
+averages SMA(), EMA(), WMA()
+- All window sizes and weight parameters
+MUST be positive integers (> 0). Never use 0
+for any parameter.
+- **Normalization and Stability:**
+- Add small constants (e.g., 1e-8) to denomina-
+tors to prevent division by zero
+- Use TS_ZSCORE() for formula value
+standardization
+- Consider SIGN() to reduce impact of extreme
+values
+- Apply value truncation only with explicit
+numeric bounds (e.g., MAX(MIN(x, 5), -5)) if
+supported.
+- **Cross-sectional Treatment:**
+- Apply RANK() or ZSCORE() for cross-
+sectional comparability
+- Use FILTER() for outlier handling
+- Ensure sufficient window length for correla-
+tion calculations
+- **Robustness Considerations:**
+- Validate formula stability across multiple
+time windows
+- Consider TS_MEDIAN() over TS_MEAN()
+to reduce outlier impact
+- Apply moving averages to smooth high-
+frequency variations
+- **Flexibility Considerations:**
+- Allow for a range of values or flexibility
+when defining formulas, rather than imposing
+strict equality constraints.
+- For example, a strict equality check between
+two rolling values is too restrictive.
+- Instead, use a continuous proximity score (no
+comparisons), e.g.:
+
+
+(TS_STD(low,20)/10
++
+1e-8)
+/
+(ABS(TS_MIN(low,10)
+-
+DE-
+LAY(TS_MIN(low,10),1))
++
+TS_STD(low,20)/10 + 1e-8)
+- **Handling Duplicated Sub-expressions:**
+-
+When
+given
+specific
+duplicated
+sub-
+expressions to avoid, ensure new formula
+expressions use alternative calculations
+- Replace duplicated patterns with semantically
+similar but structurally different expressions
+- For example, if ‘ABS(close - open)‘ is
+flagged as duplicated:
+- Consider using ‘(high - low)‘ for price range
+- Use ‘SIGN(close - open) * (close - open)‘ for
+directional magnitude
+- Explore other price difference combinations
+like ‘(high - low) / (open + close)‘
+- Maintain formula interpretability while
+avoiding structural repetition
+- Focus on unique combinations of operators
+and variables to ensure originality
+5.
+Mandatory Self-Correction & Polarity
+Check:
+- Verify the polarity and mathematical logic.
+- Ask yourself: "If this formula value increases,
+does it mean the hypothesis is MORE true?"
+- Ensure volume formulas distinguish buying
+pressure vs dumping when required.
+6. Output Constraint:
+- You MUST respond ONLY by calling the
+"behavioral_formula_tool"
+function
+with
+exactly one bundle.
+- Each formula MUST include a ’name’
+field with format: formula001, formula002,
+formula003, etc.
+- Names are FIXED identifiers - do NOT
+change them unless explicitly instructed.
+Strictly adhere to the syntax requirements;
+do not use undeclared variables (e.g., n) or
+functions.
+BEHAVIORAL_FORMULA_USER_
+PROMPT_TEMPLATE =
+Behavioral Hypothesis ID:
+{hypothesis_id}
+Observation Plan (generate formulas for
+EACH observation_id below):
+{observation_plan_json}
+Allowed Columns (use column names WITH-
+OUT a ’$’ prefix):
+{columns}
+Allowed
+Operations
+(use
+ONLY
+these
+functions/operators, and match exact signa-
+tures/argument counts):
+{function_lib_description}
+Retrieved Knowledge (reference only):
+{knowledge}
+Previously Generated Formulas / Memory &
+Feedback:
+{formula_memory}
+Prompt template for Formula & Code
+Agent AF (refinement).
+BEHAVIORAL_FORMULA_REFINE_
+SYSTEM_PROMPT =
+You are an Observation-Alpha FormulaAgent
+performing RESEARCH-SAFE refinement.
+Objective (must be followed):
+- Improve hypothesis/observation alignment,
+not pure performance.
+**CRITICAL: Selective Refinement**
+-
+The
+diagnostics
+will
+specify
+which
+formulas
+FAILED
+validation
+(see
+‘failed_formula_names‘).
+- You MUST ONLY modify the formulas
+listed in ‘failed_formula_names‘.
+- All other formulas (PASS) MUST be returned
+UNCHANGED with their exact original
+definitions.
+- Return the COMPLETE bundle with ALL
+formulas (both modified FAIL formulas and
+unchanged PASS formulas).
+- **Metric Priority & Action Trigger**:
+1. **CRITICAL**: If stop_loss_rate > 30%,
+you MUST REDESIGN entry timing.
+
+
+2. **Medium**: If a single formula causes a
+bottleneck (>80% failure share) but trades are
+too few, relax or simplify its formula.
+Refinement priority (Aggressive for Critical
+Issues):
+1.
+**Structural Redesign (Mandatory for
+Critical Failures)**:
+If diagnostics reveal logical contradictions or
+extreme invalid exposure, DO NOT just tune.
+Change the formula structure.
+* *Example (Fixing Polarity)*:
+Change ‘volume / SMA(volume)‘ to ‘(close -
+open) * volume / SMA(volume)‘ to capture
+directional pressure.
+2. **Parameter Tuning**:
+Adjust windows (Only for stable bundles).
+Hard constraints:
+- **Major Overhaul Allowed**:
+While minimal diffs are preferred for stable
+bundles, if metrics indicate critical failure, you
+are encouraged to perform a major overhaul
+of the bundle.
+- Strategy policy is FIXED (do not propose
+ranking/weighting changes).
+- Allowed edits:
+* Redefine observation formulas using allowed
+DSL (columns + functions).
+- Forbidden:
+* Any IC-based sign flip / optimize weights /
+rank/quantile selection / ML models / learned
+combinations.
+* Any reference to Sharpe/IC optimization as
+the primary goal.
+Keep it logically grounded:
+- Every change must have a behavioral
+rationale.
+If you redesign a formula, explain why the
+new structure better captures the hypothesis.
+OUTPUT
+CONSTRAINT
+(TOOL-CALL
+ONLY)
+Return
+ONLY
+a
+call
+to
+"behav-
+ioral_formula_tool" with the FULL updated
+bundle.
+- Include ALL formulas from the input bundle
+(both PASS and FAIL).
+- Only modify the definitions of formulas in
+‘failed_formula_names‘.
+- Keep the same names for all formulas.
+BEHAVIORAL_FORMULA_REFINE_
+USER_PROMPT_TEMPLATE =
+Behavioral Hypothesis ID:
+{hypothesis_id}
+Observation Plan (do NOT change the set of
+observation_id; refine formulas only):
+{observation_plan_json}
+Current Bundle (JSON):
+{current_bundle_json}
+Diagnostics Summary (alignment-first; NOT
+optimization target):
+{diagnostics_json}
+Requested refinement focus:
+{focus}
+Allowed Columns (use column names WITH-
+OUT a ’$’ prefix):
+{columns}
+Allowed
+Operations
+(use
+ONLY
+these
+functions/operators, and match exact signa-
+tures/argument counts):
+{function_lib_description}
+Rules:
+- Do NOT invent new data fields; use allowed
+columns + allowed expression operations only.
+- Ensure every formula definition remains con-
+tinuous numeric (not boolean).
+- Preserve the ‘ticker‘ dimension in the final ex-
+pression (one value per ‘timestamp‘×‘ticker‘).
+- Window/period parameters (n, p, d, m) must
+be literal constants, not computed values (e.g.,
+use DELTA(close, 5), not DELTA(close, LOW-
+DAY(close, 10))).
+
+
+Prompt template for Formula & Code
+Agent AF (self-correction).
+BEHAVIORAL_FORMULA_SELF_
+CORRECTION_SYSTEM_PROMPT =
+You are a Quality Assurance Agent for
+Behavioral Formula Bundles.
+Your goal: Review and FIX logical flaws in
+the proposed Formula Bundle.
+**CRITICAL: For EACH formula, verify
+polarity by answering:**
+1. "When this formula’s value INCREASES,
+what does it mean?" (e.g., price up? down?
+more volatile?)
+2.
+"Does that match what the observation
+claims?" (e.g., if obs says ’price drop’, higher
+formula should mean more drop)
+3. If mismatch →flip the polarity or invert the
+formula.
+**Other Checks:**
+- Volume formulas about "buying/selling
+pressure" need price direction (e.g., ‘(close-
+open)*volume‘), not just ‘volume‘.
+- Each formula must have a UNIQUE defini-
+tion.
+**Action:**
+- If NO errors: Return the bundle AS IS.
+- If errors found: Return CORRECTED bun-
+dle. Prefer changing polarity over inverting
+formula.
+OUTPUT: Return ONLY a call to "behav-
+ioral_formula_tool" with the FULL bundle.
+BEHAVIORAL_FORMULA_SELF_
+CORRECTION_USER_PROMPT_
+TEMPLATE =
+Review this bundle for logical flaws.
+Proposed Bundle:
+{bundle_json}
+**POLARITY CHECK (do this for EACH
+formula):**
+For each formula, think: "If this formula value
+goes UP, what happens?" Then check if that
+matches the observation.
+Allowed Columns: {columns}
+Allowed
+Operations:
+{func-
+tion_lib_description}
+Hard constraints:
+- Use ONLY Allowed Columns + Allowed
+Operations.
+- Keep every ‘definition‘ continuous numeric
+(no comparisons/logical ops).
+- Window parameters must be literal constants.
+- Do NOT change ‘observation_id‘ values;
+only fix formulas/polarities.
+If you find polarity mismatches or other logical
+errors, FIX THEM. Otherwise return as is.
+Prompt template for Validation Agent AV .
+DISTRIBUTION_JUDGMENT_SYSTEM_
+PROMPT =
+You are a Formula Validation Agent in
+quantitative finance.
+Decide PASS or FAIL for whether a formula
+is a plausible empirical proxy for the stated
+observation
+by
+interpreting
+descriptive
+OHLCV statistics.
+Use ONLY these observed market quantities:
+- DIR = Close −Open (price direction)
+- MAG = High −Low (price range)
+- POS = (Close −Low)/(High −Low) (close
+location)
+- VOL = Trading Volume (trading activity)
+Interpret statistics by role (use location+tail as
+primary evidence):
+- Location (primary): mean, median
+- Tail (primary): q10, q90, kurtosis
+- Asymmetry (secondary only): skewness
+- Dispersion (context only):
+std, IQR (if
+present)
+Skewness may be mentioned only as auxiliary
+confirmation; never standalone.
+
+
+Bins:
+- Data is grouped into ordered bins Q1→Qk,
+where Q1 means the observation is weaker and
+Qk means the observation is stronger. This
+ordering is already oriented using the provided
+polarity metadata; do NOT re-interpret bin
+order yourself.
+-
+You
+MUST
+set
+every
+pri-
+mary_evidence[i].bins
+to
+exactly
+evi-
+dence_json.bins
+and
+provide
+matching-
+length
+numbers
+copied
+from
+evi-
+dence_json.features[...].
+You MUST return a single tool call to
+‘distribution_judgment_tool‘ with:
+- verdict: PASS or FAIL
+- checks: {location_involved, tail_amplified,
+multi_stat_consistent, no_contradiction}
+- primary_evidence: numeric citations (arrays)
+- reasoning: 2–4 sentences
+PASS requires ALL rules A–D to be satisfied
+(set the corresponding checks=true):
+A) Location involvement:
+- For price-action observations: At least ONE
+of {DIR, POS, MAG} shows a consistent
+LOCATION shift across bins.
+- For volume/activity observations (Observa-
+tion id/description is primarily about volume,
+e.g. contains "volume"): VOL is allowed to
+satisfy (A) instead.
+- LOCATION shift requires mean AND
+median of the SAME feature move in the
+same direction.
+B) Tail evidence (direction depends on the
+observation):
+- For price-action observations: At least ONE
+of {DIR, POS, MAG} shows meaningful tail
+behavior change via q10/q90/kurtosis.
+- For volume/activity observations: VOL is
+allowed to satisfy (B) instead.
+- Tail evidence is satisfied if at least ONE
+of {q10, q90, kurtosis} shows a meaningful
+change across bins.
+- This can be tail expansion (e.g., higher q90
+/ more extreme q10) OR tail compression
+(e.g., lower q90 / less extreme q10) depending
+on what the observation describes (e.g.,
+"stabilization" implies compression; "panic"
+implies expansion).
+C) Multi-statistic consistency:
+- Evidence must include an acceptable pair
+for the SAME feature:
+(mean+median)
+OR (median+q10) OR (median+q90) OR
+(q90+kurtosis).
+- mean+q90 alone is NOT acceptable.
+D) No explicit contradiction:
+- Only apply contradiction if the observation
+text is explicit about direction.
+Examples:
+- If it explicitly describes sell-off/weak
+close/close near lows, then BOTH DIR and
+POS should not look like a strong recovery
+across extreme bins.
+- If it explicitly describes recovery/rebound-
+/strong close/close near highs, then BOTH
+DIR and POS should not look like continued
+sell-off across extreme bins.
+- Do NOT use polarity or formula definition
+for contradiction;
+use observation text +
+evidence only.
+For non-volume observations, VOL alone is
+never sufficient for PASS.
+Evidence constraints:
+- If you mark any rule as satisfied, you MUST
+cite numeric values that support it.
+- Each primary_evidence item MUST include
+evidence_json.bins
+and
+matching-length
+numeric arrays.
+- If evidence does not support a satisfied check,
+verdict MUST be FAIL.
+OUTPUT CONSTRAINT:
+- Return EXACTLY ONE tool call to ‘distribu-
+tion_judgment_tool‘.
+- Do NOT output any text outside the tool call.
+DISTRIBUTION_JUDGMENT_USER_
+TEMPLATE =
+Formula:
+- name: {formula_name}
+- definition: {definition}
+- polarity: {polarity}
+
+
+Observation:
+- id: {obs_id}
+- description: {obs_description}
+EVIDENCE JSON:
+{evidence_json}
+F
+Run-to-Run Stability of LLM
+Validation
+To assess the robustness of LLM-based validation
+under stochastic decoding, we evaluate the variance
+of headline performance metrics across 10 indepen-
+dent runs of the full pipeline (each run consisting of
+3 iterative rounds) on the CSI 500 universe with the
+same hypothesis prompt and identical thresholds.
+Table 10 reports run-to-run variance. The small
+magnitudes indicate that validation outcomes are
+reproducible across independent runs and that the
+performance reported in Table 1 is stable.
+Metric
+Variance
+Information Ratio (IR)
+0.152
+Annualized Return
+0.042
+Maximum Drawdown (MDD)
+0.120
+Turnover
+0.046
+Table 10: Run-to-run variance of FaVOR over 10 inde-
+pendent runs.
+G
+Strategy-Level Statistics
+Table 11 reports trade-level distributional statis-
+tics from the CSI 500 out-of-sample period, verify-
+ing that FaVOR’s cumulative excess return is not
+driven by a small number of extreme trades. The
+aggregated numbers confirm that gains are broadly
+distributed across many trades rather than concen-
+trated in tail events.
+Metric
+Value
+Number of trades
+1,255
+Average holding period (days)
+9.64
+Mean per-trade return (excess)
+2.279%
+Profit factor
+1.986
+10th percentile of trade returns (excess)
+-7.24%
+90th percentile of trade returns (excess)
++8.52%
+Table 11: Trade-level distributional statistics on out-of-
+sample period.
+Jan
+Feb Mar
+Apr
+May
+Jun
+Jul
+Aug
+Sep
+Oct Nov
+Dec
+5500
+6000
+6500
+7000
+7500
+CSI 500 index level
+Bull
+Bear
+Sideways
+FaVOR
+1.0
+1.1
+1.2
+1.3
+1.4
+1.5
+1.6
+FaVOR
+Jan
+Feb Mar
+Apr
+May
+Jun
+Jul
+Aug
+Sep
+Oct
+Nov Dec
+5000
+5500
+6000
+6500
+7000
+S&P 500 index level
+Bull
+Bear
+Sideways
+FaVOR
+0.9
+1.0
+1.1
+1.2
+1.3
+FaVOR
+Figure 6: Out-of-sample 2025 market regimes for
+CSI 500 (top) and S&P 500 (bottom), based on trailing
+60-day benchmark returns, with FaVOR’s cumulative
+return on the right axis (base = 1.0)
+H
+Market-Regime Context for OOS 2025
+We summarize the 2025 out-of-sample market
+context for the two evaluation universes. In Fig-
+ure 6, each trading day is labeled using the bench-
+mark’s trailing 60-day cumulative return: bull if
+r60>+5%, bear if r60<−5%, and sideways oth-
+erwise. These labels are used only for post-hoc
+interpretation and are not used by FaVOR during
+selection or trading.
+Formula
+Pol.
+CSI 500: 4 formulas, all positive polarity
+f006
+SMA(vol, 7) / SMA(vol, 60)
++
+f008
+(close −MA30) / STD30(close)
++
+f002
+Z20
+ min10 low
+
+−Z20
+ max10 high
+
++
+f010
+∆vol10
++
+S&P 500: 3 formulas, mixed polarity
+f004
+STD7(high −low)
++
+f001
+min20 close / max15 close
+−
+f007
+STD15(close)
++
+Table 12: Formula combinations selected for the two
+out-of-sample portfolios.
+The CSI 500 window is mostly a long consoli-
+dation followed by a second-half rally. The index
+traded in a narrow range from January to early July,
+with only brief bear intervals, and then entered a
+sustained bull phase into year-end. The S&P 500
+window contains a sharper stress episode: the index
+fell from its February peak to an April low before
+
+
+recovering through the rest of the year. Thus, the
+two test universes expose FaVOR to different out-
+of-sample market paths: a consolidation-to-rally
+path in CSI 500 and a drawdown-to-recovery path
+in S&P 500.
+For completeness, Table 12 reports the formula
+combinations selected for the two out-of-sample
+portfolios. The table is included only to identify
+the selected signals.
+I
+Hypothesis & Formula Consistency
+Filter
+Stage 2 is intended to test whether a candidate for-
+mula measures the OHLCV-observable condition
+stated in its originating hypothesis. It is not de-
+signed as a standalone alpha, IC, or RankIC filter.
+We therefore examine its strategy-level contribution
+separately from the marginal predictive association
+of individual formulas.
+Stage-removal ablation on both markets.
+Re-
+moving Stage 2 allows formulas that are not vali-
+dated against their intended observable condition
+to enter factor integration. Table 13 shows that the
+resulting excess IR deteriorates in both markets.
+Market
+Ours
+W/O Stage 2
+CSI 500
+1.5295
+0.1526
+S&P 500
+1.1315
+-0.8831
+Table 13: Effect of removing Stage 2 factor-level vali-
+dation. All settings other than the presence of Stage 2
+are held fixed.
+PASS & FAIL formulas.
+We further evaluate
+first-iteration formulas before outer-loop feedback:
+437 Stage 2 PASS formulas and 24 FAIL formulas.
+For each formula, we compute daily cross-sectional
+RankIC with forward returns at four horizons. As
+shown in Table 14, PASS formulas do not exhibit a
+uniform standalone RankIC advantage. This result
+is consistent with the role of Stage 2 as a semantic
+and distributional consistency filter rather than an
+individual-factor return predictor.
+A positive forward return association does not
+imply that a formula measures the state described
+by its observation. For example, the candidate
+-TS_SUM(DELTA(low,1),5) has positive RankIC
+on both markets across all examined horizons, but
+larger values correspond to continuing new lows
+rather than weakening downside pressure. Stage 2
+rejects this candidate because its induced OHLCV
+Market
+Horizon
+PASS RankIC
+FAIL RankIC
+CSI 500
+1 day
++0.0039
++0.0025
+CSI 500
+3 days
++0.0025
++0.0030
+CSI 500
+5 days
++0.0023
++0.0035
+CSI 500
+10 days
++0.0023
++0.0047
+S&P 500
+1 day
++0.0040
++0.0062
+S&P 500
+3 days
++0.0027
++0.0073
+S&P 500
+5 days
++0.0017
++0.0065
+S&P 500
+10 days
++0.0021
++0.0057
+Table 14: Mean single factor RankIC for Stage 2 PASS
+and FAIL formulas. Formula values are oriented so that
+larger values correspond to a stronger stated observa-
+tion.
+distribution contradicts the stated condition. Thus,
+the filter removes formulas that may be predictive
+while representing the opposite market state from
+the hypothesis.
+J
+Auditability and Reliability of Semantic
+Validation
+The validation procedure separates deterministic
+evidence construction from a rule constrained se-
+mantic judgment. The deterministic component
+forms factor quantile bins and computes OHLCV
+statistics, including location, tail, and multi statis-
+tic evidence. The validation agent then assesses
+whether this evidence agrees with the textual obser-
+vation and its polarity. The final decision is there-
+fore auditable as a conjunction of explicit statistical
+checks and semantic consistency, rather than as an
+unconstrained language model judgment.
+Audit
+Design
+Cases
+Coded-rule comparison
+Validator verdicts are compared with an
+independent implementation of the same
+location, tail, multi statistic, and contradic-
+tion checklist.
+8,362
+Expert assessment
+Experts receive the observation, formula,
+polarity, and induced distributional evi-
+dence; verdict, model identity, and returns
+are hidden.
+100
+Table 15: Reliability study design for semantic valida-
+tion.
+The blinded set contains 100 cases (52 CSI 500
+and 48 S&P 500), balanced between 50 framework
+PASS and 50 framework FAIL decisions from 44
+observation groups; both audits assess semantic
+agreement rather than portfolio return.
+The reliability analyses target the semantic judg-
+ment itself rather than portfolio return. They test
+whether the validator’s interpretation of a fixed
+
+
+packet is aligned with an independently coded
+checklist and with blinded expert assessment.
+The blinded set contains 100 cases (52 CSI 500
+and 48 S&P 500), balanced between 50 framework
+PASS and 50 framework FAIL decisions from 44
+observation groups. Both audits assess semantic
+agreement rather than portfolio return.
+Expert assessment outcomes.
+Table 16 summa-
+rizes the expert assessment of semantic alignment
+for the blinded evidence packets. Experts judged
+39 cases as agreement, 49 cases as partial agree-
+ment, and 12 cases as disagreement.
+Assessment
+Cases
+Disagreement
+12
+Partial agreement
+49
+Agreement
+39
+Table 16: Expert assessment of semantic alignment in the
+blinded evaluation set.
+Partial agreement is the most frequent outcome.
+In these cases, experts generally agreed with the
+observed antecedent condition and the stated direc-
+tional outcome, but judged that the intermediate
+market mechanism required further discussion or
+more explicit justification. Thus, the evidence was
+consistent with the stated observation at the level of
+observable market behavior, while the mechanism
+connecting the condition to the expected outcome
+was not always fully established.
+These results support the use of the validator as
+an auditable semantic consistency check. They do
+not imply that the validation procedure establishes
+a causal or fundamental economic mechanism. In-
+stead, FaVOR evaluates whether a formula and its
+factor conditioned OHLCV evidence remain con-
+sistent with the observable condition stated in the
+hypothesis.
+K
+Longitudinal Evaluation Across Test
+Years
+To examine whether a fixed formula combination
+remains useful outside a single calendar bound-
+ary, we select one combination per market using a
+2015 2019 training period and a 2020 validation pe-
+riod. The selected formula set and quantile level are
+held fixed for all subsequent tests; only per ticker
+cutoffs are estimated from the immediately preced-
+ing validation window and then frozen during each
+test period.
+Table 17 reports annualized excess return and
+excess IR across five test years. The evaluation cov-
+ers the 2022 market decline as well as subsequent
+market environments.
+Test year
+CSI 500 AR
+CSI 500 IR
+S&P 500 AR
+S&P 500 IR
+2021
++0.6964
++1.7117
++0.0564
++0.4356
+2022
++0.1356
++0.4543
++0.2377
++0.9225
+2023
++0.3317
++1.2020
++0.3590
++2.5526
+2024
++0.0449
++0.1259
++0.3340
++1.2453
+2025
++0.1310
++0.5819
++0.0826
++0.5362
+Table 17: Per year performance of the fixed combination
+selected on validation data. The combination is selected
+before all reported test years. For each test, cutoffs are
+estimated from the preceding validation window and
+held fixed throughout the test period.
+We also evaluate the fixed combinations over 49
+monthly start, 12 month test windows. Adjacent
+windows overlap and are therefore interpreted as
+start date sensitivity checks rather than independent
+trials.
+Market
+CR > 0
+CR
+IR
+AR
+MDD
+CSI 500
+33 / 49
++0.1931
++0.5919
++0.1894
+-0.2649
+S&P 500
+39 / 49
++0.1964
++0.9119
++0.1866
+-0.1406
+Table 18: Sensitivity of fixed validation selected combi-
+nations. Each result uses a trailing 24 month validation
+window and a following 12 month test window. Each
+metrics are arithmetic means over all 49 start test win-
+dows.
+L
+Hypothesis Provenance and Failure
+Analysis
+FaVOR is not driven by a single manually selected
+hypothesis. Across saved runs, ten seed concepts
+generated 520 unique hypotheses over 696 outer-
+loop iterations. Table 19 summarizes the progres-
+sion from hypothesis generation to positive out-of-
+sample combinations.
+Stage
+All runs
+Paper split
+Sell-off hypothesis
+Distinct seed concepts
+10
+9
+1
+Unique LLM hypotheses
+520
+486
+67
+Outer-loop hypothesis iterations
+696
+622
+81
+Candidate formulas generated
+6,782
+6,058
+716
+Stage 3 candidate combinations
+18,699
+16,741
+1,148
+Iterations passing Stage 3
+49
+41
+5
+Combinations with positive OOS return
+1,118
+832
+47
+Table 19: Hypothesis to strategy audit across saved runs.
+The sell-off row corresponds to the hypothesis used for
+the illustrative factor-validation case study.
+Only 49 of 696 hypothesis iterations clear the
+Stage 3 gate. Failure is most common for mecha-
+
+
+nisms that daily OHLCV data cannot cleanly iden-
+tify, including volume dominant, short covering,
+and liquidity driven states. This result clarifies the
+scope of the framework: FaVOR is designed to en-
+force hypothesis formula consistency for OHLCV
+observable conditions, not to recover every eco-
+nomically plausible trading mechanism.
+M
+Sensitivity to Selectivity and
+Directional Scope
+We assess how global selectivity affects the uni-
+verse of Stage 3 combinations. Table 20 reports the
+unconditional mean 2025 cumulative excess return
+over all 649 Stage 3 combinations under a common
+global selectivity level. The main method instead
+selects formula specific thresholds on validation
+data.
+Global selectivity σ
+CSI 500 CR
+S&P 500 CR
+0.55
++0.2048
++0.0817
+0.75
++0.0958
++0.0340
+0.90
++0.0012
++0.0245
+0.95
++0.0048
++0.0134
+Table 20: Unconditional mean 2025 cumulative excess
+return across all Stage 3 combinations under a shared
+global selectivity level.
+Directional Selectivity is intentionally not a uni-
+versal profitability filter. Among 212 evaluated
+Stage 3 combinations, 81 were rejected because
+their realized direction did not remain stable as se-
+lectivity tightened. Of these rejected combinations,
+47 still obtained positive after cost cumulative re-
+turn in the held out evaluation. The filter therefore
+discards a meaningful set of profitable but direc-
+tionally unstable signals, especially rebound and
+panic selling patterns. This exclusion is the cost
+of restricting FaVOR to directionally consistent
+signals.
+N
+Variance and Baseline Context
+Table 21 reports sample variances and their corre-
+sponding standard deviations. FaVOR runs use the
+same high level hypothesis prompt and threshold
+configuration to isolate stochastic decoding effects,
+whereas RD-Agent results are based on ten inde-
+pendent final outputs under the common 2022 /
+2023 / 2024 / 2025 split.
+All compared methods use the same OHLCV
+derived inputs, data splits, transaction costs, and
+backtest environment. Their inductive priors and
+Method
+Metric
+Variance
+Std.
+FaVOR
+Information Ratio
+0.152
+0.390
+FaVOR
+Annualized Return
+0.042
+0.205
+FaVOR
+Maximum Drawdown
+0.120
+0.346
+RD-Agent
+Information Ratio
+0.191
+0.438
+RD-Agent
+Annualized Return
+0.033
+0.182
+RD-Agent
+Maximum Drawdown
+0.055
+0.235
+Table 21: Run level dispersion of FaVOR and RD-Agent.
+The table describes observed run to run variation and is
+not used to claim a statistically significant return gap.
+search capacities nevertheless differ: FaVOR uses
+language model priors to propose hypotheses and
+formulas, while ML/DL baselines use the fixed
+Alpha158 feature family and RL baselines search
+OHLCV primitives without a natural language hy-
+pothesis prior. We therefore interpret the bench-
+mark comparison as a comparison under matched
+data and execution conditions, rather than as a
+claim of matched search budgets.
+O
+Scope of the Interpretability Claim
+FaVOR provides structural traceability from a nat-
+ural language hypothesis to observable conditions,
+formulas, and factor conditioned evidence. Its in-
+terpretability claim is therefore limited to empirical
+consistency between a formula and the OHLCV
+observable condition that motivated it. The frame-
+work does not establish a causal or fundamental
+economic mechanism, and this distinction is impor-
+tant when interpreting its validation decisions and
+portfolio results.
+P
+Computational Cost
+All local experiments were run on a single worksta-
+tion equipped with two NVIDIA RTX PRO 6000
+Blackwell Server Edition GPUs (96GB of memory
+each), two 16-core Intel64 CPUs (32 physical cores
+and 64 logical threads in total, dual-socket).
+Closed-source backbones were accessed through
+commercial API endpoints; their parameter counts
+are not publicly disclosed by the providers. Open-
+weight backbones were self-hosted on the lo-
+cal GPUs using Ollama.
+Llama-3.3-70B is a
+dense 70B-parameter model, and Qwen3-235B is
+a Mixture-of-Experts model with 235B total pa-
+rameters and 22B active parameters per token. For
+API-based runs, we report token counts and mone-
+tary cost because provider-side GPU hours are not
+observable. For self-hosted open-weight runs, in-
+
+
+ference ran on the two local GPUs described above.
+Tables 22 and 23 summarize LLM usage per call
+by market. Table 24 gives an example per-stage
+breakdown for one GPT-4o run on CSI 500. Token
+counts include both prompt and completion tokens,
+and API costs are estimated from the provider pric-
+ing used during the experiments.
+Backbone
+Avg tokens/call
+Avg cost/call
+GPT-4o
+4,287
+$0.01540
+GPT-5.4-mini
+4,097
+$0.00090
+Gemini-2.5-flash
+5,525
+$0.00119
+Claude-Sonnet-4.6
+7,732
+$0.00198
+Table 22: LLM usage per call on CSI 500. Token counts
+include both prompt and completion tokens.
+Backbone
+Avg tokens/call
+Avg cost/call
+GPT-4o
+4,186
+$0.01478
+GPT-5.4-mini
+4,171
+$0.00095
+Gemini-2.5-flash
+5,335
+$0.00118
+Claude-Sonnet-4.6
+7,421
+$0.00186
+Table 23: LLM usage per call on S&P 500. Token
+counts include both prompt and completion tokens.
+Stage
+Avg tokens/call
+Avg cost/call
+Hypothesis
+1,400
+$0.00433
+Observation
+1,425
+$0.00487
+Factor generation
+4,525
+$0.01904
+Self-correction
+5,193
+$0.02211
+Refinement
+8,435
+$0.02983
+Validation
+3,996
+$0.01295
+Table 24: Example LLM usage for one gpt-4o run on
+CSI 500. Reported per call within each stage; token
+counts include both prompt and completion tokens.
+Q
+Software, Models, and Data
+Our backtest pipeline builds on Qlib (Yang et al.,
+2020) for portfolio simulation, transaction-cost ac-
+counting, and benchmark excess-return evaluation,
+and on Optuna (Akiba et al., 2019) for Stage 4
+threshold search on the validation split. Qlib, Op-
+tuna, LightGBM (Ke et al., 2017), AlphaAgent
+(Tang et al., 2025), R&D-Agent-Quant (Li et al.,
+2025), AlphaQCM (Zhu and Zhu, 2025), and Ol-
+lama are released under the MIT license. XGBoost
+(Chen, 2016) is released under Apache-2.0, and
+scikit-learn (Pedregosa et al., 2011) is released un-
+der the BSD 3-Clause license. AlphaForge (Shi
+et al., 2025) is released as an open-source research
+codebase without a formal license, and we use it
+solely for non-commercial research consistent with
+its stated purpose.
+Open-weight
+backbones
+Llama-3.3-
+70B (Grattafiori et al., 2024) and Qwen3-
+235B (Yang et al., 2025) are released under the
+Llama 3.3 Community License and Apache-2.0,
+respectively. Closed-source backbones GPT-4o
+(Hurst et al., 2024), GPT-5.4-mini (OpenAI, 2026),
+Gemini-2.5-Flash (Comanici et al., 2025), and
+Claude-Sonnet-4.6 (Anthropic, 2026) are accessed
+through the OpenAI, Google, and Anthropic APIs
+under each provider’s terms of use.
+CSI 500 price and volume data are obtained
+via the baostock Python package, whose pack-
+age metadata lists a BSD license. S&P 500 price
+and volume data are obtained via the yfinance
+Python package, whose package metadata lists the
+Apache Software License. The underlying Yahoo
+Finance data are subject to Yahoo’s terms of use
+and applicable data-provider restrictions; we use
+them only for non-commercial academic evalua-
+tion, report only derived experimental results, and
+do not redistribute raw market data.

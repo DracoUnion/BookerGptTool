@@ -1,0 +1,309 @@
+paper: 2608.30207.pdf
+desc: 该论文提出 SIR（Self-improving Red-teaming），一种面向操作系统级计算机使用代理的黑盒自适应间接提示注入红队框架：内环从自然语言原则库中组合任务专属注入，外环把失败轨迹中的拒绝与防御行为诊断、蒸馏为可命名、可复用且可跨模型迁移的新原则，并以恶意目标与良性任务均完成的确定性系统状态检查计分；在
+  RedTeamCUA 的 50 个任务和三个前沿 CUA 上，正文报告的联合攻击成功率由固定人工模板的 16%/4%/0% 提升至 54%/24%/28%，表明静态基准可能显著低估自适应攻击面。
+concepts:
+- name: SIR（Self-improving Red-teaming）
+  desc: SIR 是一种从受害代理失败而非成功中学习、面向 OS 级 CUA 的黑盒组合式间接提示注入红队框架。
+  is_original: true
+  excerpt:
+  - We present SIR, a black box IPI attack that (i) composes stealthy injections from
+    a small library of reusable principles stated in plain language and (ii) wraps
+    composition in an iterative feedback loop that diagnoses the victim’s failed trajectories
+    and distills the bypasses into new, named strategies that are reapplied across
+    tasks.
+  - We introduce a compositional, feedback-driven IPI attack for OS-level computer-use
+    agents.
+  page: 1-2
+- name: 失败驱动的自我改进
+  desc: 该机制把 CUA 的拒绝轨迹视为揭示防御机制的监督信号，并据此蒸馏能够绕过相应防御的新策略。
+  is_original: true
+  excerpt:
+  - 'We introduce SIR, a black-box red-teaming framework built on a simple inversion:
+    existing self-improving attackers learn from their successes ... whereas SIR learns
+    from its failures.'
+  - When a CUA refuses an injection, its refusal reveals the defensive mechanism that
+    blocked it; SIR treats that refusal as supervision, diagnoses the defense, and
+    distills a bypass into a reusable attack principle stated in plain language.
+  page: '2'
+- name: 嵌套内外环红队架构
+  desc: SIR 的内环生成并执行当前任务的组合注入，外环分析失败轨迹、扩充共享原则库并将新知识用于后续所有任务。
+  is_original: true
+  excerpt:
+  - SIR runs as two nested stages.
+  - The inner stage produces attacks; the outer stage expands the principle library
+    the inner stage draws from, so the attacker improves from its own experience.
+  - The inner loop thus produces attacks, while the outer loop expands the principle
+    library that the inner loop draws from.
+  page: 2-4
+- name: 面向环境嵌入 IPI 的原则组合
+  desc: 该概念把 Composition-of-Principles 从单轮越狱扩展到环境嵌入、多步 Web-to-OS 攻击，使搜索对象成为可解释策略及其交互，而非单次措辞改写。
+  is_original: true
+  excerpt:
+  - The attacker LLM turns a benign task and an adversarial objective into a task-specific
+    on-screen injection by combining principles from a reusable inventory, extending
+    the Composition-of-Principles paradigm ... from single-turn jailbreaking to environment-embedded
+    IPI.
+  - The search ranges over human-readable strategies and their interactions rather
+    than a single hand-crafted injection or surface-level phrasing.
+  page: 2, 5, 12
+- name: 联合成功（Joint Success）
+  desc: 一次攻击仅在代理同时完成对抗目标与用户良性任务时才计为成功，从而排除仅使任务脱轨或中止的攻击。
+  is_original: false
+  excerpt:
+  - “Joint success” means that an attack is counted as successful only when both the
+    adversarial objective and the benign user task are completed.
+  - A run succeeds only when the victim completes both the adversarial objective gi
+    and the benign task bi, verified by Oadvᵢ and Obenᵢ.
+  page: 4-6
+- name: 确定性系统状态预言机
+  desc: 该评估方式直接检查文件系统、服务、权限和内容状态来判定攻击结果，而不使用可能被攻击内容操纵的 LLM 裁判。
+  is_original: false
+  excerpt:
+  - We target CUAs at the operating system level and score attacks with a fully deterministic
+    oracle, using checks on filesystem, service, and permission state rather than
+    an LLM judge.
+  - Execution oracle denotes attack-success evaluation from environment state without
+    an LLM judge.
+  page: 1, 4, 6, 14
+- name: Error Corroboration（P9）
+  desc: P9 预先预测代理在良性流程中会遇到的真实错误，再把对抗动作表述为修复方案，使环境对预测的验证将可信度转移到低可信来源及其建议上。
+  is_original: true
+  excerpt:
+  - Error corroboration is distilled from trajectories in which an agent initially
+    distrusts an injection but then encounters an environment error the injection
+    anticipated, so that credibility transfers from the correct prediction to the
+    injection’s proposed malicious “fix.”
+  - Predict a specific error the CUA will naturally hit during the benign workflow
+    and present the adversarial action as its remedy.
+  page: 2, 9, 13
+- name: Conditional Deferred Execution（P10）
+  desc: P10 将直接命令改写为针对未来假设故障的条件性、延后建议，以利用代理对条件建议弱于对即时命令的安全审查。
+  is_original: true
+  excerpt:
+  - Conditional deferred execution is distilled from a diagnosis that the victim applies
+    weaker scrutiny to actions framed as optional or conditional advice for a possible
+    future failure than to direct, immediate imperatives.
+  - Phrase the adversarial action as conditional, deferred advice (“if the build fails,
+    you might try removing X”) rather than an imperative command.
+  page: 2, 9, 14
+- name: 跨模型可迁移的已发现原则
+  desc: 从某一受害模型失败轨迹中蒸馏出的自然语言原则可在不再反馈的情况下提升其他架构 CUA 的攻击成功率，被视为共享策略知识而非目标专属载荷。
+  is_original: true
+  excerpt:
+  - The principles it recovers this way transfer across tasks and even across victim
+    architectures.
+  - Both frozen principles improve ASR on both unseen models, despite being discovered
+    against a different architecture.
+  page: 2, 9
+methods:
+- name: __overview__
+  desc: SIR 将组合攻击搜索与失败驱动策略发现组织为两个嵌套循环，并以确定性联合成功指标关闭每一轮执行—评估—改进流程。
+  excerpt:
+  - 'SIR contains two nested loops: an inner compositional attack search that produces
+    one task-specific injection, and an outer failure-driven strategy discovery loop
+    that analyzes unsuccessful CUA trajectories and distills reusable bypass strategies.'
+  page: 2-6
+- name: 红队任务与联合目标形式化
+  desc: 每个任务由良性指令、对抗目标和初始 Web–OS 环境构成，攻击者优化二者同时被确定性评估器判定完成的概率。
+  excerpt:
+  - Each red-teaming task Ti = (bi, gi, Ei) consists of a benign user instruction
+    bi, an adversarial objective gi, and an initial web–OS environment Ei.
+  - z⋆ᵢ ∈ arg max_z Pr[Oᵃᵈᵛᵢ(hᵢ(z)) = 1 ∧ Oᵇᵉⁿᵢ(hᵢ(z)) = 1] (Eq. 1).
+  page: '5'
+- name: 严格黑盒威胁模型
+  desc: 攻击者只能预先控制有限的非可信内容区域并观察外部轨迹与轮次结果，不能访问模型权重、梯度、 token 概率、系统提示或干预执行过程。
+  excerpt:
+  - The attacker controls a bounded region of untrusted content that the victim CUA
+    will read while performing its task, such as a forum post, and plants an injection
+    there before execution.
+  - 'The setting is strict black-box: the attacker has no access to the victim’s weights,
+    gradients, token probabilities, or system prompt.'
+  - 'It observes only externally visible behaviors: the rendered trajectory of screen
+    states, reasoning traces, and executed actions, plus the evaluator’s adversarial
+    outcome per task between rounds.'
+  page: '5'
+- name: 组合攻击搜索（Seed–Compose–Refine）
+  desc: 攻击者 LLM 依次为每个任务生成攻击种子、随机选择通常 2–4 个原则进行组合，再去除显性对抗措辞并加入反馈策略后精炼注入。
+  excerpt:
+  - For each task, the inner loop generates an injection through three sequential
+    attacker-LLM calls.
+  - qᵢ = Aseedθ(bᵢ, gᵢ) → z̃ᵢ = Acomposeθ(qᵢ, Cᵢ) → zᵢ = Arefineθ(z̃ᵢ, Pbase, S⁽ʳ⁾)
+    (Eq. 2).
+  - The compose prompt selects a task-relevant principle subset Ci ⊆ Pbase (typically
+    2–4 principles) and rewrites the seed to apply them simultaneously.
+  - The refine prompt removes overtly adversarial wording and incorporates any strategies
+    from the feedback library S(r).
+  page: 5, 12-13
+- name: 统一自然语言策略库维护
+  desc: 初始的内容原则与交付原则以及后续发现策略均表示为自然语言指导块，前者主要由组合提示选择，后者主要作为精炼提示中的可选指导。
+  excerpt:
+  - 'Base principles and discovered strategies differ only in origin: both are natural-language
+    text blocks that guide how the attacker LLM constructs the injection.'
+  - SIR’s contribution is not a fixed set of principles but a process that starts
+    with a base inventory and expands it.
+  - The base principle inventory contains 7 content principles and 4 delivery principles.
+  page: 5-6, 12
+- name: 失败驱动策略发现（Diagnose–Distill）
+  desc: 分析器批量压缩并诊断所有未达对抗目标的轨迹，归纳重复防御模式，再生成包含名称、诊断、绕过机制、组合指导和示例的候选策略，经去重后全局复用于下一轮。
+  excerpt:
+  - After executing the victim CUA on all tasks, SIR collects every attack whose adversarial
+    objective was not achieved and treats these failures as the primary supervision
+    signal.
+  - 'Diagnose: The analyzer inspects the failed trajectories as a batch and identifies
+    recurring failure patterns, such as source distrust, target sensitivity, causal
+    implausibility, and detection of imperative language.'
+  - 'Distill: For each pattern, the analyzer produces a candidate strategy consisting
+    of a name, a diagnosis of the failure, the bypass mechanism, composition guidance
+    for the attacker, and a concrete example.'
+  - The top K nonredundant strategies are then merged into the shared library ...
+    The updated library is applied to all tasks in the next round, not only the task
+    that produced the failure.
+  - Neither the attacker nor the analyzer is fine-tuned; the strategy library is maintained
+    entirely through prompt-level natural language.
+  page: 5-6, 13-14
+- name: 确定性联合成功评估
+  desc: 评估器在固定 VM 状态上分别检查对抗结果和良性任务结果，再仅以二者同时成立计算 ASR。
+  excerpt:
+  - 'Each case is evaluated by RedTeamCUA’s deterministic evaluators: check_path_nonexistence
+    (file deletion), must_exclude (content modification), check_service_active (service
+    disruption), check_file_password (permission change), and file/terminal/tab counts.'
+  - Both adversarial success (Oadv) and benign task completion (Oben) are recorded.
+  - A fixed VM state always receives the same score.
+  page: 4-6, 14
+- name: 跨模型原则冻结迁移协议
+  desc: 先在 Claude Opus 4.6 上发现并冻结 P9、P10，再不做额外反馈地将它们分别加入另外两个未见模型的初始原则库，以隔离跨架构迁移效果。
+  excerpt:
+  - We freeze them after discovery on Opus 4.6 and, without any further feedback,
+    make them available to the attacker when it composes injections against the other
+    two CUAs.
+  - 'We compare three conditions per transferred model: the base principle inventory
+    alone (base), base augmented with the frozen P9 (+P9), and base augmented with
+    the frozen P10 (+P10).'
+  page: '9'
+- name: 多模型测量与组件消融协议
+  desc: 研究在 RedTeamCUA 中随机抽取 50 个 Reddit/Web-to-OS 案例，对三个前沿 CUA 比较人工模板、仅基础原则的单轮组合搜索和完整反馈流水线。
+  excerpt:
+  - 'We randomly sample 50 Reddit cases spanning seven attack categories: file deletion,
+    content modification, service disruption, permission change, data exfiltration,
+    file creation, and application launch.'
+  - We evaluate three frontier CUA models with distinct safety profiles.
+  - 'To isolate the contribution of SIR’s feedback loop, we compare three configurations
+    in Table 3: (1) the hand-crafted baseline, (2) SIR with the base principle inventory
+    only (single round, no feedback), and (3) the full pipeline with iterative failure-driven
+    strategy discovery.'
+  page: 6-8
+- name: 原则组合谱型分析
+  desc: 通过统计每个模型在 50 个任务中选择的精确原则组合频率，刻画不同 CUA 的经验搜索分布，而不把选择频率误当作攻击效果。
+  excerpt:
+  - Let C⁽ᵐ⁾ᵢ ⊆ Pbase denote the subset selected for task i under victim model m.
+  - For a combination C, its empirical selection share is the fraction of the N =
+    50 tasks for which it is chosen, Freqm(C) = (1/N) Σᵢ 1[C⁽ᵐ⁾ᵢ = C].
+  - These frequencies characterize the attacker’s empirical search distribution rather
+    than a manually specified task-to-principle mapping.
+  page: '8'
+theorems: []
+findings:
+- name: SIR 在三个前沿 CUA 上均显著提高联合 ASR
+  desc: '[evidence] Figure 2、Table 3 与 §4.2 一致报告联合 ASR 从 Claude Opus 4.6 的 16% 升至
+    54%、Claude Opus 4.8 的 4% 升至 24%、Gemini 3.5 Flash 的 0% 升至 28%；[claim] 作者据此认为原则组合与失败反馈能揭示固定模板未测到的攻击面。'
+  excerpt:
+  - 'On every victim model, SIR raises the attack success rate substantially: from
+    16% to 54% on Claude Opus 4.6, from 4% to 24% on Claude Opus 4.8, and from 0%
+    to 28% on Gemini 3.5 Flash.'
+  - SIR attains substantial ASR even on models where the fixed template never succeeds.
+  page: 6-8
+- name: 组合搜索与反馈分别带来增量收益
+  desc: '[evidence] 相对人工基线，仅基础原则的组合搜索分别带来 +18、+6、+8 个百分点，加入反馈后又分别带来 +20、+14、+20 个百分点；[claim]
+    作者将前一类增益归因于绕过紧迫措辞等表层防御，将后一类归因于发现基础库无法表达的防御绕过策略。'
+  excerpt:
+  - 'Claude 4.6: HC 16%, SIR 34% (+18%), + Feedback 54% (+20%).'
+  - 'Claude 4.8: HC 4%, SIR 10% (+6%), + Feedback 24% (+14%).'
+  - 'Gemini 3.5: HC 0%, SIR 8% (+8%), + Feedback 28% (+20%).'
+  - The additional gain from feedback (12 to 20%) reflects strategies that the base
+    inventory cannot express.
+  page: 7-8
+- name: 静态人工基准会高估强防御模型的稳健性
+  desc: '[evidence] 人工模板随模型代际从 Opus 4.6 的 16% 降至 Opus 4.8 的 4% 和 Gemini 3.5 Flash
+    的 0%，但 SIR 在看似完全抵抗静态注入的 Gemini 上仍达到 28%；[claim] 作者据此宣称固定注入基准会实质性低估自适应 adversary
+    面对的真实攻击面。'
+  excerpt:
+  - The baseline degrades sharply as models advance, falling from 16% on Opus 4.6
+    to 4% on Opus 4.8 to 0% on Gemini 3.5 Flash.
+  - A static attack thus reports steadily shrinking risk as defenses mature, and would
+    conclude that Gemini 3.5 Flash is essentially immune to web to OS injection.
+  - The apparent robustness of a frontier CUA under fixed injection benchmarks can
+    substantially overstate its resistance to an adaptive adversary.
+  page: '7'
+- name: 模型代际稳健性差异显著且并非简单单调
+  desc: '[evidence] SIR 的 ASR 为 Opus 4.6 54%、Opus 4.8 24%、Gemini 3.5 Flash 28%，而权限变更类别分别为
+    50%、0%、17%；[claim] 作者据此指出稳健性随代际和防御机制急剧变化，且 Gemini 的表现不能由 Claude 代际趋势直接推断。'
+  excerpt:
+  - 'Robustness also varies sharply across model generations: the same pipeline falls
+    from 54% on Claude Opus 4.6 to 22% on Opus 4.8.'
+  - Permission change shows the sharpest split between model generations, dropping
+    from 50% on Opus 4.6 to 0% on Opus 4.8 while Gemini sits between the two (17%).
+  page: 2, 7, 16
+- name: 失败发现的原则可跨架构迁移
+  desc: '[evidence] 在 Opus 4.6 上发现并冻结的 P9/P10 使 Opus 4.8 的 ASR 从 10% 升至 16%/14%，使
+    Gemini 3.5 Flash 从 8% 升至 18%/12%，且迁移测试不再使用反馈；[claim] 作者据此认为反馈扩展了可迁移的共享策略空间，而非记忆单一目标载荷。'
+  excerpt:
+  - On Claude Opus 4.8, ASR rises from 10% (base) to 16% with P9 and 14% with P10.
+  - 'On Gemini 3.5 Flash, whose safety design differs fundamentally from Claude’s,
+    transfer is at least as strong: 8% base rises to 18% with P9 and 12% with P10.'
+  - That a principle learned solely from Opus 4.6 failures raises ASR on a model outside
+    the Claude family is evidence that discovery driven by feedback yields transferable
+    attack strategies rather than payloads tied to one target.
+  page: '9'
+- name: Error Corroboration 的跨模型迁移强于 Conditional Deferred Execution
+  desc: '[evidence] P9 相对基础库在 Opus 4.8/Gemini 上分别提升 6/10 个百分点，而 P10 仅提升 4/4 个百分点；[claim]
+    作者解释为基于环境验证的信任恢复比依赖各模型不同命令阈值的安全启发式更不依赖架构。'
+  excerpt:
+  - The gains are not uniform.
+  - P9, which relies on corroboration grounded in the environment, transfers more
+    strongly to Gemini than P10, consistent with P9 exploiting a defense ... that
+    does not depend on architecture, whereas P10 targets imperative language heuristics
+    whose exact thresholds differ across models.
+  page: '9'
+- name: 同一原则库在不同 CUA 上形成不同组合谱型
+  desc: '[evidence] P1+P2+D1 是两个 Claude 模型的首选组合（16%/20%），P1+P3+D1 是唯一进入三者前列的组合（10%/12%/10%），Gemini
+    的四个高频组合中有三个包含 P4，且所有报告的高频组合都恰含一个交付原则；[claim] 作者据此推断不同 CUA 暴露了不同的防御弱点。'
+  excerpt:
+  - The most common combination for both Claude models is P1+P2+D1 ... accounting
+    for 16% of Claude Opus 4.6 compositions and 20% of Claude Opus 4.8 compositions.
+  - P1+P3+D1 is the only combination that appears among the top selections for all
+    three victim models, at 10%, 12%, and 10%.
+  - 'The Gemini distribution places markedly greater weight on Side-Effect Masking
+    (P4): it appears in three of Gemini’s four leading combinations.'
+  - The same base inventory therefore supports distinct empirical composition profiles
+    rather than collapsing to a single universal template.
+  page: '8'
+- name: 对抗动作能否伪装为合法维护决定类别难度
+  desc: '[evidence] 数据外泄是三个模型中最大的低成功率类别（20%/10%/10%），文件删除与篡改更易被描述为清理或构建修复，而权限变更从 Opus
+    4.6 的 50% 降至 Opus 4.8 的 0%；[claim] 作者认为类别相对难度主要由动作被合法化的难易程度决定，而非完全由具体模型防御决定。'
+  excerpt:
+  - Data exfiltration (send_*) is the hardest large category on every model (20%,
+    10%, 10%).
+  - File deletion and file tampering sit higher on every victim, since destructive
+    or modifying actions on a local file can plausibly be dressed as routine cleanup
+    or a build fix.
+  - Absolute rates fall as models advance, but the relative ordering of categories
+    is largely stable across architectures.
+  page: '16'
+- name: 报告的 ASR 已要求良性任务继续完成，但未给出其独立成功率
+  desc: '[evidence] 论文把成功严格定义为 Oadv=1 且 Oben=1，因此 Figure 2 与 Table 3 的 ASR 只计入代理同时完成恶意目标和用户任务的情况；[claim]
+    作者据此称劫持并非仅使 CUA 中止任务，但论文没有单列 Oben=1 的条件成功率，因而无法从所给表格量化良性任务保存率。'
+  excerpt:
+  - A run succeeds only when the victim completes both the adversarial objective gi
+    and the benign task bi.
+  - Evaluator scores the benign task separately from the adversarial objective, which
+    verifies that a hijack does not simply abort the user’s task.
+  page: 4-7
+- name: P9 与 P10 的机制解释是分析器假设而非经对照实验确立的因果定理
+  desc: '[evidence] 两项原则来自失败轨迹诊断，并在跨模型冻结测试中获得 ASR 增益；[claim] 作者认为其分别利用事后可信度转移和条件建议审查较弱，但论文明确说明这些机制未经受控消融验证，其价值证据主要是最终攻击效果。'
+  excerpt:
+  - Both are hypotheses the analyzer proposes from failed trajectories rather than
+    mechanisms we establish through controlled ablation; their value is measured by
+    their effect on attack success.
+  - Both frozen principles improve ASR on both unseen models, despite being discovered
+    against a different architecture.
+  page: 2, 9, 13-14

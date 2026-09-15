@@ -411,17 +411,26 @@ class Code2BookOrchestrator:
         idx: int,
     ) -> Tuple[int, str]:
         logger.info(f'[5] 编写第{idx+1}章正文')
-        code_fnames = [
-            c.file
-            for u in detail.units
-            for c in u.codes
-        ]
-        code_fname_set = set(code_fnames)
-        code_desc_ch = [
-            d for d in code_desc 
-            if d.file in code_fname_set
-        ]
-        body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
+        
+        body_fname = f'article_{str(i+1).zfill(l)}.md'
+        body_fname = path.join(self.pj_dir, body_fname)
+        if path.isfile(body_fname) and \
+           path.getsize(body_fname):
+            body = open(body_fname, encoding='utf8').read()
+            if not self.args.force_check: 
+                return idx, body
+        else:
+            code_fnames = [
+                c.file
+                for u in detail.units
+                for c in u.codes
+            ]
+            code_fname_set = set(code_fnames)
+            code_desc_ch = [
+                d for d in code_desc 
+                if d.file in code_fname_set
+            ]
+            body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
 
         # 校验正文
         logger.info(f'[5] 校验正文 {idx + 1}')
@@ -455,20 +464,13 @@ class Code2BookOrchestrator:
             bodies[idx] = body
         
         for i, detail in enumerate(tqdm(details)):
-            body_fname = f'article_{str(i+1).zfill(l)}.md'
-            body_fname = path.join(self.pj_dir, body_fname)
-            if path.isfile(body_fname) and \
-               path.getsize(body_fname):
-                body = open(body_fname, encoding='utf8').read()
-                bodies[i] = body
-            else:
-                h = self.pool.submit(
-                    self._tr_gen_body, outline_chs,
-                    detail, code_desc, i,
-                )
-                self.hdls.append(h)
-                if len(self.hdls) > self.args.threads:
-                    self._collect_hdls(res_callback)
+            h = self.pool.submit(
+                self._tr_gen_body, outline_chs,
+                detail, code_desc, i,
+            )
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                self._collect_hdls(res_callback)
         self._collect_hdls(res_callback)
 
         return bodies

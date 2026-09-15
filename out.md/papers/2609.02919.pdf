@@ -1,0 +1,2439 @@
+1
+Agent-Native Metamorphic Communication Fabric
+Jienan Chen, Senior Member, IEEE
+Abstract—Communication intelligence is undergoing two related
+transitions: algorithm development is moving from predominantly
+manual model-based design toward foundation-model-assisted
+generation and evaluation, while deployed systems are moving
+from offline optimization toward agent-driven online decision
+and guarded deployment. Existing data-driven or large-language-
+model-assisted methods remain primarily design-time tools and
+cannot by themselves cover every future combination of service
+intent, channel, spectrum, and hardware state. This paper
+proposes the Agent-Native Metamorphic Communication Fabric, a
+closed-loop architecture in which an agent observes the operating
+state, selects or generates an explicit communication candidate,
+executes it in a digital twin, applies hard feasibility gates, and
+deploys it with monitoring and fallback. Three levels define
+the allowed scale of change: Level 1 adjusts parameters while
+preserving the algorithm; Level 2 switches and configures receiver
+algorithms while preserving the protocol and waveform; and
+Level 3 reconfigures the waveform or waveform–multiple-access
+chain while preserving the service contract and safety interface.
+Simulations demonstrate all three levels. Level 1 improves rate,
+channel tracking, or quantization energy under fixed topologies.
+Level 2 selects three-iteration weighted Jacobi, five-iteration
+diagonally preconditioned conjugate gradient, and direct MMSE
+in favorable, intermediate, and harsh MIMO regimes, respectively;
+the analytical hardware proxy predicts up to 67.1% energy
+and 73.3% latency reduction relative to direct MMSE. Level 3
+selects CP-OFDM, SC-FDMA, OTFS, filtered OFDM, and SCMA-
+over-OFDM across five representative operating regimes and
+forms continuous switching boundaries under Doppler, spectrum-
+contiguity, load, and RF-power sweeps. The results establish a
+minimum viable mechanism for verifiable runtime communication
+adaptation rather than unconstrained end-to-end learning or
+arbitrary online code mutation.
+Index Terms—Agent-native communication, adaptive communi-
+cation, large language models, receiver algorithm selection, wave-
+form adaptation, OTFS, SCMA, hardware-aware communication.
+I. INTRODUCTION
+W
+IRELESS systems have traditionally been engineered
+around a small number of stable assumptions: a
+standardized frame structure, a finite set of waveforms, and
+adaptation rules designed and validated before deployment. This
+process has enabled robust and interoperable communication at
+scale. It is increasingly strained, however, by autonomous and
+heterogeneous services whose intent, mobility, reliability target,
+spectrum opportunity, and hardware budget can change on
+operational timescales. The IMT-2030 framework and broader
+sixth-generation visions explicitly couple communication with
+distributed intelligence, sensing, and heterogeneous computa-
+tion [1]–[3]. A remaining question is whether the communica-
+Jienan Chen is with the National Key Laboratory of Science and Technology
+on Communications, University of Electronic Science and Technology of China
+(UESTC), No. 2006 Xiyuan Avenue, West Hi-Tech Zone, Chengdu 611731,
+Sichuan, P. R. China (e-mail: jesson.chen@outlook.com).
+tion system itself can change form when its operating context
+changes.
+The evolution of communication design can be summa-
+rized through three paradigms. In the model-driven paradigm,
+engineers construct a channel and system model, derive an
+algorithm, map it to software and hardware, and repeatedly
+validate the implementation. In the data-driven paradigm, a
+neural transmitter, receiver, or intermediate module is trained
+from samples, but the learned structure is still normally fixed
+after offline training [4]–[6]. More recently, foundation models
+have become algorithm-development agents: they can connect
+literature, mathematical models, code, execution feedback,
+and evaluators to iteratively improve an implementation. Al-
+phaEvolve demonstrates this pattern for general scientific and
+algorithmic discovery [7], and the AI Telco Engineer applies
+related evolutionary coding agents to wireless receiver design
+[8]. These systems materially expand the scale of offline
+algorithm search, yet a candidate produced offline cannot
+anticipate every future service and channel combination.
+The transition pursued in this paper is therefore not simply
+a stronger design assistant. It is a runtime communication
+agent that can observe state, modify an approved part of
+the transceiver, evaluate the modification with executable
+evidence, and deploy it only when explicit safety gates
+pass. The distinction is important. An agent-native system
+need not replace the transceiver by an opaque neural model,
+nor must a large language model sit in the real-time data
+path. The agent can combine a language-model proposer, a
+deterministic optimizer, a registered algorithm library, and a
+digital-twin evaluator. What makes the system agent-native is
+that observation, candidate formation, verification, decision,
+deployment, and fallback are part of the operating loop rather
+than an external design workflow.
+The motivating question is deliberately simple: must a
+short-range link always use OFDM? A universal answer is
+not meaningful. CP-OFDM can be preferable for flexible
+scheduling or continuous wideband spectrum, SC-FDMA can
+be preferable when power-amplifier efficiency dominates, OTFS
+can become useful under strong Doppler, and a receiver may
+safely replace direct matrix factorization with a finite iterative
+solver when the channel matrix is well conditioned. The desired
+communication form therefore depends jointly on task, channel,
+spectrum, load, and hardware constraints.
+This paper proposes the Agent-Native Metamorphic Commu-
+nication Fabric as an architectural and experimental framework
+for this transition. The word metamorphic denotes controlled
+change of communication form under explicit invariants; it
+does not denote unconstrained mutation. The framework defines
+three levels of online autonomy:
+1) Level 1 – parameter adaptation: the protocol, wave-
+form, and algorithm topology remain fixed, while the
+arXiv:2609.02919v1  [eess.SP]  20 Aug 2026
+
+
+2
+Three Paradigms for Producing Communication Algorithms
+MODEL-DRIVEN
+System + channel
+analytical model
+Human derivation
+waveform / code / RX
+Implementation
+software + hardware
+Test and freeze
+offline validation
+Runtime executes a fixed algorithm and adjusts a small parameter set.
+DATA-DRIVEN
+Training data
+bits / channel / RX
+Neural mapping
+learned transmitter
+Differentiable link
+fading + noise
+Neural recovery
+task loss + backprop
+Data replaces part of manual modeling, but capability is still fixed after training.
+LLM-IN-THE-
+LOOP
+Structured task
+model / papers / code
+Agent proposal
+algorithm + program
+Executable evaluator
+correctness / quality / cost
+Retain + revise
+human approval / library
+Generation becomes an iterative search; deployment authority remains outside the model.
+Fig. 1. Evolution of communication-algorithm production. Model-driven and data-driven workflows normally freeze the principal algorithmic artifact before
+deployment. LLM-in-the-loop workflows make proposal and executable evaluation iterative, but do not by themselves provide runtime deployment authority.
+AGENT selects parameters such as MCS, pilot density,
+equalizer regularization, or quantization precision;
+2) Level 2 – receiver algorithm adaptation: the protocol,
+waveform, and receiver objective remain fixed, while
+the AGENT selects and configures a numerical solution
+path such as weighted Jacobi, diagonally preconditioned
+conjugate gradient (PCG), or direct MMSE; and
+3) Level 3 – waveform and multiple-access adaptation:
+the service contract, regulatory constraints, and safety
+interface remain fixed, while the AGENT selects a signal
+representation or waveform–multiple-access chain such
+as CP-OFDM, SC-FDMA, OTFS, filtered OFDM, or
+SCMA-over-OFDM.
+The paper makes five contributions. First, it formulates the
+two paradigm transitions from design intelligence to runtime
+intelligence and defines the change scale through explicit
+invariants. Second, it presents a generate, execute, verify, select,
+and deploy architecture with hard gates, versioned artifacts,
+monitoring, and fallback. Third, it evaluates three Level-1
+parameter agents using coded baseband Monte Carlo and
+transparent engineering models. Fourth, it demonstrates two-
+timescale Level-2 receiver adaptation with actual complex-
+valued iterative solves and common-random-number MIMO
+experiments. Fifth, it demonstrates Level-3 waveform adapta-
+tion across five representative regimes and continuous sweeps,
+while explicitly separating generated-baseband evidence from
+analytical BLER, latency, complexity, and power abstractions.
+The scope is intentionally bounded. The current agent
+chooses and configures human-registered communication tools;
+it does not invent a new coding theorem, emit production
+C/CUDA/RTL, or reconfigure an SDR or FPGA. The con-
+tribution is a falsifiable minimum viable loop that makes
+the changing object, decision evidence, and safety boundary
+explicit.
+II. RELATED WORK AND POSITIONING
+The proposed fabric intersects four research directions.
+First, cognitive radio and conventional link adaptation sense
+the environment and choose operating parameters [9], [10].
+This is closest to Level 1, although the proposed state also
+includes task and hardware constraints. Second, AI-native air-
+interface research studies learned components and end-to-end
+transceivers [11], [12]. Those methods can learn mappings that
+are difficult to derive manually, but their principal artifact is
+usually a trained model. The fabric instead operates on explicit
+parameters and executable algorithmic candidates, which can
+be inspected, gated, and mapped to implementation targets.
+Third, large-language-model-driven coding agents combine
+code generation with executable evaluators. AlphaEvolve
+evolves programs through repeated proposal, execution, scoring,
+and retention [7]. AITE transfers this pattern to wireless
+algorithm discovery and reports communication receivers
+generated through performance–complexity feedback [8]. These
+systems motivate the first transition in this paper: AI changes
+how algorithms can be developed. The fabric adds the second
+transition: a deployed agent must decide when a previously
+validated parameter, solver, or waveform remains appropriate
+and when a guarded change is necessary.
+Our own design-time work follows the same separation
+between generative authority and evaluative authority. Alpha-
+Com couples a generation agent with an evaluation agent
+
+
+3
+Executable Evaluation Turns Generation into Algorithm Search
+AlphaEvolve
+task + program
+execute  score  retain
+Wireless AITE
+constraints + LLM code
+PHY simulation  evolve
+Formal reasoning
+conjecture + proof
+formal checker  curation
+TEAM WORKFLOWS
+AlphaCom
+Propose
+generation agent
+Execute
+physical diagnostics
+Evidence
+EVM / covariance / residual
+ASIM + UOBS
+Propose
+parallel code
+variants
+Execute
+compile +
+cycle simulator
+Evidence
+SE gate / cycles / utilization
+RLDALS
+Propose
+circuit text
++ actor
+Execute
+EDA synthesis
++ simulation
+Evidence
+area reward / error compensation
+Shared principle: the generated artifact is trusted only after domain execution, hard checks, and audit.
+Fig. 2. Executable-evaluation workflows related to the proposed fabric. The common pattern is proposal, domain execution, evidence extraction, and revision.
+AlphaCom uses physical diagnostics, ASIM+UOBS uses numerical and hardware evidence, and RLDALS uses synthesis, simulation, and error compensation.
+and returns interpretable PHY diagnostics such as EVM,
+post-equalization noise covariance, and residual interference
+rather than only a scalar score [13]. The ASIM+UOBS
+prototype compiles generated communication-operator variants,
+reconstructs numerical behavior, checks spectral-efficiency
+gates, and measures cycle and utilization evidence; in its Block-
+Richardson case, accepted scheduling refinements reduce finish
+cycles from 2550 to 1893, a 25.76% reduction. RLDALS
+encodes circuit structure as text, uses an actor to propose legal
+logic transformations, and places EDA synthesis, Monte Carlo
+evaluation, and error compensation inside the reinforcement-
+learning loop [14]. These examples show why a generated
+artifact should be treated as a candidate rather than as a result:
+domain execution and hard validation remain the source of
+trust.
+The same principle appears outside communications. In
+formal mathematics, cheap proposal generation increases the
+importance of machine-checkable proof, provenance, interpre-
+tation, and human curation. This analogy is useful but limited:
+a radio action additionally changes a live physical interface,
+consumes shared spectrum, and can affect a remote endpoint.
+Runtime communication adaptation therefore requires capabil-
+ity agreement, activation control, monitoring, and rollback in
+addition to an evaluator.
+Fourth, the Level-3 candidate set builds on established
+waveform and multiple-access research. OTFS maps symbols
+in the delay–Doppler domain and is motivated by strongly
+time-varying channels [15]. Filtered OFDM improves subband
+spectral localization at the cost of filtering overhead [16].
+SCMA is a sparse code-domain nonorthogonal multiple-
+access method rather than a standalone pulse waveform [17];
+accordingly, the present candidate is labeled SCMA-over-
+OFDM. The paper does not claim a new instance of these
+algorithms. It studies whether a constrained runtime agent can
+select among them using a common evidence interface.
+III. AGENT-NATIVE METAMORPHIC ARCHITECTURE
+At decision epoch t, an observer forms
+st = (qt, ht, zt, ct, et),
+(1)
+where qt describes service intent and traffic, ht is channel
+and mobility state, zt describes spectrum and offered load, ct
+captures receiver, baseband, and RF capabilities, and et denotes
+energy and thermal budgets. State uncertainty is handled
+through conservative gates and fallback rather than by assuming
+perfect context.
+For level ℓ∈{1, 2, 3}, the agent chooses an action a ∈
+Aℓ(st). Every candidate produces an executable or calculable
+metric vector
+m(a, st) = [R, η, ϵ, L, E, P, C, S],
+(2)
+containing throughput, effective spectral efficiency, reliabil-
+ity loss, latency, energy, power, complexity, and spectral-
+containment metrics. A feasible action must satisfy
+gj(a, st) = 1,
+j ∈Gℓ,
+(3)
+where the gate set may include BER/BLER, EVM, residual,
+divergence, ACLR, PAPR, latency, power, complexity, capabil-
+
+
+4
+Agent-Native Metamorphic Communication Fabric
+Typed actions, executable evidence, and transactional deployment
+OBSERVATION PLANE
+Service
+intent / QoS
+Channel
+SNR / Doppler / CSI
+Spectrum
+continuity / load
+Hardware
+compute / RF / thermal +
+State and confidence
+s(t) / age / uncertainty / prediction horizon
+AGENT CONTROL PLANE
+TYPED ACTION REGISTRY
+L1  parameters
+fixed graph
+L2  solver
+fixed objective
+L3  waveform/MA
+fixed contract
+Executable evaluation
+digital twin + hardware model
+metrics / uncertainty / provenance
+CONSTRAINED DECISION
+1  hard gates
+2  task utility + hysteresis
+3  fallback if no safe action
+diagnostics and retained evidence
+DEPLOYMENT PLANE
+Prepare
+version / hash
+capability check
+Commit
+activation epoch
+atomic switch
+Runtime targets
+CPU / DSP   |   FPGA / ASIC   |   RF profile
+Monitor and rollback
+KPI / watchdog / baseline
+telemetry
+Fig. 3. The Agent-Native Metamorphic Communication Fabricorganized into observation, agent-control, and deployment planes. Service, channel, spectrum,
+and hardware telemetry form a confidence-tagged state. A typed Level-1–Level-3 action is evaluated before hard-gated selection, then installed through a
+prepare–commit transaction with explicit hardware targets, monitoring, and rollback.
+ity, and hysteresis constraints. Selection occurs only inside the
+feasible set
+Fℓ(st) = {a ∈Aℓ(st) : gj = 1, ∀j},
+(4)
+a∗
+t = arg
+max
+a∈Fℓ(st) U(m(a, st); wt).
+(5)
+If Fℓis empty, the agent retains or returns to a registered
+minimum-risk baseline. This order prevents a weighted utility
+from trading away a hard reliability or spectral constraint.
+The action space expands with level:
+A1 = {θ},
+(6)
+A2 = {(r, Tmax, ω, M, τ, q)},
+(7)
+A3 = {(w, m, θw)},
+(8)
+where θ is a fixed-topology parameter vector, r is a receiver
+solver, Tmax is an iteration cap, ω is a relaxation factor, M is
+a preconditioner, τ is an early-stop threshold, q is numerical
+precision, w is a waveform, and m is an optional multiple-
+access realization.
+The selected action is not passed to the data plane as an
+unstructured model response. It is serialized as a versioned
+deployment manifest
+Vt = {id, ℓ, himpl, I, r, tact, idfb},
+(9)
+where himpl is an implementation hash, I is the typed
+input/output interface, r is the declared compute, memory,
+RF, and thermal resource envelope, tact is a future activation
+epoch, and idfb identifies a verified fallback. This representation
+makes the agent decision auditable and prevents a semantically
+valid algorithm from being deployed through an incompatible
+binary, bitstream, numerology, or endpoint interface.
+The levels should not be interpreted as three unrelated
+optimizers. They are a governance hierarchy. Level 1 can
+run at a conventional adaptation interval because it selects
+approved parameters. Level 2 uses a slow timescale to choose
+a default solver and a fast per-channel-block guard to upgrade
+unsafe approximate solutions. Level 3 changes the signal
+representation seen by both endpoints and therefore requires
+capability agreement, versioning, activation epochs, hysteresis,
+and rollback. A larger change surface requires stronger evidence
+and slower deployment.
+A. Transactional Hardware Execution Model
+The control plane is intentionally separated from the sample-
+rate data plane. A foundation model or search process may
+run asynchronously on a management CPU, but the real-time
+path executes only signed candidates already present in the
+typed registry. Deployment follows four phases. Prepare checks
+the manifest hash, interface, memory footprint, worst-case
+execution budget, endpoint capability, and fallback availability.
+Shadow evaluation runs the candidate on a digital twin,
+recorded samples, or duplicated live blocks without granting
+transmit authority. Commit performs an atomic switch at
+a frame, slot, or negotiated activation boundary. Monitor
+
+
+5
+Why Offline Algorithm Generation Cannot Cover Runtime Diversity
+OFFLINE DESIGN
+Historical tasks
+known scenes
+Generate
+algorithm + code
+Validate
+offline tests
+Freeze
+one deployed version
+COVERAGE GAP
+new task
+new channel
+new spectrum
+new hardware budget
+RUNTIME AGENT
+Observe
+task + context
+Select
+typed action
+Verify
+hard gates
+Monitor
+fallback
+Transition 1: how algorithms are produced
+manual model design 
+ foundation-model-assisted generation
+Transition 2: when algorithms can change
+offline optimization 
+ guarded online decision and deployment
+Fig. 4. The coverage gap between offline algorithm generation and future runtime combinations. The proposed agent does not discard offline design; it turns
+validated artifacts into a typed runtime library and re-evaluates their suitability as task, channel, spectrum, load, and hardware budgets change.
+TABLE I
+THREE LEVELS OF RUNTIME COMMUNICATION ADAPTATION.
+Level
+Invariant
+Agent action
+Artifact
+Evidence in this paper
+1: Parameter
+Protocol, waveform, algorithm topology
+MCS, pilots, regularization, precision
+Configuration vector
+Coded baseband Monte Carlo and engineering models
+2: Algorithm
+Protocol, waveform, linear-MMSE objective
+Solver family, iterations, preconditioner, fallback
+Receiver-solver configuration
+Complex MIMO Monte Carlo and actual iterative solves
+3: Waveform/multiple access
+Service contract, regulation, safety interface
+Signal representation and resource-overload chain
+Waveform-chain manifest
+Generated baseband samples plus transparent link/RF abstractions
+compares post-commit telemetry with the admission envelope
+and triggers rollback if a watchdog, reliability, spectral, or
+deadline gate fails.
+This hierarchy supports several implementation styles. A
+CPU/GPU/SDR prototype can use shared libraries and process
+isolation; an FPGA can use a static radio shell with parameter
+registers, preloaded accelerator kernels, or a signed partial-
+reconfiguration region; and an ASIC can expose a finite family
+of engines through microcode and clock/power gating. None
+of these targets should execute arbitrary newly generated code
+in the real-time path. The agent selects among implementation
+artifacts whose timing closure, fixed-point behavior, memory
+layout, and RF interface have already been characterized.
+Online intelligence therefore changes the admitted artifact
+and its configuration, while conventional hardware verification
+remains responsible for the artifact itself.
+B. Role of Foundation Models
+The architecture separates proposal generation from deploy-
+ment authority. A foundation model can structure a task, retrieve
+a candidate algorithm, generate code, or diagnose a failed
+evaluation. It cannot directly bypass the typed candidate registry
+or the gates in (3). The present experiments use deterministic
+candidate enumeration and task-weighted selection so that every
+numerical result is reproducible without a remote model. This
+design choice isolates the central systems question: whether an
+agentic closed loop can safely adapt the communication object
+online. Replacing the proposer by an LLM is compatible with
+the architecture but is not required for the results reported here.
+IV. EVALUATION METHODOLOGY
+All experiments use frozen seeds and machine-readable
+JSON artifacts. Level 1 uses master seed 20260811 and
+averages four evaluations per candidate; each evaluation uses
+500 coded blocks and 1200 PAPR blocks. Level 2 uses seed
+20260818 and evaluates every solver on identical channel ma-
+trices, noise, and transmitted symbols. Each scenario contains
+700 independent channel blocks. The Level-2 SNR sweep uses
+500 independent blocks per SNR point. Level 3 also uses seed
+20260818; its waveform engine generates oversampled complex
+baseband samples for PAPR and adjacent-band leakage proxies,
+while BLER, processing delay, complexity, PA efficiency, and
+total power are transparent analytical abstractions.
+The reported results are simulation evidence, not hardware
+measurements. In Level 2, solver quality, residuals, BER, EVM,
+condition number, and convergence are produced by actual
+complex matrix solves. Energy and latency are calculated by a
+common 500-MHz, 64-lane analytical hardware proxy; channel
+estimation, Gram-matrix formation, and matched filtering are
+excluded because they are common to every candidate. In
+Level 3, PAPR and leakage use generated samples, but the
+remaining link and hardware metrics are model-based. These
+boundaries are retained in every interpretation below.
+V. LEVEL 1: PARAMETER ADAPTATION
+Level 1 keeps the transceiver topology fixed and selects
+θ = [M, Rc, NCP, ρp, λeq, bq],
+(10)
+
+
+6
+TABLE II
+HARDWARE REALIZATION AND GOVERNANCE ACROSS THE THREE ADAPTATION LEVELS. TIMESCALES ARE RELATIVE ARCHITECTURAL CLASSES RATHER
+THAN PRESCRIBED STANDARD VALUES.
+Level
+Control timescale
+Mutable hardware object
+Required data-plane support
+Safe activation boundary
+Fallback
+L1
+Link-adaptation interval
+Register/LUT configuration vector
+Shadow registers, parameterized mapper, pilots, EQ, precision modes
+Slot or frame boundary
+Last-known-good parameter bank
+L2
+Scenario update plus per-block guard
+Solver ID, iteration cap, precision, preconditioner
+Shared matrix memory, MAC/reduction fabric, solver microcode, exact-solver path
+Channel-block boundary after state capture
+Direct MMSE or certified solver
+L3
+Session/episode and negotiated event
+Versioned waveform/access processing graph and RF profile
+Preloaded kernels or FPGA overlays, dual coefficient banks, endpoint capability exchange
+Agreed future frame after pipeline drain
+Prior waveform chain and RF profile
+Level 1: Safe Parameter Adaptation inside a Fixed Transceiver Graph
+Invariant: protocol  waveform  frame  transmitter/receiver topology
+Observe
+SNR / Doppler
+task / energy
+Candidate set
+MCS / pilots
+equalizer / bits
+Evaluate
+BER / latency
+energy / cost
+Hard gates
+reliability
+hardware limits
+Deploy
+apply t
+monitor + fallback
+Service-driven
+MCS: throughput 
+ reliability
+Channel-driven
+pilots/equalizer: tracking 
+ overhead
+Hardware-driven
+precision: numerical quality 
+ energy
+Fig. 5. Level-1 control translated from the presentation workflow. A fixed transceiver graph exposes approved service-, channel-, and hardware-driven parameter
+axes. Evaluation and hard gates precede deployment, and an empty feasible set returns the baseline.
+where M is QAM order, Rc is code rate, NCP is cyclic-prefix
+length, ρp is pilot fraction, λeq controls MMSE regularization,
+and bq is complex-baseband quantization precision. Three
+agents isolate three common operational decisions.
+A. State, Robust Gates, and Hardware Mapping
+A Level-1 decision uses a measurement window rather than
+one instantaneous channel estimate. The observer aggregates
+SNR, Doppler, CSI age, decoder statistics, queue occupancy,
+deadline slack, and accelerator counters, and attaches an age
+and confidence to every field. For an upper-bounded metric
+such as BER, latency, power, or temperature, a conservative
+admission test is
+bmj(θ) + βjσj(θ) ≤bj,
+(11)
+with the inequality reversed for lower-bounded rate or spectral
+efficiency. Here σj captures estimator variation and model
+mismatch, and βj sets the operating margin. Thus the utility
+function ranks only candidates whose confidence-adjusted
+metrics pass; it cannot exchange a small expected energy gain
+for an uncertain reliability violation.
+On hardware, the candidate vector maps naturally to a
+shadow configuration bank. M and Rc select mapper and
+coding-rate entries, NCP and ρp program framing and pilot
+address generators, λeq selects regularization coefficients, and
+bq selects a preverified fixed-point mode. The active bank is
+not edited field by field. The controller writes a complete
+inactive bank, checks cross-field consistency, and atomically
+swaps banks at a frame boundary; a watchdog can restore
+the previous bank without reconstructing the configuration.
+Algorithm 1 Level-1 Constrained Online Parameter Adaptation
+Input: Runtime state st, approved set Θ, baseline θ0
+Output: Safe configuration θt
+1: Observe SNR, Doppler, CSI age, load, energy, and hard-
+ware capability
+2: Retrieve candidates compatible with the fixed waveform
+and topology
+3: for all θ ∈Θ do
+4:
+Estimate BER, latency, complexity, energy, and confi-
+dence under st
+5:
+Discard θ if any confidence-adjusted reliability or
+hardware gate fails
+6:
+Compute task utility J(θ | st)
+7: end for
+8: Select θt = arg max J; use θ0 if the feasible set is empty
+9: Program and verify an inactive configuration bank
+10: Atomically activate θt at the agreed boundary
+11: Monitor online metrics and restore θ0 on gate violation
+Multi-precision selection requires a datapath synthesized for
+the admitted widths or separate prebuilt kernels—changing bq
+does not imply arbitrary runtime resynthesis.
+The MCS agent converts excess reliability margin into rate
+and energy efficiency. The tracking agent illustrates the opposite
+decision: higher pilot overhead and a changed equalizer setting
+reduce BER but impose measurable rate, latency, and energy
+penalties. The precision agent retains link performance while
+selecting the lowest approved precision that passes the BER
+
+
+7
+TABLE III
+LEVEL-1 REGISTERED CANDIDATE AXES
+Agent
+Variable candidates
+Count
+MCS
+M ∈{4, 16, 64}, Rc ∈{1/2, 3/4}
+6
+Tracking
+ρp ∈{0.08, 0.16}, EQ ∈{MMSE, robust-MMSE}
+4
+Precision
+bq ∈{8, 12} bit
+2
+gate. These results are operationally useful, but they do not
+constitute algorithm generation because the computation graph
+remains fixed.
+The minimum hardware controller for this level is a finite-
+state machine with telemetry capture, candidate-table lookup,
+gate evaluation, shadow-bank programming, and rollback states.
+Local choices such as equalizer regularization or precision
+can be receiver-only. Changes to MCS, pilot pattern, or cyclic
+prefix are dual-endpoint actions and must be signaled before the
+activation epoch. Their control signaling, bank-switch latency,
+and transition guard interval should be charged to the candidate
+when adaptation is frequent; otherwise a rapidly oscillating
+policy could appear efficient in steady-state metrics while
+wasting resources during reconfiguration.
+VI. LEVEL 2: RECEIVER ALGORITHM ADAPTATION
+Level 2 fixes the protocol, waveform, number of streams,
+QAM order, and linear-MMSE objective. For
+y = Hx + n,
+(12)
+the receiver solves
+Aˆx = b,
+A = ˆHH ˆH + σ2
+nI,
+b = ˆHHy.
+(13)
+Direct MMSE, weighted Jacobi, and diagonal-PCG solve
+the same system. Their difference is the numerical path,
+convergence region, approximation error, and hardware cost.
+Direct MMSE uses a Hermitian positive-definite factorization
+and triangular solves. Weighted Jacobi uses D = diag(A) and
+x(k+1) = (1 −ω)x(k) + ωD−1 h
+b −(A −D)x(k)i
+.
+(14)
+It is attractive when the iteration matrix has spectral radius
+below one and the Gram matrix is close to diagonally dominant.
+Diagonal-PCG uses M = diag(A) as a preconditioner and
+can cover the intermediate region in which Jacobi is unsafe
+but a small number of Krylov iterations remains sufficient.
+A. Two-Timescale Guard and Solver Hardware
+The common channel-estimation front end forms A and
+b once and writes them to a solver-visible matrix buffer.
+A slow controller selects the nominal solver configuration
+from scenario statistics, while a per-block guard observes
+conditioning and convergence evidence before and during
+execution. Weighted Jacobi requires matrix-vector products and
+elementwise scaling; PCG additionally requires dot-product
+reductions, vector recurrences, and a preconditioner application;
+direct MMSE requires a factorization engine and triangular
+solves. A practical architecture can share the complex multiply–
+accumulate array and SRAM banks across all three paths while
+retaining separate reduction and factorization controllers.
+For a solver configuration r, the analytical hardware proxy
+can be written structurally as
+Lr ≈
+1
+fclk
+NMAC,r
+PMAC
+
++ Nred,rdred
++
+Nmem,r
+Bmem
+
++ dctrl,r
+
+,
+(15)
+Er ≈NMAC,reMAC(q) + Nmem,remem(q)
++ Nred,rered + Ectrl,r.
+(16)
+The reported 500-MHz, 64-lane results instantiate this
+operation-count model with a common parallelism assumption.
+Equations (15)–(16) expose what must be replaced by synthesis
+or measurements: memory-bank conflicts, pipeline fill/drain,
+reduction depth, precision-dependent MAC energy, and control
+overhead.
+The experiments compute κ(A) and ρJ(A) exactly to
+characterize the regions. A deployed per-block guard need
+not perform an expensive full eigendecomposition. It can use
+a short power/Lanczos estimate, Gershgorin bounds, diagonal-
+dominance statistics, residual contraction ∥r(k)∥/∥r(k−1)∥, or
+a learned but conservatively calibrated condition classifier.
+Regardless of the proxy, the running residual and EVM
+watchdog remain authoritative. A failed early-stop or deadline
+check cancels the approximate path and dispatches the same
+buffered A, b to the direct solver, avoiding a second channel-
+estimation pass.
+The agent chooses
+a = (r, Tmax, ω, M, τ, q)
+(17)
+to minimize normalized power, latency, complexity, and nu-
+merical error subject to BER, EVM, residual-divergence, and
+P95-latency gates. The slow-timescale decision selects a default
+solver from scenario statistics. The fast guard recomputes the
+Gram condition number κ(A) and Jacobi spectral radius for
+every channel block. The current empirical safety region keeps
+Jacobi only when ρ < 0.92 and κ < 7, upgrades to PCG in the
+intermediate region, and returns to direct MMSE when κ ≥35
+or the residual gate fails. The thresholds define the present test
+policy, not universal channel constants.
+Table VI shows a stable three-region policy. In favorable
+channels, three Jacobi iterations pass the EVM and reliability
+gates while eliminating factorization. In the intermediate
+scenario, low-order Jacobi diverges and PCG-5 becomes the
+lowest-cost feasible solver. In the harsh scenario, PCG-5 passes
+the loose feasibility gate but direct MMSE is retained because
+reliability has dominant weight and the direct solution has
+lower BER, EVM, and residual.
+The per-block guard makes the result online rather than
+a three-scenario lookup. In the favorable scenario, 1.57% of
+blocks are upgraded from Jacobi to PCG. In the intermediate
+scenario, 9.29% are upgraded from PCG to direct MMSE,
+reducing BER from 2.364×10−2 to 2.116×10−2 after guarded
+execution. The harsh scenario remains on direct MMSE for all
+blocks.
+Hardware feasibility depends on fallback capacity, not only
+average solver cost. If the direct engine is time-multiplexed
+across users, admission control must reserve enough slack for
+
+
+8
+TABLE IV
+LEVEL-1 PARAMETER AGENTS. RELATIVE CHANGES USE THE FIXED-PARAMETER BASELINE IN THE SAME SCENARIO.
+Agent
+Fixed topology
+Selected parameters
+BER
+Rate
+Latency
+Energy
+Main change vs. baseline
+Interpretation
+MCS
+CP-OFDM, robust MMSE, 8 bit
+16-QAM, Rc = 3/4
+7.75×10−3
+42.16 Mb/s
+796.05 ms
+39.70 nJ/bit
+Rate +200%, latency −66.7%, energy −67.4%
+Use available reliability margin
+Tracking
+DFT-s-OFDM, QPSK, Rc = 3/4, 8 bit
+Pilot 16%, MMSE
+4.668×10−2
+3.78 Mb/s
+208.20 ms
+178.56 nJ/bit
+BER −36.6%; rate −8.7%, latency +9.5%, energy +10.2%
+Spend resources on stale-CSI robustness
+Precision
+CP-OFDM, 16-QAM, Rc = 3/4, robust MMSE
+8-bit baseband
+1.873×10−3
+18.40 Mb/s
+57.14 ms
+13.44 nJ/bit
+Same rate/latency, energy −8.0%
+Reduce precision inside reliability gate
+Level 2: Two-Timescale Receiver-Solver Control
+Slow timescale
+scenario evidence
+select default solver
+Per-block diagnosis
+(A), J(A), residual
+condition + convergence
+Execute
+approved iterations
+early stop
+Monitor
+BER / EVM
+residual gate
+Weighted Jacobi
+J < 0.92 and  < 7
+lowest parallel cost
+Diagonal-PCG
+intermediate condition
+quality-cost compromise
+Direct MMSE
+ 
+ 35 or gate failure
+exact fallback
+The objective A x = b is invariant; only the verified numerical path changes.
+Fig. 6. Level-2 two-timescale control. A slow decision selects a default solver from scenario evidence. A fast guard observes each channel block and upgrades
+the numerical path when conditioning, spectral-radius, residual, EVM, or convergence evidence becomes unsafe.
+TABLE V
+COMPLETE REGISTERED LEVEL-2 RECEIVER-SOLVER CONFIGURATION LIBRARY. ALL CONFIGURATIONS SOLVE (13); THE DIFFERENCES ARE THE
+NUMERICAL PATH AND ITERATION BUDGET.
+ID
+Solver
+Tmax
+ω
+τ
+Role
+J2
+Weighted Jacobi
+2
+0.90
+10−3
+Minimum-cost probe
+J3
+Weighted Jacobi
+3
+0.90
+10−3
+Favorable-channel default
+J4
+Weighted Jacobi
+4
+0.90
+10−3
+Higher-accuracy Jacobi
+J6
+Weighted Jacobi
+6
+0.82
+10−3
+Conservative relaxation
+P2
+Diagonal-PCG
+2
+–
+10−3
+Low-order Krylov probe
+P3
+Diagonal-PCG
+3
+–
+10−3
+SNR-sweep intermediate action
+P5
+Diagonal-PCG
+5
+–
+10−3
+Moderate-condition default
+D
+Direct MMSE
+factorization
+–
+exact
+Reference and final fallback
+the measured upgrade probability and its tail, or the fallback
+itself can miss the deadline. Warm starts may reduce iterations,
+but the initial vector, residual, precision, and stopping rule must
+be versioned with the solver configuration. The implementation
+log therefore records solver ID, actual iteration count, residual
+trajectory, numerical saturation flags, cycle count, memory
+stalls, and whether the block completed on the approximate or
+exact path.
+The SNR sweep in Fig. 7 provides a second view of the
+working regions. Under a BER gate of 0.04 and an effective-
+spectral-efficiency requirement of at least 95% of direct MMSE,
+the agent uses direct MMSE at 0–6 dB, PCG-3 at 9–15 dB, and
+Jacobi-3 at 18–24 dB. The corresponding analytical compute
+powers are 59.44, 35.82, and 19.53 mW at 10 million vectors/s.
+Thus PCG-3 and Jacobi-3 reduce modeled solver power by
+39.7% and 67.1%, respectively. At low SNR, direct MMSE is a
+minimum-risk fallback; it is not claimed to satisfy an absolute
+BER target that no candidate can meet.
+VII. LEVEL 3: WAVEFORM AND MULTIPLE-ACCESS
+ADAPTATION
+Level 3 changes the physical signal representation while
+retaining the service contract, regulatory limits, capability
+exchange, and fallback behavior. The agent observes
+s(3) = {γ, ν, τd/TCP, cf, ρL,
+PRF, PBB, RACLR, Dmax, ϵBLER, w},
+(18)
+where γ is SNR, ν normalized Doppler, cf spectrum contiguity,
+ρL offered load normalized by orthogonal resources, and the
+remaining terms specify RF/baseband budgets and task gates.
+
+
+9
+TABLE VI
+LEVEL-2 SCENARIO RESULTS. ENERGY AND LATENCY REDUCTIONS ARE RELATIVE TO DIRECT MMSE AND ARE PREDICTIONS OF THE COMMON
+ANALYTICAL HARDWARE PROXY.
+Scenario
+Nr/K
+SNR
+median κ
+ρJ,90
+Default action
+BER
+EVM
+Energy red.
+Latency red.
+Favorable short-range massive MIMO
+48/8
+22 dB
+3.85
+0.81
+Jacobi-3, ω = 0.9
+0
+10.76%
+67.1%
+73.3%
+Moderately correlated mobile MIMO
+16/8
+15 dB
+22.45
+2.17
+Diagonal-PCG-5
+2.364×10−2
+22.56%
+10.0%
+22.5%
+Harsh correlated edge MIMO
+12/10
+10 dB
+61.91
+5.00
+Direct MMSE
+9.043×10−2
+59.53%
+0
+0
+Algorithm 2 Level-2 Two-Timescale Receiver-Solver Selection
+Input: Scenario statistics S, block matrix A, vector b
+Output: Estimate ˆx, solver ID, residual, and fallback reason
+1: At the slow timescale, select a default feasible solver from
+Monte Carlo evidence
+2: Estimate conditioning and Jacobi stability for the current
+block
+3: if ρJ < 0.92 and κ(A) < 7 then
+4:
+choose weighted Jacobi
+5: else
+6:
+choose diagonal-PCG
+7: end if
+8: if κ(A) ≥35 then
+9:
+upgrade immediately to Direct MMSE
+10: end if
+11: Run the selected solver with approved iterations and early
+stopping
+12: if residual, EVM, convergence, or deadline gate fails then
+13:
+fall back to Direct MMSE
+14: end if
+15: Log solver, iterations, residual trajectory, cycles, stalls,
+saturation, and fallback reason
+A. Waveform Manifest and Coordinated Switching
+A Level-3 action must describe an executable chain, not
+only a waveform name. Its manifest instantiates
+Vw = {w, µ, NFFT, NCP, p, hcoef,
+rRX, πstate, πRF, tact, wfb},
+(19)
+where µ is numerology, p is the resource map, hcoef identifies
+filter, spreading, or codebook coefficients, rRX identifies
+the matching receiver, and πstate specifies whether channel
+estimates, synchronization loops, and HARQ soft state are
+translated, version-tagged, or flushed. The RF profile πRF
+declares sample rate, occupied band, PA operating point, and
+spectral-mask calibration. Both endpoints acknowledge the
+same manifest hash and activation epoch before transmit
+representation changes.
+The gate must include transition cost as well as steady-state
+performance. For candidate w, define
+Dsw,w = Ddrain + Dload + Dsync + DRF,
+(20)
+Esw,w = Estate + Ememory + ERF,
+(21)
+covering pipeline drain, kernel/coefficient loading, reacquisition,
+RF settling, and state movement. These terms are amortized
+over the expected residence time of the new action. A switch is
+suppressed unless the predicted utility improvement exceeds its
+transition cost and a hysteresis margin; this prevents Doppler,
+spectrum, or load estimates near a boundary from causing
+repeated waveform oscillation.
+The five candidates imply different hardware structures.
+CP-OFDM and SC-FDMA can share FFT engines, cyclic-
+prefix buffers, and resource mappers, with SC-FDMA adding
+DFT spreading. Filtered OFDM adds a coefficient-banked
+FIR/polyphase stage whose group delay and multiplier occu-
+pancy must be scheduled. OTFS can reuse FFT primitives but
+requires two-dimensional transforms, delay–Doppler storage,
+and a detector with a larger working set. SCMA-over-OFDM
+preserves the OFDM modulator but adds codebook lookup and
+iterative multiuser message passing at the receiver. A practical
+FPGA/ASIC therefore benefits from a static streaming shell,
+shared transform and memory primitives, and preverified plug-
+in engines rather than five independent complete modems.
+For SDR and FPGA prototypes, preloading all admitted
+kernels gives the lowest switching latency but consumes more
+memory and logic. Partial reconfiguration reduces resident
+area but introduces bitstream-transfer and configuration delay
+and must preserve the static timing and I/O contract. For
+an ASIC, Level-3 freedom is necessarily bounded by the
+engines fabricated in silicon; the agent can choose microcode,
+coefficients, power states, and routing among them, but cannot
+materialize an unanticipated signal path. Analog and mixed-
+signal resources impose an additional boundary: PA bias, filters,
+PLLs, and ADC/DAC rates expose only calibrated control
+ranges, and RF settling plus EVM/ACLR revalidation must
+complete before the commit is considered successful.
+For candidate w, the hard gates are
+BLERw ≤ϵBLER,
+ACLRw ≥RACLR,
+Dw ≤Dmax,
+Pw ≤Pmax,
+Cw ≤Cmax.
+(22)
+Only the feasible set participates in the task-weighted decision
+w∗= arg max
+w∈F3
+ wSE ¯ηw + wR ¯Rw −wE ¯Ew
+−wD ¯Dw −wC ¯Cw + wSACLRw
++ wU ¯Uw
+
+.
+(23)
+The candidate library is not a set of scene labels. Every tool
+is evaluated in every scene, candidates that fail a hard gate
+are removed, and the normalized objective selects among the
+survivors.
+B. Interpretation of the Selected Waveform Chains
+Continuous downlink and PA-limited uplink: CP-OFDM
+remains the selected action for the continuous-spectrum broad-
+band downlink because its 2.320 bit/s/Hz goodput SE and
+
+
+10
+0
+6
+12
+18
+24
+SNR (dB)
+10
+−6
+10
+−5
+10
+−4
+10
+−3
+10
+−2
+10
+−1
+BER
+(a)
+0
+6
+12
+18
+24
+SNR (dB)
+15.0
+17.5
+20.0
+22.5
+25.0
+27.5
+30.0
+32.5
+Effective SE (bit/s/Hz)
+(b)
+0
+6
+12
+18
+24
+SNR (dB)
+20
+25
+30
+35
+40
+45
+50
+55
+60
+Solver power (mW)
+(c)
+15
+20
+25
+30
+Effective SE (bit/s/Hz)
+10
+20
+30
+40
+50
+60
+Solver power (mW)
+(d)
+Direct MMSE
+PCG-3
+Jacobi-3
+Agent policy
+Fig. 7. Level-2 receiver adaptation. The panels show BER versus SNR, effective spectral efficiency versus SNR, analytical solver power versus SNR, and the
+spectral-efficiency–power tradeoff. The thick envelope is the agent choice after quality gates.
+mature allocation flexibility dominate the current objective. The
+agent therefore preserves the conventional waveform rather than
+changing for its own sake. In the terminal uplink, SC-FDMA
+is selected because DFT spreading reduces PAPR99 from the
+CP-OFDM region to 8.57 dB. Under the present PA model,
+this yields 25.24 nJ/bit while keeping BLER at 3.78 × 10−3.
+High mobility: at normalized Doppler ν = 0.30, the
+OFDM-derived candidates in the current abstraction lose their
+reliability and latency gates, while the OTFS delay–Doppler
+representation remains feasible. OTFS provides 1.976 bit/s/Hz
+at BLER 7.92 × 10−3, but its processing-complexity factor is
+2.75. The selection is thus a context-dependent exchange of
+compute for mobility robustness, not a universal preference
+for OTFS.
+Fragmented spectrum: with spectrum contiguity cf = 0.42
+and a 22-dB ACLR gate, only the filtered-OFDM chain remains
+spectrally feasible. Its generated waveform reaches a 22.66-dB
+leakage proxy and 1.889 bit/s/Hz goodput SE. The 257-tap
+Kaiser-window FIR is intentionally explicit in the candidate
+manifest so that filter delay and multiply cost participate in
+the decision.
+Overloaded access: at offered load ρL = 1.38, orthogonal
+candidates exceed their supported-load region. SCMA-over-
+OFDM uses six sparse layers over four-resource groups, then
+maps the superposed resources through the OFDM chain. It
+is the only feasible candidate in the formal scene, reaching
+2.645 bit/s/Hz aggregate goodput SE, BLER 1.06 × 10−2, and
+9.92-ms P95 latency. The higher complexity factor of 4.20
+remains visible and becomes decisive when the connectivity
+requirement is relaxed.
+The five formal operating points in Table VIII select all
+five registered tools, but this one-to-one outcome is not
+preprogrammed. It follows from the current gates and weights.
+The continuous sweeps in Fig. 9 make that distinction testable.
+CP-OFDM is selected for normalized Doppler 0–0.05, SC-
+FDMA near 0.08, and OTFS from approximately 0.10 to 0.40.
+
+
+11
+Level 3: Guarded Waveform and Multiple-Access Reconfiguration
+Context
+SNR / Doppler
+spectrum / load
+PA + compute
+EXECUTABLE CANDIDATE LIBRARY
+CP-OFDM
+SC-FDMA
+OTFS
+filtered OFDM
+SCMA-over-OFDM
+End-to-end evidence
+BLER / goodput
+PAPR / ACLR
+latency / power
+Gate + coordinate
+hard feasibility
+endpoint capability
+hysteresis + rollback
+Feasible set
+reliability  spectrum
+power  complexity
+Task utility
+SE  energy  latency
+connectivity
+Safe action
+deploy winner or
+minimum-risk fallback
+Fig. 8. Level-3 waveform and multiple-access control. The agent evaluates executable baseband chains under common evidence and gates, maximizes utility
+only inside the feasible set, and coordinates endpoint capability, hysteresis, and rollback before changing the transmitted representation.
+TABLE VII
+COMPLETE LEVEL-3 EXECUTABLE WAVEFORM AND MULTIPLE-ACCESS LIBRARY. FN IS A UNITARY DFT MATRIX, P MAPS ACTIVE RESOURCES, C
+INSERTS THE CYCLIC PREFIX, Hf IS THE IMPLEMENTED SUBBAND FILTER, AND cu IS A SPARSE SCMA SIGNATURE.
+Tool
+Executable transmit construction
+Receiver representation
+Principal advantage
+Cost or risk
+CP-OFDM
+x = CFH
+NPs
+FFT and one-tap subcarrier equalization
+Flexible scheduling and mature processing
+High PAPR and Doppler-induced ICI
+SC-FDMA
+x = CFH
+NPFMs
+FFT, de-map, IDFT, equalize
+Lower PAPR and improved PA efficiency
+Less flexible resource allocation
+OTFS
+Xtf = FH
+τ SddFν; OFDM per slot
+2-D time-frequency/delay-Doppler detection
+Stable representation under mobility
+Higher detection, storage, and processing cost
+Filtered OFDM
+x = HfxOFDM (257-tap Kaiser FIR)
+Subband filter then OFDM receiver
+Improved adjacent-band containment
+Filter transient, latency, and multiply cost
+SCMA-over-OFDM
+xr = PU
+u=1 cu,rsu followed by OFDM
+Sparse multiuser detection over resources
+Load beyond orthogonal resources
+Codebook and message-passing complexity
+TABLE VIII
+LEVEL-3 FORMAL OPERATING POINTS FROM SEED 20260818. POWER AND ENERGY USE TRANSPARENT ANALYTICAL MODELS; PAPR AND LEAKAGE USE
+GENERATED BASEBAND SAMPLES.
+Operating regime
+Selected tool
+Defining state
+Goodput SE
+BLER
+Power
+Energy
+Additional evidence
+Selection reason
+Continuous-spectrum downlink
+CP-OFDM
+Continuous band, broadband
+2.320
+2.0×10−4
+1.427 W
+30.8 nJ/bit
+–
+Flexible high-rate allocation
+PA-limited terminal uplink
+SC-FDMA
+Tight RF budget
+1.820
+3.78×10−3
+0.459 W
+25.24 nJ/bit
+PAPR99 = 8.57 dB
+Higher PA efficiency
+High-mobility doubly selective
+OTFS
+ν = 0.30
+1.976
+7.92×10−3
+0.935 W
+47.3 nJ/bit
+Complexity factor 2.75
+Doppler robustness
+Fragmented industrial spectrum
+f-OFDM
+cf = 0.42
+1.889
+6.16×10−4
+0.610 W
+32.3 nJ/bit
+ACLR proxy 22.66 dB
+Adjacent-band gate
+Dense grant-free access
+SCMA-over-OFDM
+ρL = 1.38
+2.645
+1.06×10−2
+0.600 W
+22.7 nJ/bit
+P95 latency 9.92 ms
+Overloaded connectivity
+Filtered OFDM is selected for spectrum contiguity 0.30–0.90,
+returning to CP-OFDM near a fully contiguous band. CP-
+OFDM remains feasible up to normalized load 1.10; SCMA-
+over-OFDM is selected from 1.15 to 1.50. Under the present
+PA model, CP-OFDM is selected at 0.02–0.03 W RF output
+and SC-FDMA at 0.04–0.18 W.
+These boundaries are empirical properties of the current
+channel distributions, power model, task weights, and hard
+gates. They are not standards constants. Altering the PA model,
+BLER abstraction, bandwidth, candidate implementation, or
+service weights should move the switching points. This
+sensitivity is a desired property: the purpose of the agent is
+to re-evaluate communication form when the relevant context
+changes.
+VIII. DISCUSSION AND DEPLOYMENT BOUNDARY
+A. Two Paradigm Transitions
+The results support the two transitions that motivate the
+paper. The first is a transition in how algorithms are produced:
+manual model-based derivation is increasingly supplemented by
+foundation models that connect knowledge, code, simulation,
+and evaluators. The second is a transition in when algorithms
+can change: an offline-selected implementation becomes a
+versioned runtime object that an agent may parameterize,
+replace, or reconfigure after executable verification. The second
+transition is the focus of the present experiments.
+The three levels quantify the scale of that transition. Level 1
+changes values inside a fixed graph. Level 2 changes the
+numerical algorithm used to realize a fixed receiver objective.
+Level 3 changes the transmitted representation or multiple-
+access chain. The progression is not a claim that a higher
+level is always better. When direct MMSE or CP-OFDM is the
+
+
+12
+0.0
+0.1
+0.2
+0.3
+0.4
+Normalized Doppler
+0.0
+0.5
+1.0
+1.5
+2.0
+Goodput SE (bit/s/Hz)
+(a)
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+Spectrum contiguity
+1.2
+1.4
+1.6
+1.8
+2.0
+Goodput SE (bit/s/Hz)
+(b)
+0.6
+0.8
+1.0
+1.2
+1.4
+Offered load / orthogonal resources
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+Aggregate goodput SE (bit/s/Hz)
+(c)
+0.025
+0.050
+0.075
+0.100
+0.125
+0.150
+0.175
+RF output power (W)
+10
+20
+30
+40
+50
+60
+70
+80
+Energy per delivered bit (nJ/bit)
+(d)
+CP-OFDM
+SC-FDMA
+OTFS
+f-OFDM
+SCMA/OFDM
+Agent envelope
+Fig. 9. Level-3 continuous sweeps. The agent envelope changes tool as normalized Doppler, spectrum contiguity, offered load, or RF output power changes.
+Vertical dashed lines mark empirical switching points under the current models and gates.
+safest feasible action, the agent should preserve it. Intelligence
+includes the ability not to change.
+B. Safety and Implementation
+Four mechanisms separate controlled adaptation from arbi-
+trary online mutation. First, every action belongs to a registered
+and typed library. Second, hard gates precede task utility.
+Third, both endpoints must agree on a Level-3 artifact and
+activation epoch. Fourth, monitoring, hysteresis, and fallback
+remain active after deployment. A future implementation can
+lower the versioned artifact to C/CUDA, FPGA overlays, or
+reconfigurable accelerator instructions, but the lowering and
+hardware mapping must themselves be verified.
+The natural implementation is split between a non-real-time
+intelligence plane and a deterministic real-time control plane.
+The intelligence plane may use an LLM, search, simulation, and
+historical traces to enlarge or reprioritize the library. The real-
+time controller receives only compact manifests, calibrated
+metric models, thresholds, and policy tables. It executes
+bounded state estimation, gate evaluation, scheduling, and
+watchdog logic; no token generation is required at the symbol,
+sample, or channel-block rate. This separation makes worst-case
+timing analysis possible and allows the communications link to
+continue with the last-known-good artifact if the agent service,
+network connection, or accelerator manager is unavailable.
+Hardware admission should be evidence-based at the artifact
+level. Software targets require binary hashes, ABI compatibility,
+memory isolation, and measured worst-case execution time.
+FPGA targets require signed bitstreams or overlays, static-
+shell compatibility, timing closure, resource bounds, and fixed-
+point regression. ASIC targets require an existing engine or
+microcode path and characterized voltage/frequency/thermal
+operating points. RF profiles require calibrated tuning ranges,
+EVM, ACLR, spurious-emission, and settling-time evidence.
+The deployment guard checks these properties before per-
+formance utility; a candidate with higher simulated rate is
+inadmissible if its implementation can miss a deadline, overflow
+local memory, violate a spectral mask, or leave no verified
+rollback path.
+Monitoring must also be hierarchical. Fast hardware watch-
+
+
+13
+Algorithm 3 Level-3 Safe Waveform and Multiple-Access
+Adaptation
+Input: State s, candidate library W, task weights w
+Output: Deployable waveform chain w∗or minimum-risk
+fallback
+1: Observe SNR, Doppler, delay spread, spectrum contiguity,
+load, and PA budget
+2: for all w ∈W do
+3:
+Generate executable baseband blocks; measure PAPR
+and leakage proxy
+4:
+Evaluate BLER, goodput SE, latency, power, and com-
+plexity
+5:
+Keep w only if reliability, spectral, power, and complex-
+ity gates pass
+6: end for
+7: if the feasible set is nonempty then
+8:
+maximize weighted task utility
+9: else
+10:
+minimize violated gates and risk
+11: end if
+12: Charge pipeline, loading, synchronization, RF, and state-
+transfer costs
+13: Apply hysteresis and endpoint capability checks before
+switching
+14: Build and acknowledge a versioned dual-endpoint manifest
+15: Pre-stage kernels, coefficients, state policy, RF profile, and
+fallback
+16: Commit w∗at the agreed epoch; monitor and roll back on
+violation
+dogs observe overflow, residual growth, missed deadlines,
+thermal alarms, PLL unlock, and buffer under/overflow. Link-
+level monitors aggregate BLER, retransmission, EVM, CSI
+age, and queueing. The supervisory agent observes longer-term
+utility and distribution shift. A fast violation triggers local
+fallback without waiting for the LLM or global optimizer;
+repeated fallback events invalidate the manifest for that context
+and return evidence to the offline generation loop.
+C. Evidence Limitations
+The evidence has three principal limits. First, Level 1
+uses coded baseband Monte Carlo and engineering models;
+it is not a standards-conformant BLER/HARQ experiment.
+Second, Level 2 uses correlated Rayleigh block fading, linear
+detection, hard QAM decisions, and analytical energy/latency
+proxies. It does not yet include 3GPP CDL channels, soft-
+output decoding, fixed-point overflow, memory contention,
+or measured ASIC/FPGA power. Third, Level 3 generates
+baseband samples for PAPR and leakage, but its BLER, latency,
+complexity, PA, and power models remain analytical. The
+experiments validate the adaptation mechanism and expose
+working regions; they do not certify a radio implementation.
+The next steps are therefore concrete: add LDPC/Polar
+coding and soft outputs; replace analytical power by synthesis-
+or measurement-backed models; calibrate synchronization,
+EVM, and spectral masks; generate dual-endpoint implemen-
+tations; and validate switching, negotiation, and rollback in
+an SDR hardware-in-the-loop platform. Foundation-model
+proposers can then expand the candidate library, while the
+same executable gates retain deployment authority.
+IX. CONCLUSION
+This paper presented the Agent-Native Metamorphic Com-
+munication Fabric as a mechanism for moving from fixed-
+algorithm execution to verifiable runtime communication
+adaptation. The central change is not a larger offline search
+alone. It is the combination of design intelligence with runtime
+intelligence: AI can assist the production of communication
+algorithms, and an agent can subsequently decide whether a
+parameter, receiver algorithm, or waveform remains appropriate
+under the current task, channel, spectrum, and hardware
+constraints. Level-1 experiments demonstrated low-risk pa-
+rameter adaptation, Level-2 experiments established condition-
+dependent switching among Jacobi, PCG, and direct MMSE,
+and Level-3 experiments formed waveform and multiple-access
+switching regions across five registered tools. The results do not
+imply that one new waveform or solver should replace existing
+standards. They show that future communication systems can
+treat algorithms as explicit, versioned, and verifiable runtime
+objects whose modification scale is matched by an appropriate
+validation and deployment boundary.
+APPENDIX A
+EXECUTION BUDGETS AND REPRODUCIBILITY
+Level 1 uses seed 20260811, four repetitions per candidate, 500
+coded blocks, and 1200 PAPR blocks per repetition. Level 2 uses seed
+20260818,
+700
+common-random-number
+channel
+blocks
+per
+formal
+scenario; its SNR sweep uses 500 blocks per point, 32 × 8 MIMO,
+16-QAM, and transmit correlation 0.05. Zero empirical BER remains
+zero in JSON, while plots use 0.5/Nbits only for logarithmic placement.
+Level 3 uses seed 20260818 for five formal scenes and four continuous
+sweeps.
+The
+frozen
+artifacts
+are
+three_layer_results.json,
+layer2_receiver_adaptation.json,
+layer2_snr_
+sweep.json,
+layer3_waveform_adaptation.json,
+and
+layer3_waveform_sweeps.json
+under
+results/;
+executable
+entry points with matching names are under sim/ in the companion
+agent-communication-demo workspace.
+APPENDIX B
+COMPLETE LEVEL-1 CANDIDATE EVIDENCE
+Table IX reports every generated Level-1 candidate. The
+selected row is the highest-utility candidate among those that
+pass the reliability and complexity gates; a lower-cost or higher-
+rate row is not eligible when its reliability gate fails.
+APPENDIX C
+COMPLETE LEVEL-2 SOLVER EVIDENCE
+Table X retains the 24 common-random-number evaluations
+used by the slow-timescale policy. The direct solution is not
+automatically selected whenever it is feasible: the policy first
+removes infeasible candidates, then applies scenario weights to
+the remaining quality–cost tradeoff. The fast guard described
+in Algorithm 2 operates after this default selection.
+
+
+14
+TABLE IX
+ALL LEVEL-1 CANDIDATES. RATE IS IN MB/S, LATENCY IN MS, AND ENERGY IN NJ/BIT. R/C DENOTES RELIABILITY/COMPLEXITY GATE.
+Agent
+M
+Rc
+ρp
+EQ
+bq
+BER
+R/C
+Rate
+Latency
+Energy
+Selected
+MCS
+4
+1/2
+0.08
+robust-MMSE
+8
+8.152×10−5
+Y/Y
+14.05
+2387.93
+121.93
+–
+MCS
+4
+3/4
+0.08
+robust-MMSE
+8
+9.143×10−4
+Y/Y
+21.08
+1591.99
+80.46
+–
+MCS
+16
+1/2
+0.08
+robust-MMSE
+8
+2.739×10−3
+Y/Y
+28.10
+1194.02
+60.27
+–
+MCS
+16
+3/4
+0.08
+robust-MMSE
+8
+7.750×10−3
+Y/Y
+42.16
+796.05
+39.70
+Y
+MCS
+64
+1/2
+0.08
+robust-MMSE
+8
+1.210×10−2
+N/Y
+42.16
+796.05
+39.53
+–
+MCS
+64
+3/4
+0.08
+robust-MMSE
+8
+3.606×10−2
+N/Y
+63.24
+530.73
+26.71
+–
+Tracking
+4
+3/4
+0.08
+MMSE
+8
+7.363×10−2
+N/Y
+4.14
+190.11
+162.02
+–
+Tracking
+4
+3/4
+0.08
+robust-MMSE
+8
+6.909×10−2
+N/Y
+4.14
+190.12
+166.84
+–
+Tracking
+4
+3/4
+0.16
+MMSE
+8
+4.668×10−2
+Y/Y
+3.78
+208.20
+178.56
+Y
+Tracking
+4
+3/4
+0.16
+robust-MMSE
+8
+5.046×10−2
+Y/Y
+3.78
+208.21
+182.00
+–
+Precision
+16
+3/4
+0.08
+robust-MMSE
+8
+1.873×10−3
+Y/Y
+18.40
+57.14
+13.44
+Y
+Precision
+16
+3/4
+0.08
+robust-MMSE
+12
+1.933×10−3
+Y/Y
+18.40
+57.14
+14.61
+–
+TABLE X
+ALL LEVEL-2 SOLVER CANDIDATES. r95 IS P95 NORMALIZED RESIDUAL; DIV. IS DIVERGENCE RATE; ENERGY IS NJ/VECTOR AND LATENCY IS µS/VECTOR.
+F/M/H DENOTE FAVORABLE, MODERATE, AND HARSH SCENARIOS.
+Scene
+ID
+Solver
+T
+ω
+BER
+EVM
+r95
+Div.
+Energy
+Latency
+Feasible/selected
+F
+J2
+Jacobi
+2
+.90
+0
+18.63%
+.286
+.09%
+1.45
+.016
+N/–
+F
+J3
+Jacobi
+3
+.90
+0
+10.76%
+.178
+0
+1.95
+.024
+Y/Y
+F
+J4
+Jacobi
+4
+.90
+0
+6.91%
+.114
+0
+2.45
+.032
+Y/–
+F
+J6
+Jacobi
+6
+.82
+0
+4.33%
+.022
+0
+3.46
+.048
+Y/–
+F
+P2
+PCG
+2
+–
+0
+13.40%
+.133
+0
+2.65
+.028
+N/–
+F
+P3
+PCG
+3
+–
+0
+5.55%
+.047
+0
+3.58
+.042
+Y/–
+F
+P5
+PCG
+5
+–
+0
+3.60%
+.004
+0
+5.44
+.070
+Y/–
+F
+D
+Direct
+–
+–
+0
+3.58%
+0
+0
+5.94
+.090
+Y/–
+M
+J2
+Jacobi
+2
+.90
+.3605
+99.35%
+3.188
+96.29%
+1.45
+.016
+N/–
+M
+J3
+Jacobi
+3
+.90
+.2743
+157.81%
+6.126
+96.40%
+1.95
+.024
+N/–
+M
+J4
+Jacobi
+4
+.90
+.4212
+279.14%
+11.903
+96.69%
+2.45
+.032
+N/–
+M
+J6
+Jacobi
+6
+.82
+.3630
+448.44%
+19.114
+85.96%
+3.46
+.048
+N/–
+M
+P2
+PCG
+2
+–
+.1731
+47.40%
+.256
+.04%
+2.65
+.028
+N/–
+M
+P3
+PCG
+3
+–
+.09257
+34.82%
+.135
+0
+3.58
+.042
+N/–
+M
+P5
+PCG
+5
+–
+.02364
+22.56%
+.038
+0
+5.44
+.070
+Y/Y
+M
+D
+Direct
+–
+–
+.01332
+20.13%
+0
+0
+6.04
+.090
+Y/–
+H
+J2
+Jacobi
+2
+.90
+.5945
+466.36%
+19.757
+100%
+1.98
+.020
+N/–
+H
+J3
+Jacobi
+3
+.90
+.3570
+1848.26%
+89.425
+100%
+2.75
+.030
+N/–
+H
+J4
+Jacobi
+4
+.90
+.6219
+7650.32%
+408.334
+100%
+3.51
+.040
+N/–
+H
+J6
+Jacobi
+6
+.82
+.6235
+71294.01%
+4302.772
+100%
+5.04
+.060
+N/–
+H
+P2
+PCG
+2
+–
+.1951
+75.04%
+.272
+.24%
+3.52
+.032
+N/–
+H
+P3
+PCG
+3
+–
+.1339
+66.35%
+.119
+0
+4.88
+.048
+N/–
+H
+P5
+PCG
+5
+–
+.09395
+60.08%
+.022
+0
+7.60
+.080
+Y/–
+H
+D
+Direct
+–
+–
+.09043
+59.53%
+0
+0
+9.10
+.119
+Y/Y
+APPENDIX D
+COMPLETE LEVEL-3 WAVEFORM EVIDENCE
+Table XI evaluates every executable waveform tool in every
+formal scene. A row marked infeasible violates at least one
+reliability, ACLR, latency, power, or complexity gate. Large
+energy and latency values in failed high-mobility or overloaded
+orthogonal links are consequences of the current retransmission
+abstraction and should be read as failure indicators, not as
+hardware predictions.
+REFERENCES
+[1] Framework and Overall Objectives of the Future Development of IMT
+for 2030 and Beyond, ITU-R Std. Recommendation ITU-R M.2160-0,
+2023.
+[2] T. S. Rappaport, Y. Xing, O. Kanhere, S. Ju, G. R. MacCartney, A. F.
+Molisch, E. Mellios, and J. Zhang, “Wireless communications and
+applications above 100 GHz: Opportunities and challenges for 6G and
+beyond,” IEEE Access, vol. 7, pp. 78 729–78 757, 2019.
+[3] W. Saad, M. Bennis, and M. Chen, “A vision of 6G wireless systems:
+Applications, trends, technologies, and open research problems,” IEEE
+Network, vol. 34, no. 3, pp. 134–142, 2020.
+[4] T. J. O’Shea and J. Hoydis, “An introduction to deep learning for the
+physical layer,” IEEE Transactions on Cognitive Communications and
+Networking, vol. 3, no. 4, pp. 563–575, 2017.
+[5] F. A. Aoudia and J. Hoydis, “Model-free training of end-to-end commu-
+nication systems,” IEEE Journal on Selected Areas in Communications,
+vol. 37, no. 11, pp. 2503–2516, 2019.
+[6] S. Cammerer, F. A. Aoudia, J. Hoydis, A. Oeldemann, A. Roessler,
+T. Mayer, and A. Keller, “A neural receiver for 5G NR multi-user
+MIMO,” arXiv preprint arXiv:2312.02601, 2023.
+[7] A. Novikov, N. Vu, M. Eisenberger, E. Dupont, P.-S. Huang, A. Z.
+Wagner, S. Shirobokov, B. Kozlovskii, F. J. R. Ruiz, A. Mehrabian,
+
+
+15
+TABLE XI
+ALL LEVEL-3 WAVEFORM/MULTIPLE-ACCESS CANDIDATES. SE IS GOODPUT BIT/S/HZ, POWER IS W, ENERGY IS NJ/BIT, LATENCY IS MS, AND C IS
+NORMALIZED PROCESSING COMPLEXITY. B/U/M/F/A DENOTE BROADBAND DOWNLINK, BATTERY UPLINK, HIGH MOBILITY, FRAGMENTED SPECTRUM,
+AND MASSIVE ACCESS.
+Scene
+Tool
+BLER
+SE
+PAPR
+ACLR
+Power
+Energy
+Latency
+C
+Feasible
+Selected
+B
+CP-OFDM
+2.34×10−4
+2.320
+10.34
+18.49
+1.427
+30.75
+723.17
+1.00
+Y
+Y
+B
+SC-FDMA
+2.15×10−4
+2.218
+8.57
+18.55
+1.240
+27.96
+756.41
+1.22
+Y
+–
+B
+OTFS
+1.58×10−4
+2.116
+10.32
+18.58
+1.611
+38.08
+792.82
+2.75
+N
+–
+B
+f-OFDM
+2.48×10−4
+2.192
+10.33
+22.66
+1.506
+34.33
+765.23
+1.75
+Y
+–
+B
+SCMA/OFDM
+1.63×10−4
+1.912
+10.56
+19.12
+1.798
+47.00
+877.39
+4.20
+N
+–
+U
+CP-OFDM
+4.91×10−3
+1.902
+10.34
+18.49
+.547
+28.76
+220.57
+1.00
+Y
+–
+U
+SC-FDMA
+3.78×10−3
+1.820
+8.57
+18.55
+.459
+25.24
+230.45
+1.22
+Y
+Y
+U
+OTFS
+1.55×10−3
+1.740
+10.32
+18.58
+.588
+33.78
+241.02
+2.75
+N
+–
+U
+f-OFDM
+5.79×10−3
+1.796
+10.33
+22.66
+.564
+31.42
+233.60
+1.75
+N
+–
+U
+SCMA/OFDM
+3.22×10−3
+1.570
+10.56
+19.12
+.636
+40.53
+267.18
+4.20
+N
+–
+M
+CP-OFDM
+1.00
+0
+10.34
+18.49
+.858
+2.03×106
+4.97×106
+1.00
+N
+–
+M
+SC-FDMA
+1.00
+0
+8.57
+18.55
+.728
+5.72×105
+1.65×106
+1.22
+N
+–
+M
+OTFS
+7.92×10−3
+1.976
+10.32
+18.58
+.935
+47.32
+106.13
+2.75
+Y
+Y
+M
+f-OFDM
+1.00
+0
+10.33
+22.66
+.891
+1.68×107
+3.96×107
+1.75
+N
+–
+M
+SCMA/OFDM
+1.00
+0
+10.56
+19.12
+1.021
+1.47×106
+3.01×106
+4.20
+N
+–
+F
+CP-OFDM
+5.38×10−4
+1.429
+10.34
+18.49
+.585
+40.95
+73.37
+1.00
+N
+–
+F
+SC-FDMA
+4.37×10−4
+1.253
+8.57
+18.55
+.499
+39.85
+83.69
+1.22
+N
+–
+F
+OTFS
+2.20×10−4
+1.456
+10.32
+18.58
+.643
+44.20
+72.05
+2.75
+N
+–
+F
+f-OFDM
+6.16×10−4
+1.889
+10.33
+22.66
+.610
+32.29
+55.52
+1.75
+Y
+Y
+F
+SCMA/OFDM
+3.59×10−4
+1.393
+10.56
+19.12
+.706
+50.68
+75.27
+4.20
+N
+–
+A
+CP-OFDM
+.989
+.010
+10.34
+18.49
+.491
+5088.80
+2718.54
+1.00
+N
+–
+A
+SC-FDMA
+.989
+.010
+8.57
+18.55
+.421
+4244.24
+2642.22
+1.22
+N
+–
+A
+OTFS
+.981
+.018
+10.32
+18.58
+.544
+3108.27
+1497.84
+2.75
+N
+–
+A
+f-OFDM
+.990
+.009
+10.33
+22.66
+.513
+5469.40
+2792.86
+1.75
+N
+–
+A
+SCMA/OFDM
+1.06×10−2
+2.645
+10.56
+19.12
+.600
+22.69
+9.92
+4.20
+Y
+Y
+M. P. Kumar, A. See, S. Chaudhuri, G. Holland, A. Davies, S. Nowozin,
+P. Kohli, and M. Balog, “AlphaEvolve: A coding agent for scientific and
+algorithmic discovery,” arXiv preprint arXiv:2506.13131, 2025.
+[8] F. A. Aoudia, J. Hoydis, S. Cammerer, G. Marti, M. Nimier-David,
+N. Roussel, and A. Keller, “Autonomous discovery of wireless commu-
+nications algorithms,” arXiv preprint arXiv:2607.17762, 2026.
+[9] S. Haykin, “Cognitive radio: Brain-empowered wireless communications,”
+IEEE Journal on Selected Areas in Communications, vol. 23, no. 2, pp.
+201–220, 2005.
+[10] NR; Physical Channels and Modulation, 3GPP Std. TS 38.211, 2024.
+[11] J. Hoydis, F. A. Aoudia, A. Valcarce, and H. Viswanathan, “Toward a
+6G AI-native air interface,” IEEE Communications Magazine, vol. 59,
+no. 5, pp. 76–81, 2021.
+[12] Study on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air
+Interface, 3GPP Std. TR 38.843, V18.0.0, 2024.
+[13] S. Liu, S. Wang, J. Chen, W. Mei, and R. Zhang, “AlphaCom: An LLM-
+based agentic framework for automated physical layer communication
+algorithm design,” 2026, manuscript under review at IEEE Transactions
+on Vehicular Technology.
+[14] W. Zuo, J. Chen, W. Liu, and W. Qian, “RLDALS: Reinforcement
+learning-guided domain-specific language model framework for approxi-
+mate logic synthesis,” 2026, manuscript.
+[15] R. Hadani, S. Rakib, M. Tsatsanis, A. Monk, A. J. Goldsmith, A. F.
+Molisch, and R. Calderbank, “Orthogonal time frequency space mod-
+ulation,” in Proc. IEEE Wireless Communications and Networking
+Conference (WCNC), 2017, pp. 1–6.
+[16] X. Zhang, M. Jia, L. Chen, J. Ma, and J. Qiu, “Filtered-OFDM—enabler
+for flexible waveform in the 5th generation cellular networks,” in Proc.
+IEEE Global Communications Conference (GLOBECOM), 2015, pp. 1–6.
+[17] H. Nikopour and H. Baligh, “Sparse code multiple access,” in Proc.
+IEEE 24th International Symposium on Personal, Indoor and Mobile
+Radio Communications (PIMRC), 2013, pp. 332–336.

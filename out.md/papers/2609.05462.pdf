@@ -1,0 +1,784 @@
+Large Language Models as Strategic Bidding
+Agents in P2P Energy Trading Markets
+Ismail Lotfi∗, Ali Ghrayeb∗and Haitham Abu-Rub∗
+∗College of Science and Engineering, Hamad Bin Khalifa University, Doha, Qatar
+Abstract—Peer-to-peer (P2P) energy trading markets rely on
+double auction mechanisms to match prosumers and consumers
+in smart grid distribution networks. However, the strategic behav-
+ior of bidding agents in such markets remains not fully explored,
+particularly in repeated settings with bounded rationality. This
+paper proposes a novel framework that integrates large language
+models (LLMs) as reasoning-driven bidding agents in repeated
+P2P energy double auctions. We compare the performance of
+three bidding strategies: random bidding, an ε-greedy multi-
+armed bandit (MAB) approach, and an LLM-based strategy.
+Simulation results show that the LLM-based strategy achieves
+superior cleared trading volume over the first episodes compared
+to ε-greedy MAB and random bidding baselines, eliminating the
+exploration burn-in period that statistical learning algorithms
+inherently require before converging to productive price arms.
+Importantly, when tested in an environment different from the
+one used during learning, the performance of the ε-greedy
+strategy drops significantly, while that of the LLM-based bidding
+strategy continue to achieve higher surplus and successful trades.
+Nevertheless, the LLM’s advanced contextual reasoning also
+gives rise to an important market dynamic. In a homogeneous
+population of LLM agents, sellers increasingly exploit buyers’
+rational outside options to drive clearing prices above the
+Nash equilibrium, resulting in a progressively more asymmetric
+allocation of surplus in favor of sellers that does not converge
+within the observed time horizon.
+Index Terms—Bidding strategy, large language models, P2P
+energy trading, repeated double auction, smart grids.
+I. INTRODUCTION
+A. Background
+The rapid deployment of distributed energy resources
+(DERs), such as rooftop photovoltaic systems and small wind
+turbines, has transformed electricity consumers in smart grids
+into prosumers capable of both producing and consuming en-
+ergy [1]. As traditional compensation schemes, including feed-
+in-tariff (FIT) and net metering, face increasing scalability and
+equity challenges as grid infrastructure costs are disproportion-
+ately borne by non-DER consumers [2]. Peer-to-peer (P2P)
+energy trading has emerged as a promising alternative that
+enables direct energy exchange among participants without
+relying exclusively on the utility.
+Double auction mechanisms are particularly well suited for
+P2P energy trading in smart grids because they efficiently
+match buyers and sellers while balancing traded volume, bud-
+get balance, and surplus allocation [2]–[4]. However, their per-
+formance strongly depends on the bidding strategies adopted
+by market participants. Designing intelligent bidding agents
+is especially challenging in repeated auctions, where agents
+operate under bounded rationality and must continuously adapt
+to changing market conditions.
+B. Related Works
+Early studies on P2P energy trading relied on heuristic
+bidding strategies or statistical learning methods. Guerrero et
+al. [5] employed zero-intelligent plus (ZIP) agents within a
+continuous double auction, while Zhao et al. [2] investigated
+multi-armed bandit (MAB) algorithms, including upper confi-
+dence bound (UCB) and ε-greedy, in large-scale P2P markets.
+Owing to their decentralized nature, MAB methods scale effi-
+ciently to thousands of participants. However, they eventually
+converge to nearly static bidding policies and must re-explore
+whenever market conditions change. To improve adaptability,
+several studies have adopted reinforcement learning (RL),
+particularly multi-agent reinforcement learning (MARL), to
+learn bidding policies through repeated market interactions [3],
+[6]–[8]. Although these approaches can capture strategic in-
+teractions among agents, they typically require centralized
+training, substantial computational resources, and relatively
+stable environments, which limits their scalability and practical
+deployment.
+More recently, large language models (LLMs) have demon-
+strated strong reasoning and decision-making capabilities in
+strategic environments, including auction-based resource allo-
+cation [9], [10]. In smart grids, however, LLMs have primarily
+been used as auxiliary modules for reward shaping, market
+assessment, or price forecasting rather than autonomous bid-
+ding agents [11]–[14]. Consequently, their ability to directly
+participate in repeated P2P energy double auctions remains
+largely unexplored.
+C. Research Gap and Contributions
+Learning-based methods, including MAB and RL, optimize
+their policies for the environment encountered during train-
+ing. However, when the underlying environment changes, the
+learned policy may no longer remain optimal, requiring addi-
+tional exploration or even complete retraining before recover-
+ing its performance. This limitation is particularly relevant in
+P2P energy markets, where the market conditions are inher-
+ently dynamic. Changes in the number of participating buyers
+and sellers, pricing rules, renewable generation, electricity
+demand, or user behavior can all alter the reward distribution
+experienced by learning agents. In contrast, LLMs rely on
+contextual reasoning rather than memorized policies, allowing
+arXiv:2609.05462v1  [cs.GT]  12 Aug 2026
+
+
+them to adapt their bidding decisions without retraining. How-
+ever, it is unclear whether an LLM can replace conventional
+bidding algorithms and autonomously participate in repeated
+P2P energy markets. Furthermore, little is known about the
+market dynamics that emerge when multiple reasoning-capable
+LLM agents repeatedly interact, particularly regarding market
+efficiency, surplus allocation, and strategic behavior. Under-
+standing these interactions is becoming increasingly impor-
+tant given recent evidence that LLM agents may exhibit
+sophisticated strategic or even collusive behaviors in auction
+settings [15], [16]. To address these questions, this paper
+proposes an LLM-driven bidding framework for repeated P2P
+energy double auctions and evaluates it against conventional
+decentralized bidding strategies. The main contributions are
+summarized as follows:
+1) Autonomous LLM bidding framework. We propose,
+to the best of our knowledge, the first framework that
+employs an LLM as a standalone bidding agent for
+double auctions in P2P energy trading. Unlike existing
+approaches that use LLMs only as auxiliary modules,
+the proposed agent generates bid prices directly from
+observable market information through natural-language
+reasoning, without policy optimization.
+2) Comprehensive benchmarking. We compare the pro-
+posed LLM bidding strategy with random bidding and
+the widely adopted ε-greedy MAB algorithm under the
+k-double auction mechanism [2]. The comparison eval-
+uates cleared trading volume, auction surplus, conver-
+gence characteristics, and bidding behavior over repeated
+market interactions. Simulation results demonstrate that
+the LLM-based strategy outperforms both baselines in
+terms of market efficiency and bid precision, and adapts
+immediately to changing of markets dynamics without
+requiring a relearning period, a limitation that ε-greedy
+and other learning-based methods cannot overcome by
+design.
+3) Characterization of emergent market behavior. We
+show that homogeneous populations of LLM agents
+(i.e., all agents uses LLM-based bidding strategy) exhibit
+qualitatively different strategic behavior, where sellers
+progressively exploit buyers’ outside options to increase
+clearing prices beyond the Nash equilibrium, producing
+an increasingly asymmetric surplus distribution. These
+findings reveal both the potential and the risks of de-
+ploying reasoning-capable AI agents in future electricity
+markets.
+The remainder of this paper is organized as follows. Sec-
+tion II presents the system model, auction mechanism and the
+bidding strategies. Section III presents the LLM-based biding
+strategy and addresses some practical deployment challenges.
+Section IV presents the numerical results. Section V concludes
+the paper.
+II. SYSTEM MODEL AND BASELINE BIDDING STRATEGIES
+In this section, we describe our studied system model,
+formalize the k-Double auction mechanism and then describe
+the baseline bidding strategies employed by bidding agents.
+A. Market Participants and Roles
+We consider a local P2P energy distribution network within
+the smart grid ecosystem, comprising two categories of agents:
+pure consumers (buyers) and prosumers. Prosumers are DER
+owners (e.g., households equipped with rooftop photovoltaic
+systems) that participate in the market by selling their excess
+renewable generation. Following [2], we assume that sellers
+(prosumers with excess PV generation) have zero marginal
+costs, and all DER quantities not consumed locally are offered
+to the market (i.e., no local storage).
+B. Auction Surplus and Learning
+The performance of a P2P energy market is evaluated using
+the auction surplus, which measures the economic benefit
+obtained from trading relative to the utility as the outside
+option. Buyers can always purchase electricity from the grid
+at the retail price PUR, while sellers can sell surplus energy
+to the grid at the feed-in tariff PFIT, where PFIT < PUR.
+Consequently, any clearing price pau
+i
+∈(PFIT, PUR) benefits
+both parties. The surplus (reward) of agent i is then defined
+as:
+¯Si =
+(
+(PUR −pau
+i )qau
+i ,
+buyer,
+(pau
+i −PFIT)qau
+i ,
+seller,
+(1)
+where qau
+i
+is the cleared energy quantity.
+To facilitate learning, rewards are normalized to [0, 1]:
+πt
+i,b = PUR −pau,t
+i
+PUR −PFIT
+, buyer,
+(2)
+πt
+i,s = pau,t
+i
+−PFIT
+PUR −PFIT
+, seller.
+(3)
+If an agent is not matched in auction round t (i.e., qau,t
+i
+= 0),
+its normalized reward is set to zero, corresponding to the utility
+fallback outcome.
+C. k-Double Auction Mechanism
+In the k-Double auction [2], [17], buyer bids and seller asks
+are first sorted in descending and ascending order, respectively:
+pb1 > pb2 > · · · > pbm,
+ps1 < ps2 < · · · < psn.
+(4)
+The intersection of the demand and supply curves deter-
+mines the traded quantity Q∗, with marginal buyer bid pbL
+and marginal seller ask psH. The clearing price is computed
+as
+P ∗= k pbL + (1 −k) psH,
+k ∈[0, 1].
+(5)
+All matched agents trade at P ∗, while unmatched agents
+trade with the grid. In the repeated auction setting, each
+agent selects a bid at every round without knowing future
+market outcomes, giving rise to an exploration–exploitation
+trade-off. The following subsections compare three bidding
+strategies with increasing sophistication: random bidding, ε-
+greedy multi-armed bandits, and the proposed LLM-based
+bidding agent.
+
+
+D. Baseline Bidding Strategies
+1) Random Bidding: Buyers and sellers bid random values
+in the range [PFIT, PUR] [3].
+2) ε-Greedy Algorithm: The MAB framework models each
+bid price as an arm with an unknown reward distribution.
+At round t, agent i maintains, for each arm k, the number
+of selections ni(t, k) and its empirical average normalized
+reward [2], [18]:
+¯πi(k) =
+1
+ni(t, k)
+t
+X
+τ=1
+π(τ)
+i
+1{ξ(τ) = k},
+(6)
+where ξ(τ) is the selected arm and π(τ)
+i
+is the normalized
+reward. The ε-greedy policy balances exploration and exploita-
+tion by selecting the arm with the highest empirical reward
+with probability 1 −ε, and a uniformly random arm with
+probability ε:
+ξ(t) =
+(
+arg maxk ¯πi(k),
+with probability 1 −ε,
+Uniform{1, . . . , K},
+with probability ε.
+(7)
+III. METHODOLOGY
+A. LLM-Based Bidding Strategy
+We introduce an LLM-based bidding agent in which the
+language model reasons over a structured prompt containing:
+The agent’s current role (buyer/seller) and the agent’s histori-
+cal reward trajectory and the current auction mechanism type.
+The prompt template is illustrated in Figure. 1. The LLM
+outputs a recommended bid value b∗and a natural-language
+explanation E of its reasoning. We use gpt-5-mini for all
+LLM experiments as used in previous works (e.g. [10], [12]),
+chosen for its balance of reasoning depth and inference latency.
+The LLM is particularly advantageous in this setting because:
+(i) it can reason about the P2P market changes and adjust
+bids accordingly; (ii) and it can anticipate bang-bang price
+dynamics and avoid extreme bids that lead to zero reward.
+LLM Prompt Template (P2P Energy Auction)
+Context:
+• Role: [buyer/seller],
+• Reserve prices: PFIT = [$], PUR = [$]
+• Last bidding prices and rewards (last 10 rounds): [value]
+• Mechanism: [k-double]
+Task: Recommend a bid price to maximize your surplus over
+future rounds. Justify your reasoning briefly.
+Response format:
+Bid: [value]
+Reasoning: [explanation]
+Figure 1. LLM prompt template for P2P auction bidding.
+B. Practical Deployment Challenges
+A fundamental tension inherent to deploying LLMs as
+bidding agents in P2P energy markets is that the most ca-
+pable LLM reasoning engines are cloud-hosted and require
+sensitive prosumer data to be transmitted off-premises, while
+privacy-preserving local deployment faces severe computa-
+tional constraints on residential home energy management
+systems (HEMS) hardware. We highlight bellow two primary
+approaches that can be used to alleviate this challenge:
+• Differentially Private Prompt Construction: Differential
+privacy [19] provides a rigorous mathematical framework
+for quantifying and bounding the privacy leakage of data-
+dependent computations. In the LLM bidding context,
+differential privacy can be applied at the prompt con-
+struction stage: before any numerical feature is included
+in the LLM prompt, calibrated Gaussian or Laplace noise
+is added to each sensitive quantity. For a feature x with
+global sensitivity ∆x (the maximum change in x due
+to a single agent’s data), the Gaussian mechanism adds
+noise η ∼N(0, σ2) with σ = ∆x ·
+p
+2 ln(1.25/δ)/εpriv
+to produce the privatized feature ˜x = x + η included in
+the prompt, where δ ∈(0, 1) is the failure probability and
+εpriv is the privacy budget.
+• Edge-Deployable Small Language Models: The most
+structurally clean solution is to eliminate the cloud de-
+pendency entirely by deploying a sufficiently compact
+LLM directly on the HEMS device. Recent advances
+in model compression, including quantization, pruning,
+and knowledge distillation, have produced a new class
+of small language models (SLMs) that retain substantial
+reasoning capability at a fraction of the computational
+cost of frontier models [20]. Modern HEMS devices and
+smart home hubs (e.g., those based on Raspberry Pi 5,
+NVIDIA Jetson Nano) already meet the memory and
+compute requirements for SLM parameter models at 4-bit
+quantization [21]. However, the monetary and reasoning
+quality trade-offs between deploying LLMs on the edge
+or on the cloud should be investigated.
+IV. NUMERICAL RESULTS
+We evaluate the performance of LLM-based, ε-greedy, and
+random bidding agents through simulations of a repeated
+k-double P2P energy auction with k = 0.51. Each simu-
+lation consists of D = 100 auction rounds, representing
+daily settlement periods. Without loss of generality, the feed-
+in tariff and utility rate are set to PFIT = 10 ¢/kWh and
+PUR = 20 ¢/kWh, respectively. Performance is evaluated using
+two primary metrics: the cleared trading volume ¯Qh and the
+agents’ surplus ¯St, reported separately for buyers and sellers
+to capture the distributional effects of each bidding strategy. To
+isolate and better analyze market behavior on each side of the
+auction, prosumers are assumed to act exclusively as sellers
+throughout the simulation, without switching between buying
+and selling roles. For each of the three bidding strategies, we
+consider the market consists of M = 10 consumers (buyers)
+and N = 10 prosumers (sellers only), and that supply/demand
+quantities are balanced2.
+1Code available at: https://github.com/ismail0T/Strategic Bidding P2P
+Energy Trading
+2Modeling time-varying demand and supply patterns across daily and
+seasonal horizons is left for future work.
+
+
+A. Cleared Trading Volume
+Figure. 2 presents the evolution of the average cleared
+volume ¯Qh over episodes for the three bidding strategies. Two
+distinct behavioral phases emerge from Figure. 2. In the “early
+phase” (approximately the first 40 episodes), the LLM agent
+achieves substantially higher cleared volume than both the
+ε-greedy and random bidding agents. This advantage stems
+directly from the LLM’s ability to reason near-optimally from
+the very first episode: LLM buyers bid within the clearing
+zone (PF IT , PUR) immediately, and LLM sellers ask within
+a compatible price range, producing a non-zero intersection
+of the supply and demand curves from round 1. The ε-greedy
+agent, by contrast, incurs a significant “exploration tax” in
+early episodes as its random arm selection frequently produces
+extreme bids (very low buyer bids or very high seller asks)
+that fall outside the clearing zone, resulting in failed trades and
+reduced ¯Qh. This early-phase exploration cost corresponds to
+a real financial penalty in a live P2P market: for approximately
+Dlearn ≈40 calendar days after market launch, ε-greedy
+households consistently fail to clear trades that LLM-equipped
+agents would have secured.
+Episodes
+0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+100
+Cleared quantity
+0
+5
+10
+15
+20
+25
+30
+35
+40
+45
+50
+LLM Bidding
+ε-Greedy Bidding
+Random Bidding
+Figure 2. Average cleared trading volume ¯Qh over episodes
+for LLM-based, ε-greedy and random bidding agents in the
+k-double P2P energy auction (k = 0.5).
+In the “convergence phase” (after approximately episode
+40), the cleared volumes of both strategies converge to a sim-
+ilar level. This is consistent with the theoretical convergence
+of ε-greedy algorithms [2]: after Dlearn ≈40 episodes, the
+algorithm has identified its locally optimal price arms and
+shifted from exploration to exploitation. Once ε-greedy agents
+have converged, the frequency of extreme bids diminishes
+and the supply and demand curves reliably intersect, restoring
+cleared volume to a level comparable to the LLM strategy.
+As random bidding agents do not have a built-in mechanism
+to learn, their clearing volume remains unstable and lower
+than both LLM and ε-greedy agents for the entire episodes.
+These results highlight that the LLM’s volume advantage is
+concentrated in the critical early deployment phase, precisely
+the period when market liquidity is most fragile and when
+clearing failures have the greatest impact on participant trust
+and platform adoption. The LLM effectively eliminates the
+burn-in period that statistical learning algorithms inherently
+require, making it immediately deployable on the first day of
+market operation, which we further emphasis next.
+B. Buyers’ and Sellers’ Surplus
+Figure. 3(a) presents the evolution of the buyers’ surplus
+¯St
+b and sellers’ surplus ¯St
+s as defined in (1) over episodes for
+the three different bidding strategies. Tow important patterns
+emerge from Figure. 3:
+Episodes
+0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+100
+Surplus
+0
+5
+10
+15
+20
+25
+30
+35
+40
+45
+50
+Buyers' surplus (LLM Bidding)
+Sellers' surplus (LLM Bidding)
+Buyers' surplus ε-Greedy Bidding
+Sellers' surplus ε-Greedy Bidding
+Buyers' surplus (Random Bidding)
+Sellers' surplus (Random Bidding)
+(a)
+Episodes
+0
+10
+20
+30
+40
+50
+60
+70
+80
+90
+100
+Clearing Price
+7
+9
+11
+13
+15
+17
+19
+21
+23
+25
+LLM Bidding
+ε-Greedy Bidding
+Random Bidding
+Utility Rate
+FIT
+(b)
+Figure 3. (a) Average buyers’ surplus ¯St
+b and sellers’ surplus
+¯St
+s over episodes for LLM-based, ε-greedy and random bid-
+ding agents and, (b) clearing price for LLM-based, ε-greedy
+and random bidding agents.
+a) LLM Surplus Dynamics.: Under the LLM strategy,
+Figure. 3(a) reveals a monotonically increasing seller surplus
+accompanied by a monotonically decreasing buyer surplus
+throughout the entire simulation horizon, with the clearing
+price (Figure. 3(b)) rising continuously from approximately
+14 ¢/kWh to 18 ¢/kWh and never stabilizing within the ob-
+served horizon. This behavior reflects a systematic and un-
+bounded surplus redistribution from buyers to sellers driven by
+the LLM’s contextual reasoning capability. LLM seller agents
+observe the clearing price history in their prompt context
+at each episode and continuously infer that buyers remain
+willing to accept higher prices, since a buyer’s alternative
+to clearing at a high price is not clearing at all and paying
+PUR = 20 ¢/kWh to the utility. This rational outside option
+
+
+compels LLM buyers to maintain high bids, which in turn
+removes the competitive resistance that would otherwise cap
+seller ask escalation. The result is a self-reinforcing cycle:
+successful clearing at price P ∗,t signals to LLM sellers that a
+higher ask P ∗,t + µ (where µ is a small positive number) is
+feasible in the next episode, producing continuous upward drift
+in the clearing price toward PUR well beyond the theoretical
+Nash equilibrium of P ∗= 20+10
+2
+= 15 ¢/kWh [2].
+Notably, since cleared volume ¯Qt remains high and stable
+(Figure. 2), the declining buyer surplus as defined in (1) is
+attributable entirely to the rising clearing price rather than
+any reduction in cleared quantity. LLM buyers rationally
+accept progressively lower surplus, preferring a diminishing
+but positive payoff over the zero payoff of a failed trade.
+This outcome reveals an important limitation of deploying
+LLM agents in a homogeneous population (i.e., all agents
+uses LLM-based bidding strategy): their individual rationality
+collectively enables seller market power to grow unchecked,
+producing a highly asymmetric market outcome in which
+sellers capture an increasing share of the available trading
+surplus at buyers’ expense. Such behavior of LLM agents
+has been also observed by other related works outside the
+auction domain, e.g., in [16], and can be understood through
+the lens of “environment non-stationarity”. In repeated multi-
+agent interactions, the environment perceived by each agent is
+non-stationary because the transition dynamics are determined
+not only by the agent’s own actions but also by the continually
+evolving strategies of all other participants.
+b) ε-Greedy Surplus Dynamics.: Under the ε-greedy
+strategy, Figure. 3(a) and Figure. 3(b) show a qualitatively
+different pattern: seller surplus increases over episodes and
+stabilizes around episode 40, while buyer surplus remains ap-
+proximately constant throughout. At convergence, the clearing
+price stabilizes at approximately 16.5 ¢/kWh, above the Nash
+equilibrium of 15 ¢/kWh but below the LLM’s end-of-horizon
+price of 18 ¢/kWh. This apparent paradox (i.e., seller surplus
+increasing without a corresponding decrease in buyer surplus
+when ε-Greedy is used) is resolved by recognizing that the
+seller surplus growth is driven primarily by increasing cleared
+volume rather than by rising clearing price. In early episodes,
+the ε-greedy exploration tax suppresses ¯Qh, limiting the total
+surplus available to both buyers and sellers. As the algorithm
+converges toward episode 40 and cleared volume recovers,
+additional surplus is generated.
+C. Robustness to Post-Deployment Market Changes
+The results presented so far show that the proposed LLM-
+based bidding strategy and the ε-greedy MAB algorithm
+achieve comparable long-term performance after the latter
+converges. This naturally raises the question of whether the
+additional computational cost of LLM inference is justified.
+We argue that the primary advantage of LLMs lies in their
+ability to reason from the current market context rather than
+relying on a policy learned for a specific environment. Conse-
+quently, LLM-based agents are expected to be more robust to
+distribution shifts after deployment, whereas the performance
+of learning-based methods may degrade until sufficient re-
+exploration or retraining has occurred. To evaluate this ca-
+pability, we introduce a distribution shift after deployment by
+increasing both the feed-in tariff and retail electricity price by
+7 ¢/kWh, resulting in PFIT = 17 ¢/kWh and PUR = 27 ¢/kWh.
+The bidding agents are then evaluated without any additional
+training or parameter updates. Figure 4 presents the average
+number of successful trades and the average agent surplus
+under the original environment, while Figure 5 reports the
+corresponding results after the distribution shift. In both ex-
+periments, the agent population is evenly divided among the
+three bidding strategies, with one-third using random bidding,
+one-third using the ε-greedy algorithm, and one-third using
+the proposed LLM-based strategy.
+While the ε-greedy and LLM strategies exhibit comparable
+performance under the original environment (Figure 4), both in
+terms of the average number of successful trades and the aver-
+age agent surplus, the performance of the ε-greedy algorithm
+degrades substantially after the distribution shift (Figure 5). In
+fact, the performance of the random bidding strategy becomes
+better than the ε-greedy strategy. Unlike ε-greedy, which
+continues to favor price arms that accumulated high rewards
+in the original environment, the random strategy immediately
+shifts its sampling interval to the new price range and therefore
+remains competitive. Since the ε-greedy agent has not yet
+explored the newly optimal price arms, its bids are frequently
+outside the clearing region, resulting in fewer successful trades
+and lower surplus. In contrast, the performance of the proposed
+LLM-based strategy remains largely unchanged following the
+distribution shift, supporting the hypothesis that reasoning-
+based agents are inherently more robust to changes in market
+conditions. By interpreting the updated market context, the
+LLM immediately generates bids within the new clearing
+region rather than rediscovering profitable price levels through
+exploration, which is required by statistical learning methods
+such as ε-greedy.
+Random Bidding
+ε-Greedy Bidding
+LLM Bidding
+Avg. Succ Trades
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+(a)
+Random Bidding
+ε-Greedy Bidding
+LLM Bidding
+Avg. Surplus
+0
+20
+40
+60
+80
+100
+120
+140
+160
+180
+200
+(b)
+Figure 4. (a) Average number of successful trades, and (b)
+average agents’ surplus for different bidding strategies.
+V. CONCLUSION
+This paper investigated the integration of LLMs as strategic
+bidding agents in repeated P2P energy double auctions within
+smart grid distribution networks, benchmarked against multi-
+armed bandit-based and random bidding strategies under the k-
+double auction mechanism. The proposed LLM-based frame-
+
+
+Random Bidding
+ε-Greedy Bidding
+LLM Bidding
+Avg. Succ Trades
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1
+(a)
+Random Bidding
+ε-Greedy Bidding
+LLM Bidding
+Avg. Surplus
+0
+50
+100
+150
+200
+250
+300
+(b)
+Figure 5. (a) Average number of successful trades, and (b)
+average agents’ surplus for different bidding strategies, after
+market changes.
+work leverages contextual reasoning over historical auction
+outcomes to dynamically adapt bids across episodes, bypassing
+the statistical burn-in period that MAB-based agents inherently
+require before converging to productive price arms. Simulation
+results demonstrated that the LLM strategy achieves higher
+cleared trading volume and surplus in the critical early deploy-
+ment phase, a practically significant advantage corresponding
+to approximately 40 calendar days of suboptimal market
+performance under ε-greedy bidding. Notably, when market
+conditions deviate from those encountered during the learn-
+ing phase, the ε-greedy agent suffers a marked performance
+degradation, as its converged price arms are no longer aligned
+with the new market environment and relearning from scratch
+is required. The LLM agent, by contrast, requires no such
+relearning as it reasons over the current market context at
+each episode and adapts its bidding strategy immediately,
+maintaining consistently high surplus and trade success rates
+regardless of the deployment environment.
+However, the asymmetric market outcome in which sell-
+ers capture an increasing and disproportionate share of the
+available trading surplus at buyers’ expense requires further
+investigation. Future work should examine whether this seller-
+side escalation behavior persists across alternative double
+auction mechanisms or if any fairness method can be used
+to achieve the theoretical Nash equilibrium. Finally, it is also
+worth confirming that other learning methods such as RL and
+MARL suffer from the same burn-in period experienced in
+MAB methods.
+REFERENCES
+[1] W. Tushar, T. K. Saha, C. Yuen, D. Smith, and H. V. Poor, “Peer-to-
+peer trading in electricity networks: An overview,” IEEE Transactions
+on Smart Grid, vol. 11, no. 4, p. 3185–3200, Jul. 2020.
+[2] Z. Zhao, C. Feng, and A. L. Liu, “Comparisons of auction designs
+through multiagent learning in peer-to-peer energy trading,” IEEE Trans-
+actions on Smart Grid, vol. 14, no. 1, pp. 593–605, 2023.
+[3] D. Qiu, J. Wang, Z. Dong, Y. Wang, and G. Strbac, “Mean-field multi-
+agent reinforcement learning for peer-to-peer multi-energy trading,”
+IEEE Transactions on Power Systems, vol. 38, no. 5, pp. 4853–4866,
+2023.
+[4] H. Pereira, L. Gomes, and Z. Vale, “Peer-to-peer energy trading opti-
+mization in energy communities using multi-agent deep reinforcement
+learning,” Energy Informatics, vol. 5, no. Suppl 4, p. 44, 2022.
+[5] J. Guerrero, A. C. Chapman, and G. Verbiˇc, “Decentralized p2p energy
+trading under network constraints in a low-voltage network,” IEEE
+Transactions on Smart Grid, vol. 10, no. 5, pp. 5163–5173, 2019.
+[6] Y. Ye, D. Qiu, M. Sun, D. Papadaskalopoulos, and G. Strbac, “Deep
+reinforcement learning for strategic bidding in electricity markets,” IEEE
+Transactions on Smart Grid, vol. 11, no. 2, pp. 1343–1355, 2020.
+[7] D. Qiu, J. Wang, J. Wang, and G. Strbac, “Multi-agent reinforcement
+learning for automated peer-to-peer energy trading in double-side auc-
+tion market.” in IJCAI, 2021, pp. 2913–2920.
+[8] J. Zheng, Z.-T. Liang, Y. Li, Z. Li, and Q.-H. Wu, “Multi-agent
+reinforcement learning with privacy preservation for continuous double
+auction-based p2p energy trading,” IEEE Transactions on Industrial
+Informatics, vol. 20, no. 4, pp. 6582–6590, 2024.
+[9] S. Mao, Y. Cai, Y. Xia, W. Wu, X. Wang, F. Wang, Q. Guan, T. Ge, and
+F. Wei, “ALYMPICS: LLM agents meet game theory,” in Proceedings of
+the 31st International Conference on Computational Linguistics, 2025,
+pp. 2845–2866.
+[10] I. Lotfi, A. Ghrayeb, S. Lasaulce, and M. Debbah, “Large language
+models as bidding agents in repeated hetnet auction,” in 2026 IEEE
+Wireless Communications and Networking Conference (WCNC), 2026,
+pp. 1–6.
+[11] Q. Ma, Z. Liu, X. Liu, Z. Zhu, and S. Bu, “Equity aware peer-to-
+peer energy trading market to mitigate energy poverty: A n llm - rl
+agentic workflow,” IEEE Transactions on Energy Markets, Policy and
+Regulation, pp. 1–15, 2025.
+[12] S. Jadhav, B. Sevak, S. Das, A. Hussain, W. Su, and V.-H. Bui, “Scalable
+fairness shaping with llm-guided multi-agent reinforcement learning for
+peer-to-peer electricity markets,” Utilities Policy, vol. 100, p. 102168,
+2026.
+[13] C. Lou, Z. Jin, W. Tang, G. Geng, J. Yang, and L. Zhang, “LLM-
+Enhanced Multi-Agent Reinforcement Learning with Expert Workflow
+for Real-Time P2P Energy Trading,” IEEE Transactions on Smart Grid,
+pp. 1–1, 2026.
+[14] X. Lu, J. Qiu, Y. Yang, C. Zhang, J. Lin, and S. An, “Large language
+model-based bidding behavior agent and market sentiment agent-assisted
+electricity price prediction,” IEEE Transactions on Energy Markets,
+Policy and Regulation, vol. 3, no. 2, pp. 223–235, 2025.
+[15] K. Agrawal, V. Teo, J. J. Vazquez, S. Kunnavakkam, V. Srikanth, and
+A. Liu, “Evaluating llm agent collusion in double auctions,” Proceedings
+of the Workshop on Multi-Agent Systems in the Era of Foundation
+Models, ICML, 2025.
+[16] R. Y. Lin, S. Ojha, K. Cai, and M. F. Chen, “Strategic collusion of llm
+agents: Market division in multi-commodity competitions,” 2024.
+[17] D. Friedman and J. Rust, The double auction market: institutions,
+theories, and evidence.
+Routledge, 2018.
+[18] V. Kuleshov and D. Precup, “Algorithms for multi-armed bandit
+problems,” 2014. [Online]. Available: https://arxiv.org/abs/1402.6028
+[19] L. Demelius, R. Kern, and A. Tr¨ugler, “Recent advances of differen-
+tial privacy in centralized deep learning: A systematic survey,” ACM
+Computing Surveys, vol. 57, no. 6, p. 1–28, Feb. 2025.
+[20] F. Wang, Z. Zhang, X. Zhang, Z. Wu, T. Mo, Q. Lu, W. Wang,
+R. Li, J. Xu, X. Tang, Q. He, Y. Ma, M. Huang, and S. Wang, “A
+comprehensive survey of small language models in the era of large
+language models: Techniques, enhancements, applications, collaboration
+with llms, and trustworthiness,” ACM Transactions on Intelligent Sys-
+tems and Technology, vol. 16, no. 6, p. 1–87, Nov. 2025.
+[21] M. Ardakani, J. Malekar, and R. Zand, “Llmpi: Optimizing llms for
+high-throughput on raspberry pi,” in Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition (CVPR) Work-
+shops, June 2025, pp. 6433–6442.
