@@ -276,7 +276,9 @@ class Paper2TextbookOrchestrator:
                 break
             logger.warning('[3] 大纲覆盖校验失败：\n%s', problem)
             result = self.agent.fix_outline(
-                self._json_dump(result), self._json_dump(parts), cards_json,
+                self._json_dump(result), 
+                self._json_dump(parts), 
+                self._json_dump(cards),
                 survey, problem,
             )
         self._write_yaml(cached, result)
