@@ -83,7 +83,7 @@ class Paper2TextbookAgent:
 
     def gen_outline(
         self, struct: str, concept_cards: str,
-    ) -> OutlineResult:
+    ) -> List[OutlineChapter]:
         prompt = render_prompt(
             OUTLINE_PMT,
             struct=struct, concept_cards=concept_cards, 
@@ -96,7 +96,7 @@ class Paper2TextbookAgent:
     def fix_outline(
         self, outline: str, struct: str, concept_cards: str,
         problem: str,
-    ) -> OutlineResult:
+    ) -> List[OutlineChapter]:
         prompt = render_prompt(
             OUTLINE_FIX_PMT,
             outline=outline, struct=struct, concept_cards=concept_cards,
