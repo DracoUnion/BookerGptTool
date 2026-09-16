@@ -140,32 +140,6 @@ class Paper2TextbookOrchestrator:
             for f in paper_fnames
         }
 
-    def _paper_list_text(self, papers: List[Tuple[str, str, str]]) -> str:
-        rows = []
-        for pid, fname, text in papers:
-            title = self._first_heading(text) or pid
-            abstract = self._abstract_text(text)
-            rows.append(
-                f'### {pid}\n\n- 文件：`{fname}`\n- 标题：{title}\n\n'
-                f'[content]\n{abstract}\n[/content]'
-            )
-        return '\n\n'.join(rows)
-
-    @staticmethod
-    def _first_heading(text: str) -> str:
-        m = re.search(r'^\s*#\s+(.+?)\s*$', text, re.M)
-        return m.group(1).strip() if m else ''
-
-    @staticmethod
-    def _abstract_text(text: str) -> str:
-        m = re.search(
-            r'(?is)(?:\\begin\{abstract\}|(?:^|\n)##?\s+Abstract\b)'
-            r'(.*?)(?:\\end\{abstract\}|(?=\n##?\s))',
-            text,
-        )
-        if m:
-            return m.group(1).strip()
-        return text[:4000]
 
     # ── 概念卡片 ────────────────────────────────────────
 
