@@ -332,13 +332,14 @@ class Paper2TextbookOrchestrator:
         concept_part = self.agent.gen_concept_anls_detail(
             str(idx + 1), outline_json, paper_desc,
         )
+        rest_parts = self.agent.gen_rest_detail(
+            str(idx + 1), outline_json,
+            self._json_dump(concept_part), paper_desc,
+        )
         detail = ChapterDetail(
             no=idx + 1,
             **concept_part.model_dump(),
-            **self.agent.gen_rest_detail(
-                str(idx + 1), outline_json,
-                self._json_dump(concept_part), paper_desc,
-            ).model_dump(),
+            **rest_parts.model_dump(),
         )
         for _ in range(self.args.check):
             problem = self._detail_coverage_problem(chapter, cards, detail)
