@@ -22,6 +22,37 @@ SUPPORTED_PAPER_EXTS = {'md', 'markdown', 'tex', 'txt', 'pdf'}
 SUPPORTED_SURVEY_EXTS = {'md', 'markdown', 'tex', 'txt'}
 FORMAT_LABELS = {'md': 'Markdown', 'tex': 'LaTeX'}
 
+
+# ── 工具参数 schema 辅助 ──────────────────────────────────────────
+# 为 _TOOL_PARAMS 生成 OpenAI 参数结构。
+# pydantic 模型参数用 Model.schema() 展开其结构，而非仅写 {"type":"object"}。
+
+
+def _sp(typ: str, desc: str, **extra) -> Dict[str, Any]:
+    """基础标量参数：{"type": typ, "description": desc, **extra}。"""
+    return {'type': typ, 'description': desc, **extra}
+
+
+def _p_model(model, desc: str) -> Dict[str, Any]:
+    """pydantic 模型参数：以 model.schema() 展开字段结构。"""
+    return {**model.schema(), 'description': desc}
+
+
+def _p_list(model, desc: str) -> Dict[str, Any]:
+    """元素为 pydantic 模型的数组参数：items 用 model.schema()。"""
+    return _sp('array', desc, items=model.schema())
+
+
+def _p_str_list(desc: str) -> Dict[str, Any]:
+    """元素为字符串的数组参数。"""
+    return _sp('array', desc, items={'type': 'string'})
+
+
+def _p_str_str_map(desc: str) -> Dict[str, Any]:
+    """string->string 字典参数。"""
+    return _sp('object', desc, additionalProperties={'type': 'string'})
+
+
 class Paper2TextbookTools:
     """封装 paper2textbook 的独立 LLM 调用。"""
 
@@ -433,8 +464,258 @@ class Paper2TextbookTools:
             if callable(val) and name.startswith('tool_')
         }
 
-    def get_tool_defs(self) -> Dict[str, Any]:
-        """返回工具定义（当前为空字典，预留扩展点）。"""
-        return {
 
-        }
+    # 工具名 -> OpenAI parameters 结构（type/properties/required）。
+    # name 与 description 不再硬编码，由 get_tool_defs 从函数 __name__ / __doc__ 取得。
+    # pydantic 模型参数用 Model.schema() 展开，不写死 {"type":"object"}。
+    _TOOL_PARAMS: Dict[str, Dict[str, Any]] = {
+        # ── IO：论文文件与工作区读写 ──────────────────────────
+        "tool_list_papers": {
+            "type": "object", "properties": {}, "required": [],
+        },
+        "tool_read_paper": {
+            "type": "object",
+            "properties": {
+                "fname": _sp('string', '论文文件路径'),
+            },
+            "required": ["fname"],
+        },
+        "tool_paper_brief": {
+            "type": "object",
+            "properties": {
+                "paper_fnames": _p_str_list('论文文件路径列表'),
+                "limit": _sp('integer', '每个简报的最大字符数，默认 500'),
+            },
+            "required": ["paper_fnames"],
+        },
+        "tool_read_workspace_text": {
+            "type": "object",
+            "properties": {
+                "fname": _sp('string', '项目内相对路径'),
+            },
+            "required": ["fname"],
+        },
+        "tool_write_workspace_text": {
+            "type": "object",
+            "properties": {
+                "fname": _sp('string', '项目内相对路径'),
+                "text": _sp('string', '要写入的文本内容'),
+            },
+            "required": ["fname", "text"],
+        },
+        "tool_read_workspace_json": {
+            "type": "object",
+            "properties": {
+                "fname": _sp('string', '项目内相对路径'),
+            },
+            "required": ["fname"],
+        },
+        "tool_write_workspace_json": {
+            "type": "object",
+            "properties": {
+                "fname": _sp('string', '项目内相对路径'),
+                "obj": _sp('object', '要序列化为 JSON 的对象'),
+            },
+            "required": ["fname", "obj"],
+        },
+        "tool_read_workspace_yaml": {
+            "type": "object",
+            "properties": {
+                "fname": _sp('string', '项目内相对路径'),
+            },
+            "required": ["fname"],
+        },
+        "tool_write_workspace_yaml": {
+            "type": "object",
+            "properties": {
+                "fname": _sp('string', '项目内相对路径'),
+                "obj": _sp('object', '要写入的对象'),
+            },
+            "required": ["fname", "obj"],
+        },
+
+        # ── 一、概念卡片：单篇论文拆解 ──────────────────────────
+        "tool_ext_concepts": {
+            "type": "object",
+            "properties": {
+                "paper_name": _sp('string', '论文名称/标识'),
+                "paper": _sp('string', '论文全文文本'),
+            },
+            "required": ["paper_name", "paper"],
+        },
+
+        # ── 二、论文聚类 ──────────────────────────────────────
+        "tool_cluster_papers": {
+            "type": "object",
+            "properties": {
+                "paper_briefs": _p_str_str_map('论文路径到简报的映射'),
+            },
+            "required": ["paper_briefs"],
+        },
+        "tool_fix_cluster": {
+            "type": "object",
+            "properties": {
+                "paper_briefs": _p_str_str_map('论文路径到简报的映射'),
+                "parts": _p_list(PartClus, '当前聚类结果（PartClus 列表）'),
+                "problem": _sp('string', '需要修正的问题描述'),
+            },
+            "required": ["paper_briefs", "parts", "problem"],
+        },
+
+        # ── 三、全书大纲 ──────────────────────────────────────
+        "tool_gen_outline": {
+            "type": "object",
+            "properties": {
+                "struct": _p_str_list('书籍结构（章节划分）'),
+                "concept_cards": _p_list(PaperConcepts, '概念卡片列表（PaperConcepts）'),
+            },
+            "required": ["struct", "concept_cards"],
+        },
+        "tool_fix_outline": {
+            "type": "object",
+            "properties": {
+                "outline": _p_list(OutlineChapter, '当前大纲（OutlineChapter 列表）'),
+                "struct": _p_str_list('书籍结构（章节划分）'),
+                "concept_cards": _p_list(PaperConcepts, '概念卡片列表（PaperConcepts）'),
+                "problem": _sp('string', '需要修正的问题描述'),
+            },
+            "required": ["outline", "struct", "concept_cards", "problem"],
+        },
+
+        # ── 四、章节细纲 ──────────────────────────────────────
+        "tool_gen_concept_anls_detail": {
+            "type": "object",
+            "properties": {
+                "i": _sp('integer', '章节序号'),
+                "outline": _p_list(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
+                "paper_desc": _p_list(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
+            },
+            "required": ["i", "outline", "paper_desc"],
+        },
+        "tool_gen_rest_detail": {
+            "type": "object",
+            "properties": {
+                "i": _sp('integer', '章节序号'),
+                "outline": _p_list(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
+                "detail": _p_model(ConceptAnlsResult, '概念分析结果（ConceptAnlsResult）'),
+                "paper_desc": _p_list(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
+            },
+            "required": ["i", "outline", "detail", "paper_desc"],
+        },
+        "tool_fix_detail": {
+            "type": "object",
+            "properties": {
+                "i": _sp('integer', '章节序号'),
+                "detail": _p_model(ChapterDetail, '当前章节细纲（ChapterDetail）'),
+                "outline": _p_list(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
+                "paper_desc": _p_list(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
+                "problem": _sp('string', '需要修正的问题描述'),
+            },
+            "required": ["i", "detail", "outline", "paper_desc", "problem"],
+        },
+
+        # ── 五、章节正文 ──────────────────────────────────────
+        "tool_gen_body": {
+            "type": "object",
+            "properties": {
+                "i": _sp('integer', '章节序号'),
+                "outline": _p_list(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
+                "detail": _p_model(ChapterDetail, '章节细纲（ChapterDetail）'),
+                "paper_desc": _p_list(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
+            },
+            "required": ["i", "outline", "detail", "paper_desc"],
+        },
+        "tool_check_body": {
+            "type": "object",
+            "properties": {
+                "body": _sp('string', '章节正文'),
+                "detail": _p_model(ChapterDetail, '章节细纲（ChapterDetail）'),
+            },
+            "required": ["body", "detail"],
+        },
+        "tool_fix_body": {
+            "type": "object",
+            "properties": {
+                "body": _sp('string', '章节正文'),
+                "comment": _sp('string', '检查反馈内容'),
+                "paper_desc": _p_list(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
+            },
+            "required": ["body", "comment", "paper_desc"],
+        },
+
+        # ── 六、辅助检查 ──────────────────────────────────────
+        "tool_gen_glossary": {
+            "type": "object",
+            "properties": {
+                "paper": _sp('string', '论文内容文本'),
+            },
+            "required": ["paper"],
+        },
+        "tool_check_consistency": {
+            "type": "object",
+            "properties": {
+                "previous_chapter": _sp('string', '上一章正文'),
+                "current_chapter": _sp('string', '当前章正文'),
+            },
+            "required": ["previous_chapter", "current_chapter"],
+        },
+        "tool_audit_citations": {
+            "type": "object",
+            "properties": {
+                "chapter": _sp('string', '章节文本'),
+                "paper": _sp('string', '论文内容'),
+            },
+            "required": ["chapter", "paper"],
+        },
+
+        # ── 覆盖率校验（静态）────────────────────────────────
+        "tool_parts_coverage_problem": {
+            "type": "object",
+            "properties": {
+                "paper_fnames": _p_str_list('论文文件路径列表'),
+                "parts": _p_list(PartClus, '聚类结果（PartClus 列表）'),
+            },
+            "required": ["paper_fnames", "parts"],
+        },
+        "tool_outline_coverage_problem": {
+            "type": "object",
+            "properties": {
+                "cards": _p_list(PaperConcepts, '概念卡片列表（PaperConcepts）'),
+                "outline": _p_model(OutlineChapter, '大纲章（OutlineChapter）'),
+            },
+            "required": ["cards", "outline"],
+        },
+        "tool_detail_coverage_problem": {
+            "type": "object",
+            "properties": {
+                "chapter": _p_model(OutlineChapter, '大纲章（OutlineChapter）'),
+                "detail": _p_model(ChapterDetail, '章节细纲（ChapterDetail）'),
+            },
+            "required": ["chapter", "detail"],
+        },
+    }
+
+    @staticmethod
+    def _clean_doc(doc: Optional[str]) -> str:
+        """将函数 docstring 压缩为单行描述。"""
+        if not doc:
+            return ''
+        return ' '.join(line.strip() for line in doc.splitlines() if line.strip())
+
+    def get_tool_defs(self) -> List:
+        """返回所有 tool_* 方法的 OpenAI 函数工具定义（Chat Completions tools 格式）。
+
+        name 取自函数对象的 __name__，description 取自函数对象的 __doc__；
+        parameters 结构由 _TOOL_PARAMS 提供。可直接传给 openai 的 tools 参数。
+        """
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": getattr(self, name).__name__,
+                    "description": self._clean_doc(getattr(self, name).__doc__),
+                    "parameters": params,
+                },
+            }
+            for name, params in self._TOOL_PARAMS.items()
+        ]
