@@ -215,17 +215,17 @@ class Paper2TextbookOrchestrator:
 
     # ── 聚类 ────────────────────────────────────────────
 
-    def _cluster_cache(self) -> str:
+    def _parts_fname(self) -> str:
         return path.join(self.pj_dir, 'parts.yaml')
 
     def step_cluster_papers(
         self, papers: List[Tuple[str, str, str]], cards: List[PaperConcepts],
     ) -> List[PartClus]:
         logger.info('[2] 按知识主题聚类论文')
-        cached = self._cluster_cache()
-        saved = self._read_yaml(cached, List[PartClus])
-        if saved:
-            return saved
+        parts_fname = self._parts_fname()
+        parts = self._read_yaml(parts_fname, List[PartClus])
+        if parts:
+            return parts
         paper_list = self._paper_list_text(papers)
         result = self.agent.cluster_papers(paper_list)
         for _ in range(self.args.check):
@@ -237,7 +237,7 @@ class Paper2TextbookOrchestrator:
             result = self.agent.fix_cluster(
                 paper_list, self._json_dump(result), problem,
             )
-        self._write_yaml(cached, result)
+        self._write_yaml(parts_fname, result)
         return result
 
     @staticmethod
