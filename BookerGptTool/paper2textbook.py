@@ -81,7 +81,10 @@ class Paper2TextbookOrchestrator:
     def _read_yaml(self, fname: str, model):
         if not path.isfile(fname) or not path.getsize(fname):
             return None
-        data = yaml.safe_load(open(fname, encoding='utf8').read())
+        try:
+            data = yaml.safe_load(open(fname, encoding='utf8').read())
+        except yaml.error.YAMLError:
+            return None
         return parse_obj_as(model, data)
 
     def _json_dump(self, obj) -> str:

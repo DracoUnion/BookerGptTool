@@ -113,15 +113,16 @@ class Code2BookMixin:
 
     # ── 持久化工具 ──────────────────────────────────────────
 
-    def _load_yaml(self, fname: str, model: type):
-        if path.isfile(fname) and \
-           path.getsize(fname):
-            try:
-                obj = yaml.safe_load(
-                    open(fname, encoding='utf8').read())
-            except yaml.error.YAMLError:
-                return None
-            return parse_obj_as(model, obj)
+    def _read_yaml(self, fname: str, model: type):
+        if not (path.isfile(fname) and \
+           path.getsize(fname)):
+            return None
+        try:
+            obj = yaml.safe_load(
+                open(fname, encoding='utf8').read())
+        except yaml.error.YAMLError:
+            return None
+        return parse_obj_as(model, obj)
 
     def _write_yaml(self, fname: str, obj: BaseModel | List[BaseModel]):
         """在主线程中将 meta 写回 yaml 文件。"""
@@ -204,7 +205,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
     ):
         idx = int(re.search(r'detail_(\d+)\.yaml', detail_fname).group(1))
         logger.warn(f'[2] 校验细纲 {idx+1}')
-        detail = self._load_yaml(detail_fname, Detail)
+        detail = self._read_yaml(detail_fname, Detail)
         if detail is None:
             logger.warn(f'[2] 细纲 {idx+1} 加载失败')
             return
@@ -285,7 +286,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
         for f in tqdm(body_fnames):
             idx_str = re.search(r'article_(\d+)\.md$', f).group(1)
             detail_fname = path.join(self.pj_dir, f'detail_{idx_str}.yaml')
-            detail = self._load_yaml(detail_fname, Detail)
+            detail = self._read_yaml(detail_fname, Detail)
             if detail is None:
                 logger.warn(f'[3] {detail_fname} 不存在')
                 continue
@@ -303,7 +304,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
 
     def run(self):
         outline_fname = path.join(self.pj_dir, 'outline.yaml')
-        outline = self._load_yaml(outline_fname, List[OutlinePartResult])
+        outline = self._read_yaml(outline_fname, List[OutlinePartResult])
         if outline is None:
             logger.fatal(f'[1] 大纲加载失败')
             return
@@ -314,7 +315,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
             if re.search(r'_desc\.yaml$', f)
         ]
         code_desc = [
-            self._load_yaml(f, CodeDescItemResult)
+            self._read_yaml(f, CodeDescItemResult)
             for f in code_desc_fnames
         ]
         code_desc = list(filter(None, code_desc))
@@ -382,7 +383,7 @@ class Code2BookOrchestrator(Code2BookMixin):
             self.pj_dir,
             fname.replace('/', '----') + '_desc.yaml'
         )
-        desc = self._load_yaml(desc_fname, CodeDescItemResult)
+        desc = self._read_yaml(desc_fname, CodeDescItemResult)
         if desc is None:
             code = self._read_code(fname)
             desc = self.agent.gen_code_desc(fname, code)
@@ -414,7 +415,7 @@ class Code2BookOrchestrator(Code2BookMixin):
     ):
         logger.info('[3] 划分部分')
         part_clus_fname = path.join(self.pj_dir, 'parts.yaml')
-        parts = self._load_yaml(part_clus_fname, List[PartClusResult])
+        parts = self._read_yaml(part_clus_fname, List[PartClusResult])
         if parts is not None:
             return parts
 
@@ -468,7 +469,7 @@ class Code2BookOrchestrator(Code2BookMixin):
     ) -> List[OutlinePartResult]:
         logger.info('[3] 生成大纲')
         outline_fname = path.join(self.pj_dir, 'outline.yaml')
-        outline = self._load_yaml(outline_fname, List[OutlinePartResult])
+        outline = self._read_yaml(outline_fname, List[OutlinePartResult])
         if outline is None:
             outline = [
                 OutlinePartResult(**pt.dict(), chapters=[]) 
@@ -521,7 +522,7 @@ class Code2BookOrchestrator(Code2BookMixin):
         l = len(str(len(outline_chs)))
         detail_fname = f'detail_{str(idx+1).zfill(l)}.yaml'
         detail_fname = path.join(self.pj_dir, detail_fname)
-        detail = self._load_yaml(detail_fname, Detail)
+        detail = self._read_yaml(detail_fname, Detail)
         if detail is not None:
             return idx, detail
         
