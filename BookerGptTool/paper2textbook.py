@@ -416,7 +416,7 @@ class Paper2TextbookOrchestrator:
         return body
 
     def step_gen_bodies(
-        self, outline: OutlineResult, details: List[ChapterDetail],
+        self, outline: List[OutlineChapter], details: List[ChapterDetail],
         cards: List[PaperConcepts],
     ) -> List[str]:
         logger.info('[5] 生成章节正文')
