@@ -170,13 +170,13 @@ class Paper2TextbookOrchestrator:
     # ── 概念卡片 ────────────────────────────────────────
 
     def _tr_extract_concepts(
-        self, fname: str,
-    ) -> PaperConcepts:
+        self, fname: str, idx: int
+    ) -> Tuple[int, PaperConcepts]:
         paper_id = path.basename(fname)
         ccpt_fname = self._cache_file('concept_cards', paper_id, '.yaml')
         concept = self._read_yaml(ccpt_fname, PaperConcepts)
         if concept:
-            return concept
+            return idx, concept
         # PDF 文本按页保留页码标记；其它格式从第 1 页开始。
         text = self._read_paper(fname)
         start = '1'
@@ -184,21 +184,27 @@ class Paper2TextbookOrchestrator:
             start = '1'
         result = self.agent.ext_concepts(text, paper_id, start)
         self._write_yaml(ccpt_fname, result)
-        return result
+        return idx, result
 
     def step_extract_concepts(
         self, paper_fnames: List[str],
     ) -> List[PaperConcepts]:
         logger.info('[1] 拆解论文并生成概念卡片')
-        cards = []
-        futures = [
-            self.pool.submit(self._tr_extract_concepts, f) for f in paper_fnames
-        ]
-        for future in futures:
-            cards.append(future.result())
-        cards.sort(key=lambda c: self._paper_id(c.paper))
-        card_json = self._json_dump(cards)
-        self._write_text(path.join(self.pj_dir, 'concept_cards.json'), card_json)
+        cards = [None for _ in range(len(paper_fnames))]
+        for i, f in enumerate(paper_fnames):
+            h = self.pool.submit(
+                self._tr_extract_concepts, f, i,
+            )
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                for h in self.hdls:
+                    idx, card = h.result()
+                    cards[idx] = card
+                self.hdls = []
+        for h in self.hdls:
+            idx, card = h.result()
+            cards[idx] = card
+        self.hdls = []
         return cards
 
     @staticmethod
