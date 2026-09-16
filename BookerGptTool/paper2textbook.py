@@ -107,10 +107,10 @@ class Paper2TextbookOrchestrator:
 
     def _discover_papers(self, source: str) -> List[str]:
         result = (
-            [source]
+            [source.replace('\\', '/')]
             if path.isfile(source) else
             [   
-                path.join(root, fname)
+                path.join(root, fname).replace('\\', '/')
                 for root, _, files in os.walk(source)
                 for fname in sorted(files)
             ]
@@ -233,8 +233,8 @@ class Paper2TextbookOrchestrator:
         return result
 
     @staticmethod
-    def _coverage_problem(papers, parts) -> str:
-        paper_ids = {p[0] for p in papers}
+    def _coverage_problem(paper_fnames: List[str], parts: List[PartClus]) -> str:
+        paper_ids = set(paper_fnames)
         clustered = {p for part in parts for p in part.papers}
         missing = sorted(paper_ids - clustered)
         unknown = sorted(clustered - paper_ids)
@@ -244,7 +244,7 @@ class Paper2TextbookOrchestrator:
         if missing:
             lines.append('以下论文未出现在任何部分中：\n' + '\n'.join(missing))
         if unknown:
-            lines.append('以下论文 ID 不存在：\n' + '\n'.join(unknown))
+            lines.append('以下论文不存在：\n' + '\n'.join(unknown))
         return '\n'.join(lines)
 
     # ── 大纲 ────────────────────────────────────────────
