@@ -26,6 +26,7 @@ class Paper2TextbookTools:
     """封装 paper2textbook 的独立 LLM 调用。"""
 
     def __init__(self, args):
+        """初始化工具集：保存参数、配置 OpenAI、并创建项目输出目录。"""
         self.args = args
         self.model = args.model
         set_openai_props(args)
@@ -396,5 +397,7 @@ class Paper2TextbookTools:
             if callable(val) and name.startswith('tool_')
         }
 
-    def get_tool_defs(self):
-        
+    def get_tool_defs(self) -> Dict[str, Any]:
+        return {
+            
+        }
