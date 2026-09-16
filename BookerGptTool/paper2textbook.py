@@ -260,13 +260,13 @@ class Paper2TextbookOrchestrator:
         self, parts: PaperClusResult, cards: List[PaperConcepts],
     ) -> OutlineResult:
         logger.info('[3] 生成章—知识点大纲')
-        cached = self._outline_fname()
-        saved = self._read_yaml(cached, OutlineResult)
-        if saved:
-            return saved
+        outline_fname = self._outline_fname()
+        outline = self._read_yaml(outline_fname, OutlineResult)
+        if outline is not None:
+            return outline
         result = self.agent.gen_outline(
             self._json_dump(parts), 
-            self._json_dump(cards), survey,
+            self._json_dump(cards),
         )
         for _ in range(self.args.check):
             problem = self._outline_coverage_problem(cards, result)
@@ -280,7 +280,7 @@ class Paper2TextbookOrchestrator:
                 self._json_dump(cards),
                 problem,
             )
-        self._write_yaml(cached, result)
+        self._write_yaml(outline_fname, result)
         return result
 
     def _load_survey(self) -> str:
