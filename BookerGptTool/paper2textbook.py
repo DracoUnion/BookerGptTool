@@ -347,8 +347,11 @@ class Paper2TextbookOrchestrator:
                 break
             logger.warning('[4] 第 %d 章细纲覆盖校验失败：\n%s', idx + 1, problem)
             detail = self.agent.fix_detail(
-                str(idx + 1), self._json_dump(detail), outline_json,
-                paper_desc_ch, problem,
+                str(idx + 1), 
+                self._json_dump(detail), 
+                self._json_dump(outline),
+                self._json_dump(paper_desc_ch), 
+                problem,
             )
         self._write_yaml(detail_fname, detail)
         return detail

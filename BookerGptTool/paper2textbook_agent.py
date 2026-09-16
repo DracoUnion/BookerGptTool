@@ -134,7 +134,9 @@ class Paper2TextbookAgent:
     ) -> ChapterDetail:
         prompt = render_prompt(
             DETAIL_FIX_PMT,
-            i=i, detail=detail, outline=outline, paper_desc=paper_desc,
+            i=i, detail=detail, 
+            outline=outline, 
+            paper_desc=paper_desc,
             problem=problem,
         )
         return self._json(ChapterDetail, prompt, self.model, self.args)
