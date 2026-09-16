@@ -342,7 +342,7 @@ class Paper2TextbookOrchestrator:
 
     def _tr_gen_detail(
         self, 
-        outline: List[OutlineChapter], 
+        outline_chs: List[OutlineChapter], 
         cards, 
         idx: int
     ) -> Tuple[int, ChapterDetail]:
@@ -354,17 +354,17 @@ class Paper2TextbookOrchestrator:
         detail = self._read_yaml(detail_fname, ChapterDetail)
         if detail:
             return idx, detail
-        paper_desc_ch = self._paper_desc_ch(outline, cards)
+        card_ch = self._paper_desc_ch(outline_chs, cards)
         concept_part = self.agent.gen_concept_anls_detail(
             str(idx + 1), 
-            self._json_dump(outline), 
-            self._json_dump(paper_desc_ch),
+            self._json_dump(outline_chs), 
+            self._json_dump(card_ch),
         )
         rest_part = self.agent.gen_rest_detail(
             str(idx + 1), 
-            self._json_dump(outline), 
+            self._json_dump(outline_chs), 
             self._json_dump(concept_part), 
-            self._json_dump(paper_desc_ch),
+            self._json_dump(card_ch),
         )
         detail = ChapterDetail(
             no=idx + 1,
@@ -372,7 +372,7 @@ class Paper2TextbookOrchestrator:
             **rest_part.model_dump(),
         )
         for _ in range(self.args.check):
-            problem = self._detail_coverage_problem(outline, detail)
+            problem = self._detail_coverage_problem(outline_chs, detail)
             if not problem:
                 logger.info(f'[4] 第 {idx + 1} 章细纲覆盖校验通过')
                 break
@@ -380,8 +380,8 @@ class Paper2TextbookOrchestrator:
             detail = self.agent.fix_detail(
                 str(idx + 1), 
                 self._json_dump(detail), 
-                self._json_dump(outline),
-                self._json_dump(paper_desc_ch), 
+                self._json_dump(outline_chs),
+                self._json_dump(card_ch), 
                 problem,
             )
         self._write_yaml(detail_fname, detail)
@@ -408,17 +408,25 @@ class Paper2TextbookOrchestrator:
         return prob
 
     def step_gen_details(
-        self, outline: List[OutlineChapter], cards: List[PaperConcepts],
+        self, outline_chs: List[OutlineChapter], cards: List[PaperConcepts],
     ) -> List[ChapterDetail]:
         logger.info('[4] 生成章节细纲')
-        details = []
-        futures = [
-            self.pool.submit(self._tr_gen_detail, ch, cards, i)
-            for i, ch in enumerate(outline.chapters)
-        ]
-        for future in futures:
-            details.append(future.result())
-        details.sort(key=lambda d: d.no)
+        details = [None for _ in range(len(outline_chs))]
+        for i, _ in enumerate(outline_chs):
+            h = self.pool.submit(
+                self._tr_gen_detail,
+                outline_chs, cards, i,
+            )
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                for h in self.hdls:
+                    idx, detail = h.result()
+                    details[idx] = detail
+                self.hdls = []
+        for h in self.hdls:
+            idx, detail = h.result()
+            details[idx] = detail
+        self.hdls = []
         return details
 
     # ── 正文 ────────────────────────────────────────────
