@@ -90,6 +90,11 @@ class Paper2TextbookOrchestrator:
     def _json_dump(self, obj) -> str:
         if isinstance(obj, BaseModel):
             obj = obj.model_dump()
+        elif isinstance(obj, list):
+            obj = [
+                it.dict() if isinstance(it, BaseModel) else it
+                for it in obj
+            ]
         return json.dumps(obj, ensure_ascii=False, indent=2)
 
     def _json_load(self, text: str, model):
