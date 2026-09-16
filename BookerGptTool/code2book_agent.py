@@ -63,12 +63,11 @@ class Code2BookAgent:
         self, files: List[str], 
         parts: List[PartClusResult], problem: str
     ) -> List[PartClusResult]:
-        parts_str = json.dumps([p.dict() for p in parts])
         ques = render_prompt(
             PT_FIX_PMT,
             files='\n'.join(files),
             problem=problem,
-            parts=parts_str,
+            parts=self._json_dump(parts),
         )
         parse_output = lambda s: parse_obj_as(
             List[PartClusResult],
@@ -126,11 +125,10 @@ class Code2BookAgent:
     ) -> List[OutlineChapterResult]:
         """根据项目结构和源码描述生成书籍大纲。"""
         fnames_li = '\n'.join(fnames)
-        code_desc_str = json.dumps([d.dict() for d in code_desc], ensure_ascii=False)
         ques = render_prompt(
             OUTLINE_PMT,
             struct=fnames_li,
-            code_desc=code_desc_str,
+            code_desc=self._json_dump(code_desc),
             readme=readme,
         )
         parse_output = lambda s: parse_obj_as(
@@ -151,18 +149,13 @@ class Code2BookAgent:
         code_desc: List[CodeDescItemResult], readme: str, problem: str,
     ) -> List[OutlineChapterResult]:
         """校验大纲未覆盖所有文件时，补充缺少的源码文件重写大纲。"""
-        outline_str = json.dumps(
-            [o.dict() for o in outline], 
-            ensure_ascii=False
-        )
         fnames_li = '\n'.join(fnames)
-        code_desc_str = json.dumps([d.dict() for d in code_desc], ensure_ascii=False)
         ques = render_prompt(
             OUTLINE_FIX_PMT,
             struct=fnames_li,
-            code_desc=code_desc_str,
+            code_desc=self._json_dump(code_desc),
             readme=readme,
-            outline=outline_str,
+            outline=self._json_dump(outline),
             problem=problem,
         )
         parse_output = lambda s: parse_obj_as(
@@ -184,19 +177,11 @@ class Code2BookAgent:
         code_desc: List[CodeDescItemResult],
     ) -> SrcAnlsDetailResult:
         """生成第 idx 章细纲的源码解析部分。"""
-        outline_str = json.dumps(
-            [c.dict() for c in outline_chs], 
-            ensure_ascii=False
-        )
-        code_desc_str = json.dumps(
-            [d.dict() for d in code_desc], 
-            ensure_ascii=False
-        )
         ques = render_prompt(
             SRC_ANLS_DETAIL_PMT,
             i=str(idx + 1),
-            outline=outline_str,
-            code_desc=code_desc_str,
+            outline=self._json_dump(outline_chs),
+            code_desc=self._json_dump(code_desc),
         )
         parse_output = lambda s: SrcAnlsDetailResult(
             **json_repair.loads(ext_code_block(s))
@@ -214,20 +199,12 @@ class Code2BookAgent:
         code_desc: List[CodeDescItemResult],
     ) -> RestDetailResult:
         """生成第 idx 章细纲的剩余部分（学习目标、类比、练习等）。"""
-        outline_str =  outline_str = json.dumps(
-            [c.dict() for c in outline_chs], 
-            ensure_ascii=False
-        )
-        code_desc_str = json.dumps(
-            [d.dict() for d in code_desc], 
-            ensure_ascii=False
-        )
         ques = render_prompt(
             REST_DETAIL_PMT,
             detail=detail.json(),
-            outline=outline_str,
+            outline=self._json_dump(outline_chs),
             i=str(idx + 1),
-            code_desc=code_desc_str,
+            code_desc=self._json_dump(code_desc),
         )
         parse_output = lambda s: RestDetailResult(
             **json_repair.loads(ext_code_block(s))
@@ -244,20 +221,12 @@ class Code2BookAgent:
         problem: str,
     ) -> Detail:
         """校验细纲未覆盖所有函数时，补充缺少的函数重写细纲。"""
-        outline_str = json.dumps(
-            [c.dict() for c in outline_chs], 
-            ensure_ascii=False
-        )        
-        code_desc_str = json.dumps(
-            [d.dict() for d in code_desc], 
-            ensure_ascii=False
-        )
         ques = render_prompt(
             DETAIL_FIX_PMT,
             i=str(idx),
-            outline=outline_str,
+            outline=self._json_dump(outline_chs),
             detail=detail.json(),
-            code_desc=code_desc_str,
+            code_desc=self._json_dump(code_desc),
             problem=problem,
         )
         parse_output = lambda s: Detail(
@@ -275,17 +244,11 @@ class Code2BookAgent:
         code_desc: List[CodeDescItemResult],
     ) -> str:
         """根据大纲和细纲生成第 idx 章正文。"""
-        outline_str = json.dumps([o.dict() for o in outline_chs], ensure_ascii=False)
-        detail_str = detail.json()
-        code_desc_str = json.dumps(
-            [d.dict() for d in code_desc], 
-            ensure_ascii=False
-        )
         ques = render_prompt(
             BODY_PMT,
-            detail=detail_str,
-            outline=outline_str,
-            code_desc=code_desc_str,
+            detail=self._json_dump(detail),
+            outline=self._json_dump(outline_chs),
+            code_desc=self._json_dump(code_desc),
             i=str(idx + 1),
         )
         return ask_chatgpt_retry(
@@ -311,18 +274,25 @@ class Code2BookAgent:
     ) -> str:
         """根据修改意见和对应源码修改正文。"""
         detail_str = detail.json()
-        code_desc_str = json.dumps(
-            [d.dict() for d in code_desc], 
-            ensure_ascii=False
-        )
         ques = render_prompt(
             BODY_FIX_PMT,
             detail=detail_str,
             body=body,
             comment=comment,
-            code_desc=code_desc_str,
+            code_desc=self._json_dump(code_desc),
         )
         return ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         )
+
+    @staticmethod
+    def _json_dump(obj) -> str:
+        if isinstance(obj, BaseModel):
+            obj = obj.model_dump()
+        elif isinstance(obj, list):
+            obj = [
+                it.dict() if isinstance(it, BaseModel) else it
+                for it in obj
+            ]
+        return json.dumps(obj, ensure_ascii=False, indent=2)
