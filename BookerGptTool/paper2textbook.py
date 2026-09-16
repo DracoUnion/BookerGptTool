@@ -67,10 +67,16 @@ class Paper2TextbookOrchestrator:
         open(fname, 'w', encoding='utf8').write(text)
 
     def _write_yaml(self, fname: str, obj) -> None:
-        data = obj.model_dump() if isinstance(obj, BaseModel) else obj
+        if isinstance(obj, BaseModel):
+            obj = obj.dict()
+        elif isinstance(obj, list):
+            obj = [
+                it.dict() if isinstance(it, BaseModel) else it
+                for it in obj
+            ]
         os.makedirs(path.dirname(fname), exist_ok=True)
         with open(fname, 'w', encoding='utf8') as f:
-            yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+            yaml.safe_dump(obj, f, allow_unicode=True, sort_keys=False)
 
     def _read_yaml(self, fname: str, model):
         if not path.isfile(fname) or not path.getsize(fname):
