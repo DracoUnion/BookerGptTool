@@ -1097,9 +1097,9 @@ CITATION_AUDIT_PMT = '''
 {book}
 [/content]
 
-## 论文集合
+## 论文
 
 [content]
-{papers}
+{paper}
 [/content]
 '''

@@ -180,6 +180,6 @@ class Paper2TextbookAgent:
         )
         return self._text(prompt, self.model, self.args)
 
-    def audit_citations(self, book: str, papers: str) -> CitationAudit:
-        prompt = render_prompt(CITATION_AUDIT_PMT, book=book, papers=papers)
+    def audit_citations(self, book: str, paper: str) -> CitationAudit:
+        prompt = render_prompt(CITATION_AUDIT_PMT, book=book, paper=paper)
         return self._json(CitationAudit, prompt, self.model, self.args)

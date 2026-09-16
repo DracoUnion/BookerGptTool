@@ -529,13 +529,45 @@ class Paper2TextbookOrchestrator:
             previous += '\n\n' + body
         return comments
 
-    def _citation_audit(self, book: str, papers: List[Tuple[str, str, str]]) -> CitationAudit:
-        cached = path.join(self.pj_dir, 'citation_audit.yaml')
-        saved = self._read_yaml(cached, CitationAudit)
-        if saved:
-            return saved
-        result = self.agent.audit_citations(book, self._paper_list_text(papers))
-        self._write_yaml(cached, result)
+    def _tr_cite_audit(self, 
+        book:str, 
+        paper_fname:str, idx:int
+    ) -> Tuple[int, CitationAudit]:
+        cite_fname = path.join(
+            self.pj_dir, path.basename(paper_fname) + '_cite_audit.yaml')
+        result = self._read_yaml(cite_fname, CitationAudit)
+        if result:
+            return idx, result
+        text = self._read_paper(paper_fname)
+        result = self.agent.audit_citations(book, text)
+        self._write_yaml(cite_fname, result)
+        return idx, result
+
+
+    def _citation_audit(self, book: str, paper_fnames: List[str]) -> CitationAudit:
+        cites: List[CitationAudit] = [
+            None for _ in range(len(paper_fnames))
+        ]
+        for i, f in enumerate(paper_fnames):
+            h = self.pool.submit(
+                self._tr_cite_audit,
+                book, f, i,
+            )
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                for h in self.hdls:
+                    idx, cite = h.result()
+                    cites[idx] = cite
+                self.hdls = []
+        for h in self.hdls:
+            idx, cite = h.result()
+            cites[idx] = cite
+        self.hdls = []
+        result = CitationAudit(
+            citation_stats=sum([c.citation_stats for c in cites], []),
+            unsupported_claims=sum([c.unsupported_claims for c in cites], []),
+            missing_concepts=sum([c.missing_concepts for c in cites], []),
+        )
         return result
 
     # ── 组装与导出 ──────────────────────────────────────
@@ -619,15 +651,19 @@ class Paper2TextbookOrchestrator:
         return out
 
     def step_assemble(
-        self, title: str, outline: List[OutlineChapter], bodies: List[str],
-        papers: List[Tuple[str, str, str]], glossary: List[GlossaryEntry],
+        self, 
+        title: str, 
+        outline_chs: List[OutlineChapter], 
+        bodies: List[str],
+        papers: List[Tuple[str, str, str]], 
+        glossary: List[GlossaryEntry],
     ) -> None:
         logger.info('[6] 组装教材并执行引用审计')
         audit = CitationAudit()
-        md = self._assemble_markdown(title, outline, bodies, glossary, audit)
+        md = self._assemble_markdown(title, outline_chs, bodies, glossary, audit)
         audit = self._citation_audit(md, papers)
         self._write_yaml(path.join(self.pj_dir, 'citation_audit.yaml'), audit)
-        self._assemble_markdown(title, outline, bodies, glossary, audit)
+        self._assemble_markdown(title, outline_chs, bodies, glossary, audit)
         if self.args.format == 'tex':
             self._assemble_tex(title, bodies)
         elif self.args.format == 'pdf':
@@ -656,15 +692,17 @@ class Paper2TextbookOrchestrator:
         outline_chs = sum([pt.chapters for pt in outline], [])
         details = self.step_gen_details(outline_chs, cards)
         bodies = self.step_gen_bodies(outline_chs, details, cards)
+        '''
         glossary = self._gen_glossary(paper_briefs) if self.args.glossary else []
         if self.args.consistency:
             comments = self._consistency_check(bodies)
             if comments:
                 logger.warning('[6] 跨章一致性检查发现问题：\n%s', '\n'.join(comments))
         self.step_assemble(
-            self.args.title or path.basename(path.abspath(self.args.dir)),
-            outline, bodies, paper_briefs, glossary,
+            path.basename(path.abspath(self.args.dir)),
+            outline_chs, bodies, paper_briefs, glossary,
         )
+        '''
         logger.info('[DONE] 教材已写入 %s', self.pj_dir)
 
 
@@ -685,7 +723,6 @@ def reg_subparser(subparsers):
     parser.add_argument('-f', '--format', choices=('md', 'tex', 'pdf'), default='md', help='输出格式')
     parser.add_argument('-T', '--threads', type=int, default=4, help='并行线程数')
     parser.add_argument('-c', '--check', type=int, default=3, help='覆盖/格式检查次数')
-    parser.add_argument('--title', help='教材标题')
     parser.add_argument('--glossary', action='store_true', help='生成术语对照表')
     parser.add_argument('--consistency', action='store_true', help='执行跨章一致性检查')
     parser.add_argument('-D', '--debug', action='store_true', help='调试模式')
