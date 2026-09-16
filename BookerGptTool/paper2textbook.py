@@ -387,18 +387,24 @@ class Paper2TextbookOrchestrator:
 
     # ── 正文 ────────────────────────────────────────────
 
-    def _gen_body_one(self, chapter, detail, cards, idx: int) -> str:
+    def _tr_gen_body(
+        self, 
+        outline: List[OutlineChapter], 
+        detail: List[ChapterDetail], 
+        cards: List[PaperConcepts], 
+        idx: int
+    ) -> Tuple[int, str]:
         logger.info(f'[5] 编写第 {idx + 1} 章正文')
-        width = max(2, len(str(len(chapter.nodes))))
+        width = max(2, len(str(len(outline.nodes))))
         body_fname = path.join(
             self.pj_dir, 'chapters', f'chapter_{idx + 1:0{width}d}.md'
         )
         if path.isfile(body_fname) and path.getsize(body_fname):
-            return self._read_text(body_fname)
-        paper_desc_ch = self._paper_desc_ch(chapter, cards)
+            return idx, self._read_text(body_fname)
+        paper_desc_ch = self._paper_desc_ch(outline, cards)
         body = self.agent.gen_body(
             str(idx + 1), 
-            self._json_dump(chapter), 
+            self._json_dump(outline), 
             self._json_dump(detail), 
             self._json_dump(paper_desc_ch),
         )
@@ -410,24 +416,28 @@ class Paper2TextbookOrchestrator:
             logger.info('[5] 第 %d 章正文检查意见：\n%s', idx + 1, comment)
             body = self.agent.fix_body(body, comment, paper_desc_ch)
         self._write_text(body_fname, body)
-        return body
+        return idx, body
 
     def step_gen_bodies(
         self, outline: List[OutlineChapter], details: List[ChapterDetail],
         cards: List[PaperConcepts],
     ) -> List[str]:
         logger.info('[5] 生成章节正文')
-        bodies = []
-        futures = [
-            self.pool.submit(self._gen_body_one, ch, detail, cards, i)
-            for i, (ch, detail) in enumerate(zip(outline.chapters, details))
-        ]
-        for future in futures:
-            bodies.append(future.result())
-        order = {ch.no: i for i, ch in enumerate(outline.chapters)}
-        bodies = [b for _, b in sorted(
-            zip([order[ch.no] for ch in outline.chapters], bodies), key=lambda x: x[0]
-        )]
+        bodies = [None for _ in range(len(details))]
+        for i, detail in enumerate(details):
+            h = self.pool.submit(
+                self._tr_gen_body, outline, detail, cards, i)
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                for h in self.hdls:
+                    idx, body = h.result()
+                    bodies[idx] = body
+                self.hdls = []
+
+        for h in self.hdls:
+            idx, body = h.result()
+            bodies[idx] = body
+        self.hdls = []
         return bodies
 
     # ── 辅助增强 ────────────────────────────────────────
