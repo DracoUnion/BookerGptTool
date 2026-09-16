@@ -98,7 +98,7 @@ class Paper2TextbookOrchestrator:
         return json.dumps(obj, ensure_ascii=False, indent=2)
 
     def _json_load(self, text: str, model):
-        return model(**json.loads(text))
+        return parse_obj_as(model, json.loads(text))
 
     def _cache_file(self, stage: str, name: str, ext: str) -> str:
         return path.join(self.pj_dir, stage, name + ext)
