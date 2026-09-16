@@ -24,11 +24,11 @@ class Paper2TextbookAgent:
     # ── 工具 ──────────────────────────────────────────────
 
     @staticmethod
-    def _json(parser, prompt, model, args):
+    def _json(schema, prompt, model, args):
         """调用 LLM 并把 ```json 代码块解析为 pydantic 对象。"""
         return ask_chatgpt_retry(
             prompt, model, args,
-            parse_output=lambda s: parser(json.loads(ext_code_block(s))),
+            parse_output=lambda s: parse_obj_as(schema, json.loads(ext_code_block(s))),
         )
 
     @staticmethod
@@ -49,10 +49,12 @@ class Paper2TextbookAgent:
             CONCEPT_EXT_PMT,
             paper=paper, pname=pid, start=start,
         )
-        return self._json(
-            lambda d: PaperConcepts(paper=pid, **d),
+        r: PaperConcepts = self._json(
+            PaperConcepts,
             prompt, self.model, self.args,
         )
+        r.paper = pid
+        return r
 
     # ============================================================
     # 二、论文聚类
@@ -61,15 +63,15 @@ class Paper2TextbookAgent:
     def cluster_papers(self, papers: str) -> List[PartClus]:
         prompt = render_prompt(PAPER_CLUSTER_PMT, papers=papers)
         return self._json(
-            lambda d: parse_obj_as(List[PartClus], d), prompt, self.model, self.args
+            List[PartClus], prompt, self.model, self.args
         )
 
-    def fix_cluster(self, papers: str, parts: str, problem: str) -> PaperClusResult:
+    def fix_cluster(self, papers: str, parts: str, problem: str) -> List[PartClus]:
         prompt = render_prompt(
             PAPER_CLUSTER_FIX_PMT,
             papers=papers, parts=parts, problem=problem,
         )
-        return self._json(lambda d: PaperClusResult(**d), prompt, self.model, self.args)
+        return self._json(List[PartClus], prompt, self.model, self.args)
 
     # ============================================================
     # 三、全书大纲
@@ -83,7 +85,7 @@ class Paper2TextbookAgent:
             struct=struct, concept_cards=concept_cards, 
         )
         return self._json(
-            lambda d: parse_obj_as(List[OutlineChapter], d), 
+            List[OutlineChapter], 
             prompt, self.model, self.args
         )
 
@@ -97,10 +99,9 @@ class Paper2TextbookAgent:
             problem=problem,
         )
         return self._json(
-            lambda d: parse_obj_as(
-                List[OutlineChapter], d), 
-                prompt, self.model, self.args
-            )
+            List[OutlineChapter], 
+            prompt, self.model, self.args
+        )
 
     # ============================================================
     # 四、章节细纲
@@ -113,7 +114,7 @@ class Paper2TextbookAgent:
             CONCEPT_ANLS_DETAIL_PMT,
             i=i, outline=outline, paper_desc=paper_desc,
         )
-        return self._json(lambda d: ConceptAnlsResult(**d), prompt, self.model, self.args)
+        return self._json(ConceptAnlsResult, prompt, self.model, self.args)
 
     def gen_rest_detail(
         self, i: str, outline: str, detail: str, paper_desc: str,
@@ -122,7 +123,7 @@ class Paper2TextbookAgent:
             REST_DETAIL_PMT,
             i=i, outline=outline, detail=detail, paper_desc=paper_desc,
         )
-        return self._json(lambda d: RestDetailResult(**d), prompt, self.model, self.args)
+        return self._json(RestDetailResult, prompt, self.model, self.args)
 
     def fix_detail(
         self, i: str, detail: str, outline: str, paper_desc: str, problem: str,
@@ -132,7 +133,7 @@ class Paper2TextbookAgent:
             i=i, detail=detail, outline=outline, paper_desc=paper_desc,
             problem=problem,
         )
-        return self._json(lambda d: ChapterDetail(**d), prompt, self.model, self.args)
+        return self._json(ChapterDetail, prompt, self.model, self.args)
 
     # ============================================================
     # 五、章节正文
@@ -164,7 +165,7 @@ class Paper2TextbookAgent:
 
     def gen_glossary(self, papers: str) -> List[GlossaryEntry]:
         prompt = render_prompt(TERM_GLOSSARY_PMT, papers=papers)
-        return self._json(lambda d: [GlossaryEntry(**e) for e in d], prompt, self.model, self.args)
+        return self._json(List[GlossaryEntry], prompt, self.model, self.args)
 
     def check_consistency(self, previous_chapters: str, current_chapter: str) -> str:
         prompt = render_prompt(
@@ -175,4 +176,4 @@ class Paper2TextbookAgent:
 
     def audit_citations(self, book: str, papers: str) -> CitationAudit:
         prompt = render_prompt(CITATION_AUDIT_PMT, book=book, papers=papers)
-        return self._json(lambda d: CitationAudit(**d), prompt, self.model, self.args)
+        return self._json(CitationAudit, prompt, self.model, self.args)

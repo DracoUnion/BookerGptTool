@@ -133,19 +133,11 @@ class Paper2TextbookOrchestrator:
                 return '\n\n'.join(page.get_text() for page in doc)
         raise ValueError(f'不支持的论文格式：{fname}')
 
-    def _load_papers(self) -> List[Tuple[str, str, str]]:
-        loaded = []
-        for paper_id, fname in self._discover_papers(self.args.dir):
-            cached = path.join(self.pj_dir, 'papers', paper_id)
-            if path.isfile(cached) and path.getsize(cached):
-                text = self._read_text(cached)
-            else:
-                text = self._read_paper(fname)
-                os.makedirs(path.dirname(cached), exist_ok=True)
-                self._write_text(cached, text)
-            self._paper_cache[paper_id] = text
-            loaded.append((paper_id, fname, text))
-        return loaded
+    def _paper_brief(self, paper_fnames: List[str], limit=500) -> List[Tuple[str, str, str]]:
+        return {
+            f: self._read_paper(f)[:500].replace('\n', ' ')
+            for f in paper_fnames
+        }
 
     def _paper_list_text(self, papers: List[Tuple[str, str, str]]) -> str:
         rows = []
@@ -574,19 +566,20 @@ class Paper2TextbookOrchestrator:
         os.makedirs(self.pj_dir, exist_ok=True)
         logger.info(self.args)
         paper_fnames = self._discover_papers()
+        paper_brieves = self._paper_brief(paper_fnames)
         cards = self.step_extract_concepts(paper_fnames)
-        parts = self.step_cluster_papers(papers, cards)
+        parts = self.step_cluster_papers(paper_brieves, cards)
         outline = self.step_gen_outline(parts, cards)
         details = self.step_gen_details(outline, cards)
         bodies = self.step_gen_bodies(outline, details, cards)
-        glossary = self._gen_glossary(papers) if self.args.glossary else []
+        glossary = self._gen_glossary(paper_brieves) if self.args.glossary else []
         if self.args.consistency:
             comments = self._consistency_check(bodies)
             if comments:
                 logger.warning('[6] 跨章一致性检查发现问题：\n%s', '\n'.join(comments))
         self.step_assemble(
             self.args.title or path.basename(path.abspath(self.args.dir)),
-            outline, bodies, papers, glossary,
+            outline, bodies, paper_brieves, glossary,
         )
         logger.info('[DONE] 教材已写入 %s', self.pj_dir)
 
