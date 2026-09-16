@@ -176,7 +176,7 @@ class Paper2TextbookOrchestrator:
 
     # ── 概念卡片 ────────────────────────────────────────
 
-    def _extract_concepts(
+    def _tr_extract_concepts(
         self, fname: str,
     ) -> PaperConcepts:
         paper_id = path.basename(fname)
@@ -199,13 +199,13 @@ class Paper2TextbookOrchestrator:
         logger.info('[1] 拆解论文并生成概念卡片')
         cards = []
         futures = [
-            self.pool.submit(self._extract_concepts, f) for f in paper_fnames
+            self.pool.submit(self._tr_extract_concepts, f) for f in paper_fnames
         ]
         for future in as_completed(futures):
             cards.append(future.result())
         cards.sort(key=lambda c: self._paper_id(c.paper))
-        all_cards = [self._json_dump(c) for c in cards]
-        self._write_text(path.join(self.pj_dir, 'concept_cards.json'), '\n\n'.join(all_cards))
+        card_json = self._json_dump(cards)
+        self._write_text(path.join(self.pj_dir, 'concept_cards.json'), card_json)
         return cards
 
     @staticmethod
