@@ -297,7 +297,10 @@ class Paper2TextbookOrchestrator:
         raise ValueError(f'领域综述路径不存在：{survey}')
 
     @staticmethod
-    def _outline_coverage_problem(cards, outline) -> str:
+    def _outline_coverage_problem(
+        cards, 
+        outline,
+    ) -> str:
         # 大纲节点的 src 里列出的是支撑该知识点的论文 ID。
         used_papers = {
             src.paper for ch in outline.chapters for n in ch.nodes for src in n.src
@@ -347,7 +350,7 @@ class Paper2TextbookOrchestrator:
             **rest_part.model_dump(),
         )
         for _ in range(self.args.check):
-            problem = self._detail_coverage_problem(outline, cards, detail)
+            problem = self._detail_coverage_problem(outline, detail)
             if not problem:
                 logger.info(f'[4] 第 {idx + 1} 章细纲覆盖校验通过')
                 break
