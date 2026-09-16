@@ -232,8 +232,8 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
             if re.search(r'^article_\d+\.md$', f)
         ]
         for f in tqdm(body_fnames):
-            idx = int(re.search(r'article_(\d+)\.md$', f).group(1))
-            detail_fname = path.join(self.pj_dir, f'detail_{idx}.yaml')
+            idx_str = re.search(r'article_(\d+)\.md$', f).group(1)
+            detail_fname = path.join(self.pj_dir, f'detail_{idx_str}.yaml')
             detail = self._load_yaml(detail_fname, Detail)
             if detail is None:
                 logger.warn(f'[3] {detail_fname} 不存在')
