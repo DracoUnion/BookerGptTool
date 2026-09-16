@@ -208,8 +208,8 @@ OUTLINE_PMT = '''
                 "desc": "用"聚光灯"类比理解：模型在每一步只把资源分配给最相关的信息",
                 "role": "motivation",
                 "src": [
-                    {"paper": "P001", "page": "3-5"},
-                    {"paper": "P004", "page": "2-3"}
+                    {"paper": "P001.pdf", "page": "3-5"},
+                    {"paper": "P004.pdf", "page": "2-3"}
                 ]
             },
             {
@@ -218,7 +218,7 @@ OUTLINE_PMT = '''
                 "desc": "从内积相似度到 Softmax 归一化，逐步推导出标准形式",
                 "role": "definition",
                 "src": [
-                    {"paper": "P001", "page": "5-7"}
+                    {"paper": "P001.pdf", "page": "5-7"}
                 ]
             },
             { ... }
@@ -341,7 +341,7 @@ CONCEPT_ANLS_DETAIL_PMT = '''
             ],
             "sources": [
                 {
-                    "paper": "P001",
+                    "paper": "P001.pdf",
                     "page": "5-7",
                     "role": "origin"
                 },
