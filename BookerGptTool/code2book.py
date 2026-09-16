@@ -37,6 +37,21 @@ from .code2book_agent import Code2BookAgent, expand_stars
 class Code2BookMixin:
 
     @staticmethod
+    def _detail_check_problem(detail: Detail, total_funcs: List[str]):
+        detail_funcs = __class__._detail_funcs(detail)
+        detail_funcs = set(expand_stars(detail_funcs, total_funcs))
+        rest_funcs = total_funcs - detail_funcs
+        false_funcs = detail_funcs - total_funcs
+        prob = ''
+        if false_funcs:
+            prob += f'以下函数或方法在源文件中不存在：\n' + \
+                    '\n'.join(false_funcs) + '\n'
+        if rest_funcs:
+            prob += '以下函数或方法没有添加到任何单元中：\n' + \
+                    '\n'.join(rest_funcs) + '\n'
+        return prob
+
+    @staticmethod
     def _code_desc_ch(detail: Detail, code_desc: List[CodeDescItemResult]):
         code_fnames = [
             c.file
@@ -151,20 +166,10 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
         total_funcs = self._code_descs_total_funcs(code_desc_ch)
 
         for _ in range(self.args.check):
-            detail_funcs = self._detail_funcs(detail)
-            detail_funcs = set(expand_stars(detail_funcs, total_funcs))
-            rest_funcs = total_funcs - detail_funcs
-            false_funcs = detail_funcs - total_funcs
-            if not rest_funcs and not false_funcs:
+            prob = self._detail_check_problem(detail, total_funcs)
+            if not prob:
                 logger.info(f'[2] 细纲 {idx+1} 校验通过')
                 break
-            prob = ''
-            if false_funcs:
-                prob += f'以下函数或方法在源文件中不存在：\n' + \
-                        '\n'.join(false_funcs) + '\n'
-            if rest_funcs:
-                prob += '以下函数或方法没有添加到任何单元中：\n' + \
-                        '\n'.join(rest_funcs) + '\n'
             logger.warn(f'[2] 细纲 {idx+1} 校验失败：\n{prob}')
             detail = self.agent.fix_detail(idx, detail, outline_chs, code_desc_ch, prob)
 
