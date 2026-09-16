@@ -323,9 +323,9 @@ class Paper2TextbookOrchestrator:
         detail_fname = path.join(
             self.pj_dir, 'details', f'detail_{idx + 1:0{width}d}.yaml'
         )
-        saved = self._read_yaml(detail_fname, ChapterDetail)
-        if saved:
-            return saved
+        detail = self._read_yaml(detail_fname, ChapterDetail)
+        if detail:
+            return detail
         paper_desc = self._paper_desc_for_chapter(chapter, cards)
         outline_json = self._json_dump(chapter)
         concept_part = self.agent.gen_concept_anls_detail(
