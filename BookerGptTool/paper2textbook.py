@@ -254,32 +254,39 @@ class Paper2TextbookOrchestrator:
     def _outline_fname(self) -> str:
         return path.join(self.pj_dir, 'outline.yaml')
 
+    def _tr_gen_outline(
+        self,
+        idx: int,
+        part_fnames: List[str],
+        part_cards: List[PaperConcepts],
+    ) -> Tuple[int, OutlineChapter]:
+        outline = self.agent.gen_outline(
+            self._json_dump(part_fnames), 
+            self._json_dump(part_cards),
+        )
+        for _ in range(self.args.check):
+            problem = self._outline_coverage_problem(part_cards, outline)
+            if not problem:
+                logger.info('[3] 概念卡片覆盖校验通过')
+                break
+            logger.warning('[3] 大纲覆盖校验失败：\n%s', problem)
+            outline = self.agent.fix_outline(
+                self._json_dump(outline), 
+                self._json_dump(part_fnames), 
+                self._json_dump(part_cards),
+                problem,
+            )
+        return idx, outline
+
     def step_gen_outline(
         self, parts: List[PartClus], cards: List[PaperConcepts],
     ) -> List[OutlineChapter]:
         logger.info('[3] 生成章—知识点大纲')
         outline_fname = self._outline_fname()
         outline = self._read_yaml(outline_fname, List[OutlineChapter])
-        if outline is not None:
-            return outline
-        result = self.agent.gen_outline(
-            self._json_dump(parts), 
-            self._json_dump(cards),
-        )
-        for _ in range(self.args.check):
-            problem = self._outline_coverage_problem(cards, result)
-            if not problem:
-                logger.info('[3] 概念卡片覆盖校验通过')
-                break
-            logger.warning('[3] 大纲覆盖校验失败：\n%s', problem)
-            result = self.agent.fix_outline(
-                self._json_dump(result), 
-                self._json_dump(parts), 
-                self._json_dump(cards),
-                problem,
-            )
-        self._write_yaml(outline_fname, result)
-        return result
+        if outline None:
+            outline = 
+        
 
     def _load_survey(self) -> str:
         survey = self.args.survey
@@ -298,8 +305,8 @@ class Paper2TextbookOrchestrator:
 
     @staticmethod
     def _outline_coverage_problem(
-        cards, 
-        outline,
+        cards: List[PaperConcepts], 
+        outline: OutlineChapter,
     ) -> str:
         # 大纲节点的 src 里列出的是支撑该知识点的论文 ID。
         used_papers = {
