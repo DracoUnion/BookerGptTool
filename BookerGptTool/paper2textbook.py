@@ -60,12 +60,7 @@ class Paper2TextbookOrchestrator:
 
     # ── 通用 I/O 与缓存 ─────────────────────────────────
 
-    def _read_text(self, fname: str) -> str:
-        return open(fname, encoding='utf8').read()
 
-    def _write_text(self, fname: str, text: str) -> None:
-        os.makedirs(path.dirname(fname), exist_ok=True)
-        open(fname, 'w', encoding='utf8').write(text)
 
     def _write_yaml(self, fname: str, obj) -> None:
         if isinstance(obj, BaseModel):
@@ -88,51 +83,13 @@ class Paper2TextbookOrchestrator:
             return None
         return parse_obj_as(model, data)
 
-    def _json_dump(self, obj) -> str:
-        if isinstance(obj, BaseModel):
-            obj = obj.model_dump()
-        elif isinstance(obj, list):
-            obj = [
-                it.dict() if isinstance(it, BaseModel) else it
-                for it in obj
-            ]
-        return json.dumps(obj, ensure_ascii=False, indent=2)
-
-    def _json_load(self, text: str, model):
-        return parse_obj_as(model, json.loads(text))
 
     def _cache_file(self, stage: str, name: str, ext: str) -> str:
         return path.join(self.pj_dir, stage, name + ext)
 
     # ── 论文读取 ────────────────────────────────────────
 
-    def _discover_papers(self, source: str) -> List[str]:
-        result = (
-            [source.replace('\\', '/')]
-            if path.isfile(source) else
-            [   
-                path.join(root, fname).replace('\\', '/')
-                for root, _, files in os.walk(source)
-                for fname in sorted(files)
-            ]
-        )
-        result = [f for f in result if extname(f).lower() in SUPPORTED_PAPER_EXTS]
-        if not result:
-            raise ValueError(f'请提供 MD/TEX/TXT/PDF 文件或所在目录')
-        return result
 
-    def _read_paper(self, fname: str) -> str:
-        ext = extname(fname).lower()
-        if ext in {'md', 'markdown', 'tex', 'txt'}:
-            return self._read_text(fname)
-        if ext == 'pdf':
-            try:
-                import fitz
-            except ImportError as ex:
-                raise ValueError('读取 PDF 需要安装 PyMuPDF') from ex
-            with fitz.open(fname) as doc:
-                return '\n\n'.join(page.get_text() for page in doc)
-        raise ValueError(f'不支持的论文格式：{fname}')
 
     def _paper_brief(self, paper_fnames: List[str], limit=500) -> List[Tuple[str, str, str]]:
         return {
@@ -156,7 +113,7 @@ class Paper2TextbookOrchestrator:
         start = '1'
         if extname(fname).lower() == 'pdf':
             start = '1'
-        result = self.agent.ext_concepts(text, paper_id, start)
+        result = self.agent.tool_ext_concepts(text, paper_id, start)
         self._write_yaml(ccpt_fname, result)
         return idx, result
 
@@ -200,7 +157,7 @@ class Paper2TextbookOrchestrator:
         parts = self._read_yaml(parts_fname, List[PartClus])
         if parts:
             return parts
-        parts = self.agent.cluster_papers(paper_briefs)
+        parts = self.agent.tool_cluster_papers(paper_briefs)
         paper_fnames = list(paper_briefs.keys())
         for _ in range(self.args.check):
             problem = self._parts_coverage_problem(paper_fnames, parts)
@@ -208,7 +165,7 @@ class Paper2TextbookOrchestrator:
                 logger.info('[2] 论文覆盖校验通过')
                 break
             logger.warning('[2] 论文覆盖校验失败：\n%s', problem)
-            parts = self.agent.fix_cluster(
+            parts = self.agent.tool_fix_cluster(
                 paper_briefs, self._json_dump(parts), problem,
             )
         self._write_yaml(parts_fname, parts)
@@ -238,7 +195,7 @@ class Paper2TextbookOrchestrator:
         part_fnames: List[str],
         part_cards: List[PaperConcepts],
     ) -> Tuple[int, OutlineChapter]:
-        outline = self.agent.gen_outline(
+        outline = self.agent.tool_gen_outline(
             self._json_dump(part_fnames), 
             self._json_dump(part_cards),
         )
@@ -248,7 +205,7 @@ class Paper2TextbookOrchestrator:
                 logger.info('[3] 概念卡片覆盖校验通过')
                 break
             logger.warning('[3] 大纲覆盖校验失败：\n%s', problem)
-            outline = self.agent.fix_outline(
+            outline = self.agent.tool_fix_outline(
                 self._json_dump(outline), 
                 self._json_dump(part_fnames), 
                 self._json_dump(part_cards),
@@ -335,12 +292,12 @@ class Paper2TextbookOrchestrator:
         if detail:
             return idx, detail
         card_ch = self._paper_desc_ch(outline_chs, cards)
-        concept_part = self.agent.gen_concept_anls_detail(
+        concept_part = self.agent.tool_gen_concept_anls_detail(
             str(idx + 1), 
             self._json_dump(outline_chs), 
             self._json_dump(card_ch),
         )
-        rest_part = self.agent.gen_rest_detail(
+        rest_part = self.agent.tool_gen_rest_detail(
             str(idx + 1), 
             self._json_dump(outline_chs), 
             self._json_dump(concept_part), 
@@ -357,7 +314,7 @@ class Paper2TextbookOrchestrator:
                 logger.info(f'[4] 第 {idx + 1} 章细纲覆盖校验通过')
                 break
             logger.warning('[4] 第 %d 章细纲覆盖校验失败：\n%s', idx + 1, problem)
-            detail = self.agent.fix_detail(
+            detail = self.agent.tool_fix_detail(
                 str(idx + 1), 
                 self._json_dump(detail), 
                 self._json_dump(outline_chs),
