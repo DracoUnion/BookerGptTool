@@ -67,10 +67,6 @@ class PartClus(_Base):
     papers: List[str] = []
 
 
-class PaperClusResult(_Base):
-    parts: List[PartClus] = []
-
-
 # ============================================================
 # 三、全书大纲（章 - 知识点）
 # ============================================================
@@ -93,11 +89,6 @@ class OutlineChapter(_Base):
     name: str = ''
     desc: str = ''
     nodes: List[OutlineNode] = []
-
-
-class OutlineResult(_Base):
-    title: str = ''
-    chapters: List[OutlineChapter] = []
 
 
 # ============================================================

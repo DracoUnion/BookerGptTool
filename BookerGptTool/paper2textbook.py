@@ -216,10 +216,10 @@ class Paper2TextbookOrchestrator:
 
     def step_cluster_papers(
         self, papers: List[Tuple[str, str, str]], cards: List[PaperConcepts],
-    ) -> PaperClusResult:
+    ) -> List[PartClus]:
         logger.info('[2] 按知识主题聚类论文')
         cached = self._cluster_cache()
-        saved = self._read_yaml(cached, PaperClusResult)
+        saved = self._read_yaml(cached, List[PartClus])
         if saved:
             return saved
         paper_list = self._paper_list_text(papers)
@@ -257,11 +257,11 @@ class Paper2TextbookOrchestrator:
         return path.join(self.pj_dir, 'outline.yaml')
 
     def step_gen_outline(
-        self, parts: PaperClusResult, cards: List[PaperConcepts],
-    ) -> OutlineResult:
+        self, parts: List[PartClus], cards: List[PaperConcepts],
+    ) -> List[OutlineChapter]:
         logger.info('[3] 生成章—知识点大纲')
         outline_fname = self._outline_fname()
-        outline = self._read_yaml(outline_fname, OutlineResult)
+        outline = self._read_yaml(outline_fname, List[OutlineChapter])
         if outline is not None:
             return outline
         result = self.agent.gen_outline(
@@ -374,7 +374,7 @@ class Paper2TextbookOrchestrator:
         return '以下论文未在细纲中引用：\n' + '\n'.join(missing) if missing else ''
 
     def step_gen_details(
-        self, outline: OutlineResult, cards: List[PaperConcepts],
+        self, outline: List[OutlineChapter], cards: List[PaperConcepts],
     ) -> List[ChapterDetail]:
         logger.info('[4] 生成章节细纲')
         details = []
