@@ -105,12 +105,12 @@ class Paper2TextbookOrchestrator:
 
     # ── 论文读取 ────────────────────────────────────────
 
-    def _discover_papers(self, source: str) -> List[Tuple[str, str]]:
+    def _discover_papers(self, source: str) -> List[str]:
         result = (
-            [(path.basename(source), source)]
+            [source]
             if path.isfile(source) else
             [   
-                (path.basename(fname), path.join(root, fname))
+                path.join(root, fname)
                 for root, _, files in os.walk(source)
                 for fname in sorted(files)
             ]
@@ -120,7 +120,7 @@ class Paper2TextbookOrchestrator:
             raise ValueError(f'请提供 MD/TEX/TXT/PDF 文件或所在目录')
         return result
 
-    def _read_one(self, fname: str) -> str:
+    def _read_paper(self, fname: str) -> str:
         ext = extname(fname).lower()
         if ext in {'md', 'markdown', 'tex', 'txt'}:
             return self._read_text(fname)
@@ -140,7 +140,7 @@ class Paper2TextbookOrchestrator:
             if path.isfile(cached) and path.getsize(cached):
                 text = self._read_text(cached)
             else:
-                text = self._read_one(fname)
+                text = self._read_paper(fname)
                 os.makedirs(path.dirname(cached), exist_ok=True)
                 self._write_text(cached, text)
             self._paper_cache[paper_id] = text
@@ -177,26 +177,30 @@ class Paper2TextbookOrchestrator:
     # ── 概念卡片 ────────────────────────────────────────
 
     def _extract_concepts(
-        self, paper_id: str, fname: str, text: str,
+        self, fname: str,
     ) -> PaperConcepts:
-        cached = self._cache_file('concept_cards', paper_id, '.yaml')
-        saved = self._read_yaml(cached, PaperConcepts)
-        if saved:
-            return saved
+        paper_id = path.basename(fname)
+        ccpt_fname = self._cache_file('concept_cards', paper_id, '.yaml')
+        concept = self._read_yaml(ccpt_fname, PaperConcepts)
+        if concept:
+            return concept
         # PDF 文本按页保留页码标记；其它格式从第 1 页开始。
+        text = self._read_paper(fname)
         start = '1'
         if extname(fname).lower() == 'pdf':
             start = '1'
         result = self.agent.ext_concepts(text, paper_id, start)
-        self._write_yaml(cached, result)
+        self._write_yaml(ccpt_fname, result)
         return result
 
     def step_extract_concepts(
-        self, papers: List[Tuple[str, str, str]],
+        self, paper_fnames: List[str],
     ) -> List[PaperConcepts]:
         logger.info('[1] 拆解论文并生成概念卡片')
         cards = []
-        futures = [self.pool.submit(self._extract_concepts, *p) for p in papers]
+        futures = [
+            self.pool.submit(self._extract_concepts, f) for f in paper_fnames
+        ]
         for future in as_completed(futures):
             cards.append(future.result())
         cards.sort(key=lambda c: self._paper_id(c.paper))
@@ -569,8 +573,8 @@ class Paper2TextbookOrchestrator:
             raise ValueError('请提供论文文件、论文目录或 ARXIV ID')
         os.makedirs(self.pj_dir, exist_ok=True)
         logger.info(self.args)
-        papers = self._load_papers()
-        cards = self.step_extract_concepts(papers)
+        paper_fnames = self._discover_papers()
+        cards = self.step_extract_concepts(paper_fnames)
         parts = self.step_cluster_papers(papers, cards)
         outline = self.step_gen_outline(parts, cards)
         details = self.step_gen_details(outline, cards)
