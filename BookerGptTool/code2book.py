@@ -532,7 +532,7 @@ class Code2BookOrchestrator(Code2BookMixin):
         src_anls_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_desc_ch)
         # 剩余部分
         rest_result = self.agent.gen_rest_detail(idx, src_anls_result, outline_chs, code_desc_ch)
-        detail = Detail(no=idx, **src_anls_result.dict(), **rest_result.dict())
+        detail = Detail(no=idx+1, **src_anls_result.dict(), **rest_result.dict())
 
         for _ in range(self.args.check):
             prob = self._detail_check_problem(detail, total_funcs)
