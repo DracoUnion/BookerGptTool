@@ -37,7 +37,11 @@ from .code2book_agent import Code2BookAgent, expand_stars
 class Code2BookMixin:
 
     @staticmethod
-    def _part_check_problem(parts:List[PartClusResult], total_fnames: Set[str]):   
+    def _part_check_problem(
+        parts:List[PartClusResult], 
+        total_fnames: List[str]
+    ):   
+        total_fnames = set(total_fnames)
         exi_fnames = {
             f for p in parts for f in p.files
         }
@@ -53,7 +57,11 @@ class Code2BookMixin:
         return prob
 
     @staticmethod
-    def _detail_check_problem(detail: Detail, total_funcs: Set[str]):
+    def _detail_check_problem(
+        detail: Detail, 
+        total_funcs: List[str]
+    ):
+        total_funcs = set(total_funcs)
         detail_funcs = __class__._detail_funcs(detail)
         detail_funcs = set(expand_stars(detail_funcs, total_funcs))
         rest_funcs = total_funcs - detail_funcs
