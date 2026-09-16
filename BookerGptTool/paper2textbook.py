@@ -368,13 +368,19 @@ class Paper2TextbookOrchestrator:
         return cards
 
     @staticmethod
-    def _detail_coverage_problem(chapter: List[OutlineChapter], detail) -> str:
+    def _detail_coverage_problem(chapter: OutlineChapter, detail: ChapterDetail) -> str:
         required = {
             src.paper for n in chapter.nodes for src in n.src
         }
         used = {s.paper for u in detail.units for s in u.sources}
         missing = sorted(required - used)
-        return '以下论文未在细纲中引用：\n' + '\n'.join(missing) if missing else ''
+        unknown = used - required
+        prob = ''
+        if missing:
+            prob += '以下论文未在细纲中引用：\n' + '\n'.join(missing) + '\n'
+        if unknown:
+            prob += '以下论文不存在：\n' + '\n'.join(unknown) + '\n'
+        return prob
 
     def step_gen_details(
         self, outline: List[OutlineChapter], cards: List[PaperConcepts],
