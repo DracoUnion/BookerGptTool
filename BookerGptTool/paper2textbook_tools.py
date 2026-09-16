@@ -8,6 +8,7 @@ import yaml
 import json
 from os import path
 import os
+from functools import cache
 
 from .openai import ask_chatgpt_retry, set_openai_props
 from .paper2textbook_models import *
@@ -16,10 +17,14 @@ from .util import ext_code_block, ext_cont_block, render_prompt, extname
 from pydantic import parse_obj_as
 
 
+SUPPORTED_PAPER_EXTS = {'md', 'markdown', 'tex', 'txt', 'pdf'}
+SUPPORTED_SURVEY_EXTS = {'md', 'markdown', 'tex', 'txt'}
+FORMAT_LABELS = {'md': 'Markdown', 'tex': 'LaTeX'}
+
 class Paper2TextbookTools:
     """封装 paper2textbook 的独立 LLM 调用。"""
 
-    def __init__(self, proj_dir, args):
+    def __init__(self, args):
         self.args = args
         self.model = args.model
         set_openai_props(args)
@@ -33,6 +38,7 @@ class Paper2TextbookTools:
     # ── 工具 ──────────────────────────────────────────────
     # ── IO ──────────────────────────────────────────────
     
+    @cache
     def _list_papers(self, source: str) -> List[str]:
         result = (
             [source.replace('\\', '/')]
@@ -58,7 +64,8 @@ class Paper2TextbookTools:
     def _read_text(self, fname: str) -> str:
         return open(fname, encoding='utf8').read()
 
-    def _read_paper(self, fname: str) -> str:
+    @cache
+    def tool_read_paper(self, fname: str) -> str:
         ext = extname(fname).lower()
         if ext in {'md', 'markdown', 'tex', 'txt'}:
             return self._read_text(fname)
@@ -71,8 +78,34 @@ class Paper2TextbookTools:
                 return '\n\n'.join(page.get_text() for page in doc)
         raise ValueError(f'不支持的论文格式：{fname}')
 
-    def tool_read_paper(self, fname: str):
-        return self._read_paper(path.join(self.args.dir, fname))
+    @cache
+    def tool_paper_brief(self, paper_fnames: List[str], limit=500) -> Dict[str, str]:
+        return {
+            f: self.tool_read_paper(f)[:limit].replace('\n', ' ')
+            for f in paper_fnames
+        }
+
+
+    def _write_yaml(self, fname: str, obj) -> None:
+        if isinstance(obj, BaseModel):
+            obj = obj.dict()
+        elif isinstance(obj, list):
+            obj = [
+                it.dict() if isinstance(it, BaseModel) else it
+                for it in obj
+            ]
+        os.makedirs(path.dirname(fname), exist_ok=True)
+        with open(fname, 'w', encoding='utf8') as f:
+            yaml.safe_dump(obj, f, allow_unicode=True, sort_keys=False)
+
+    def _read_yaml(self, fname: str, model):
+        if not path.isfile(fname) or not path.getsize(fname):
+            return None
+        try:
+            data = yaml.safe_load(open(fname, encoding='utf8').read())
+        except yaml.error.YAMLError:
+            return None
+        return parse_obj_as(model, data)
 
     def tool_read_workspace_text(self, fname: str):
         return self._read_text(path.join(self.pj_dir, fname))
@@ -265,22 +298,27 @@ class Paper2TextbookTools:
         self, i: int, 
         outline: List[OutlineChapter], 
         detail: ChapterDetail, 
-        paper_desc: str,
+        paper_desc: List[PaperConcepts],
     ) -> str:
         prompt = render_prompt(
             BODY_PMT,
-            i=i, outline=outline, detail=detail, paper_desc=paper_desc,
+            i=str(i), 
+            outline=self._json_dump(outline), 
+            detail=self._json_dump(detail), 
+            paper_desc=self._json_dump(paper_desc),
         )
         return self._text(prompt, self.model, self.args)
 
-    def check_body(self, body: str, detail: str) -> str:
-        prompt = render_prompt(BODY_CHK_PMT, body=body, detail=detail)
+    def tool_check_body(self, body: str, detail: ChapterDetail) -> str:
+        prompt = render_prompt(BODY_CHK_PMT, body=body, detail=self._json_dump(detail))
         return self._text(prompt, self.model, self.args)
 
-    def fix_body(self, body: str, comment: str, paper_desc: str) -> str:
+    def tool_fix_body(self, body: str, comment: str, paper_desc: List[PaperConcepts]) -> str:
         prompt = render_prompt(
             BODY_FIX_PMT,
-            body=body, comment=comment, paper_desc=paper_desc,
+            body=body, 
+            comment=comment, 
+            paper_desc=self._json_dump(paper_desc),
         )
         return self._text(prompt, self.model, self.args)
 
@@ -288,17 +326,17 @@ class Paper2TextbookTools:
     # 六、辅助检查（术语对照 / 跨章一致性 / 引用审计）
     # ============================================================
 
-    def gen_glossary(self, paper: str) -> List[GlossaryEntry]:
+    def tool_gen_glossary(self, paper: str) -> List[GlossaryEntry]:
         prompt = render_prompt(TERM_GLOSSARY_PMT, paper=paper)
         return self._json(List[GlossaryEntry], prompt, self.model, self.args)
 
-    def check_consistency(self, previous_chapters: str, current_chapter: str) -> str:
+    def tool_check_consistency(self, previous_chapter: str, current_chapter: str) -> str:
         prompt = render_prompt(
             CONSISTENCY_CHK_PMT,
-            previous_chapters=previous_chapters, current_chapter=current_chapter,
+            previous_chapters=previous_chapter, current_chapter=current_chapter,
         )
         return self._text(prompt, self.model, self.args)
 
-    def audit_citations(self, book: str, paper: str) -> CitationAudit:
-        prompt = render_prompt(CITATION_AUDIT_PMT, book=book, paper=paper)
+    def tool_audit_citations(self, chapter: str, paper: str) -> CitationAudit:
+        prompt = render_prompt(CITATION_AUDIT_PMT, book=chapter, paper=paper)
         return self._json(CitationAudit, prompt, self.model, self.args)

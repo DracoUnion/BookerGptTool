@@ -37,10 +37,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-SUPPORTED_PAPER_EXTS = {'md', 'markdown', 'tex', 'txt', 'pdf'}
-SUPPORTED_SURVEY_EXTS = {'md', 'markdown', 'tex', 'txt'}
-FORMAT_LABELS = {'md': 'Markdown', 'tex': 'LaTeX'}
-
 
 class Paper2TextbookOrchestrator:
     """编排论文拆解、教学设计、章节写作和教材交付。"""
@@ -56,32 +52,9 @@ class Paper2TextbookOrchestrator:
             path.abspath(args.dir) + '_paper2textbook'
         )
         os.makedirs(self.pj_dir, exist_ok=True)
-        self._paper_cache: Dict[str, str] = {}
 
     # ── 通用 I/O 与缓存 ─────────────────────────────────
 
-
-
-    def _write_yaml(self, fname: str, obj) -> None:
-        if isinstance(obj, BaseModel):
-            obj = obj.dict()
-        elif isinstance(obj, list):
-            obj = [
-                it.dict() if isinstance(it, BaseModel) else it
-                for it in obj
-            ]
-        os.makedirs(path.dirname(fname), exist_ok=True)
-        with open(fname, 'w', encoding='utf8') as f:
-            yaml.safe_dump(obj, f, allow_unicode=True, sort_keys=False)
-
-    def _read_yaml(self, fname: str, model):
-        if not path.isfile(fname) or not path.getsize(fname):
-            return None
-        try:
-            data = yaml.safe_load(open(fname, encoding='utf8').read())
-        except yaml.error.YAMLError:
-            return None
-        return parse_obj_as(model, data)
 
 
     def _cache_file(self, stage: str, name: str, ext: str) -> str:
@@ -91,11 +64,7 @@ class Paper2TextbookOrchestrator:
 
 
 
-    def _paper_brief(self, paper_fnames: List[str], limit=500) -> List[Tuple[str, str, str]]:
-        return {
-            f: self._read_paper(f)[:500].replace('\n', ' ')
-            for f in paper_fnames
-        }
+
 
 
     # ── 概念卡片 ────────────────────────────────────────
@@ -390,12 +359,12 @@ class Paper2TextbookOrchestrator:
             self._json_dump(paper_desc_ch),
         )
         for _ in range(self.args.check):
-            comment = self.agent.check_body(body, self._json_dump(detail))
+            comment = self.agent.tool_check_body(body, self._json_dump(detail))
             if '[PERFECT/]' in comment:
                 logger.info(f'[5] 第 {idx + 1} 章正文检查通过')
                 break
             logger.info('[5] 第 %d 章正文检查意见：\n%s', idx + 1, comment)
-            body = self.agent.fix_body(body, comment, paper_desc_ch)
+            body = self.agent.tool_fix_body(body, comment, paper_desc_ch)
         self._write_text(body_fname, body)
         return idx, body
 
@@ -429,7 +398,7 @@ class Paper2TextbookOrchestrator:
         if glossary is not None:
             return glossary
         text = self._read_paper(paper_fname)
-        result = self.agent.gen_glossary(text)
+        result = self.agent.tool_gen_glossary(text)
         self._write_yaml(glossary_fname, result)
         return result
 
@@ -454,7 +423,7 @@ class Paper2TextbookOrchestrator:
         comments = []
         previous = ''
         for i, body in enumerate(bodies, 1):
-            comment = self.agent.check_consistency(previous, body)
+            comment = self.agent.tool_check_consistency(previous, body)
             if '[PERFECT/]' not in comment:
                 comments.append(f'第 {i} 章：{comment}')
             previous += '\n\n' + body
@@ -470,7 +439,7 @@ class Paper2TextbookOrchestrator:
         if result:
             return idx, result
         text = self._read_paper(paper_fname)
-        result = self.agent.audit_citations(book, text)
+        result = self.agent.tool_audit_citations(book, text)
         self._write_yaml(cite_fname, result)
         return idx, result
 
