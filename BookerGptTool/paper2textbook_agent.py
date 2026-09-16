@@ -43,14 +43,14 @@ class Paper2TextbookAgent:
     # 一、概念卡片：单篇论文拆解
     # ============================================================
 
-    def ext_concepts(self, paper: str, pname: str, start: str) -> PaperConcepts:
+    def ext_concepts(self, paper: str, pid: str, start: str) -> PaperConcepts:
         """从单篇论文中抽取核心概念/方法/定理/发现，形成概念卡片。"""
         prompt = render_prompt(
             CONCEPT_EXT_PMT,
-            paper=paper, pname=pname, start=start,
+            paper=paper, pname=pid, start=start,
         )
         return self._json(
-            lambda d: PaperConcepts(paper=pname, **d),
+            lambda d: PaperConcepts(paper=pid, **d),
             prompt, self.model, self.args,
         )
 
