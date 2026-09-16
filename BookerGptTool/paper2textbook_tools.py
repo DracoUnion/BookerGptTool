@@ -9,6 +9,7 @@ import json
 from os import path
 import os
 from functools import cache
+from typing import *
 
 from .openai import ask_chatgpt_retry, set_openai_props
 from .paper2textbook_models import *
@@ -387,3 +388,13 @@ class Paper2TextbookTools:
         if unknown:
             prob += '以下论文不存在：\n' + '\n'.join(unknown) + '\n'
         return prob
+
+    def list_tools(self) -> Dict[str, Callable]:
+        return {
+            name:val
+            for name, val in self.__dict__.items()
+            if callable(val) and name.startswith('tool_')
+        }
+
+    def get_tool_defs(self):
+        
