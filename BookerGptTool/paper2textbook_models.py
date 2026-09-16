@@ -90,6 +90,9 @@ class OutlineChapter(_Base):
     desc: str = ''
     nodes: List[OutlineNode] = []
 
+class OutlineParts(_Base):
+    no: int = 0
+    chapters: List[OutlineChapter] = []
 
 # ============================================================
 # 四、章节细纲

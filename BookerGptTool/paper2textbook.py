@@ -276,6 +276,7 @@ class Paper2TextbookOrchestrator:
                 self._json_dump(part_cards),
                 problem,
             )
+            outline.
         return idx, outline
 
     def step_gen_outline(
@@ -283,25 +284,36 @@ class Paper2TextbookOrchestrator:
     ) -> List[OutlineChapter]:
         logger.info('[3] 生成章—知识点大纲')
         outline_fname = self._outline_fname()
-        outline = self._read_yaml(outline_fname, List[OutlineChapter])
-        if outline None:
-            outline = 
-        
+        outlines = self._read_yaml(outline_fname, List[OutlineChapter])
+        if outlines is None:
+            outlines = [
+                OutlineParts(no=i+1) for i in range(len(parts))
+            ]
 
-    def _load_survey(self) -> str:
-        survey = self.args.survey
-        if not survey:
-            return ''
-        if path.isfile(survey):
-            return self._read_text(survey)
-        if path.isdir(survey):
-            texts = []
-            for root, _, files in os.walk(survey):
-                for fname in sorted(files):
-                    if extname(fname).lower() in SUPPORTED_SURVEY_EXTS:
-                        texts.append(self._read_text(path.join(root, fname)))
-            return '\n\n'.join(texts)
-        raise ValueError(f'领域综述路径不存在：{survey}')
+        for i, pt in enumerate(parts):
+            part_fname_set = set(pt.papers)
+            part_cards = [c for c in cards if c.paper in part_fname_set]
+            if not outlines[i].chapters:
+                h = self.pool.submit(
+                    self._tr_gen_outline,
+                    i, pt.papers, part_cards,
+                )
+                self.hdls.append(h)
+                if len(self.hdls) > self.args.threads:
+                    for h in self.hdls:
+                        idx, o = h.result()
+                        outlines[idx].chapters = o
+                    self.hdls = []
+            if i % 10 == 0:
+                self._write_yaml(outline_fname, outlines)
+
+        for h in self.hdls:
+            idx, o = h.result()
+            outlines[idx].chapters = o
+        self.hdls = []
+        self._write_yaml(outline_fname, outlines)
+        return outlines
+        
 
     @staticmethod
     def _outline_coverage_problem(
