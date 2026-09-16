@@ -1014,10 +1014,10 @@ TERM_GLOSSARY_PMT = '''
 ]
 ```
 
-## 论文集合
+## 论文
 
 [content]
-{papers}
+{paper}
 [/content]
 '''
 

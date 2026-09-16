@@ -17,7 +17,7 @@ import logging
 import os
 import re
 import shutil
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, Future
 from os import path
 from typing import Dict, List, Tuple
 
@@ -49,6 +49,7 @@ class Paper2TextbookOrchestrator:
         self.args = args
         self.agent = Paper2TextbookAgent(args)
         self.pool = ThreadPoolExecutor(max_workers=args.threads)
+        self.hdls: List[Future] = []
         self.pj_dir = (
             path.dirname(args.dir) + '_paper2textbook'
             if path.isfile(args.dir) else
@@ -193,7 +194,7 @@ class Paper2TextbookOrchestrator:
         futures = [
             self.pool.submit(self._tr_extract_concepts, f) for f in paper_fnames
         ]
-        for future in as_completed(futures):
+        for future in futures:
             cards.append(future.result())
         cards.sort(key=lambda c: self._paper_id(c.paper))
         card_json = self._json_dump(cards)
@@ -379,7 +380,7 @@ class Paper2TextbookOrchestrator:
             self.pool.submit(self._tr_gen_detail, ch, cards, i)
             for i, ch in enumerate(outline.chapters)
         ]
-        for future in as_completed(futures):
+        for future in futures:
             details.append(future.result())
         details.sort(key=lambda d: d.no)
         return details
@@ -421,7 +422,7 @@ class Paper2TextbookOrchestrator:
             self.pool.submit(self._gen_body_one, ch, detail, cards, i)
             for i, (ch, detail) in enumerate(zip(outline.chapters, details))
         ]
-        for future in as_completed(futures):
+        for future in futures:
             bodies.append(future.result())
         order = {ch.no: i for i, ch in enumerate(outline.chapters)}
         bodies = [b for _, b in sorted(
@@ -431,14 +432,32 @@ class Paper2TextbookOrchestrator:
 
     # ── 辅助增强 ────────────────────────────────────────
 
-    def _gen_glossary(self, papers: List[Tuple[str, str, str]]) -> List[GlossaryEntry]:
-        cached = path.join(self.pj_dir, 'glossary.yaml')
-        saved = self._read_yaml(cached, List[GlossaryEntry])
-        if saved is not None:
-            return saved
-        result = self.agent.gen_glossary(self._paper_list_text(papers))
-        self._write_yaml(cached, result)
+    def _tr_gen_glossaty(self, paper_fname) -> List[GlossaryEntry]:
+        glossary_fname = path.join(self.pj_dir, path.basename(paper_fname) + '_glossary.yaml')
+        glossary = self._read_yaml(glossary_fname, List[GlossaryEntry])
+        if glossary is not None:
+            return glossary
+        text = self._read_paper(paper_fname)
+        result = self.agent.gen_glossary(text)
+        self._write_yaml(glossary_fname, result)
         return result
+
+
+    def _gen_glossary(self, paper_fnames: List[str]) -> List[GlossaryEntry]:
+        glossery = []
+        for f in paper_fnames:
+            h = self.pool.submit(
+                self._tr_gen_glossaty, f
+            )
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                for h in self.hdls:
+                    glossery += h.result()
+                self.hdls = []
+        for h in self.hdls:
+            glossery += h.result()
+        self.hdls = []
+        return glossery
 
     def _consistency_check(self, bodies: List[str]) -> List[str]:
         comments = []
@@ -578,7 +597,7 @@ class Paper2TextbookOrchestrator:
         bodies = self.step_gen_bodies(outline, details, cards)
         glossary = self._gen_glossary(paper_briefs) if self.args.glossary else []
         if self.args.consistency:
-            comments = self._consistency_check(bodies)
+            comments = self._coynsistency_check(bodies)
             if comments:
                 logger.warning('[6] 跨章一致性检查发现问题：\n%s', '\n'.join(comments))
         self.step_assemble(

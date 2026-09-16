@@ -169,8 +169,8 @@ class Paper2TextbookAgent:
     # 六、辅助检查（术语对照 / 跨章一致性 / 引用审计）
     # ============================================================
 
-    def gen_glossary(self, papers: str) -> List[GlossaryEntry]:
-        prompt = render_prompt(TERM_GLOSSARY_PMT, papers=papers)
+    def gen_glossary(self, paper: str) -> List[GlossaryEntry]:
+        prompt = render_prompt(TERM_GLOSSARY_PMT, paper=paper)
         return self._json(List[GlossaryEntry], prompt, self.model, self.args)
 
     def check_consistency(self, previous_chapters: str, current_chapter: str) -> str:
