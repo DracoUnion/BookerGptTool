@@ -219,21 +219,22 @@ class Paper2TextbookOrchestrator:
         parts = self._read_yaml(parts_fname, List[PartClus])
         if parts:
             return parts
-        result = self.agent.cluster_papers(paper_briefs)
+        parts = self.agent.cluster_papers(paper_briefs)
+        paper_fnames = list(paper_briefs.keys())
         for _ in range(self.args.check):
-            problem = self._coverage_problem(paper_briefs, result.parts)
+            problem = self._parts_coverage_problem(paper_fnames, parts)
             if not problem:
                 logger.info('[2] 论文覆盖校验通过')
                 break
             logger.warning('[2] 论文覆盖校验失败：\n%s', problem)
-            result = self.agent.fix_cluster(
-                paper_list, self._json_dump(result), problem,
+            parts = self.agent.fix_cluster(
+                paper_briefs, self._json_dump(parts), problem,
             )
-        self._write_yaml(parts_fname, result)
-        return result
+        self._write_yaml(parts_fname, parts)
+        return parts
 
     @staticmethod
-    def _coverage_problem(paper_fnames: List[str], parts: List[PartClus]) -> str:
+    def _parts_coverage_problem(paper_fnames: List[str], parts: List[PartClus]) -> str:
         paper_ids = set(paper_fnames)
         clustered = {p for part in parts for p in part.papers}
         missing = sorted(paper_ids - clustered)
@@ -568,7 +569,7 @@ class Paper2TextbookOrchestrator:
         paper_fnames = self._discover_papers()
         paper_brieves = self._paper_brief(paper_fnames)
         cards = self.step_extract_concepts(paper_fnames)
-        parts = self.step_cluster_papers(paper_brieves, cards)
+        parts = self.step_cluster_papers(paper_brieves)
         outline = self.step_gen_outline(parts, cards)
         details = self.step_gen_details(outline, cards)
         bodies = self.step_gen_bodies(outline, details, cards)

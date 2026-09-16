@@ -119,7 +119,7 @@ PAPER_CLUSTER_PMT = '''
     "no": 1,
     "title": "从感知机到注意力 —— 表示学习的范式跃迁",
     "desc": "本部分梳理表示学习从手工特征到端到端学习的演进脉络。",
-    "papers": ["P001", "P003", "P007", ...]
+    "papers": ["P001.pdf", "P003.pdf", "P007.pdf", ...]
   },
   ...
 ]
@@ -156,10 +156,10 @@ PAPER_CLUSTER_FIX_PMT = '''
 {parts}
 ```
 
-## 论文列表
+## 论文列表及摘要
 
 [content]
-{papers}
+{paper_briefs}
 [/content]
 
 ## 已知问题

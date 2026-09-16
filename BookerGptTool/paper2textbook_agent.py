@@ -69,10 +69,11 @@ class Paper2TextbookAgent:
             List[PartClus], prompt, self.model, self.args
         )
 
-    def fix_cluster(self, papers: str, parts: str, problem: str) -> List[PartClus]:
+    def fix_cluster(self, paper_briefs: Dict[str, str], parts: str, problem: str) -> List[PartClus]:
         prompt = render_prompt(
             PAPER_CLUSTER_FIX_PMT,
-            papers=papers, parts=parts, problem=problem,
+            paper_briefs=json.dumps(paper_briefs, ensure_ascii=False), 
+            parts=parts, problem=problem,
         )
         return self._json(List[PartClus], prompt, self.model, self.args)
 
