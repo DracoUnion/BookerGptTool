@@ -278,7 +278,7 @@ class Paper2TextbookOrchestrator:
 
     def step_gen_outline(
         self, parts: List[PartClus], cards: List[PaperConcepts],
-    ) -> List[OutlineChapter]:
+    ) -> List[OutlineParts]:
         logger.info('[3] 生成章—知识点大纲')
         outline_fname = self._outline_fname()
         outlines = self._read_yaml(outline_fname, List[OutlineParts])
@@ -639,11 +639,12 @@ class Paper2TextbookOrchestrator:
         cards = self.step_extract_concepts(paper_fnames)
         parts = self.step_cluster_papers(paper_briefs)
         outline = self.step_gen_outline(parts, cards)
-        details = self.step_gen_details(outline, cards)
-        bodies = self.step_gen_bodies(outline, details, cards)
+        outline_chs = sum([pt.chapters for pt in outline], [])
+        details = self.step_gen_details(outline_chs, cards)
+        bodies = self.step_gen_bodies(outline_chs, details, cards)
         glossary = self._gen_glossary(paper_briefs) if self.args.glossary else []
         if self.args.consistency:
-            comments = self._coynsistency_check(bodies)
+            comments = self._consistency_check(bodies)
             if comments:
                 logger.warning('[6] 跨章一致性检查发现问题：\n%s', '\n'.join(comments))
         self.step_assemble(
