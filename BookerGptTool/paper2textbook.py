@@ -22,7 +22,7 @@ from os import path
 from typing import Dict, List, Tuple
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, parse_obj_as
 
 from .openai import logger as oai_logger
 from .paper2textbook_agent import Paper2TextbookAgent
@@ -76,10 +76,7 @@ class Paper2TextbookOrchestrator:
         if not path.isfile(fname) or not path.getsize(fname):
             return None
         data = yaml.safe_load(open(fname, encoding='utf8').read())
-        if isinstance(model, type) and issubclass(model, BaseModel):
-            return model(**data)
-        # 用于 List[...] 这类泛型模型
-        return [model(**item) for item in data]
+        return parse_obj_as(model, data)
 
     def _json_dump(self, obj) -> str:
         if isinstance(obj, BaseModel):
