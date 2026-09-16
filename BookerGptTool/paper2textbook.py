@@ -314,7 +314,7 @@ class Paper2TextbookOrchestrator:
         ids = {src.paper for n in chapter.nodes for src in n.src}
         return [c.paper for c in cards if c.paper in ids]
 
-    def _tr_gen_detail(self, chapter, cards, idx: int) -> ChapterDetail:
+    def _tr_gen_detail(self, outline: List[OutlineChapter], cards, idx: int) -> ChapterDetail:
         logger.info(f'[4] 编写第 {idx + 1} 章细纲')
         width = max(2, len(str(len(cards))))
         detail_fname = path.join(
@@ -323,43 +323,40 @@ class Paper2TextbookOrchestrator:
         detail = self._read_yaml(detail_fname, ChapterDetail)
         if detail:
             return detail
-        paper_desc = self._paper_desc_for_chapter(chapter, cards)
-        outline_json = self._json_dump(chapter)
+        paper_desc_ch = self._paper_desc_ch(outline, cards)
         concept_part = self.agent.gen_concept_anls_detail(
-            str(idx + 1), outline_json, paper_desc,
+            str(idx + 1), 
+            self._json_dump(outline), 
+            self._json_dump(paper_desc_ch),
         )
-        rest_parts = self.agent.gen_rest_detail(
-            str(idx + 1), outline_json,
-            self._json_dump(concept_part), paper_desc,
+        rest_part = self.agent.gen_rest_detail(
+            str(idx + 1), 
+            self._json_dump(outline), 
+            self._json_dump(concept_part), 
+            self._json_dump(paper_desc_ch),
         )
         detail = ChapterDetail(
             no=idx + 1,
             **concept_part.model_dump(),
-            **rest_parts.model_dump(),
+            **rest_part.model_dump(),
         )
         for _ in range(self.args.check):
-            problem = self._detail_coverage_problem(chapter, cards, detail)
+            problem = self._detail_coverage_problem(outline, cards, detail)
             if not problem:
                 logger.info(f'[4] 第 {idx + 1} 章细纲覆盖校验通过')
                 break
             logger.warning('[4] 第 %d 章细纲覆盖校验失败：\n%s', idx + 1, problem)
             detail = self.agent.fix_detail(
                 str(idx + 1), self._json_dump(detail), outline_json,
-                paper_desc, problem,
+                paper_desc_ch, problem,
             )
         self._write_yaml(detail_fname, detail)
         return detail
 
-    def _paper_desc_for_chapter(self, chapter, cards) -> str:
+    def _paper_desc_ch(self, chapter, cards: List[PaperConcepts]) -> List[PaperConcepts]:
         ids = {src.paper for n in chapter.nodes for src in n.src}
-        chunks = []
-        for card in cards:
-            if card.paper in ids:
-                chunks.append(
-                    f'## {card.paper}\n\n'
-                    f'[content]\n{self._paper_cache.get(card.paper, "")}\n[/content]'
-                )
-        return '\n\n'.join(chunks)
+        cards = [c for c in cards if c.paper in ids]
+        return cards
 
     @staticmethod
     def _detail_coverage_problem(chapter, cards, detail) -> str:
@@ -394,9 +391,12 @@ class Paper2TextbookOrchestrator:
         )
         if path.isfile(body_fname) and path.getsize(body_fname):
             return self._read_text(body_fname)
-        paper_desc = self._paper_desc_for_chapter(chapter, cards)
+        paper_desc_ch = self._paper_desc_ch(chapter, cards)
         body = self.agent.gen_body(
-            str(idx + 1), self._json_dump(chapter), self._json_dump(detail), paper_desc,
+            str(idx + 1), 
+            self._json_dump(chapter), 
+            self._json_dump(detail), 
+            self._json_dump(paper_desc_ch),
         )
         for _ in range(self.args.check):
             comment = self.agent.check_body(body, self._json_dump(detail))
@@ -404,7 +404,7 @@ class Paper2TextbookOrchestrator:
                 logger.info(f'[5] 第 {idx + 1} 章正文检查通过')
                 break
             logger.info('[5] 第 %d 章正文检查意见：\n%s', idx + 1, comment)
-            body = self.agent.fix_body(body, comment, paper_desc)
+            body = self.agent.fix_body(body, comment, paper_desc_ch)
         self._write_text(body_fname, body)
         return body
 
