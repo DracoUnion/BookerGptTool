@@ -10,6 +10,7 @@ from .openai import ask_chatgpt_retry, set_openai_props
 from .paper2textbook_models import *
 from .paper2textbook_pmt import *
 from .util import ext_code_block, ext_cont_block, render_prompt
+from pydantic import parse_obj_as
 
 
 class Paper2TextbookAgent:
@@ -73,24 +74,31 @@ class Paper2TextbookAgent:
     # ============================================================
 
     def gen_outline(
-        self, struct: str, concept_cards: str, survey: str,
+        self, struct: str, concept_cards: str,
     ) -> OutlineResult:
         prompt = render_prompt(
             OUTLINE_PMT,
-            struct=struct, concept_cards=concept_cards, survey=survey,
+            struct=struct, concept_cards=concept_cards, 
         )
-        return self._json(lambda d: OutlineResult(**d), prompt, self.model, self.args)
+        return self._json(
+            lambda d: parse_obj_as(List[OutlineChapter], d), 
+            prompt, self.model, self.args
+        )
 
     def fix_outline(
         self, outline: str, struct: str, concept_cards: str,
-        survey: str, problem: str,
+        problem: str,
     ) -> OutlineResult:
         prompt = render_prompt(
             OUTLINE_FIX_PMT,
             outline=outline, struct=struct, concept_cards=concept_cards,
-            survey=survey, problem=problem,
+            problem=problem,
         )
-        return self._json(lambda d: OutlineResult(**d), prompt, self.model, self.args)
+        return self._json(
+            lambda d: parse_obj_as(
+                List[OutlineChapter], d), 
+                prompt, self.model, self.args
+            )
 
     # ============================================================
     # 四、章节细纲

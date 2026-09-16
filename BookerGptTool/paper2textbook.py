@@ -253,18 +253,17 @@ class Paper2TextbookOrchestrator:
 
     # ── 大纲 ────────────────────────────────────────────
 
-    def _outline_cache(self) -> str:
+    def _outline_fname(self) -> str:
         return path.join(self.pj_dir, 'outline.yaml')
 
     def step_gen_outline(
         self, parts: PaperClusResult, cards: List[PaperConcepts],
     ) -> OutlineResult:
         logger.info('[3] 生成章—知识点大纲')
-        cached = self._outline_cache()
+        cached = self._outline_fname()
         saved = self._read_yaml(cached, OutlineResult)
         if saved:
             return saved
-        survey = self._load_survey()
         result = self.agent.gen_outline(
             self._json_dump(parts), 
             self._json_dump(cards), survey,
@@ -279,7 +278,7 @@ class Paper2TextbookOrchestrator:
                 self._json_dump(result), 
                 self._json_dump(parts), 
                 self._json_dump(cards),
-                survey, problem,
+                problem,
             )
         self._write_yaml(cached, result)
         return result
@@ -605,7 +604,6 @@ def reg_subparser(subparsers):
     parser.add_argument('-f', '--format', choices=('md', 'tex', 'pdf'), default='md', help='输出格式')
     parser.add_argument('-T', '--threads', type=int, default=4, help='并行线程数')
     parser.add_argument('-c', '--check', type=int, default=3, help='覆盖/格式检查次数')
-    parser.add_argument('-s', '--survey', help='领域综述 Markdown/TXT 文件')
     parser.add_argument('--title', help='教材标题')
     parser.add_argument('--glossary', action='store_true', help='生成术语对照表')
     parser.add_argument('--consistency', action='store_true', help='执行跨章一致性检查')

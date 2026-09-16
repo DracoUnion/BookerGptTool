@@ -239,12 +239,6 @@ OUTLINE_PMT = '''
 [content]
 {concept_cards}
 [/content]
-
-## 领域综述
-
-[content]
-{survey}
-[/content]
 '''
 
 ########################################################
