@@ -49,7 +49,12 @@ class Paper2TextbookOrchestrator:
         self.args = args
         self.agent = Paper2TextbookAgent(args)
         self.pool = ThreadPoolExecutor(max_workers=args.threads)
-        self.out = path.abspath(args.out)
+        self.pj_dir = (
+            path.dirname(args.dir) + '_paper2textbook'
+            if path.isfile(args.dir) else
+            path.abspath(args.dir) + '_paper2textbook'
+        )
+        os.makedirs(self.pj_dir, exist_ok=True)
         self._paper_cache: Dict[str, str] = {}
 
     # ── 通用 I/O 与缓存 ─────────────────────────────────
@@ -85,7 +90,7 @@ class Paper2TextbookOrchestrator:
         return model(**json.loads(text))
 
     def _cache_file(self, stage: str, name: str, ext: str) -> str:
-        return path.join(self.out, stage, name + ext)
+        return path.join(self.pj_dir, stage, name + ext)
 
     # ── 论文读取 ────────────────────────────────────────
 
@@ -123,7 +128,7 @@ class Paper2TextbookOrchestrator:
     def _load_papers(self) -> List[Tuple[str, str, str]]:
         loaded = []
         for paper_id, fname in self._discover_papers(self.args.dir):
-            cached = path.join(self.out, 'papers', paper_id)
+            cached = path.join(self.pj_dir, 'papers', paper_id)
             if path.isfile(cached) and path.getsize(cached):
                 text = self._read_text(cached)
             else:
@@ -188,7 +193,7 @@ class Paper2TextbookOrchestrator:
             cards.append(future.result())
         cards.sort(key=lambda c: self._paper_id(c.paper))
         all_cards = [self._json_dump(c) for c in cards]
-        self._write_text(path.join(self.out, 'concept_cards.json'), '\n\n'.join(all_cards))
+        self._write_text(path.join(self.pj_dir, 'concept_cards.json'), '\n\n'.join(all_cards))
         return cards
 
     @staticmethod
@@ -199,7 +204,7 @@ class Paper2TextbookOrchestrator:
     # ── 聚类 ────────────────────────────────────────────
 
     def _cluster_cache(self) -> str:
-        return path.join(self.out, 'parts.yaml')
+        return path.join(self.pj_dir, 'parts.yaml')
 
     def step_cluster_papers(
         self, papers: List[Tuple[str, str, str]], cards: List[PaperConcepts],
@@ -241,7 +246,7 @@ class Paper2TextbookOrchestrator:
     # ── 大纲 ────────────────────────────────────────────
 
     def _outline_cache(self) -> str:
-        return path.join(self.out, 'outline.yaml')
+        return path.join(self.pj_dir, 'outline.yaml')
 
     def step_gen_outline(
         self, parts: PaperClusResult, cards: List[PaperConcepts],
@@ -307,7 +312,7 @@ class Paper2TextbookOrchestrator:
         logger.info(f'[4] 编写第 {idx + 1} 章细纲')
         width = max(2, len(str(len(cards))))
         detail_fname = path.join(
-            self.out, 'details', f'detail_{idx + 1:0{width}d}.yaml'
+            self.pj_dir, 'details', f'detail_{idx + 1:0{width}d}.yaml'
         )
         saved = self._read_yaml(detail_fname, ChapterDetail)
         if saved:
@@ -378,7 +383,7 @@ class Paper2TextbookOrchestrator:
         logger.info(f'[5] 编写第 {idx + 1} 章正文')
         width = max(2, len(str(len(chapter.nodes))))
         body_fname = path.join(
-            self.out, 'chapters', f'chapter_{idx + 1:0{width}d}.md'
+            self.pj_dir, 'chapters', f'chapter_{idx + 1:0{width}d}.md'
         )
         if path.isfile(body_fname) and path.getsize(body_fname):
             return self._read_text(body_fname)
@@ -417,7 +422,7 @@ class Paper2TextbookOrchestrator:
     # ── 辅助增强 ────────────────────────────────────────
 
     def _gen_glossary(self, papers: List[Tuple[str, str, str]]) -> List[GlossaryEntry]:
-        cached = path.join(self.out, 'glossary.yaml')
+        cached = path.join(self.pj_dir, 'glossary.yaml')
         saved = self._read_yaml(cached, List[GlossaryEntry])
         if saved is not None:
             return saved
@@ -436,7 +441,7 @@ class Paper2TextbookOrchestrator:
         return comments
 
     def _citation_audit(self, book: str, papers: List[Tuple[str, str, str]]) -> CitationAudit:
-        cached = path.join(self.out, 'citation_audit.yaml')
+        cached = path.join(self.pj_dir, 'citation_audit.yaml')
         saved = self._read_yaml(cached, CitationAudit)
         if saved:
             return saved
@@ -465,7 +470,7 @@ class Paper2TextbookOrchestrator:
             lines += [f'# 第 {i} 章', '', body, '']
         lines += ['## 引用审计', '', '```json', self._json_dump(audit), '```']
         text = '\n'.join(lines)
-        self._write_text(path.join(self.out, 'book.md'), text)
+        self._write_text(path.join(self.pj_dir, 'book.md'), text)
         return text
 
     def _assemble_tex(self, title: str, bodies: List[str]) -> str:
@@ -480,12 +485,12 @@ class Paper2TextbookOrchestrator:
             lines += [f'\\section{{第 {i} 章}}', '', body, '']
         lines += ['\\end{document}', '']
         text = '\n'.join(lines)
-        self._write_text(path.join(self.out, 'main.tex'), text)
+        self._write_text(path.join(self.pj_dir, 'main.tex'), text)
         return text
 
     def _assemble_pdf(self, title: str, bodies: List[str]) -> str:
-        md = path.join(self.out, 'book.md')
-        pdf_path = path.join(self.out, 'book.pdf')
+        md = path.join(self.pj_dir, 'book.md')
+        pdf_path = path.join(self.pj_dir, 'book.pdf')
         try:
             import subprocess as subp
             subp.run(
@@ -520,7 +525,7 @@ class Paper2TextbookOrchestrator:
             '</head><body><h1>' + html.escape(title) + '</h1>'
             '<nav>' + nav + '</nav>' + '\n'.join(body) + '</body></html>'
         )
-        out = path.join(self.out, 'book.html')
+        out = path.join(self.pj_dir, 'book.html')
         self._write_text(out, template)
         return out
 
@@ -532,7 +537,7 @@ class Paper2TextbookOrchestrator:
         audit = CitationAudit()
         md = self._assemble_markdown(title, outline, bodies, glossary, audit)
         audit = self._citation_audit(md, papers)
-        self._write_yaml(path.join(self.out, 'citation_audit.yaml'), audit)
+        self._write_yaml(path.join(self.pj_dir, 'citation_audit.yaml'), audit)
         self._assemble_markdown(title, outline, bodies, glossary, audit)
         if self.args.format == 'tex':
             self._assemble_tex(title, bodies)
@@ -541,7 +546,7 @@ class Paper2TextbookOrchestrator:
         elif self.args.format == 'html':
             self._assemble_html(title, bodies)
         self._write_text(
-            path.join(self.out, 'README.md'),
+            path.join(self.pj_dir, 'README.md'),
             '# paper2textbook 输出\n\n'
             f'- 教材：`book.{self.args.format}`\n'
             '- 中间结果保存在各阶段目录，可重复运行并断点续作。\n',
@@ -552,7 +557,7 @@ class Paper2TextbookOrchestrator:
     def run(self):
         if not path.exists(self.args.dir):
             raise ValueError('请提供论文文件、论文目录或 ARXIV ID')
-        os.makedirs(self.out, exist_ok=True)
+        os.makedirs(self.pj_dir, exist_ok=True)
         logger.info(self.args)
         papers = self._load_papers()
         cards = self.step_extract_concepts(papers)
@@ -569,7 +574,7 @@ class Paper2TextbookOrchestrator:
             self.args.title or path.basename(path.abspath(self.args.dir)),
             outline, bodies, papers, glossary,
         )
-        logger.info('[DONE] 教材已写入 %s', self.out)
+        logger.info('[DONE] 教材已写入 %s', self.pj_dir)
 
 
 def paper2textbook(args):
@@ -586,7 +591,6 @@ def reg_subparser(subparsers):
         help='多篇论文到可溯源教科书',
     )
     parser.add_argument('dir', help='论文文件、论文目录或 ARXIV ID（暂以本地文件/目录为主）')
-    parser.add_argument('-o', '--out', required=True, help='输出目录')
     parser.add_argument('-f', '--format', choices=('md', 'tex', 'pdf'), default='md', help='输出格式')
     parser.add_argument('-T', '--threads', type=int, default=4, help='并行线程数')
     parser.add_argument('-c', '--check', type=int, default=3, help='覆盖/格式检查次数')
