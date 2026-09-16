@@ -95,22 +95,19 @@ class Paper2TextbookOrchestrator:
     # ── 论文读取 ────────────────────────────────────────
 
     def _discover_papers(self, source: str) -> List[Tuple[str, str]]:
-        if path.isfile(source):
-            if extname(source).lower() not in SUPPORTED_PAPER_EXTS:
-                raise ValueError(f'不支持的论文格式：{source}')
-            return [(path.basename(source), source)]
-        if path.isdir(source):
-            result = []
-            for root, _, files in os.walk(source):
-                for fname in sorted(files):
-                    full = path.join(root, fname)
-                    if extname(fname).lower() in SUPPORTED_PAPER_EXTS:
-                        rel = path.relpath(full, source).replace('\\', '/')
-                        result.append((rel, full))
-            if not result:
-                raise ValueError(f'目录 {source} 下没有 MD/TEX/TXT/PDF 文件')
-            return result
-        raise ValueError('请提供论文文件、论文目录或 ARXIV ID')
+        result = (
+            [(path.basename(source), source)]
+            if path.isfile(source) else
+            [   
+                (path.basename(fname), path.join(root, fname))
+                for root, _, files in os.walk(source)
+                for fname in sorted(files)
+            ]
+        )
+        result = [f for f in result if extname(f).lower() in SUPPORTED_PAPER_EXTS]
+        if not result:
+            raise ValueError(f'请提供 MD/TEX/TXT/PDF 文件或所在目录')
+        return result
 
     def _read_one(self, fname: str) -> str:
         ext = extname(fname).lower()
