@@ -265,9 +265,9 @@ class Paper2TextbookOrchestrator:
         if saved:
             return saved
         survey = self._load_survey()
-        cards_json = '\n\n'.join(self._json_dump(c) for c in cards)
         result = self.agent.gen_outline(
-            self._json_dump(parts), cards_json, survey,
+            self._json_dump(parts), 
+            self._json_dump(cards), survey,
         )
         for _ in range(self.args.check):
             problem = self._outline_coverage_problem(cards, result)
