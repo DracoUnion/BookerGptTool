@@ -423,13 +423,12 @@ class Code2BookOrchestrator(Code2BookMixin):
             self._write_yaml(part_clus_fname, parts)
             return parts
         
-        total_fnames = set(fnames)
         parts = self.agent.cluster_parts(fnames)
         for pt in parts:
             if 'README.md' not in pt.files:
                 pt.files.append('README.md')
         for _ in range(self.args.check):    
-            prob = self._part_check_problem(parts, total_fnames)
+            prob = self._part_check_problem(parts, fnames)
             if not prob:
                 logger.debug('[3] 部分校验通过')
                 break
