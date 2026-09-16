@@ -37,6 +37,28 @@ from .code2book_agent import Code2BookAgent, expand_stars
 class Code2BookMixin:
 
     @staticmethod
+    def _outline_check_problem(
+        outline: List[OutlineChapterResult],
+        part_fnames: List[str],
+    ):
+        outline_fnames = [
+            f.replace('\\', '/')
+            for o in outline
+            for n in o.nodes
+            for f in n.src
+        ]
+        rest_fnames = set(part_fnames) - set(outline_fnames)
+        false_fnames = set(outline_fnames) - set(part_fnames)
+        prob = ''
+        if rest_fnames:
+            prob += '以下文件在大纲中未出现：\n' + \
+                    '\n'.join(rest_fnames) + '\n'
+        if false_fnames:
+            prob += '以下文件在源码目录中不存在：\n' + \
+                    '\n'.join(false_fnames) + '\n'
+        return prob
+
+    @staticmethod
     def _part_check_problem(
         parts:List[PartClusResult], 
         total_fnames: List[str]
@@ -429,24 +451,10 @@ class Code2BookOrchestrator(Code2BookMixin):
 
         # 校验源码文件完整覆盖
         for _ in range(self.args.check):
-            outline_fnames = [
-                f.replace('\\', '/')
-                for o in outline
-                for n in o.nodes
-                for f in n.src
-            ]
-            rest_fnames = set(part_fnames) - set(outline_fnames)
-            false_fnames = set(outline_fnames) - set(part_fnames)
-            if not rest_fnames and not false_fnames:
+            prob = self._outline_check_problem(outline, part_fnames)
+            if not prob:
                 logger.info(f'[3] 大纲 {idx+1} 校验通过')
                 break
-            prob = ''
-            if rest_fnames:
-                prob += '以下文件在大纲中未出现：\n' + \
-                        '\n'.join(rest_fnames) + '\n'
-            if false_fnames:
-                prob += '以下文件在源码目录中不存在：\n' + \
-                        '\n'.join(false_fnames) + '\n'
             logger.warn(f'[3] 大纲 {idx+1} 校验未通过：\n{prob}')
             outline = self.agent.fix_outline(
                 outline, part_fnames, part_code_desc, readme,
