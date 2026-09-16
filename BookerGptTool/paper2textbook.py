@@ -315,7 +315,12 @@ class Paper2TextbookOrchestrator:
         ids = {src.paper for n in chapter.nodes for src in n.src}
         return [c.paper for c in cards if c.paper in ids]
 
-    def _tr_gen_detail(self, outline: List[OutlineChapter], cards, idx: int) -> ChapterDetail:
+    def _tr_gen_detail(
+        self, 
+        outline: List[OutlineChapter], 
+        cards, 
+        idx: int
+    ) -> Tuple[int, ChapterDetail]:
         logger.info(f'[4] 编写第 {idx + 1} 章细纲')
         width = max(2, len(str(len(cards))))
         detail_fname = path.join(
@@ -323,7 +328,7 @@ class Paper2TextbookOrchestrator:
         )
         detail = self._read_yaml(detail_fname, ChapterDetail)
         if detail:
-            return detail
+            return idx, detail
         paper_desc_ch = self._paper_desc_ch(outline, cards)
         concept_part = self.agent.gen_concept_anls_detail(
             str(idx + 1), 
@@ -355,7 +360,7 @@ class Paper2TextbookOrchestrator:
                 problem,
             )
         self._write_yaml(detail_fname, detail)
-        return detail
+        return idx, detail
 
     def _paper_desc_ch(self, chapter, cards: List[PaperConcepts]) -> List[PaperConcepts]:
         ids = {src.paper for n in chapter.nodes for src in n.src}
@@ -363,7 +368,7 @@ class Paper2TextbookOrchestrator:
         return cards
 
     @staticmethod
-    def _detail_coverage_problem(chapter, cards, detail) -> str:
+    def _detail_coverage_problem(chapter: List[OutlineChapter], detail) -> str:
         required = {
             src.paper for n in chapter.nodes for src in n.src
         }
