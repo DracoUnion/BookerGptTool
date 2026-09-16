@@ -340,3 +340,50 @@ class Paper2TextbookTools:
     def tool_audit_citations(self, chapter: str, paper: str) -> CitationAudit:
         prompt = render_prompt(CITATION_AUDIT_PMT, book=chapter, paper=paper)
         return self._json(CitationAudit, prompt, self.model, self.args)
+
+
+
+    @staticmethod
+    def tool_parts_coverage_problem(paper_fnames: List[str], parts: List[PartClus]) -> str:
+        paper_ids = set(paper_fnames)
+        clustered = {p for part in parts for p in part.papers}
+        missing = sorted(paper_ids - clustered)
+        unknown = sorted(clustered - paper_ids)
+        prob = ''
+        if missing:
+            prob += '以下论文未出现在任何部分中：\n' + '\n'.join(missing) + '\n'
+        if unknown:
+            prob += '以下论文不存在：\n' + '\n'.join(unknown) + '\n'
+        return prob
+
+
+    @staticmethod
+    def tool_outline_coverage_problem(
+        cards: List[PaperConcepts], 
+        outline: OutlineChapter,
+    ) -> str:
+        # 大纲节点的 src 里列出的是支撑该知识点的论文 ID。
+        used_papers = {
+            src.paper for  n in outline.nodes for src in n.src
+        }
+        missing = sorted(
+            card.paper for card in cards if card.paper not in used_papers
+        )
+        if missing:
+            return '以下论文/概念卡片未纳入大纲：\n' + '\n'.join(missing)
+        return ''
+
+    @staticmethod
+    def tool_detail_coverage_problem(chapter: OutlineChapter, detail: ChapterDetail) -> str:
+        required = {
+            src.paper for n in chapter.nodes for src in n.src
+        }
+        used = {s.paper for u in detail.units for s in u.sources}
+        missing = sorted(required - used)
+        unknown = used - required
+        prob = ''
+        if missing:
+            prob += '以下论文未在细纲中引用：\n' + '\n'.join(missing) + '\n'
+        if unknown:
+            prob += '以下论文不存在：\n' + '\n'.join(unknown) + '\n'
+        return prob

@@ -53,77 +53,7 @@ class Paper2TextbookOrchestrator:
         )
         os.makedirs(self.pj_dir, exist_ok=True)
 
-    @staticmethod
-    def _parts_coverage_problem(paper_fnames: List[str], parts: List[PartClus]) -> str:
-        paper_ids = set(paper_fnames)
-        clustered = {p for part in parts for p in part.papers}
-        missing = sorted(paper_ids - clustered)
-        unknown = sorted(clustered - paper_ids)
-        prob = ''
-        if missing:
-            prob += '以下论文未出现在任何部分中：\n' + '\n'.join(missing) + '\n'
-        if unknown:
-            prob += '以下论文不存在：\n' + '\n'.join(unknown) + '\n'
-        return prob
 
-
-    @staticmethod
-    def _outline_coverage_problem(
-        cards: List[PaperConcepts], 
-        outline: OutlineChapter,
-    ) -> str:
-        # 大纲节点的 src 里列出的是支撑该知识点的论文 ID。
-        used_papers = {
-            src.paper for ch in outline.chapters for n in ch.nodes for src in n.src
-        }
-        missing = sorted(
-            card.paper for card in cards if card.paper not in used_papers
-        )
-        if missing:
-            return '以下论文/概念卡片未纳入大纲：\n' + '\n'.join(missing)
-        return ''
-
-    @staticmethod
-    def _detail_coverage_problem(chapter: OutlineChapter, detail: ChapterDetail) -> str:
-        required = {
-            src.paper for n in chapter.nodes for src in n.src
-        }
-        used = {s.paper for u in detail.units for s in u.sources}
-        missing = sorted(required - used)
-        unknown = used - required
-        prob = ''
-        if missing:
-            prob += '以下论文未在细纲中引用：\n' + '\n'.join(missing) + '\n'
-        if unknown:
-            prob += '以下论文不存在：\n' + '\n'.join(unknown) + '\n'
-        return prob
-
-
-    def _citation_audit(self, book: str, paper_fnames: List[str]) -> CitationAudit:
-        cites: List[CitationAudit] = [
-            None for _ in range(len(paper_fnames))
-        ]
-        for i, f in enumerate(paper_fnames):
-            h = self.pool.submit(
-                self._tr_cite_audit,
-                book, f, i,
-            )
-            self.hdls.append(h)
-            if len(self.hdls) > self.args.threads:
-                for h in self.hdls:
-                    idx, cite = h.result()
-                    cites[idx] = cite
-                self.hdls = []
-        for h in self.hdls:
-            idx, cite = h.result()
-            cites[idx] = cite
-        self.hdls = []
-        result = CitationAudit(
-            citation_stats=sum([c.citation_stats for c in cites], []),
-            unsupported_claims=sum([c.unsupported_claims for c in cites], []),
-            missing_concepts=sum([c.missing_concepts for c in cites], []),
-        )
-        return result
 
     # ── 组装与导出 ──────────────────────────────────────
 
