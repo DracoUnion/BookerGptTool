@@ -462,7 +462,7 @@ class Paper2TextbookOrchestrator:
     # ── 组装与导出 ──────────────────────────────────────
 
     def _assemble_markdown(
-        self, title: str, outline: OutlineResult, bodies: List[str],
+        self, title: str, outline: List[OutlineChapter], bodies: List[str],
         glossary: List[GlossaryEntry], audit: CitationAudit,
     ) -> str:
         lines = [f'# {title}', '']
@@ -540,7 +540,7 @@ class Paper2TextbookOrchestrator:
         return out
 
     def step_assemble(
-        self, title: str, outline: OutlineResult, bodies: List[str],
+        self, title: str, outline: List[OutlineChapter], bodies: List[str],
         papers: List[Tuple[str, str, str]], glossary: List[GlossaryEntry],
     ) -> None:
         logger.info('[6] 组装教材并执行引用审计')
