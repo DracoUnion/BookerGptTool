@@ -240,14 +240,12 @@ class Paper2TextbookOrchestrator:
         clustered = {p for part in parts for p in part.papers}
         missing = sorted(paper_ids - clustered)
         unknown = sorted(clustered - paper_ids)
-        if not missing and not unknown:
-            return ''
-        lines = []
+        prob = ''
         if missing:
-            lines.append('以下论文未出现在任何部分中：\n' + '\n'.join(missing))
+            prob += '以下论文未出现在任何部分中：\n' + '\n'.join(missing) + '\n'
         if unknown:
-            lines.append('以下论文不存在：\n' + '\n'.join(unknown))
-        return '\n'.join(lines)
+            prob += '以下论文不存在：\n' + '\n'.join(unknown) + '\n'
+        return prob
 
     # ── 大纲 ────────────────────────────────────────────
 
