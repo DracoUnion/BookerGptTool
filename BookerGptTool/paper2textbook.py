@@ -276,7 +276,6 @@ class Paper2TextbookOrchestrator:
                 self._json_dump(part_cards),
                 problem,
             )
-            outline.
         return idx, outline
 
     def step_gen_outline(
@@ -284,7 +283,7 @@ class Paper2TextbookOrchestrator:
     ) -> List[OutlineChapter]:
         logger.info('[3] 生成章—知识点大纲')
         outline_fname = self._outline_fname()
-        outlines = self._read_yaml(outline_fname, List[OutlineChapter])
+        outlines = self._read_yaml(outline_fname, List[OutlineParts])
         if outlines is None:
             outlines = [
                 OutlineParts(no=i+1) for i in range(len(parts))
