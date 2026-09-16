@@ -60,8 +60,11 @@ class Paper2TextbookAgent:
     # 二、论文聚类
     # ============================================================
 
-    def cluster_papers(self, papers: str) -> List[PartClus]:
-        prompt = render_prompt(PAPER_CLUSTER_PMT, papers=papers)
+    def cluster_papers(self, paper_briefs: str) -> List[PartClus]:
+        prompt = render_prompt(
+            PAPER_CLUSTER_PMT, 
+            paper_briefs=json.dumps(paper_briefs, ensure_ascii=False)
+        )
         return self._json(
             List[PartClus], prompt, self.model, self.args
         )

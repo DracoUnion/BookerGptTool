@@ -211,17 +211,17 @@ class Paper2TextbookOrchestrator:
         return path.join(self.pj_dir, 'parts.yaml')
 
     def step_cluster_papers(
-        self, papers: List[Tuple[str, str, str]], cards: List[PaperConcepts],
+        self, 
+        paper_briefs: Dict[str, str], 
     ) -> List[PartClus]:
         logger.info('[2] 按知识主题聚类论文')
         parts_fname = self._parts_fname()
         parts = self._read_yaml(parts_fname, List[PartClus])
         if parts:
             return parts
-        paper_list = self._paper_list_text(papers)
-        result = self.agent.cluster_papers(paper_list)
+        result = self.agent.cluster_papers(paper_briefs)
         for _ in range(self.args.check):
-            problem = self._coverage_problem(papers, result.parts)
+            problem = self._coverage_problem(paper_briefs, result.parts)
             if not problem:
                 logger.info('[2] 论文覆盖校验通过')
                 break

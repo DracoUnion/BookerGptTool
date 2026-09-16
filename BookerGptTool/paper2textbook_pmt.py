@@ -125,10 +125,10 @@ PAPER_CLUSTER_PMT = '''
 ]
 ```
 
-## 论文列表
+## 论文列表及摘要
 
 [content]
-{papers}
+{paper_briefs}
 [/content]
 '''
 
