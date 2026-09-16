@@ -383,7 +383,7 @@ class Paper2TextbookOrchestrator:
         if path.isfile(body_fname) and path.getsize(body_fname):
             return idx, self._read_text(body_fname)
         paper_desc_ch = self._paper_desc_ch(outline, cards)
-        body = self.agent.gen_body(
+        body = self.agent.tool_gen_body(
             str(idx + 1), 
             self._json_dump(outline), 
             self._json_dump(detail), 

@@ -242,16 +242,17 @@ class Paper2TextbookTools:
     def tool_fix_detail(
         self, 
         i: int, 
-        detail: str, 
-        outline: str, 
-        paper_desc: str, 
+        detail: ChapterDetail, 
+        outline: List[OutlineChapter], 
+        paper_desc: List[PaperConcepts], 
         problem: str,
     ) -> ChapterDetail:
         prompt = render_prompt(
             DETAIL_FIX_PMT,
-            i=i, detail=detail, 
-            outline=outline, 
-            paper_desc=paper_desc,
+            i=str(i), 
+            detail=self._json_dump(detail), 
+            outline=self._json_dump(outline), 
+            paper_desc=self._json_dump(paper_desc),
             problem=problem,
         )
         return self._json(ChapterDetail, prompt, self.model, self.args)
@@ -260,8 +261,11 @@ class Paper2TextbookTools:
     # 五、章节正文
     # ============================================================
 
-    def gen_body(
-        self, i: str, outline: str, detail: str, paper_desc: str,
+    def tool_gen_body(
+        self, i: int, 
+        outline: List[OutlineChapter], 
+        detail: ChapterDetail, 
+        paper_desc: str,
     ) -> str:
         prompt = render_prompt(
             BODY_PMT,
