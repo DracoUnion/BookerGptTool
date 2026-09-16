@@ -25,7 +25,7 @@ import yaml
 from pydantic import BaseModel, parse_obj_as
 
 from .openai import logger as oai_logger
-from .paper2textbook_agent import Paper2TextbookAgent
+from .paper2textbook_tools import Paper2TextbookTools
 from .paper2textbook_models import *
 from .paper2textbook_pmt import *
 from .util import extname
@@ -47,7 +47,7 @@ class Paper2TextbookOrchestrator:
 
     def __init__(self, args):
         self.args = args
-        self.agent = Paper2TextbookAgent(args)
+        self.agent = Paper2TextbookTools(args)
         self.pool = ThreadPoolExecutor(max_workers=args.threads)
         self.hdls: List[Future] = []
         self.pj_dir = (

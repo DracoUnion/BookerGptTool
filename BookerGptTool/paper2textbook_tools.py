@@ -13,7 +13,7 @@ from .util import ext_code_block, ext_cont_block, render_prompt
 from pydantic import parse_obj_as
 
 
-class Paper2TextbookAgent:
+class Paper2TextbookTools:
     """封装 paper2textbook 的独立 LLM 调用。"""
 
     def __init__(self, args):
