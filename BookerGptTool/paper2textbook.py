@@ -310,6 +310,12 @@ class Paper2TextbookOrchestrator:
             idx, o = h.result()
             outlines[idx].chapters = o
         self.hdls = []
+        # 重新编号
+        idx = 1
+        for o in outlines:
+            for ch in o.chapters:
+                ch.no = idx
+                idx += 1
         self._write_yaml(outline_fname, outlines)
         return outlines
         
