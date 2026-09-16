@@ -314,7 +314,7 @@ class Paper2TextbookOrchestrator:
         ids = {src.paper for n in chapter.nodes for src in n.src}
         return [c.paper for c in cards if c.paper in ids]
 
-    def _gen_detail_one(self, chapter, cards, idx: int) -> ChapterDetail:
+    def _tr_gen_detail(self, chapter, cards, idx: int) -> ChapterDetail:
         logger.info(f'[4] 编写第 {idx + 1} 章细纲')
         width = max(2, len(str(len(cards))))
         detail_fname = path.join(
@@ -376,7 +376,7 @@ class Paper2TextbookOrchestrator:
         logger.info('[4] 生成章节细纲')
         details = []
         futures = [
-            self.pool.submit(self._gen_detail_one, ch, cards, i)
+            self.pool.submit(self._tr_gen_detail, ch, cards, i)
             for i, ch in enumerate(outline.chapters)
         ]
         for future in as_completed(futures):
@@ -567,20 +567,20 @@ class Paper2TextbookOrchestrator:
         os.makedirs(self.pj_dir, exist_ok=True)
         logger.info(self.args)
         paper_fnames = self._discover_papers()
-        paper_brieves = self._paper_brief(paper_fnames)
+        paper_briefs = self._paper_brief(paper_fnames)
         cards = self.step_extract_concepts(paper_fnames)
-        parts = self.step_cluster_papers(paper_brieves)
+        parts = self.step_cluster_papers(paper_briefs)
         outline = self.step_gen_outline(parts, cards)
         details = self.step_gen_details(outline, cards)
         bodies = self.step_gen_bodies(outline, details, cards)
-        glossary = self._gen_glossary(paper_brieves) if self.args.glossary else []
+        glossary = self._gen_glossary(paper_briefs) if self.args.glossary else []
         if self.args.consistency:
             comments = self._consistency_check(bodies)
             if comments:
                 logger.warning('[6] 跨章一致性检查发现问题：\n%s', '\n'.join(comments))
         self.step_assemble(
             self.args.title or path.basename(path.abspath(self.args.dir)),
-            outline, bodies, paper_brieves, glossary,
+            outline, bodies, paper_briefs, glossary,
         )
         logger.info('[DONE] 教材已写入 %s', self.pj_dir)
 
