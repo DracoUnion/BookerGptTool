@@ -96,10 +96,5 @@ def reg_subparser(subparsers):
         help='多篇论文到可溯源教科书',
     )
     parser.add_argument('dir', help='论文文件、论文目录或 ARXIV ID（暂以本地文件/目录为主）')
-    parser.add_argument('-f', '--format', choices=('md', 'tex', 'pdf'), default='md', help='输出格式')
-    parser.add_argument('-T', '--threads', type=int, default=4, help='并行线程数')
-    parser.add_argument('-c', '--check', type=int, default=3, help='覆盖/格式检查次数')
-    parser.add_argument('--glossary', action='store_true', help='生成术语对照表')
-    parser.add_argument('--consistency', action='store_true', help='执行跨章一致性检查')
     parser.add_argument('-D', '--debug', action='store_true', help='调试模式')
     parser.set_defaults(func=paper2textbook)
