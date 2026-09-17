@@ -49,12 +49,12 @@ def _params_schema(required: List[str] = [], **props):
         "properties": props,
     }
 
-def _model_schema(model, desc: str) -> Dict[str, Any]:
+def _model_schema(model: Type[BaseModel], desc: str) -> Dict[str, Any]:
     """pydantic 模型参数：以 model.schema() 展开字段结构。"""
     return {**model.schema(), 'description': desc}
 
 
-def _model_list_schema(model, desc: str) -> Dict[str, Any]:
+def _model_list_schema(model: Type[BaseModel], desc: str) -> Dict[str, Any]:
     """元素为 pydantic 模型的数组参数：items 用 model.schema()。"""
     return _base_schema('array', desc, items=model.schema())
 
