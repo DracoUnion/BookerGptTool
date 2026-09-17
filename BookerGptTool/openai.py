@@ -9,6 +9,7 @@ from argparse import Namespace
 from typing import *
 from pydantic import BaseModel, parse_obj_as, ValidationError
 from .util import render_prompt
+from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 logging.getLogger("openai._base_client").setLevel(logging.CRITICAL)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
@@ -231,10 +232,12 @@ def call_llm_with_toolcall(
             tool_choice='auto',
         )
         if openai.stream:
+            res: Iterable[ChatCompletionChunk]
             toolcalls, ans = collect_stream_toolcalls(res)
         else:
-            toolcalls = getattr(res.choices[0].message, 'tool_calls', [])
-            ans = getattr(res.choices[0].message, 'content', "")
+            res: ChatCompletion
+            res_msg = res.choices[0].message
+            toolcalls, ans = res_msg.tool_calls, res_msg.content
         msgs.append({
             'role': 'assistant',
             'content': ans,
@@ -386,8 +389,10 @@ def call_llm(
         stream=openai.stream,
     )
     if openai.stream:
+        res: Iterable[ChatCompletionChunk]
         ans = collect_stream_content(res)
     else:
+        res: ChatCompletion
         ans = res.choices[0].message.content.strip()
         check_model_repetition(ans)
     if not ans: raise ValueError(f'回复为空：{res}')
@@ -411,7 +416,7 @@ def set_openai_props(args):
     )
     openai.rpre = args.repetition_regex
 
-def collect_stream_toolcalls(resp):
+def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
     tool_calls = {}
     content = []
 
@@ -430,23 +435,23 @@ def collect_stream_toolcalls(resp):
                 if idx not in tool_calls:
                     # tool_calls[idx] = {'call_id': None, 'function': '', 'arguments': ''}
                     tool_calls[idx] = Namespace(
-                        call_id=None, 
+                        id=None, 
                         function=Namespace(name='', arguments='')
                     )
                 fc = tool_calls[idx]
                 if tool_call_delta.id:
-                    fc.call_id = tool_call_delta.id
+                    fc.id = tool_call_delta.id
                 if tool_call_delta.function.name:
                     fc.function.name += tool_call_delta.function.name
                 if tool_call_delta.function.arguments:
                     fc.function.arguments += tool_call_delta.function.arguments
     return list(tool_calls.values()), ''.join(content)
 
-def collect_stream_content(resp):
+def collect_stream_content(resp: Iterable[ChatCompletionChunk]):
     content = []
     for chunk in resp:
-        if chunk.choices and chunk.choices[0].delta.content:
-            pt = chunk.choices[0].delta.content
+        pt = chunk.choices[0].delta.content
+        if content:
             content.append(pt)
             check_model_repetition(''.join(content))
             logger.debug(f'stream: {json.dumps(pt, ensure_ascii=False)}')
