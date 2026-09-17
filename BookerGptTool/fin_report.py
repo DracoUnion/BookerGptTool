@@ -57,119 +57,31 @@ class MultiReportOrchestrator:
         # 初始化 Agent
         self.tools = FinReportTools(args)
 
-    def process(self, fnames: List[str]) -> List[OrchestratorResult]:
-        pool = ThreadPoolExecutor(self.max_workers)
-        hdls = []
-        results = []
-        for i, fname in enumerate(fnames):
-            h = pool.submit(
-                self._tr_process_single, 
-                fname,
-            )
-            hdls.append(h)
-
-        for h in hdls:
-            res = h.result()
-            results.append(res)
-
-        return results
-
-
-    def _tr_process_single(self, fname) -> OrchestratorResult:
-        """
-        处理多份研报，返回最终裁决报告和中间结果。
-        """
-        slug = to_kebab(fname)
-        # ---------- 第一步：并行提取 ----------
-        logger.info("生成初步分析...")
-        anls_fname = path.join(self.proj_dir, f'{slug}_anls.json')
-        if(path.isfile(anls_fname)):
-            anls_res = AnlsOutput.model_validate_json(open(anls_fname, encoding='utf8').read())
-        else:
-            anls_res = self.tools.tool_extract(report)
-            open(anls_fname, 'w', encoding='utf8').write(anls_res.json())
-
-        # ---------- 第三步：多空初始立场 ----------
-        logger.info("生成初始立场...")
-        his_fname = path.join(self.proj_dir, '{slug}_history.json')
-        if(path.isfile(his_fname)):
-            history = json.loads(open(his_fname, encoding='utf8').read())
-            bull_history, bear_history = history['bull'], history['bear']
-        else:
-            bull_initial = self.tools.tool_bull_initial(anls_res)
-            bear_initial = self.tools.tool_bear_initial(anls_res)
-
-            bull_history = [bull_initial]
-            bear_history = [bear_initial]
-            open(his_fname, 'w', encoding='utf8') \
-                .write(json.dumps({
-                    'bull': bull_history, 
-                    'bear': bear_history
-                }))
-
-        # ---------- 第四步：多轮辩论 ----------
-        for round_idx in range(len(bull_history), self.debate_rounds):
-            logger.info(f"辩论第 {round_idx+1} 轮...")
-            # 空方反驳多方最新观点
-            bear_rebut = self.tools.tool_bear_rebut(anls_res, bull_history[-1])
-            bear_history.append(bear_rebut)
-            # 多方反驳空方最新观点
-            bull_rebut = self.tools.tool_bull_rebut(anls_res, bear_history[-1])
-            bull_history.append(bull_rebut)
-            open(his_fname, 'w', encoding='utf8') \
-                .write(json.dumps({
-                    'bull': bull_history, 
-                    'bear': bear_history
-                }))
-
-        # ---------- 第五步：裁决 ----------
-        logger.info("生成最终裁决...")
-        final_fname = path.join(self.proj_dir, '{slug}_final.json')
-        if path.isfile(final_fname):
-            final_verdict = JudgeResult.model_validate_json(open(final_fname, encoding='utf8').read())
-        else:
-            final_verdict = self.tools.tool_judge(anls_res, bull_history, bear_history)
-            open(final_fname, 'w', encoding='utf8').write(final_verdict.json())
-
-        return OrchestratorResult(
-            analysis=anls_res,
-            bull_history=bull_history,
-            bear_history=bear_history,
-            final_verdict=final_verdict,
-        )
-
     def run(self) -> Optional[OrchestratorResult]:
         """执行 PDF 读取、研报处理和最终报告输出。"""
         print(self.args)
-        fnames = self._get_pdf_md_files()
+        fnames = self.tools.tool_list_input_files()
         if not fnames:
             print('请提供 PDF 或 MD 文件或目录')
             return None
 
-        ofname = self._get_output_fname()
-        if path.isfile(ofname):
-            print('PDF 已处理')
-            return None
-
-        result = self.process(fnames)
-        '''
-        print("\n" + "=" * 60)
-        print("📊 最终裁决报告")
-        print("=" * 60)
-        print(result)
-        open(ofname, 'w', encoding='utf8').write(result)
-        '''
-        return result
-
-
-
-    def _get_output_fname(self) -> str:
-        """根据输入路径确定最终报告路径。"""
-        return (
-            self.args.fname[:-4] + '_report.json'
-            if path.isfile(self.args.fname)
-            else path.join(self.args.fname, 'report.json')
+        call_llm_with_toolcall_retry(
+            OVERALL_PMT, self.args.model, 
+            self.tools.get_tool_defs(),
+            self.tools.get_tool_dict(),
+            tool_finish_name='tool_finish',
+            retry=self.args.retry, 
+            temp=self.args.temp, 
+            top_p=self.args.top_p,
+            frequency_penalty=self.args.frequency_penalty,
+            presence_penalty=self.args.presence_penalty,
+            max_tokens=self.args.max_tokens,
+            extra_body=self.args.extra_body,
         )
+
+        logger.info(f'[*] 已完成，目标文件已写入 {self.pj_dir}')
+
+
 
 
 
