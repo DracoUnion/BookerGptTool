@@ -77,7 +77,7 @@ class SchemaInductionResult(BaseModel):
 # ============================================================================
 # 1. 统一智能体
 # ============================================================================
-from .md2kg_agent import Md2KgAgent
+from .md2kg_tools import Md2KgTools
 
 
 # ============================================================================
@@ -93,7 +93,7 @@ class KnowledgeGraphOrchestrator:
         self.integration_threshold = getattr(args, 'threshold', 0.6)
 
         # 初始化智能体
-        self.agent = Md2KgAgent(args)
+        self.agent = Md2KgTools(args)
 
     def _induce_schema(self, resolved_graph: ResolvedGraph) -> Dict[str, List[str]]:
         """

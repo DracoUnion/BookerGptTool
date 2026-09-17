@@ -31,7 +31,7 @@ from .md2kg_pmt import (
 
 
 
-class Md2KgAgent:
+class Md2KgTools:
     """统一知识图谱智能体"""
 
     def __init__(self, args):
