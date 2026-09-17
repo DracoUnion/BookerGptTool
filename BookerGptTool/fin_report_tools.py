@@ -12,7 +12,7 @@ import logging
 
 from pydantic import parse_obj_as
 
-from typing import List, Optional, Callable, Tuple
+from typing import List, Optional, Callable, Tuple, Dict, Any
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -174,8 +174,70 @@ class FinReportTools(ToolsMixin):
         else:
             fnames = []
         return [
-            fname for fname in fnames 
+            fname for fname in fnames
             if fname.endswith('.pdf') or
                fname.endswith('.md')
         ]
+
+
+    # 工具名 -> OpenAI parameters 结构（type/properties/required）。
+    # name 与 description 不再硬编码，由 get_tool_defs 从函数 __name__ / __doc__ 取得。
+    # pydantic 模型参数用 Model.schema() 展开，不写死 {"type":"object"}。
+    _TOOL_PARAMS: Dict[str, Dict[str, Any]] = {
+        # ── IO：Workspace 读写（继承自 ToolsMixin）─────────────
+        **ToolsMixin._TOOL_PARAMS,
+
+        # ── 输入文件 ──────────────────────────────────────────
+        "tool_read_input_file": params_schema(
+            required=['fname'],
+            fname=base_schema('string', '待读取的 PDF/MD 文件路径'),
+        ),
+        "tool_list_input_files": params_schema(),
+
+        # ── 分析：基本面 / 估值 / 情绪 ─────────────────────────
+        "tool_anls_fund": params_schema(
+            required=['report'],
+            report=base_schema('string', '研报全文文本'),
+        ),
+        "tool_anls_value": params_schema(
+            required=['report'],
+            report=base_schema('string', '研报全文文本'),
+        ),
+        "tool_anls_sentiment": params_schema(
+            required=['report'],
+            report=base_schema('string', '研报全文文本'),
+        ),
+        "tool_extract": params_schema(
+            required=['report'],
+            report=base_schema('string', '研报全文文本'),
+        ),
+
+        # ── 多方 / 空方论点 ────────────────────────────────────
+        "tool_bull_initial": params_schema(
+            required=['analysis'],
+            analysis=model_schema(AnlsOutput, '提取的分析结果（AnlsOutput）'),
+        ),
+        "tool_bull_rebut": params_schema(
+            required=['analysis', 'opponent_argument'],
+            analysis=model_schema(AnlsOutput, '提取的分析结果（AnlsOutput）'),
+            opponent_argument=base_schema('string', '对方（空方）的论点'),
+        ),
+        "tool_bear_initial": params_schema(
+            required=['analysis'],
+            analysis=model_schema(AnlsOutput, '提取的分析结果（AnlsOutput）'),
+        ),
+        "tool_bear_rebut": params_schema(
+            required=['analysis', 'opponent_argument'],
+            analysis=model_schema(AnlsOutput, '提取的分析结果（AnlsOutput）'),
+            opponent_argument=base_schema('string', '对方（多方）的论点'),
+        ),
+
+        # ── 裁决 ──────────────────────────────────────────────
+        "tool_judge": params_schema(
+            required=['analysis', 'bull_history', 'bear_history'],
+            analysis=model_schema(AnlsOutput, '提取的分析结果（AnlsOutput）'),
+            bull_history=str_list_schema('多方论点历史列表'),
+            bear_history=str_list_schema('空方论点历史列表'),
+        ),
+    }
 
