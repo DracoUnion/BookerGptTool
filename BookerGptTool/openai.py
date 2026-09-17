@@ -165,7 +165,7 @@ def call_llm_with_toolcall(
         msgs.append({
             'role': 'assistant',
             'content': ans,
-            "tool_calls": toolcalls,
+            "tool_calls": _json_dump(toolcalls),
         })
         if not toolcalls:
             if not tool_finish_name: break
@@ -199,12 +199,7 @@ def call_llm_with_toolcall(
             })
             logger.debug(f'toolcall_res: %s', _json_dump(msgs[-1]))
         if finish: break
-    
-    if openai.stream:
-        ans = collect_stream_content(res)
-    else:
-        ans = res.choices[0].message.content.strip()
-        check_model_repetition(ans)
+
     if not ans: raise ValueError(f'回复为空：{res}')
 
     # 还原指令格式

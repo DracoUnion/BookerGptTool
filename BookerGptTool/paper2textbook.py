@@ -29,7 +29,7 @@ from .paper2textbook_tools import Paper2TextbookTools
 from .paper2textbook_models import *
 from .paper2textbook_pmt import *
 from .util import extname
-from .openai import call_llm_retry, TOOLCALL_PMT, call_llm_with_toolcall_retry
+from .openai import call_llm_with_toolcall_retry
 from .paper2textbook_pmt import OVERALL_PMT
 
 logging.basicConfig(
