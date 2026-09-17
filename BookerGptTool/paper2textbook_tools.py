@@ -494,7 +494,7 @@ class Paper2TextbookTools:
     # pydantic 模型参数用 Model.schema() 展开，不写死 {"type":"object"}。
     _TOOL_PARAMS: Dict[str, Dict[str, Any]] = {
         # ── IO：论文文件与工作区读写 ──────────────────────────
-        "tool_list_papers": _params_schema('列出论文文件路径。'),
+        "tool_list_papers": _params_schema(),
         "tool_read_paper": _params_schema(
             required=['fname'],
             fname=_base_schema('string', '论文文件路径'),
