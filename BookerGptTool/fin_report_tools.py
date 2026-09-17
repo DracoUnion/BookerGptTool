@@ -179,7 +179,6 @@ class FinReportTools(ToolsMixin):
                fname.endswith('.md')
         ]
 
-
     # 工具名 -> OpenAI parameters 结构（type/properties/required）。
     # name 与 description 不再硬编码，由 get_tool_defs 从函数 __name__ / __doc__ 取得。
     # pydantic 模型参数用 Model.schema() 展开，不写死 {"type":"object"}。
