@@ -45,7 +45,7 @@ class Paper2TextbookOrchestrator:
 
     def __init__(self, args):
         self.args = args
-        self.agent = Paper2TextbookTools(args)
+        self.tools = Paper2TextbookTools(args)
         self.pool = ThreadPoolExecutor(max_workers=args.threads)
         self.hdls: List[Future] = []
         self.pj_dir = (
@@ -54,7 +54,6 @@ class Paper2TextbookOrchestrator:
             path.abspath(args.dir) + '_paper2textbook'
         )
         os.makedirs(self.pj_dir, exist_ok=True)
-        self.tools = self.agent.list_tools()
 
 
     # ── 主流程 ──────────────────────────────────────────
@@ -67,8 +66,8 @@ class Paper2TextbookOrchestrator:
         
         call_llm_with_toolcall_retry(
             OVERALL_PMT, self.args.model, 
-            self.agent.get_tool_defs(),
-            self.agent.list_tools(),
+            self.tools.get_tool_defs(),
+            self.tools.list_tools(),
             tool_finish_name='tool_finish',
             retry=self.args.retry, 
             temp=self.args.temp, 
