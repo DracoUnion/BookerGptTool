@@ -29,6 +29,8 @@ from .paper2textbook_tools import Paper2TextbookTools
 from .paper2textbook_models import *
 from .paper2textbook_pmt import *
 from .util import extname
+from .openai import call_llm_retry, TOOLCALL_PMT, parse_toolcall, dispatch_tools
+from .paper2textbook_pmt import OVERALL_PMT
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,6 +54,7 @@ class Paper2TextbookOrchestrator:
             path.abspath(args.dir) + '_paper2textbook'
         )
         os.makedirs(self.pj_dir, exist_ok=True)
+        self.tools = self.agent.list_tools()
 
 
     # ── 主流程 ──────────────────────────────────────────
@@ -61,26 +64,70 @@ class Paper2TextbookOrchestrator:
             raise ValueError('请提供论文文件、论文目录或 ARXIV ID')
         os.makedirs(self.pj_dir, exist_ok=True)
         logger.info(self.args)
-        paper_fnames = self._discover_papers()
-        paper_briefs = self._paper_brief(paper_fnames)
-        cards = self.step_extract_concepts(paper_fnames)
-        parts = self.step_cluster_papers(paper_briefs)
-        outline = self.step_gen_outline(parts, cards)
-        outline_chs = sum([pt.chapters for pt in outline], [])
-        details = self.step_gen_details(outline_chs, cards)
-        bodies = self.step_gen_bodies(outline_chs, details, cards)
-        '''
-        glossary = self._gen_glossary(paper_briefs) if self.args.glossary else []
-        if self.args.consistency:
-            comments = self._consistency_check(bodies)
-            if comments:
-                logger.warning('[6] 跨章一致性检查发现问题：\n%s', '\n'.join(comments))
-        self.step_assemble(
-            path.basename(path.abspath(self.args.dir)),
-            outline_chs, bodies, paper_briefs, glossary,
-        )
-        '''
+        
+        tool_defs = self.agent.get_tool_defs()
+        tool_pmt = TOOLCALL_PMT.replace('{tool_def}', json.dumps(tool_defs, ensure_ascii=False))
+        msgs: List[dict[str, Any]] = [
+            {"role": "system", 'content': tool_pmt},
+            {"role": "user", "content": OVERALL_PMT},
+        ]
+
+        for _ in range(self.args.max_turns):
+            res = call_llm_retry(
+                    msgs, self.args.model,
+                    retry=self.args.retry, 
+                    temp=self.args.temp, 
+                    top_p=self.args.top_p,
+                    frequency_penalty=self.args.frequency_penalty,
+                    presence_penalty=self.args.presence_penalty,
+                    max_tokens=self.args.max_tokens,
+                    extra_body=self.args.extra_body,
+            )
+            tool_blocks, errmsg = parse_toolcall(res)
+            if errmsg or not tool_blocks:
+                # No tool call: the model stopped or is giving plain text. Treat
+                # as a soft stop unless it already finalised.
+                errmsg = errmsg or \
+                    f"未找到任何工具调用，请将工具调用包含在 [tool]...[/tool] 中。如果你想结束整个流程，调用`tool_finish`。"
+                msgs.append({"role": "assistant", "content": res})
+                msgs.append({"role": "user", "content": errmsg})
+                continue
+
+            print(f'toolcall: {tool_blocks}')
+            toolcall_res_list = []
+            toolcall_errmsgs = []
+            for tc in tool_blocks:
+                # finalize ends the run immediately.
+                if tc.tool == "tool_finish":
+                    return
+                result, errmsg = dispatch_tools(self.tools, tc.tool, tc.parameters)
+                if errmsg:
+                    toolcall_errmsgs.append(errmsg)
+                    continue
+                # After a blocked gated stage, if the host paused (no --yes),
+                # surface the pause and halt.
+                toolcall_res_list.append({
+                    "id": tc.id,
+                    "result": json.dumps(result, ensure_ascii=False),
+                })
+            
+            print(f'toolcall res: {toolcall_res_list}')
+            toolcall_res_str = json.dumps(toolcall_res_list, ensure_ascii=False)
+            msgs.append({"role": "assistant", "content": res})
+            msgs.append({
+                "role": "user",
+                "content": f"[tool-result]{toolcall_res_str}[/tool-result]",
+            })
+            if toolcall_errmsgs:
+                msgs.append({
+                    "role": "user",
+                    "content": '\n'.join(toolcall_errmsgs),
+                })
+
+
+        
         logger.info('[DONE] 教材已写入 %s', self.pj_dir)
+
 
 
 def paper2textbook(args):
