@@ -42,8 +42,12 @@ def _func_schema(name: str, desc: str, params: Dict[str, Any]):
         }
     }
 
-def _params_schema(desc: str, required: List[str] = [], **props):
-    return _base_schema("object", desc, required=required, properties=props)
+def _params_schema(required: List[str] = [], **props):
+    return {
+        "type": "object",
+        "required": required,
+        "properties": props,
+    }
 
 def _model_schema(model, desc: str) -> Dict[str, Any]:
     """pydantic 模型参数：以 model.schema() 展开字段结构。"""
@@ -83,7 +87,7 @@ class Paper2TextbookTools:
     # ── 工具 ──────────────────────────────────────────────
     # ── IO ──────────────────────────────────────────────
     
-    @cache
+    # @cache
     def _list_papers(self, source: str) -> List[str]:
         """列出受支持格式（MD/TEX/TXT/PDF）的论文文件路径。
 
@@ -116,7 +120,7 @@ class Paper2TextbookTools:
         """以 UTF-8 读取 fname 的文本内容。"""
         return open(fname, encoding='utf8').read()
 
-    @cache
+    # @cache
     def tool_read_paper(self, fname: str) -> str:
         """读取论文全文：文本格式直接读，PDF 通过 PyMuPDF 抽取文本。"""
         ext = extname(fname).lower()
@@ -484,56 +488,56 @@ class Paper2TextbookTools:
         # ── IO：论文文件与工作区读写 ──────────────────────────
         "tool_list_papers": _params_schema('列出论文文件路径。'),
         "tool_read_paper": _params_schema(
-            '读取论文全文。', required=['fname'],
+            required=['fname'],
             fname=_base_schema('string', '论文文件路径'),
         ),
         "tool_paper_brief": _params_schema(
-            '生成论文简报。', required=['paper_fnames'],
+            required=['paper_fnames'],
             paper_fnames=_str_list_schema('论文文件路径列表'),
             limit=_base_schema('integer', '每个简报的最大字符数，默认 500'),
         ),
         "tool_read_workspace_text": _params_schema(
-            '读取工作区文本文件。', required=['fname'],
+            required=['fname'],
             fname=_base_schema('string', '项目内相对路径'),
         ),
         "tool_write_workspace_text": _params_schema(
-            '写入工作区文本文件。', required=['fname', 'text'],
+            required=['fname', 'text'],
             fname=_base_schema('string', '项目内相对路径'),
             text=_base_schema('string', '要写入的文本内容'),
         ),
         "tool_read_workspace_json": _params_schema(
-            '读取工作区 JSON 文件。', required=['fname'],
+            required=['fname'],
             fname=_base_schema('string', '项目内相对路径'),
         ),
         "tool_write_workspace_json": _params_schema(
-            '写入工作区 JSON 文件。', required=['fname', 'obj'],
+            required=['fname', 'obj'],
             fname=_base_schema('string', '项目内相对路径'),
             obj=_base_schema('object', '要序列化为 JSON 的对象'),
         ),
         "tool_read_workspace_yaml": _params_schema(
-            '读取工作区 YAML 文件。', required=['fname'],
+            required=['fname'],
             fname=_base_schema('string', '项目内相对路径'),
         ),
         "tool_write_workspace_yaml": _params_schema(
-            '写入工作区 YAML 文件。', required=['fname', 'obj'],
+            required=['fname', 'obj'],
             fname=_base_schema('string', '项目内相对路径'),
             obj=_base_schema('object', '要写入的对象'),
         ),
 
         # ── 一、概念卡片：单篇论文拆解 ──────────────────────────
         "tool_ext_concepts": _params_schema(
-            '从单篇论文抽取概念/方法/定理/发现。', required=['paper_name', 'paper'],
+            required=['paper_name', 'paper'],
             paper_name=_base_schema('string', '论文名称/标识'),
             paper=_base_schema('string', '论文全文文本'),
         ),
 
         # ── 二、论文聚类 ──────────────────────────────────────
         "tool_cluster_papers": _params_schema(
-            '根据论文简报聚类为若干分部。', required=['paper_briefs'],
+            required=['paper_briefs'],
             paper_briefs=_str_str_map_schema('论文路径到简报的映射'),
         ),
         "tool_fix_cluster": _params_schema(
-            '修正已生成的论文聚类结果。', required=['paper_briefs', 'parts', 'problem'],
+            required=['paper_briefs', 'parts', 'problem'],
             paper_briefs=_str_str_map_schema('论文路径到简报的映射'),
             parts=_model_list_schema(PartClus, '当前聚类结果（PartClus 列表）'),
             problem=_base_schema('string', '需要修正的问题描述'),
@@ -541,12 +545,12 @@ class Paper2TextbookTools:
 
         # ── 三、全书大纲 ──────────────────────────────────────
         "tool_gen_outline": _params_schema(
-            '生成全书章级大纲。', required=['struct', 'concept_cards'],
+            required=['struct', 'concept_cards'],
             struct=_str_list_schema('书籍结构（章节划分）'),
             concept_cards=_model_list_schema(PaperConcepts, '概念卡片列表（PaperConcepts）'),
         ),
         "tool_fix_outline": _params_schema(
-            '修正已生成的全书大纲。', required=['outline', 'struct', 'concept_cards', 'problem'],
+            required=['outline', 'struct', 'concept_cards', 'problem'],
             outline=_model_list_schema(OutlineChapter, '当前大纲（OutlineChapter 列表）'),
             struct=_str_list_schema('书籍结构（章节划分）'),
             concept_cards=_model_list_schema(PaperConcepts, '概念卡片列表（PaperConcepts）'),
@@ -555,7 +559,7 @@ class Paper2TextbookTools:
 
         # ── 四、章节细纲 ──────────────────────────────────────
         "tool_gen_concept_anls_detail": _params_schema(
-            '对第 i 章做概念分析，产出知识单元。', required=['i', 'outline', 'paper_desc'],
+            required=['i', 'outline', 'paper_desc'],
             i=_base_schema('integer', '章节序号'),
             outline=_model_list_schema(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
             paper_desc=_model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
@@ -580,19 +584,19 @@ class Paper2TextbookTools:
 
         # ── 五、章节正文 ──────────────────────────────────────
         "tool_gen_body": _params_schema(
-            '生成第 i 章的章节正文。', required=['i', 'outline', 'detail', 'paper_desc'],
+            required=['i', 'outline', 'detail', 'paper_desc'],
             i=_base_schema('integer', '章节序号'),
             outline=_model_list_schema(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
             detail=_model_schema(ChapterDetail, '章节细纲（ChapterDetail）'),
             paper_desc=_model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
         ),
         "tool_check_body": _params_schema(
-            '检查章节正文是否与细纲一致。', required=['body', 'detail'],
+            required=['body', 'detail'],
             body=_base_schema('string', '章节正文'),
             detail=_model_schema(ChapterDetail, '章节细纲（ChapterDetail）'),
         ),
         "tool_fix_body": _params_schema(
-            '修正章节正文。', required=['body', 'comment', 'paper_desc'],
+            required=['body', 'comment', 'paper_desc'],
             body=_base_schema('string', '章节正文'),
             comment=_base_schema('string', '检查反馈内容'),
             paper_desc=_model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
@@ -600,33 +604,33 @@ class Paper2TextbookTools:
 
         # ── 六、辅助检查 ──────────────────────────────────────
         "tool_gen_glossary": _params_schema(
-            '生成术语对照表。', required=['paper'],
+            required=['paper'],
             paper=_base_schema('string', '论文内容文本'),
         ),
         "tool_check_consistency": _params_schema(
-            '跨章术语/口径一致性检查。', required=['previous_chapter', 'current_chapter'],
+            required=['previous_chapter', 'current_chapter'],
             previous_chapter=_base_schema('string', '上一章正文'),
             current_chapter=_base_schema('string', '当前章正文'),
         ),
         "tool_audit_citations": _params_schema(
-            '审计章节引用情况。', required=['chapter', 'paper'],
+            required=['chapter', 'paper'],
             chapter=_base_schema('string', '章节文本'),
             paper=_base_schema('string', '论文内容'),
         ),
 
         # ── 覆盖率校验（静态）────────────────────────────────
         "tool_parts_coverage_problem": _params_schema(
-            '检查论文是否都被某分部覆盖。', required=['paper_fnames', 'parts'],
+            required=['paper_fnames', 'parts'],
             paper_fnames=_str_list_schema('论文文件路径列表'),
             parts=_model_list_schema(PartClus, '聚类结果（PartClus 列表）'),
         ),
         "tool_outline_coverage_problem": _params_schema(
-            '检查概念卡片是否都被大纲节点引用。', required=['cards', 'outline'],
+            required=['cards', 'outline'],
             cards=_model_list_schema(PaperConcepts, '概念卡片列表（PaperConcepts）'),
             outline=_model_schema(OutlineChapter, '大纲章（OutlineChapter）'),
         ),
         "tool_detail_coverage_problem": _params_schema(
-            '检查细纲是否覆盖章节所需论文。', required=['chapter', 'detail'],
+            required=['chapter', 'detail'],
             chapter=_model_schema(OutlineChapter, '大纲章（OutlineChapter）'),
             detail=_model_schema(ChapterDetail, '章节细纲（ChapterDetail）'),
         ),
