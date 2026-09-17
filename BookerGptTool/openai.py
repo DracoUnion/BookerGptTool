@@ -199,58 +199,79 @@ def call_llm_with_toolcall(
 ):
     if isinstance(msgs, str):
         msgs = [{'role': 'user', 'content': msgs}]
-    tool_defs_str = json.dumps(tool_defs)
-    toolcall_pmt = render_prompt(TOOLCALL_PMT, tool_def=tool_defs_str)
-    msgs = [{
-        'role': 'system',
-        'content': toolcall_pmt
-    }] + msgs
+    # tool_defs_str = json.dumps(tool_defs)
+    # toolcall_pmt = render_prompt(TOOLCALL_PMT, tool_def=tool_defs_str)
+    # msgs = [{
+    #     'role': 'system',
+    #     'content': toolcall_pmt
+    # }] + msgs
+    msgs = repl_ins_token(msgs)
+    if isinstance(extra_body, str):
+        extra_body = json.loads(extra_body)
+    logger.debug(f'ques: {json.dumps(get_msgs_text(msgs), ensure_ascii=False)}')
+    client = openai.OpenAI(
+        base_url=openai.base_url,
+        api_key=openai.api_key,
+        default_headers={'User-Agent': openai.user_agent},
+        timeout=openai.timeout,
+    )
     while True:
-        res = call_llm(
-            msgs, model_name,
-            temp=temp,
+        res = client.chat.completions.create(
+            messages=msgs,
+            model=model_name,
+            temperature=temp,
             top_p=top_p,
             frequency_penalty=frequency_penalty,
             presence_penalty=presence_penalty,
             max_tokens=max_tokens,
             extra_body=extra_body,
+            stream=openai.stream,
+            tools=tool_defs,
+            tool_choice='auto',
         )
-        toolcalls, errmsg = parse_toolcall(res)
-        if not errmsg and not toolcalls:
+        res_msg = res.choices[0].message
+        msgs.append(res_msg)
+        toolcalls = getattr(res_msg, 'tool_calls', None)
+        if not toolcalls:
             if not tool_finish_name: break
             errmsg = \
-                f"未找到任何工具调用，请将工具调用包含在 [tool]...[/tool] 中。" + \
-                f"如果你想结束整个流程，调用`{tool_finish_name}`。"
-            msgs.append({"role": "assistant", "content": res})
+                f"未找到任何工具调用，如果你想结束整个流程，调用`{tool_finish_name}`。"
             msgs.append({"role": "user", "content": errmsg})
             continue
-        if errmsg:
-            msgs += [
-                {"role": "assistant", "content": res},
-                {"role": "user", "content": errmsg},
-            ]
-            continue
         logger.info(f'toolcall: {toolcalls}')
-        toolcall_res_list = []
-        toolcall_errmsgs = []
+        finish = False
         for tc in toolcalls:
-            if tc.tool == tool_finish_name:
-                return res
-            tc_res, errmsg = dispatch_tools(tool_dict, tc.tool, tc.parameters)
+            if tc.function.name == tool_finish_name:
+                finish = True
+                break
+            tc_res, errmsg = dispatch_tools(tool_dict, tc.function.name, tc.function.arguments)
             if errmsg:
-                toolcall_errmsgs.append(errmsg)
+                msgs.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": errmsg,
+                })
                 continue
-            toolcall_res_list.append({'id': tc.id, 'result': tc_res})
-        logger.info(f'toolcall res: {toolcall_res_list}')
-        toolcall_res_str = json.dumps(toolcall_res_list)
-        msgs += [
-            {'role': 'assistant', 'content': res},
-            {'role': 'user', 'content': f'[tool-result]{toolcall_res_str}[/tool-result]'}
-        ]
-        if toolcall_errmsgs:
-            msgs.append({'role': 'user', 'content': '\n'.join(toolcall_errmsgs)})
+            msgs.append({
+                'role': "tool",
+                'tool_call_id': tc.id, 
+                'content': json.dumps(tc_res)
+            })
+        if finish: break
+    
+    if openai.stream:
+        ans = collect_stream_content(res)
+    else:
+        ans = res.choices[0].message.content.strip()
+        check_model_repetition(ans)
+    if not ans: raise ValueError(f'回复为空：{res}')
 
-    return res
+    # 还原指令格式
+    ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
+    ans = re.sub(r' thinking[\s\S]+? response', '', ans)
+    logger.debug(f'ans: {json.dumps(ans, ensure_ascii=False)}')
+    return ans
+    return res_msg
 
 def call_llm_with_toolcall_retry(
     msgs, model_name,
@@ -381,6 +402,33 @@ def set_openai_props(args):
         pool=None,
     )
     openai.rpre = args.repetition_regex
+
+def collect_stream_toolcalls(resp):
+    tool_calls = {}
+    content = []
+
+    for ch in resp:  # resp 是 stream=True 的响应
+        print(ch)
+        delta = ch.choices[0].delta
+        
+        # 1. 累积普通文本
+        if delta.content is not None:
+            content.append(delta.content)
+        
+        # 2. 累积工具调用片段
+        if delta.tool_calls is not None and len(delta.tool_calls) > 0:
+            for tool_call_delta in delta.tool_calls:
+                idx = tool_call_delta.index
+                if idx not in tool_calls:
+                    tool_calls[idx] = {'call_id': None, 'function': '', 'arguments': ''}
+                fc = tool_calls[idx]
+                if tool_call_delta.id is not None:
+                    fc['call_id'] = tool_call_delta.id
+                if tool_call_delta.function.name is not None:
+                    fc['function'] += tool_call_delta.function.name
+                if tool_call_delta.function.arguments is not None:
+                    fc['arguments'] += tool_call_delta.function.arguments
+    return tool_calls, ''.join(content)
 
 def collect_stream_content(resp):
     content = []
