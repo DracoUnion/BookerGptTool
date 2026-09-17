@@ -526,6 +526,10 @@ class ToolsMixin:
             fname=base_schema('string', '项目内相对路径'),
             obj=base_schema('object', '要写入的对象'),
         ),
+        "tool_print": params_schema(
+            required=["text"],
+            text=base_schema("string", "要打印的信息"),
+        ),
         "tool_finish": params_schema(),
     }
 
@@ -610,6 +614,10 @@ class ToolsMixin:
         """结束整个工具调用流程"""
         pass
 
+
+    def tool_print(self, text: str):
+        """打印信息"""
+        print(text)
 
     def get_tool_dict(self) -> Dict[str, Callable]:
         """返回以 tool_ 开头、可调用的成员方法字典（工具名→方法）。"""
