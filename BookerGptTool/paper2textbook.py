@@ -72,7 +72,7 @@ class Paper2TextbookOrchestrator:
             {"role": "user", "content": OVERALL_PMT},
         ]
 
-        for _ in range(self.args.max_turns):
+        while True:
             res = call_llm_retry(
                     msgs, self.args.model,
                     retry=self.args.retry, 
@@ -123,10 +123,6 @@ class Paper2TextbookOrchestrator:
                     "role": "user",
                     "content": '\n'.join(toolcall_errmsgs),
                 })
-
-
-        
-        logger.info('[DONE] 教材已写入 %s', self.pj_dir)
 
 
 
