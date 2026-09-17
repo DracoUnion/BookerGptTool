@@ -224,7 +224,7 @@ def call_llm_with_toolcall_retry(
                     "tool_call_id": tc.id,
                     "content": errmsg,
                 })
-                logger.debug(f'toolcall_res: %s', _json_dump(msgs[-1]))
+                logger.debug(f'toolcall_res: %s', _json_dump(msgs[-1])[:50])
                 continue
             msgs.append({
                 'role': "tool",
