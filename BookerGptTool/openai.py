@@ -451,7 +451,7 @@ def collect_stream_content(resp: Iterable[ChatCompletionChunk]):
     content = []
     for chunk in resp:
         pt = chunk.choices[0].delta.content
-        if content:
+        if pt:
             content.append(pt)
             check_model_repetition(''.join(content))
             logger.debug(f'stream: {json.dumps(pt, ensure_ascii=False)}')
