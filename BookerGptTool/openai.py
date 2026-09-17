@@ -198,7 +198,7 @@ def call_llm_with_toolcall_retry(
         )
         msgs.append({
             'role': 'assistant',
-            'content': ans,
+            'content': None,
             "tool_calls": _json_dump(toolcalls),
         })
         if not toolcalls:
