@@ -39,7 +39,7 @@ class FinReportTools(ToolsMixin):
         self.proj_dir = (
             args.fname[:-4] + '_fin_report'
             if path.isfile(args.fname)
-            else path.join(args.fname, '_fin_report')
+            else path.abspath(args.fname) +  '_fin_report'
         )
         os.makedirs(self.proj_dir, exist_ok=True)
 

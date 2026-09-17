@@ -53,7 +53,7 @@ class MultiReportOrchestrator:
         self.proj_dir = (
             args.fname[:-4] + '_fin_report'
             if path.isfile(args.fname)
-            else path.join(args.fname, '_fin_report')
+            else path.abspath(args.fname) +  '_fin_report'
         )
         self.debate_rounds = getattr(args, 'rounds', 3)
         self.max_workers = getattr(args, 'threads', 5)
@@ -190,6 +190,4 @@ def fin_report_handle(args):
 def reg_subparser(subparsers):
     fin_report_parser = subparsers.add_parser("fin-report", help="make financial report")
     fin_report_parser.add_argument("fname", help="PDF file name")
-    fin_report_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
-    fin_report_parser.add_argument("-rd", "--rounds", type=int, default=3, help="debate rounds")
     fin_report_parser.set_defaults(func=fin_report_handle)
