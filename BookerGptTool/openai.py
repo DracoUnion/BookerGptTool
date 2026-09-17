@@ -522,4 +522,4 @@ def _json_dump(obj) -> str:
             it.dict() if isinstance(it, BaseModel) else it
             for it in obj
         ]
-    return _json_dump(obj, ensure_ascii=False)
+    return json.dumps(obj, ensure_ascii=False)
