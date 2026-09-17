@@ -61,6 +61,7 @@ class Paper2TextbookOrchestrator:
             raise ValueError('请提供论文文件、论文目录或 ARXIV ID')
         os.makedirs(self.pj_dir, exist_ok=True)
         logger.info(self.args)
+        logger.info('可用工具：%s', self.tools.list_tools())
         
         call_llm_with_toolcall_retry(
             OVERALL_PMT, self.args.model, 
