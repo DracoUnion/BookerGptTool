@@ -485,7 +485,8 @@ class Paper2TextbookTools:
         return {
             name:getattr(self, name)
             for name in dir(self)
-            if name.startswith('tool_') and callable(getattr(self, name))
+            if name.startswith('tool_') and 
+               callable(getattr(self, name))
         }
 
 
