@@ -50,8 +50,6 @@ class MultiReportOrchestrator:
             if path.isfile(args.fname)
             else path.abspath(args.fname) +  '_fin_report'
         )
-        self.debate_rounds = getattr(args, 'rounds', 3)
-        self.max_workers = getattr(args, 'threads', 5)
         os.makedirs(self.proj_dir, exist_ok=True)
 
         # 初始化 Agent

@@ -48,6 +48,11 @@ class KnowledgeGraphOrchestrator:
     def run(self) -> Dict[str, Any]:
         """执行输入读取、知识图谱构建和结果输出的完整流程。"""
         logger.info(self.args)
+
+        fnames = self.tools.tool_list_input_files()
+        if not fnames:
+            print('请提供 MD 文件或目录')
+            return None
         
         call_llm_with_toolcall_retry(
             OVERALL_PMT, self.args.model, 

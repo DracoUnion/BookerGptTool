@@ -31,6 +31,7 @@ class FinReportTools(ToolsMixin):
 
     def __init__(self, args):
         """初始化工具集：保存参数、配置 OpenAI、并创建项目输出目录。"""
+        super(ToolsMixin, self).__init__()
         set_openai_props(args)
         self.args = args
         self.model = args.model
