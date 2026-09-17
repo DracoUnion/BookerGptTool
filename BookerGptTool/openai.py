@@ -499,6 +499,7 @@ class ToolsMixin:
 
     _TOOL_PARAMS = {
         # ── IO：Workspace 读写（继承自 ToolsMixin）─────────────
+        "tool_list_workspace": params_schema(),
         "tool_read_workspace_text": params_schema(
             required=['fname'],
             fname=base_schema('string', '项目内相对路径'),
@@ -567,6 +568,13 @@ class ToolsMixin:
         except yaml.error.YAMLError:
             return None
         return parse_obj_as(model, data)
+
+    def tool_list_workspace(self):
+        return [
+            path.join(root, f)
+            for root, _, fnames in os.walk(self.pj_dir)
+            for f in fnames
+        ]
 
     def tool_read_workspace_text(self, fname: str):
         """读取项目目录下的文本文件（fname 为项目内相对路径）。"""
