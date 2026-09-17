@@ -27,6 +27,12 @@ FORMAT_LABELS = {'md': 'Markdown', 'tex': 'LaTeX'}
 # 为 _TOOL_PARAMS 生成 OpenAI 参数结构。
 # pydantic 模型参数用 Model.schema() 展开其结构，而非仅写 {"type":"object"}。
 
+def _params_scheme(desc: str, required: List[str] = [], **props):
+    return {
+        "type": "object",
+        "required": required,
+        "properties": props,
+    }
 
 def _base_schema(typ: str, desc: str, **extra) -> Dict[str, Any]:
     """基础标量参数：{"type": typ, "description": desc, **extra}。"""
