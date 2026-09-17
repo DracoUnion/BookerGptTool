@@ -16,9 +16,9 @@ from typing import List, Optional, Callable, Tuple
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from .util import ext_code_block, ext_cont_block, to_kebab, render_prompt
+from .util import ext_code_block, ext_cont_block, to_kebab, render_prompt, read_pdf_text
 
-from .openai import call_llm_retry, set_openai_props, ask_chatgpt_retry
+from .openai import *
 
 from .fin_report_models import *
 
@@ -145,8 +145,14 @@ class FinReportTools(ToolsMixin):
         )
         return res
 
+    def tool_read_input_file(self, fname: str):
+        """读取待处理的 PDF/MD 文件。"""
+        return read_pdf_text(open(fname, 'rb').read()) \
+            if fname.endswith('.pdf') else \
+            open(fname, encoding='utf8').read()
+
     def tool_list_input_files(self) -> List[str]:
-        """获取待处理的 PDF 文件列表。"""
+        """获取待处理的 PDF/MD 文件列表。"""
         if path.isfile(self.args.fname):
             fnames = [self.args.fname]
         elif path.isdir(self.args.fname):
@@ -161,3 +167,4 @@ class FinReportTools(ToolsMixin):
             if fname.endswith('.pdf') or
                fname.endswith('.md')
         ]
+

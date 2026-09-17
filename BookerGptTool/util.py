@@ -1,3 +1,4 @@
+import pymupdf as pymu
 import ctypes
 import sys
 import pyturndown
@@ -224,3 +225,10 @@ def malloc_trim_linux():
     if sys.platform == 'linux':
         libc = ctypes.CDLL("libc.so.6")
         libc.malloc_trim(0)
+
+def read_pdf_text(data):
+    pdf: pymu.Document = pymu.open('pdf', BytesIO(data))
+    cont = '\n\n'.join([
+        pg.get_text() for pg in pdf
+    ])
+    return cont

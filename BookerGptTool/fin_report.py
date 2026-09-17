@@ -8,7 +8,7 @@ from pydantic import parse_obj_as
 from typing import List, Optional, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from .util import ext_code_block, ext_cont_block, to_kebab, render_prompt
-from .openai import call_llm_retry, set_openai_props, ask_chatgpt_retry
+from .openai import *
 from .fin_report_models import *
 
 from .fin_report_pmt import *
@@ -22,12 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 # ===================== 工具函数 =====================
-def read_pdf_text(data):
-    pdf: pymu.Document = pymu.open('pdf', BytesIO(data))
-    cont = '\n\n'.join([
-        pg.get_text() for pg in pdf
-    ])
-    return cont
+
 
 
 # ===================== Agent =====================
@@ -84,9 +79,6 @@ class MultiReportOrchestrator:
         """
         处理多份研报，返回最终裁决报告和中间结果。
         """
-        report = read_pdf_text(open(fname, 'rb').read()) \
-            if fname.endswith('.pdf') else \
-            open(fname, encoding='utf8').read()
         slug = to_kebab(fname)
         # ---------- 第一步：并行提取 ----------
         logger.info("生成初步分析...")
