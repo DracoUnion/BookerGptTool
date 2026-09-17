@@ -480,12 +480,12 @@ class Paper2TextbookTools:
         """结果整个工具调用流程"""
         pass
 
-    def list_tools(self) -> Dict[str, Callable]:
+    def get_tool_dict(self) -> Dict[str, Callable]:
         """返回以 tool_ 开头、可调用的成员方法字典（工具名→方法）。"""
         return {
-            name:val
-            for name, val in self.__dict__.items()
-            if callable(val) and name.startswith('tool_')
+            name:getattr(self, name)
+            for name in dir(self)
+            if name.startswith('tool_') and callable(getattr(self, name))
         }
 
 
