@@ -177,7 +177,6 @@ def call_llm_with_toolcall_retry(
     msgs = repl_ins_token(msgs)
     if isinstance(extra_body, str):
         extra_body = json.loads(extra_body)
-    logger.debug(f'ques: %s', _json_dump(get_msgs_text(msgs)))
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
@@ -185,6 +184,7 @@ def call_llm_with_toolcall_retry(
         timeout=openai.timeout,
     )
     while True:
+        logger.debug(f'ques: %s', _json_dump(get_msgs_text(msgs)))
         res, toolcalls, ans = _chat_cmpl_create_retry(
             client, msgs, model_name,
             tool_defs, 
@@ -199,7 +199,7 @@ def call_llm_with_toolcall_retry(
         msgs.append({
             'role': 'assistant',
             'content': None,
-            "tool_calls": _json_dump(toolcalls),
+            "tool_calls": [tc.dict() for tc in toolcalls],
         })
         if not toolcalls:
             if not tool_finish_name: break
