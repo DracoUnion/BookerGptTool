@@ -573,7 +573,6 @@ class Paper2TextbookTools:
             paper_desc=_model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
         ),
         "tool_gen_rest_detail": _params_schema(
-            '生成第 i 章其余内容（目标/概念图/类比/小结/习题）。',
             required=['i', 'outline', 'detail', 'paper_desc'],
             i=_base_schema('integer', '章节序号'),
             outline=_model_list_schema(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
@@ -581,7 +580,6 @@ class Paper2TextbookTools:
             paper_desc=_model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
         ),
         "tool_fix_detail": _params_schema(
-            '修正第 i 章的章节细纲。',
             required=['i', 'detail', 'outline', 'paper_desc', 'problem'],
             i=_base_schema('integer', '章节序号'),
             detail=_model_schema(ChapterDetail, '当前章节细纲（ChapterDetail）'),
