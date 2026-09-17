@@ -189,6 +189,7 @@ def dispatch_tools(
 def call_llm_with_toolcall(
     msgs, model_name,
     tool_defs, tool_dict, *,
+    tool_finish_name='',
     temp=None,
     top_p=None,
     frequency_penalty=None,
@@ -216,21 +217,31 @@ def call_llm_with_toolcall(
         )
         toolcalls, errmsg = parse_toolcall(res)
         if not errmsg and not toolcalls:
-            break
+            if not tool_finish_name: break
+            errmsg = \
+                f"未找到任何工具调用，请将工具调用包含在 [tool]...[/tool] 中。" + \
+                f"如果你想结束整个流程，调用`{tool_finish_name}`。"
+            msgs.append({"role": "assistant", "content": res})
+            msgs.append({"role": "user", "content": errmsg})
+            continue
         if errmsg:
             msgs += [
                 {"role": "assistant", "content": res},
                 {"role": "user", "content": errmsg},
             ]
             continue
+        logger.info(f'toolcall: {toolcalls}')
         toolcall_res_list = []
         toolcall_errmsgs = []
         for tc in toolcalls:
+            if tc.tool == tool_finish_name:
+                return res
             tc_res, errmsg = dispatch_tools(tool_dict, tc.tool, tc.parameters)
             if errmsg:
                 toolcall_errmsgs.append(errmsg)
                 continue
             toolcall_res_list.append({'id': tc.id, 'result': tc_res})
+        logger.info(f'toolcall res: {toolcall_res_list}')
         toolcall_res_str = json.dumps(toolcall_res_list)
         msgs += [
             {'role': 'assistant', 'content': res},
@@ -244,6 +255,7 @@ def call_llm_with_toolcall(
 def call_llm_with_toolcall_retry(
     msgs, model_name,
     tool_defs, tool_dict, *,
+    tool_finish_name='',
     retry=10, temp=None,
     top_p=None,
     frequency_penalty=None,
@@ -257,6 +269,7 @@ def call_llm_with_toolcall_retry(
             res =  call_llm_with_toolcall(
                 msgs, model_name,
                 tool_defs, tool_dict,
+                tool_finish_name=tool_finish_name,
                 temp=temp,
                 top_p=top_p,
                 frequency_penalty=frequency_penalty,

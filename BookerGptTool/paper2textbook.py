@@ -29,7 +29,7 @@ from .paper2textbook_tools import Paper2TextbookTools
 from .paper2textbook_models import *
 from .paper2textbook_pmt import *
 from .util import extname
-from .openai import call_llm_retry, TOOLCALL_PMT, parse_toolcall, dispatch_tools
+from .openai import call_llm_retry, TOOLCALL_PMT, call_llm_with_toolcall_retry
 from .paper2textbook_pmt import OVERALL_PMT
 
 logging.basicConfig(
@@ -65,64 +65,21 @@ class Paper2TextbookOrchestrator:
         os.makedirs(self.pj_dir, exist_ok=True)
         logger.info(self.args)
         
-        tool_defs = self.agent.get_tool_defs()
-        tool_pmt = TOOLCALL_PMT.replace('{tool_def}', json.dumps(tool_defs, ensure_ascii=False))
-        msgs: List[dict[str, Any]] = [
-            {"role": "system", 'content': tool_pmt},
-            {"role": "user", "content": OVERALL_PMT},
-        ]
+        call_llm_with_toolcall_retry(
+            OVERALL_PMT, self.args.model, 
+            self.agent.get_tool_defs(),
+            self.agent.list_tools(),
+            tool_finish_name='tool_finish',
+            retry=self.args.retry, 
+            temp=self.args.temp, 
+            top_p=self.args.top_p,
+            frequency_penalty=self.args.frequency_penalty,
+            presence_penalty=self.args.presence_penalty,
+            max_tokens=self.args.max_tokens,
+            extra_body=self.args.extra_body,
+        )
 
-        while True:
-            res = call_llm_retry(
-                    msgs, self.args.model,
-                    retry=self.args.retry, 
-                    temp=self.args.temp, 
-                    top_p=self.args.top_p,
-                    frequency_penalty=self.args.frequency_penalty,
-                    presence_penalty=self.args.presence_penalty,
-                    max_tokens=self.args.max_tokens,
-                    extra_body=self.args.extra_body,
-            )
-            tool_blocks, errmsg = parse_toolcall(res)
-            if errmsg or not tool_blocks:
-                # No tool call: the model stopped or is giving plain text. Treat
-                # as a soft stop unless it already finalised.
-                errmsg = errmsg or \
-                    f"未找到任何工具调用，请将工具调用包含在 [tool]...[/tool] 中。如果你想结束整个流程，调用`tool_finish`。"
-                msgs.append({"role": "assistant", "content": res})
-                msgs.append({"role": "user", "content": errmsg})
-                continue
-
-            print(f'toolcall: {tool_blocks}')
-            toolcall_res_list = []
-            toolcall_errmsgs = []
-            for tc in tool_blocks:
-                # finalize ends the run immediately.
-                if tc.tool == "tool_finish":
-                    return
-                result, errmsg = dispatch_tools(self.tools, tc.tool, tc.parameters)
-                if errmsg:
-                    toolcall_errmsgs.append(errmsg)
-                    continue
-                # After a blocked gated stage, if the host paused (no --yes),
-                # surface the pause and halt.
-                toolcall_res_list.append({
-                    "id": tc.id,
-                    "result": json.dumps(result, ensure_ascii=False),
-                })
-            
-            print(f'toolcall res: {toolcall_res_list}')
-            toolcall_res_str = json.dumps(toolcall_res_list, ensure_ascii=False)
-            msgs.append({"role": "assistant", "content": res})
-            msgs.append({
-                "role": "user",
-                "content": f"[tool-result]{toolcall_res_str}[/tool-result]",
-            })
-            if toolcall_errmsgs:
-                msgs.append({
-                    "role": "user",
-                    "content": '\n'.join(toolcall_errmsgs),
-                })
+        logger.info(f'[*] 已完成，目标文件已写入 {self.pj_dir}')
 
 
 
