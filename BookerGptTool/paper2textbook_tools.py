@@ -472,6 +472,14 @@ class Paper2TextbookTools:
             prob += '以下论文不存在：\n' + '\n'.join(unknown) + '\n'
         return prob
 
+    def tool_print(self, text: str):
+        """打印信息"""
+        print(text)
+
+    def tool_finish(self): 
+        """结果整个工具调用流程"""
+        pass
+
     def list_tools(self) -> Dict[str, Callable]:
         """返回以 tool_ 开头、可调用的成员方法字典（工具名→方法）。"""
         return {
@@ -634,6 +642,11 @@ class Paper2TextbookTools:
             chapter=_model_schema(OutlineChapter, '大纲章（OutlineChapter）'),
             detail=_model_schema(ChapterDetail, '章节细纲（ChapterDetail）'),
         ),
+        "tool_print": _params_schema(
+            required=["text"],
+            text=_base_schema("string", "要打印的信息"),
+        ),
+        "tool_finish": _params_schema(),
     }
 
     @staticmethod
