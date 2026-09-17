@@ -443,3 +443,51 @@ def _json_dump(obj) -> str:
             for it in obj
         ]
     return json.dumps(obj, ensure_ascii=False)
+
+
+
+# ── 工具参数 schema 辅助 ──────────────────────────────────────────
+# 为 _TOOL_PARAMS 生成 OpenAI 参数结构。
+# pydantic 模型参数用 Model.schema() 展开其结构，而非仅写 {"type":"object"}。
+
+
+def base_schema(typ: str, desc: str, **extra) -> Dict[str, Any]:
+    """基础标量参数：{"type": typ, "description": desc, **extra}。"""
+    return {'type': typ, 'description': desc, **extra}
+
+def func_schema(name: str, desc: str, params: Dict[str, Any]):
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": desc,
+            "parameters": params,
+        }
+    }
+
+def params_schema(required: List[str] = [], **props):
+    return {
+        "type": "object",
+        "required": required,
+        "properties": props,
+    }
+
+def model_schema(model: Type[BaseModel], desc: str) -> Dict[str, Any]:
+    """pydantic 模型参数：以 model.schema() 展开字段结构。"""
+    return {**model.schema(), 'description': desc}
+
+
+def model_list_schema(model: Type[BaseModel], desc: str) -> Dict[str, Any]:
+    """元素为 pydantic 模型的数组参数：items 用 model.schema()。"""
+    return base_schema('array', desc, items=model.schema())
+
+
+def str_list_schema(desc: str) -> Dict[str, Any]:
+    """元素为字符串的数组参数。"""
+    return base_schema('array', desc, items={'type': 'string'})
+
+
+def str_str_map_schema(desc: str) -> Dict[str, Any]:
+    """string->string 字典参数。"""
+    return base_schema('object', desc, additionalProperties={'type': 'string'})
+

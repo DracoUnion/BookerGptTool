@@ -11,7 +11,7 @@ import os
 from functools import cache
 from typing import *
 
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import *
 from .paper2textbook_models import *
 from .paper2textbook_pmt import *
 from .util import ext_code_block, ext_cont_block, render_prompt, extname
@@ -21,53 +21,6 @@ from pydantic import parse_obj_as
 SUPPORTED_PAPER_EXTS = {'md', 'markdown', 'tex', 'txt', 'pdf'}
 SUPPORTED_SURVEY_EXTS = {'md', 'markdown', 'tex', 'txt'}
 FORMAT_LABELS = {'md': 'Markdown', 'tex': 'LaTeX'}
-
-
-# ── 工具参数 schema 辅助 ──────────────────────────────────────────
-# 为 _TOOL_PARAMS 生成 OpenAI 参数结构。
-# pydantic 模型参数用 Model.schema() 展开其结构，而非仅写 {"type":"object"}。
-
-
-def _base_schema(typ: str, desc: str, **extra) -> Dict[str, Any]:
-    """基础标量参数：{"type": typ, "description": desc, **extra}。"""
-    return {'type': typ, 'description': desc, **extra}
-
-def _func_schema(name: str, desc: str, params: Dict[str, Any]):
-    return {
-        "type": "function",
-        "function": {
-            "name": name,
-            "description": desc,
-            "parameters": params,
-        }
-    }
-
-def _params_schema(required: List[str] = [], **props):
-    return {
-        "type": "object",
-        "required": required,
-        "properties": props,
-    }
-
-def _model_schema(model: Type[BaseModel], desc: str) -> Dict[str, Any]:
-    """pydantic 模型参数：以 model.schema() 展开字段结构。"""
-    return {**model.schema(), 'description': desc}
-
-
-def _model_list_schema(model: Type[BaseModel], desc: str) -> Dict[str, Any]:
-    """元素为 pydantic 模型的数组参数：items 用 model.schema()。"""
-    return _base_schema('array', desc, items=model.schema())
-
-
-def _str_list_schema(desc: str) -> Dict[str, Any]:
-    """元素为字符串的数组参数。"""
-    return _base_schema('array', desc, items={'type': 'string'})
-
-
-def _str_str_map_schema(desc: str) -> Dict[str, Any]:
-    """string->string 字典参数。"""
-    return _base_schema('object', desc, additionalProperties={'type': 'string'})
-
 
 class Paper2TextbookTools:
     """封装 paper2textbook 的独立 LLM 调用。"""
@@ -495,157 +448,157 @@ class Paper2TextbookTools:
     # pydantic 模型参数用 Model.schema() 展开，不写死 {"type":"object"}。
     _TOOL_PARAMS: Dict[str, Dict[str, Any]] = {
         # ── IO：论文文件与工作区读写 ──────────────────────────
-        "tool_list_papers": _params_schema(),
-        "tool_read_paper": _params_schema(
+        "tool_list_papers": params_schema(),
+        "tool_read_paper": params_schema(
             required=['fname'],
-            fname=_base_schema('string', '论文文件路径'),
+            fname=base_schema('string', '论文文件路径'),
         ),
-        "tool_paper_brief": _params_schema(
+        "tool_paper_brief": params_schema(
             required=['paper_fnames'],
-            paper_fnames=_str_list_schema('论文文件路径列表'),
-            limit=_base_schema('integer', '每个简报的最大字符数，默认 500'),
+            paper_fnames=str_list_schema('论文文件路径列表'),
+            limit=base_schema('integer', '每个简报的最大字符数，默认 500'),
         ),
-        "tool_read_workspace_text": _params_schema(
+        "tool_read_workspace_text": params_schema(
             required=['fname'],
-            fname=_base_schema('string', '项目内相对路径'),
+            fname=base_schema('string', '项目内相对路径'),
         ),
-        "tool_write_workspace_text": _params_schema(
+        "tool_write_workspace_text": params_schema(
             required=['fname', 'text'],
-            fname=_base_schema('string', '项目内相对路径'),
-            text=_base_schema('string', '要写入的文本内容'),
+            fname=base_schema('string', '项目内相对路径'),
+            text=base_schema('string', '要写入的文本内容'),
         ),
-        "tool_read_workspace_json": _params_schema(
+        "tool_read_workspace_json": params_schema(
             required=['fname'],
-            fname=_base_schema('string', '项目内相对路径'),
+            fname=base_schema('string', '项目内相对路径'),
         ),
-        "tool_write_workspace_json": _params_schema(
+        "tool_write_workspace_json": params_schema(
             required=['fname', 'obj'],
-            fname=_base_schema('string', '项目内相对路径'),
-            obj=_base_schema('object', '要序列化为 JSON 的对象'),
+            fname=base_schema('string', '项目内相对路径'),
+            obj=base_schema('object', '要序列化为 JSON 的对象'),
         ),
-        "tool_read_workspace_yaml": _params_schema(
+        "tool_read_workspace_yaml": params_schema(
             required=['fname'],
-            fname=_base_schema('string', '项目内相对路径'),
+            fname=base_schema('string', '项目内相对路径'),
         ),
-        "tool_write_workspace_yaml": _params_schema(
+        "tool_write_workspace_yaml": params_schema(
             required=['fname', 'obj'],
-            fname=_base_schema('string', '项目内相对路径'),
-            obj=_base_schema('object', '要写入的对象'),
+            fname=base_schema('string', '项目内相对路径'),
+            obj=base_schema('object', '要写入的对象'),
         ),
 
         # ── 一、概念卡片：单篇论文拆解 ──────────────────────────
-        "tool_ext_concepts": _params_schema(
+        "tool_ext_concepts": params_schema(
             required=['paper_name', 'paper'],
-            paper_name=_base_schema('string', '论文名称/标识'),
-            paper=_base_schema('string', '论文全文文本'),
+            paper_name=base_schema('string', '论文名称/标识'),
+            paper=base_schema('string', '论文全文文本'),
         ),
 
         # ── 二、论文聚类 ──────────────────────────────────────
-        "tool_cluster_papers": _params_schema(
+        "tool_cluster_papers": params_schema(
             required=['paper_briefs'],
-            paper_briefs=_str_str_map_schema('论文路径到简报的映射'),
+            paper_briefs=str_str_map_schema('论文路径到简报的映射'),
         ),
-        "tool_fix_cluster": _params_schema(
+        "tool_fix_cluster": params_schema(
             required=['paper_briefs', 'parts', 'problem'],
-            paper_briefs=_str_str_map_schema('论文路径到简报的映射'),
-            parts=_model_list_schema(PartClus, '当前聚类结果（PartClus 列表）'),
-            problem=_base_schema('string', '需要修正的问题描述'),
+            paper_briefs=str_str_map_schema('论文路径到简报的映射'),
+            parts=model_list_schema(PartClus, '当前聚类结果（PartClus 列表）'),
+            problem=base_schema('string', '需要修正的问题描述'),
         ),
 
         # ── 三、全书大纲 ──────────────────────────────────────
-        "tool_gen_outline": _params_schema(
+        "tool_gen_outline": params_schema(
             required=['struct', 'concept_cards'],
-            struct=_str_list_schema('书籍结构（章节划分）'),
-            concept_cards=_model_list_schema(PaperConcepts, '概念卡片列表（PaperConcepts）'),
+            struct=str_list_schema('书籍结构（章节划分）'),
+            concept_cards=model_list_schema(PaperConcepts, '概念卡片列表（PaperConcepts）'),
         ),
-        "tool_fix_outline": _params_schema(
+        "tool_fix_outline": params_schema(
             required=['outline', 'struct', 'concept_cards', 'problem'],
-            outline=_model_list_schema(OutlineChapter, '当前大纲（OutlineChapter 列表）'),
-            struct=_str_list_schema('书籍结构（章节划分）'),
-            concept_cards=_model_list_schema(PaperConcepts, '概念卡片列表（PaperConcepts）'),
-            problem=_base_schema('string', '需要修正的问题描述'),
+            outline=model_list_schema(OutlineChapter, '当前大纲（OutlineChapter 列表）'),
+            struct=str_list_schema('书籍结构（章节划分）'),
+            concept_cards=model_list_schema(PaperConcepts, '概念卡片列表（PaperConcepts）'),
+            problem=base_schema('string', '需要修正的问题描述'),
         ),
 
         # ── 四、章节细纲 ──────────────────────────────────────
-        "tool_gen_concept_anls_detail": _params_schema(
+        "tool_gen_concept_anls_detail": params_schema(
             required=['i', 'outline', 'paper_desc'],
-            i=_base_schema('integer', '章节序号'),
-            outline=_model_list_schema(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
-            paper_desc=_model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
+            i=base_schema('integer', '章节序号'),
+            outline=model_list_schema(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
+            paper_desc=model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
         ),
-        "tool_gen_rest_detail": _params_schema(
+        "tool_gen_rest_detail": params_schema(
             required=['i', 'outline', 'detail', 'paper_desc'],
-            i=_base_schema('integer', '章节序号'),
-            outline=_model_list_schema(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
-            detail=_model_schema(ConceptAnlsResult, '概念分析结果（ConceptAnlsResult）'),
-            paper_desc=_model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
+            i=base_schema('integer', '章节序号'),
+            outline=model_list_schema(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
+            detail=model_schema(ConceptAnlsResult, '概念分析结果（ConceptAnlsResult）'),
+            paper_desc=model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
         ),
-        "tool_fix_detail": _params_schema(
+        "tool_fix_detail": params_schema(
             required=['i', 'detail', 'outline', 'paper_desc', 'problem'],
-            i=_base_schema('integer', '章节序号'),
-            detail=_model_schema(ChapterDetail, '当前章节细纲（ChapterDetail）'),
-            outline=_model_list_schema(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
-            paper_desc=_model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
-            problem=_base_schema('string', '需要修正的问题描述'),
+            i=base_schema('integer', '章节序号'),
+            detail=model_schema(ChapterDetail, '当前章节细纲（ChapterDetail）'),
+            outline=model_list_schema(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
+            paper_desc=model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
+            problem=base_schema('string', '需要修正的问题描述'),
         ),
 
         # ── 五、章节正文 ──────────────────────────────────────
-        "tool_gen_body": _params_schema(
+        "tool_gen_body": params_schema(
             required=['i', 'outline', 'detail', 'paper_desc'],
-            i=_base_schema('integer', '章节序号'),
-            outline=_model_list_schema(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
-            detail=_model_schema(ChapterDetail, '章节细纲（ChapterDetail）'),
-            paper_desc=_model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
+            i=base_schema('integer', '章节序号'),
+            outline=model_list_schema(OutlineChapter, '全书大纲（OutlineChapter 列表）'),
+            detail=model_schema(ChapterDetail, '章节细纲（ChapterDetail）'),
+            paper_desc=model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
         ),
-        "tool_check_body": _params_schema(
+        "tool_check_body": params_schema(
             required=['body', 'detail'],
-            body=_base_schema('string', '章节正文'),
-            detail=_model_schema(ChapterDetail, '章节细纲（ChapterDetail）'),
+            body=base_schema('string', '章节正文'),
+            detail=model_schema(ChapterDetail, '章节细纲（ChapterDetail）'),
         ),
-        "tool_fix_body": _params_schema(
+        "tool_fix_body": params_schema(
             required=['body', 'comment', 'paper_desc'],
-            body=_base_schema('string', '章节正文'),
-            comment=_base_schema('string', '检查反馈内容'),
-            paper_desc=_model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
+            body=base_schema('string', '章节正文'),
+            comment=base_schema('string', '检查反馈内容'),
+            paper_desc=model_list_schema(PaperConcepts, '论文概念卡片列表（PaperConcepts）'),
         ),
 
         # ── 六、辅助检查 ──────────────────────────────────────
-        "tool_gen_glossary": _params_schema(
+        "tool_gen_glossary": params_schema(
             required=['paper'],
-            paper=_base_schema('string', '论文内容文本'),
+            paper=base_schema('string', '论文内容文本'),
         ),
-        "tool_check_consistency": _params_schema(
+        "tool_check_consistency": params_schema(
             required=['previous_chapter', 'current_chapter'],
-            previous_chapter=_base_schema('string', '上一章正文'),
-            current_chapter=_base_schema('string', '当前章正文'),
+            previous_chapter=base_schema('string', '上一章正文'),
+            current_chapter=base_schema('string', '当前章正文'),
         ),
-        "tool_audit_citations": _params_schema(
+        "tool_audit_citations": params_schema(
             required=['chapter', 'paper'],
-            chapter=_base_schema('string', '章节文本'),
-            paper=_base_schema('string', '论文内容'),
+            chapter=base_schema('string', '章节文本'),
+            paper=base_schema('string', '论文内容'),
         ),
 
         # ── 覆盖率校验（静态）────────────────────────────────
-        "tool_parts_coverage_problem": _params_schema(
+        "tool_parts_coverage_problem": params_schema(
             required=['paper_fnames', 'parts'],
-            paper_fnames=_str_list_schema('论文文件路径列表'),
-            parts=_model_list_schema(PartClus, '聚类结果（PartClus 列表）'),
+            paper_fnames=str_list_schema('论文文件路径列表'),
+            parts=model_list_schema(PartClus, '聚类结果（PartClus 列表）'),
         ),
-        "tool_outline_coverage_problem": _params_schema(
+        "tool_outline_coverage_problem": params_schema(
             required=['cards', 'outline'],
-            cards=_model_list_schema(PaperConcepts, '概念卡片列表（PaperConcepts）'),
-            outline=_model_schema(OutlineChapter, '大纲章（OutlineChapter）'),
+            cards=model_list_schema(PaperConcepts, '概念卡片列表（PaperConcepts）'),
+            outline=model_schema(OutlineChapter, '大纲章（OutlineChapter）'),
         ),
-        "tool_detail_coverage_problem": _params_schema(
+        "tool_detail_coverage_problem": params_schema(
             required=['chapter', 'detail'],
-            chapter=_model_schema(OutlineChapter, '大纲章（OutlineChapter）'),
-            detail=_model_schema(ChapterDetail, '章节细纲（ChapterDetail）'),
+            chapter=model_schema(OutlineChapter, '大纲章（OutlineChapter）'),
+            detail=model_schema(ChapterDetail, '章节细纲（ChapterDetail）'),
         ),
-        "tool_print": _params_schema(
+        "tool_print": params_schema(
             required=["text"],
-            text=_base_schema("string", "要打印的信息"),
+            text=base_schema("string", "要打印的信息"),
         ),
-        "tool_finish": _params_schema(),
+        "tool_finish": params_schema(),
     }
 
     @staticmethod
@@ -662,7 +615,7 @@ class Paper2TextbookTools:
         parameters 结构由 _TOOL_PARAMS 提供。可直接传给 openai 的 tools 参数。
         """
         return [
-            _func_schema(
+            func_schema(
                 getattr(self, name).__name__,
                 self._clean_doc(getattr(self, name).__doc__),
                 params
