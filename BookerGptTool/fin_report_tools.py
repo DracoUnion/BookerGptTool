@@ -30,6 +30,7 @@ class FinReportTools(ToolsMixin):
     """封装所有 LLM 调用的智能体类。"""
 
     def __init__(self, args):
+        """初始化工具集：保存参数、配置 OpenAI、并创建项目输出目录。"""
         set_openai_props(args)
         self.args = args
         self.model = args.model
@@ -46,6 +47,7 @@ class FinReportTools(ToolsMixin):
     def _call(self, system_prompt: str, user_prompt: str,
               temperature: float = 0.0, max_tokens: Optional[int] = None,
               parse_output: Callable = None) -> str:
+        """调用 LLM（system+user 消息），按 parse_output 解析结果并带重试。"""
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -59,6 +61,7 @@ class FinReportTools(ToolsMixin):
         )
 
     def tool_anls_fund(self, report: str) -> FundAnlsResult:
+        """分析报告的基本面（增长、ROE、资本开支、毛利率等），返回 FundAnlsResult。"""
         ques = render_prompt(FUND_ANLS_PROMPT, report=report)
         parse_output = lambda s: \
             FundAnlsResult.model_validate_json(ext_code_block(s))
@@ -67,6 +70,7 @@ class FinReportTools(ToolsMixin):
         )
 
     def tool_anls_value(self, report: str) -> ValueAnlsResult:
+        """分析报告的估值（PE/PB 百分位、资金流向、拥挤度等），返回 ValueAnlsResult。"""
         ques = render_prompt(VAL_ANLS_PROMPT, report=report)
         parse_output = lambda s: \
             ValueAnlsResult.model_validate_json(ext_code_block(s))
@@ -75,6 +79,7 @@ class FinReportTools(ToolsMixin):
         )
 
     def tool_anls_sentiment(self, report: str) -> SentiAnlsResult:
+        """分析报告的市场情绪（风格、换手、分析师共识、动量等），返回 SentiAnlsResult。"""
         ques = render_prompt(SENTI_ANLS_PROMPT, report=report)
         parse_output = lambda s: \
             SentiAnlsResult.model_validate_json(ext_code_block(s))
@@ -83,6 +88,7 @@ class FinReportTools(ToolsMixin):
         )
 
     def tool_extract(self, report: str) -> AnlsOutput:
+        """完整提取报告的基本面、估值与情绪分析，返回 AnlsOutput。"""
         return AnlsOutput(
             fundamental=self.tool_anls_fund(report),
             value=self.tool_anls_value(report),
@@ -90,6 +96,7 @@ class FinReportTools(ToolsMixin):
         )
 
     def tool_bull_initial(self, analysis: AnlsOutput) -> str:
+        """生成看多方的初始论点。"""
         user_prompt = render_prompt(BULL_INITIAL_USER, analysis=analysis.json())
         return self._call(
             BULL_SYSTEM_PROMPT, user_prompt,
@@ -98,6 +105,7 @@ class FinReportTools(ToolsMixin):
         )
 
     def tool_bull_rebut(self, analysis: AnlsOutput, opponent_argument: str) -> str:
+        """生成看多方对空方论点的反驳。"""
         user_prompt = render_prompt(
             BULL_REBUT_USER,
             analysis=analysis.json(),
@@ -110,6 +118,7 @@ class FinReportTools(ToolsMixin):
         )
 
     def tool_bear_initial(self, analysis: AnlsOutput) -> str:
+        """生成看空方的初始论点。"""
         user_prompt = render_prompt(BEAR_INITIAL_USER, analysis=analysis.json())
         return self._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
@@ -118,6 +127,7 @@ class FinReportTools(ToolsMixin):
         )
 
     def tool_bear_rebut(self, analysis: AnlsOutput, opponent_argument: str) -> str:
+        """生成看空方对多方论点的反驳。"""
         user_prompt = render_prompt(
             BEAR_REBUT_USER,
             analysis=analysis.json(),
@@ -130,6 +140,7 @@ class FinReportTools(ToolsMixin):
         )
 
     def tool_judge(self, analysis: AnlsOutput, bull_history: List[str], bear_history: List[str]) -> JudgeResult:
+        """综合多方与空方论点，给出最终投资裁决（JudgeResult）。"""
         user_prompt = render_prompt(
             JUDGE_USER,
             analysis=analysis.json(),
