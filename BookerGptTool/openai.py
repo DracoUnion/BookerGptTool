@@ -422,13 +422,13 @@ def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
     content: List[str] = []
 
     for ch in resp:  # resp 是 stream=True 的响应
-        print(ch)
         if not ch.choices:
             continue
         delta = ch.choices[0].delta
         
         # 1. 累积普通文本
         if delta.content:
+            logger.debug(f"stream: {json.dumps(delta.content, ensure_ascii=False)}")
             content.append(delta.content)
         
         # 2. 累积工具调用片段
@@ -448,6 +448,7 @@ def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
                     tc.function.name += delta_tc.function.name
                 if delta_tc.function.arguments:
                     tc.function.arguments += delta_tc.function.arguments
+                logger.debug(f'tollcall_stream: {tc.json()}')
     return list(tool_calls.values()), ''.join(content)
 
 def collect_stream_content(resp: Iterable[ChatCompletionChunk]):
