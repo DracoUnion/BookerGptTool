@@ -22,11 +22,13 @@ SUPPORTED_PAPER_EXTS = {'md', 'markdown', 'tex', 'txt', 'pdf'}
 SUPPORTED_SURVEY_EXTS = {'md', 'markdown', 'tex', 'txt'}
 FORMAT_LABELS = {'md': 'Markdown', 'tex': 'LaTeX'}
 
-class Paper2TextbookTools:
+
+class Paper2TextbookTools(ToolsMixin):
     """封装 paper2textbook 的独立 LLM 调用。"""
 
     def __init__(self, args):
         """初始化工具集：保存参数、配置 OpenAI、并创建项目输出目录。"""
+        super(ToolsMixin, self).__init__()
         self.args = args
         self.model = args.model
         set_openai_props(args)
@@ -64,15 +66,6 @@ class Paper2TextbookTools:
         """列出 args.dir 下的所有论文文件路径。"""
         return self._list_papers(self.args.dir)
 
-    def _write_text(self, fname: str, text: str) -> None:
-        """将 text 以 UTF-8 写入 fname（自动创建父目录）。"""
-        os.makedirs(path.dirname(fname), exist_ok=True)
-        open(fname, 'w', encoding='utf8').write(text)
-
-    def _read_text(self, fname: str) -> str:
-        """以 UTF-8 读取 fname 的文本内容。"""
-        return open(fname, encoding='utf8').read()
-
     # @cache
     def tool_read_paper(self, fname: str) -> str:
         """读取论文全文：文本格式直接读，PDF 通过 PyMuPDF 抽取文本。"""
@@ -95,71 +88,6 @@ class Paper2TextbookTools:
             f: self.tool_read_paper(f)[:limit].replace('\n', ' ')
             for f in paper_fnames
         }
-
-
-    def _write_yaml(self, fname: str, obj) -> None:
-        """将对象（含 pydantic 模型/列表）以 YAML 形式写入 fname。"""
-        if isinstance(obj, BaseModel):
-            obj = obj.dict()
-        elif isinstance(obj, list):
-            obj = [
-                it.dict() if isinstance(it, BaseModel) else it
-                for it in obj
-            ]
-        os.makedirs(path.dirname(fname), exist_ok=True)
-        with open(fname, 'w', encoding='utf8') as f:
-            yaml.safe_dump(obj, f, allow_unicode=True, sort_keys=False)
-
-    def _read_yaml(self, fname: str, model):
-        """从 fname 读取 YAML 并解析为指定 pydantic 模型；文件缺失或损坏时返回 None。"""
-        if not path.isfile(fname) or not path.getsize(fname):
-            return None
-        try:
-            data = yaml.safe_load(open(fname, encoding='utf8').read())
-        except yaml.error.YAMLError:
-            return None
-        return parse_obj_as(model, data)
-
-    def tool_read_workspace_text(self, fname: str):
-        """读取项目目录下的文本文件（fname 为项目内相对路径）。"""
-        return self._read_text(path.join(self.pj_dir, fname))
-
-    def tool_write_workspace_text(self, fname: str, text: str):
-        """向项目目录写入文本文件（fname 为项目内相对路径）。"""
-        return self._write_text(path.join(self.pj_dir, fname), text)
-
-    def tool_read_workspace_json(self, fname: str):
-        """读取项目目录下的 JSON 文件并解析为对象。"""
-        return json.loads(self.tool_read_workspace_text(fname))
-
-    def tool_write_workspace_json(self, fname: str, obj: Any):
-        """将对象以 JSON 形式写入项目目录（fname 为项目内相对路径）。"""
-        return self.tool_write_workspace_text(
-            fname, json.dumps(obj, ensure_ascii=False))
-
-    def tool_read_workspace_yaml(self, fname: str):
-        """读取项目目录下的 YAML 文件并解析为对象。"""
-        return yaml.safe_load(self.tool_read_workspace_text(fname))
-
-    def tool_write_workspace_yaml(self, fname: str, obj: Any):
-        """将对象以 YAML 形式写入项目目录（fname 为项目内相对路径）。"""
-        return self.tool_write_workspace_text(
-            fname, yaml.safe_dump(obj, allow_unicode=True))
-
-    def _json_dump(self, obj) -> str:
-        """将对象（含 pydantic 模型/列表）序列化为 JSON 字符串。"""
-        if isinstance(obj, BaseModel):
-            obj = obj.model_dump()
-        elif isinstance(obj, list):
-            obj = [
-                it.dict() if isinstance(it, BaseModel) else it
-                for it in obj
-            ]
-        return json.dumps(obj, ensure_ascii=False, indent=2)
-
-    def _json_load(self, text: str, model):
-        """将 JSON 文本解析为指定 pydantic 模型。"""
-        return parse_obj_as(model, json.loads(text))
 
     @staticmethod
     def _json(schema, prompt, model, args):

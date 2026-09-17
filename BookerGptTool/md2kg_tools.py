@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .util import ext_code_block
 
-from .openai import call_llm_retry, set_openai_props
+from .openai import *
 
 from .md2kg_models import (
     Entity, Relation, EntityList, RelationList,
@@ -31,7 +31,7 @@ from .md2kg_pmt import (
 
 
 
-class Md2KgTools:
+class Md2KgTools(ToolsMixin):
     """统一知识图谱智能体"""
 
     def __init__(self, args):
@@ -57,14 +57,14 @@ class Md2KgTools:
             parse_output=parse_output,
         )
 
-    def extract_entities(self, chunk_text: str, chunk_id: str, context_summary: str = "") -> EntityList:
+    def tool_extract_entities(self, chunk_text: str, chunk_id: str, context_summary: str = "") -> EntityList:
         user_prompt = ENTITY_EXTRACTOR_USER_PROMPT.format(
             chunk_id=chunk_id, context_summary=context_summary, chunk_text=chunk_text
         )
         parse_output = lambda s: EntityList.model_validate_json(ext_code_block(s))
         return self._call(ENTITY_EXTRACTOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
-    def extract_relations(self, chunk_text: str, chunk_id: str, entity_list: EntityList, context_summary: str = "") -> RelationList:
+    def tool_extract_relations(self, chunk_text: str, chunk_id: str, entity_list: EntityList, context_summary: str = "") -> RelationList:
         entity_context = "\n".join([f"{e.id}: {e.canonical_name} ({e.type})" for e in entity_list.entities])
         user_prompt = RELATION_EXTRACTOR_USER_PROMPT.format(
             chunk_id=chunk_id, context_summary=context_summary,
@@ -73,7 +73,7 @@ class Md2KgTools:
         parse_output = lambda s: RelationList.model_validate_json(ext_code_block(s))
         return self._call(RELATION_EXTRACTOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
-    def resolve_conflicts(self, all_entity_lists: List[EntityList], all_relation_lists: List[RelationList]) -> ResolvedGraph:
+    def tool_resolve_conflicts(self, all_entity_lists: List[EntityList], all_relation_lists: List[RelationList]) -> ResolvedGraph:
         input_data = {
             "entity_lists": [el.model_dump() for el in all_entity_lists],
             "relation_lists": [rl.model_dump() for rl in all_relation_lists]
@@ -83,7 +83,7 @@ class Md2KgTools:
         parse_output = lambda s: ResolvedGraph.model_validate_json(ext_code_block(s))
         return self._call(CONFLICT_RESOLVER_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
-    def align_schema(self, resolved_graph: ResolvedGraph, target_schema: Dict[str, List[str]] = None) -> SchemaAlignmentResult:
+    def tool_align_schema(self, resolved_graph: ResolvedGraph, target_schema: Dict[str, List[str]] = None) -> SchemaAlignmentResult:
         if target_schema is None:
             target_schema = {
                 "entity_types": ["人物", "组织", "地点", "概念", "事件", "作品", "技术", "时间"],
@@ -110,7 +110,7 @@ class Md2KgTools:
         parse_output = lambda s: SchemaAlignmentResult.model_validate_json(ext_code_block(s))
         return self._call(SCHEMA_ALIGNER_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
-    def evaluate(self, resolved_graph: ResolvedGraph, integration_threshold: float = 0.6) -> EvaluationResult:
+    def tool_evaluate(self, resolved_graph: ResolvedGraph, integration_threshold: float = 0.6) -> EvaluationResult:
         triplets = []
         for rel in resolved_graph.relationships:
             triplets.append({

@@ -183,7 +183,7 @@ class KnowledgeGraphOrchestrator:
                 content = chunk['content']
                 summary = chunk.get('summary', '')
                 future_entity = executor.submit(
-                    self.agent.extract_entities, content, chunk_id, summary
+                    self.agent.tool_extract_entities, content, chunk_id, summary
                 )
                 futures.append((future_entity, chunk_id))
 
@@ -204,7 +204,7 @@ class KnowledgeGraphOrchestrator:
                 summary = chunk.get('summary', '')
                 entity_list = all_entity_lists[idx] if idx < len(all_entity_lists) else EntityList(entities=[])
                 future_rel = executor.submit(
-                    self.agent.extract_relations, content, chunk_id, entity_list, summary
+                    self.agent.tool_extract_relations, content, chunk_id, entity_list, summary
                 )
                 futures_rel.append((future_rel, chunk_id))
 
@@ -217,18 +217,18 @@ class KnowledgeGraphOrchestrator:
 
         # ----- 阶段3：冲突消解 -----
         logger.info("阶段3：冲突消解...")
-        resolved_graph = self.agent.resolve_conflicts(all_entity_lists, all_relation_lists)
+        resolved_graph = self.agent.tool_resolve_conflicts(all_entity_lists, all_relation_lists)
 
         # ----- 阶段4：Schema对齐 -----
         logger.info("阶段4：Schema对齐...")
         if target_schema is None:
             # 自动归纳Schema
             target_schema = self._induce_schema(resolved_graph)
-        schema_alignment_result = self.agent.align_schema(resolved_graph, target_schema)
+        schema_alignment_result = self.agent.tool_align_schema(resolved_graph, target_schema)
 
         # ----- 阶段5：质量评估 -----
         logger.info("阶段5：质量评估...")
-        evaluation_result = self.agent.evaluate(resolved_graph, self.integration_threshold)
+        evaluation_result = self.agent.tool_evaluate(resolved_graph, self.integration_threshold)
 
         # ----- 组装最终结果 -----
         result = {
