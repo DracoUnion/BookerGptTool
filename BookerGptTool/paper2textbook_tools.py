@@ -81,7 +81,7 @@ class Paper2TextbookTools(ToolsMixin):
                 return '\n\n'.join(page.get_text() for page in doc)
         raise ValueError(f'不支持的论文格式：{fname}')
 
-    @cache
+    # @cache
     def tool_paper_brief(self, paper_fnames: List[str], limit=500) -> Dict[str, str]:
         """为每篇论文生成前 limit 字符的简报（换行转空格）。"""
         return {
