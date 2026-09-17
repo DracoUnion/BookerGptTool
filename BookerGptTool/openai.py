@@ -218,20 +218,13 @@ def call_llm_with_toolcall_retry(
                 tc.function.name, 
                 json_repair.loads(tc.function.arguments),
             )
-            if errmsg:
-                msgs.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": errmsg,
-                })
-                logger.debug(f'toolcall_res: %s', _json_dump(msgs[-1])[:50])
-                continue
             msgs.append({
-                'role': "tool",
-                'tool_call_id': tc.id, 
-                'content': _json_dump(tc_res)
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": errmsg if errmsg else _json_dump(tc_res),
             })
-            logger.debug(f'toolcall_res: %s', _json_dump(msgs[-1]))
+            logger.debug(f'toolcall_res: %s', _json_dump(msgs[-1])[:50])
+
         if finish: break
 
     if not ans: raise ValueError(f'回复为空：{res}')
