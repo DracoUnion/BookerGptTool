@@ -202,16 +202,10 @@ def call_llm_with_toolcall(
 ):
     if isinstance(msgs, str):
         msgs = [{'role': 'user', 'content': msgs}]
-    # tool_defs_str = json.dumps(tool_defs)
-    # toolcall_pmt = render_prompt(TOOLCALL_PMT, tool_def=tool_defs_str)
-    # msgs = [{
-    #     'role': 'system',
-    #     'content': toolcall_pmt
-    # }] + msgs
     msgs = repl_ins_token(msgs)
     if isinstance(extra_body, str):
         extra_body = json.loads(extra_body)
-    logger.debug(f'ques: {json.dumps(get_msgs_text(msgs), ensure_ascii=False)}')
+    logger.debug(f'ques: %s', _json_dump(get_msgs_text(msgs)))
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
@@ -250,7 +244,7 @@ def call_llm_with_toolcall(
                 f"未找到任何工具调用，如果你想结束整个流程，调用`{tool_finish_name}`。"
             msgs.append({"role": "user", "content": errmsg})
             continue
-        logger.info(f'toolcall: {toolcalls}')
+        logger.info(f'toolcall: %s', _json_dump(toolcalls))
         finish = False
         for tc in toolcalls:
             if tc.function.name == tool_finish_name:
@@ -263,12 +257,14 @@ def call_llm_with_toolcall(
                     "tool_call_id": tc.id,
                     "content": errmsg,
                 })
+                logger.debug(f'toolcall_res: %s', _json_dump(msgs[-1]))
                 continue
             msgs.append({
                 'role': "tool",
                 'tool_call_id': tc.id, 
-                'content': json.dumps(tc_res)
+                'content': _json_dump(tc_res)
             })
+            logger.debug(f'toolcall_res: %s', _json_dump(msgs[-1]))
         if finish: break
     
     if openai.stream:
@@ -281,7 +277,7 @@ def call_llm_with_toolcall(
     # 还原指令格式
     ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
     ans = re.sub(r' thinking[\s\S]+? response', '', ans)
-    logger.debug(f'ans: {json.dumps(ans, ensure_ascii=False)}')
+    logger.debug(f'ans: %s', _json_dump(ans))
     return ans
     return ans
 
@@ -371,7 +367,7 @@ def call_llm(
     msgs = repl_ins_token(msgs)
     if isinstance(extra_body, str):
         extra_body = json.loads(extra_body)
-    logger.debug(f'ques: {json.dumps(get_msgs_text(msgs), ensure_ascii=False)}')
+    logger.debug(f'ques: %s', _json_dump(get_msgs_text(msgs)))
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
@@ -401,7 +397,7 @@ def call_llm(
     # 还原指令格式
     ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
     ans = re.sub(r' thinking[\s\S]+? response', '', ans)
-    logger.debug(f'ans: {json.dumps(ans, ensure_ascii=False)}')
+    logger.debug(f'ans: %s', _json_dump(ans))
     return ans
 
 def set_openai_props(args):
@@ -428,7 +424,7 @@ def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
         
         # 1. 累积普通文本
         if delta.content:
-            logger.debug(f"stream: {json.dumps(delta.content, ensure_ascii=False)}")
+            logger.debug(f"stream: %s", _json_dump(delta.content))
             content.append(delta.content)
         
         # 2. 累积工具调用片段
@@ -448,7 +444,7 @@ def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
                     tc.function.name += delta_tc.function.name
                 if delta_tc.function.arguments:
                     tc.function.arguments += delta_tc.function.arguments
-                logger.debug(f'tollcall_stream: {tc.json()}')
+                logger.debug(f'toolcall_stream: %s', tc.json())
     return list(tool_calls.values()), ''.join(content)
 
 def collect_stream_content(resp: Iterable[ChatCompletionChunk]):
@@ -461,7 +457,7 @@ def collect_stream_content(resp: Iterable[ChatCompletionChunk]):
             continue
         content.append(delta_content)
         check_model_repetition(''.join(content))
-        logger.debug(f'stream: {json.dumps(delta_content, ensure_ascii=False)}')
+        logger.debug(f'stream: %s', _json_dump(delta_content))
     return ''.join(content)
 
 def check_model_repetition(text):
@@ -473,7 +469,7 @@ def call_tti(
     size='1024x1024',
     ref_img: Optional[bytes]=None,
 ):
-    logging.debug(f'tti: {json.dumps(text, ensure_ascii=False)}')
+    logging.debug(f'tti: %s', _json_dump(text))
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
@@ -516,3 +512,14 @@ def call_tti_retry(
         except Exception as ex:
             logging.debug(f'OpenAI retry {i+1}: {str(ex)}')
             if i == retry - 1 and not nothrow: raise ex
+
+def _json_dump(obj) -> str:
+    """将对象（含 pydantic 模型/列表）序列化为 JSON 字符串。"""
+    if isinstance(obj, BaseModel):
+        obj = obj.model_dump()
+    elif isinstance(obj, list):
+        obj = [
+            it.dict() if isinstance(it, BaseModel) else it
+            for it in obj
+        ]
+    return _json_dump(obj, ensure_ascii=False)
