@@ -1,3 +1,4 @@
+import copy
 import openai
 import base64
 import re
@@ -9,7 +10,7 @@ from argparse import Namespace
 from typing import *
 from pydantic import BaseModel, parse_obj_as, ValidationError
 from .util import render_prompt
-from openai.types.chat import ChatCompletion, ChatCompletionChunk
+from openai.types.chat import *
 
 logging.getLogger("openai._base_client").setLevel(logging.CRITICAL)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
@@ -417,11 +418,13 @@ def set_openai_props(args):
     openai.rpre = args.repetition_regex
 
 def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
-    tool_calls = {}
-    content = []
+    tool_calls: Dict[int, ChatCompletionMessageToolCall] = {}
+    content: List[str] = []
 
     for ch in resp:  # resp 是 stream=True 的响应
         print(ch)
+        if not ch.choices:
+            continue
         delta = ch.choices[0].delta
         
         # 1. 累积普通文本
@@ -430,31 +433,34 @@ def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
         
         # 2. 累积工具调用片段
         if delta.tool_calls:
-            for tool_call_delta in delta.tool_calls:
-                idx = tool_call_delta.index
+            for delta_tc in delta.tool_calls:
+                idx = delta_tc.index
                 if idx not in tool_calls:
-                    # tool_calls[idx] = {'call_id': None, 'function': '', 'arguments': ''}
-                    tool_calls[idx] = Namespace(
-                        id=None, 
-                        function=Namespace(name='', arguments='')
-                    )
-                fc = tool_calls[idx]
-                if tool_call_delta.id:
-                    fc.id = tool_call_delta.id
-                if tool_call_delta.function.name:
-                    fc.function.name += tool_call_delta.function.name
-                if tool_call_delta.function.arguments:
-                    fc.function.arguments += tool_call_delta.function.arguments
+                    tc = copy.deepcopy(delta_tc)
+                    tc.id = None
+                    tc.function.name = ''
+                    tc.function.arguments = ''
+                    tool_calls[idx] = tc
+                tc = tool_calls[idx]
+                if delta_tc.id:
+                    tc.id = delta_tc.id
+                if delta_tc.function.name:
+                    tc.function.name += delta_tc.function.name
+                if delta_tc.function.arguments:
+                    tc.function.arguments += delta_tc.function.arguments
     return list(tool_calls.values()), ''.join(content)
 
 def collect_stream_content(resp: Iterable[ChatCompletionChunk]):
     content = []
     for chunk in resp:
+        if not chunk.choices:
+            continue
         pt = chunk.choices[0].delta.content
-        if pt:
-            content.append(pt)
-            check_model_repetition(''.join(content))
-            logger.debug(f'stream: {json.dumps(pt, ensure_ascii=False)}')
+        if not pt:
+            continue
+        content.append(pt)
+        check_model_repetition(''.join(content))
+        logger.debug(f'stream: {json.dumps(pt, ensure_ascii=False)}')
     return ''.join(content)
 
 def check_model_repetition(text):
