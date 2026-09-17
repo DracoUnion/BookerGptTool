@@ -455,12 +455,12 @@ def collect_stream_content(resp: Iterable[ChatCompletionChunk]):
     for chunk in resp:
         if not chunk.choices:
             continue
-        pt = chunk.choices[0].delta.content
-        if not pt:
+        delta_content = chunk.choices[0].delta.content
+        if not delta_content:
             continue
-        content.append(pt)
+        content.append(delta_content)
         check_model_repetition(''.join(content))
-        logger.debug(f'stream: {json.dumps(pt, ensure_ascii=False)}')
+        logger.debug(f'stream: {json.dumps(delta_content, ensure_ascii=False)}')
     return ''.join(content)
 
 def check_model_repetition(text):
