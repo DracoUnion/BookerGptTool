@@ -117,3 +117,21 @@ class EvaluationResult(BaseModel):
     rejected_count: int = Field(default=0, description="拒绝集成的三元组数量")
     average_score: float = Field(default=0.0, ge=0.0, le=1.0, description="平均综合得分，0-1之间")
     evaluation_log: List[str] = Field(default_factory=list, description="评估过程日志")
+
+class Chunk(BaseModel):
+    id: str
+    content: str
+    summary: str
+
+class Result(BaseModel):
+    resolved_graph: ResolvedGraph
+    schema_alignment: SchemaAlignmentResult
+    evaluation: EvaluationResult
+
+
+# Schema归纳结果模型
+class SchemaInductionResult(BaseModel):
+    entity_types: List[str] = Field(..., description="归纳出的实体类型列表")
+    relation_types: List[str] = Field(..., description="归纳出的关系类型列表")
+    induction_log: List[str] = Field(default_factory=list, description="归纳过程日志")
+
