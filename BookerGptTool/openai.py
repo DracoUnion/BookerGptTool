@@ -97,9 +97,9 @@ def parse_toolcall(res: str) -> Tuple[List[ToolCallItem], str]:
         )
         return blocks, ""
     except json.JSONDecodeError as ex:
-        return [], str(ex)
+        return [], traceback.format_exc()
     except ValidationError as ex:
-        return [], str(ex)
+        return [], traceback.format_exc()
 
 def call_vlm_retry(
     img, ques, model_name, args,
@@ -184,7 +184,7 @@ def dispatch_tools(
     except KeyboardInterrupt:
         raise
     except Exception as ex:
-        return None, str(ex)
+        return None, traceback.format_exc()
 
 def call_llm_with_toolcall(
     msgs, model_name,
