@@ -32,7 +32,13 @@ class Md2KgTools(ToolsMixin):
         self.max_tokens = getattr(args, 'max_tokens', 2000)
         self.retry = getattr(args, 'retry', 3)
         self.stream = getattr(args, 'stream', False)
-
+        self.pj_dir = (
+            path.dirname(args.fname) + '_md2kg'
+            if path.isfile(args.fname) else
+            path.abspath(args.fname) + '_md2kg'
+        )
+        os.makedirs(self.pj_dir, exist_ok=True)
+        
     def _call(self, system_prompt: str, user_prompt: str,
               max_tokens: Optional[int] = None, parse_output: Callable = None) -> str:
         messages = [
