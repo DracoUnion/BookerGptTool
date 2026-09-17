@@ -159,16 +159,18 @@ def _chat_cmpl_create_retry(
             logger.debug(f'OpenAI retry {i+1}: {str(ex)}')
             if i == retry - 1: raise ex
 
-def call_llm_with_toolcall(
+def call_llm_with_toolcall_retry(
     msgs, model_name,
     tool_defs, tool_dict, *,
     tool_finish_name='',
+    retry=10,
     temp=None,
     top_p=None,
     frequency_penalty=None,
     presence_penalty=None,
     max_tokens=None,
     extra_body=None,
+    parse_output=None,
 ):
     if isinstance(msgs, str):
         msgs = [{'role': 'user', 'content': msgs}]
@@ -186,6 +188,7 @@ def call_llm_with_toolcall(
         res, toolcalls, ans = _chat_cmpl_create_retry(
             client, msgs, model_name,
             tool_defs, 
+            retry=retry,
             temp=temp,
             top_p=top_p,
             frequency_penalty=frequency_penalty,
@@ -237,44 +240,9 @@ def call_llm_with_toolcall(
     ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
     ans = re.sub(r' thinking[\s\S]+? response', '', ans)
     logger.debug(f'ans: %s', _json_dump(ans))
+    if parse_output:
+        ans = parse_output(ans)
     return ans
-    return ans
-
-def call_llm_with_toolcall_retry(
-    msgs, model_name,
-    tool_defs, tool_dict, *,
-    tool_finish_name='',
-    retry=10, temp=None,
-    top_p=None,
-    frequency_penalty=None,
-    presence_penalty=None,
-    max_tokens=None,
-    extra_body=None,
-    parse_output=None
-):
-    for i in range(retry):
-        try:
-            res =  call_llm_with_toolcall(
-                msgs, model_name,
-                tool_defs, tool_dict,
-                tool_finish_name=tool_finish_name,
-                temp=temp,
-                top_p=top_p,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-                max_tokens=max_tokens,
-                extra_body=extra_body,
-            )
-            return (
-                parse_output(res)
-                if parse_output else res
-            )
-        except KeyboardInterrupt:
-            raise
-        except Exception as ex:
-            logger.debug(f'OpenAI retry {i+1}')
-            logger.debug(traceback.format_exc())
-            if i == retry - 1: raise ex
 
 def call_llm_retry(
     msgs, model_name, *,
