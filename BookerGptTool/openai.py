@@ -250,7 +250,11 @@ def call_llm_with_toolcall(
             if tc.function.name == tool_finish_name:
                 finish = True
                 break
-            tc_res, errmsg = dispatch_tools(tool_dict, tc.function.name, tc.function.arguments)
+            tc_res, errmsg = dispatch_tools(
+                tool_dict, 
+                tc.function.name, 
+                json_repair.loads(tc.function.arguments),
+            )
             if errmsg:
                 msgs.append({
                     "role": "tool",
