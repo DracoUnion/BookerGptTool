@@ -265,3 +265,53 @@ class Md2KgTools(ToolsMixin):
             )
 
         return '\n'.join(lines)
+
+    # 工具名 -> OpenAI parameters 结构（type/properties/required）。
+    # name 与 description 不再硬编码，由 get_tool_defs 从函数 __name__ / __doc__ 取得。
+    # pydantic 模型参数用 Model.schema() 展开，不写死 {"type":"object"}。
+    _TOOL_PARAMS: Dict[str, Dict[str, Any]] = {
+        **ToolsMixin._TOOL_PARAMS,
+        # ── 知识图谱工具 ──────────────────────────────────────
+        "tool_extract_entities": params_schema(
+            required=['chunk_text', 'chunk_id'],
+            chunk_text=base_schema('string', '待抽取实体的文本块内容'),
+            chunk_id=base_schema('string', '文本块ID'),
+            context_summary=base_schema('string', '上下文摘要，默认空'),
+        ),
+        "tool_extract_relations": params_schema(
+            required=['chunk_text', 'chunk_id', 'entity_list'],
+            chunk_text=base_schema('string', '待抽取关系的文本块内容'),
+            chunk_id=base_schema('string', '文本块ID'),
+            entity_list=model_schema(EntityList, '已抽取的实体列表（EntityList）'),
+            context_summary=base_schema('string', '上下文摘要，默认空'),
+        ),
+        "tool_resolve_conflicts": params_schema(
+            required=['all_entity_lists', 'all_relation_lists'],
+            all_entity_lists=model_list_schema(EntityList, '多个实体列表（EntityList 列表）'),
+            all_relation_lists=model_list_schema(RelationList, '多个关系列表（RelationList 列表）'),
+        ),
+        "tool_align_schema": params_schema(
+            required=['resolved_graph'],
+            resolved_graph=model_schema(ResolvedGraph, '冲突消解后的全局图谱（ResolvedGraph）'),
+            target_schema=base_schema('object', '目标Schema，含 entity_types 与 relation_type 两个列表；缺省用默认Schema'),
+        ),
+        "tool_evaluate": params_schema(
+            required=['resolved_graph'],
+            resolved_graph=model_schema(ResolvedGraph, '冲突消解后的全局图谱（ResolvedGraph）'),
+            integration_threshold=base_schema('number', '集成阈值，默认 0.6'),
+        ),
+        "tool_list_input_files": params_schema(),
+        "tool_induce_schema": params_schema(
+            required=['resolved_graph'],
+            resolved_graph=model_schema(ResolvedGraph, '冲突消解后的全局图谱（ResolvedGraph）'),
+        ),
+        "tool_build_chunks": params_schema(
+            required=['text'],
+            text=base_schema('string', '待按段落切分的文本'),
+        ),
+        "tool_render_output": params_schema(
+            required=['result'],
+            result=model_schema(Result, '知识图谱结果（Result）'),
+        ),
+    }
+

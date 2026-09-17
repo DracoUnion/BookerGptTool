@@ -1,6 +1,9 @@
+import yaml
 import copy
 import openai
 import base64
+import os
+from os import path
 import re
 import json, json_repair
 import requests
@@ -494,6 +497,38 @@ def str_str_map_schema(desc: str) -> Dict[str, Any]:
 
 class ToolsMixin:
 
+    _TOOL_PARAMS = {
+        # ── IO：Workspace 读写（继承自 ToolsMixin）─────────────
+        "tool_read_workspace_text": params_schema(
+            required=['fname'],
+            fname=base_schema('string', '项目内相对路径'),
+        ),
+        "tool_write_workspace_text": params_schema(
+            required=['fname', 'text'],
+            fname=base_schema('string', '项目内相对路径'),
+            text=base_schema('string', '要写入的文本内容'),
+        ),
+        "tool_read_workspace_json": params_schema(
+            required=['fname'],
+            fname=base_schema('string', '项目内相对路径'),
+        ),
+        "tool_write_workspace_json": params_schema(
+            required=['fname', 'obj'],
+            fname=base_schema('string', '项目内相对路径'),
+            obj=base_schema('object', '要序列化为 JSON 的对象'),
+        ),
+        "tool_read_workspace_yaml": params_schema(
+            required=['fname'],
+            fname=base_schema('string', '项目内相对路径'),
+        ),
+        "tool_write_workspace_yaml": params_schema(
+            required=['fname', 'obj'],
+            fname=base_schema('string', '项目内相对路径'),
+            obj=base_schema('object', '要写入的对象'),
+        ),
+        "tool_finish": params_schema(),
+    }
+
     def __init__(self):
         self.pj_dir = '.'
 
@@ -569,3 +604,40 @@ class ToolsMixin:
     def _json_load(self, text: str, model):
         """将 JSON 文本解析为指定 pydantic 模型。"""
         return parse_obj_as(model, json.loads(text))
+
+
+    def tool_finish(self):
+        """结束整个工具调用流程"""
+        pass
+
+
+    def get_tool_dict(self) -> Dict[str, Callable]:
+        """返回以 tool_ 开头、可调用的成员方法字典（工具名→方法）。"""
+        return {
+            name: getattr(self, name)
+            for name in dir(self)
+            if name.startswith('tool_') and
+               callable(getattr(self, name))
+        }
+
+    @staticmethod
+    def _clean_doc(doc: Optional[str]) -> str:
+        """将函数 docstring 压缩为单行描述。"""
+        if not doc:
+            return ''
+        return ' '.join(line.strip() for line in doc.splitlines() if line.strip())
+
+    def get_tool_defs(self) -> List:
+        """返回所有 tool_* 方法的 OpenAI 函数工具定义（Chat Completions tools 格式）。
+
+        name 取自函数对象的 __name__，description 取自函数对象的 __doc__；
+        parameters 结构由 _TOOL_PARAMS 提供。可直接传给 openai 的 tools 参数。
+        """
+        return [
+            func_schema(
+                getattr(self, name).__name__,
+                self._clean_doc(getattr(self, name).__doc__),
+                params
+            )
+            for name, params in self._TOOL_PARAMS.items()
+        ]
