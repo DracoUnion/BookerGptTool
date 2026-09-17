@@ -33,7 +33,14 @@ def _base_schema(typ: str, desc: str, **extra) -> Dict[str, Any]:
     return {'type': typ, 'description': desc, **extra}
 
 def _func_schema(name: str, desc: str, params: Dict[str, Any]):
-    return _base_schema("function", desc, name=name, parameters=params)
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": desc,
+            "parameters": params,
+        }
+    }
 
 def _params_schema(desc: str, required: List[str] = [], **props):
     return _base_schema("object", desc, required=required, properties=props)
