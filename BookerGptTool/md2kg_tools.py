@@ -24,6 +24,7 @@ class Md2KgTools(ToolsMixin):
     """统一知识图谱智能体"""
 
     def __init__(self, args):
+        """初始化工具集：保存参数、配置 OpenAI、并创建项目输出目录。"""
         super(ToolsMixin, self).__init__()
         set_openai_props(args)
         self.args = args
@@ -41,6 +42,7 @@ class Md2KgTools(ToolsMixin):
         
     def _call(self, system_prompt: str, user_prompt: str,
               max_tokens: Optional[int] = None, parse_output: Callable = None) -> str:
+        """调用 LLM（system+user 消息），按 parse_output 解析结果并带重试。"""
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -54,6 +56,7 @@ class Md2KgTools(ToolsMixin):
         )
 
     def tool_extract_entities(self, chunk_text: str, chunk_id: str, context_summary: str = "") -> EntityList:
+        """从单个文本块中抽取实体（EntityList）。"""
         user_prompt = ENTITY_EXTRACTOR_USER_PROMPT.format(
             chunk_id=chunk_id, context_summary=context_summary, chunk_text=chunk_text
         )
@@ -61,6 +64,7 @@ class Md2KgTools(ToolsMixin):
         return self._call(ENTITY_EXTRACTOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
     def tool_extract_relations(self, chunk_text: str, chunk_id: str, entity_list: EntityList, context_summary: str = "") -> RelationList:
+        """结合已知实体，从单个文本块中抽取关系（RelationList）。"""
         entity_context = "\n".join([f"{e.id}: {e.canonical_name} ({e.type})" for e in entity_list.entities])
         user_prompt = RELATION_EXTRACTOR_USER_PROMPT.format(
             chunk_id=chunk_id, context_summary=context_summary,
@@ -70,6 +74,7 @@ class Md2KgTools(ToolsMixin):
         return self._call(RELATION_EXTRACTOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
     def tool_resolve_conflicts(self, all_entity_lists: List[EntityList], all_relation_lists: List[RelationList]) -> ResolvedGraph:
+        """合并多个文本块的实体与关系，解决重复和矛盾，得到全局图谱（ResolvedGraph）。"""
         input_data = {
             "entity_lists": [el.model_dump() for el in all_entity_lists],
             "relation_lists": [rl.model_dump() for rl in all_relation_lists]
@@ -123,6 +128,9 @@ class Md2KgTools(ToolsMixin):
         parse_output = lambda s: EvaluationResult.model_validate_json(ext_code_block(s))
         return self._call(EVALUATOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
 
+    def tool_read_input_file(self, fname) -> str:
+        """读取待处理的 Markdown 文件。"""
+        return self._read_text(fname)
 
     def tool_list_input_files(self) -> List[str]:
         """获取待处理的 Markdown 文件。"""
@@ -307,6 +315,10 @@ class Md2KgTools(ToolsMixin):
             integration_threshold=base_schema('number', '集成阈值，默认 0.6'),
         ),
         "tool_list_input_files": params_schema(),
+        "tool_read_input_file": params_schema(
+            required=["fname"],
+            fname=base_schema("string", "要读取的文件"),
+        ),
         "tool_induce_schema": params_schema(
             required=['resolved_graph'],
             resolved_graph=model_schema(ResolvedGraph, '冲突消解后的全局图谱（ResolvedGraph）'),

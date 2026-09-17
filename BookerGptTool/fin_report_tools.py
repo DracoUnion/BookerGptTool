@@ -23,10 +23,10 @@ from .openai import call_llm_retry, set_openai_props, ask_chatgpt_retry
 from .fin_report_models import *
 
 from .fin_report_pmt import *
+from .openai import *
 
 
-
-class FinReportAgent:
+class FinReportTools(ToolsMixin):
     """封装所有 LLM 调用的智能体类。"""
 
     def __init__(self, args):
@@ -36,6 +36,12 @@ class FinReportAgent:
         self.max_tokens = getattr(args, 'max_tokens', None) or 2000
         self.retry = getattr(args, 'retry', 3)
         self.stream = getattr(args, 'stream', False)
+        self.proj_dir = (
+            args.fname[:-4] + '_fin_report'
+            if path.isfile(args.fname)
+            else path.join(args.fname, '_fin_report')
+        )
+        os.makedirs(self.proj_dir, exist_ok=True)
 
     def _call(self, system_prompt: str, user_prompt: str,
               temperature: float = 0.0, max_tokens: Optional[int] = None,
@@ -52,7 +58,7 @@ class FinReportAgent:
             parse_output=parse_output,
         )
 
-    def anls_fund(self, report: str) -> FundAnlsResult:
+    def tool_anls_fund(self, report: str) -> FundAnlsResult:
         ques = render_prompt(FUND_ANLS_PROMPT, report=report)
         parse_output = lambda s: \
             FundAnlsResult.model_validate_json(ext_code_block(s))
@@ -60,7 +66,7 @@ class FinReportAgent:
             ques, self.model, self.args, parse_output
         )
 
-    def anls_value(self, report: str) -> ValueAnlsResult:
+    def tool_anls_value(self, report: str) -> ValueAnlsResult:
         ques = render_prompt(VAL_ANLS_PROMPT, report=report)
         parse_output = lambda s: \
             ValueAnlsResult.model_validate_json(ext_code_block(s))
@@ -68,7 +74,7 @@ class FinReportAgent:
             ques, self.model, self.args, parse_output
         )
 
-    def anls_sentiment(self, report: str) -> SentiAnlsResult:
+    def tool_anls_sentiment(self, report: str) -> SentiAnlsResult:
         ques = render_prompt(SENTI_ANLS_PROMPT, report=report)
         parse_output = lambda s: \
             SentiAnlsResult.model_validate_json(ext_code_block(s))
@@ -76,14 +82,14 @@ class FinReportAgent:
             ques, self.model, self.args, parse_output
         )
 
-    def extract(self, report: str) -> AnlsOutput:
+    def tool_extract(self, report: str) -> AnlsOutput:
         return AnlsOutput(
-            fundamental=self.anls_fund(report),
-            value=self.anls_value(report),
-            sentiment=self.anls_sentiment(report)
+            fundamental=self.tool_anls_fund(report),
+            value=self.tool_anls_value(report),
+            sentiment=self.tool_anls_sentiment(report)
         )
 
-    def bull_initial(self, analysis: AnlsOutput) -> str:
+    def tool_bull_initial(self, analysis: AnlsOutput) -> str:
         user_prompt = render_prompt(BULL_INITIAL_USER, analysis=analysis.json())
         return self._call(
             BULL_SYSTEM_PROMPT, user_prompt,
@@ -91,7 +97,7 @@ class FinReportAgent:
             parse_output=ext_cont_block,
         )
 
-    def bull_rebut(self, analysis: AnlsOutput, opponent_argument: str) -> str:
+    def tool_bull_rebut(self, analysis: AnlsOutput, opponent_argument: str) -> str:
         user_prompt = render_prompt(
             BULL_REBUT_USER,
             analysis=analysis.json(),
@@ -103,7 +109,7 @@ class FinReportAgent:
             parse_output=ext_cont_block,
         )
 
-    def bear_initial(self, analysis: AnlsOutput) -> str:
+    def tool_bear_initial(self, analysis: AnlsOutput) -> str:
         user_prompt = render_prompt(BEAR_INITIAL_USER, analysis=analysis.json())
         return self._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
@@ -111,7 +117,7 @@ class FinReportAgent:
             parse_output=ext_cont_block,
         )
 
-    def bear_rebut(self, analysis: AnlsOutput, opponent_argument: str) -> str:
+    def tool_bear_rebut(self, analysis: AnlsOutput, opponent_argument: str) -> str:
         user_prompt = render_prompt(
             BEAR_REBUT_USER,
             analysis=analysis.json(),
@@ -123,7 +129,7 @@ class FinReportAgent:
             parse_output=ext_cont_block,
         )
 
-    def judge(self, analysis: AnlsOutput, bull_history: List[str], bear_history: List[str]) -> JudgeResult:
+    def tool_judge(self, analysis: AnlsOutput, bull_history: List[str], bear_history: List[str]) -> JudgeResult:
         user_prompt = render_prompt(
             JUDGE_USER,
             analysis=analysis.json(),
@@ -138,3 +144,20 @@ class FinReportAgent:
             parse_output=parse_output,
         )
         return res
+
+    def tool_list_input_files(self) -> List[str]:
+        """获取待处理的 PDF 文件列表。"""
+        if path.isfile(self.args.fname):
+            fnames = [self.args.fname]
+        elif path.isdir(self.args.fname):
+            fnames = [
+                path.join(self.args.fname, fname)
+                for fname in os.listdir(self.args.fname)
+            ]
+        else:
+            fnames = []
+        return [
+            fname for fname in fnames 
+            if fname.endswith('.pdf') or
+               fname.endswith('.md')
+        ]

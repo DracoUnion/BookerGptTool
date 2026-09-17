@@ -33,7 +33,7 @@ def read_pdf_text(data):
 # ===================== Agent =====================
 
 
-from .fin_report_agent import FinReportAgent
+from .fin_report_tools import FinReportTools
 
 
 
@@ -53,14 +53,14 @@ class MultiReportOrchestrator:
         self.proj_dir = (
             args.fname[:-4] + '_fin_report'
             if path.isfile(args.fname)
-            else path.join(args.fname, 'fin_report')
+            else path.join(args.fname, '_fin_report')
         )
         self.debate_rounds = getattr(args, 'rounds', 3)
         self.max_workers = getattr(args, 'threads', 5)
         os.makedirs(self.proj_dir, exist_ok=True)
 
         # 初始化 Agent
-        self.agent = FinReportAgent(args)
+        self.tools = FinReportTools(args)
 
     def process(self, fnames: List[str]) -> List[OrchestratorResult]:
         pool = ThreadPoolExecutor(self.max_workers)
@@ -94,7 +94,7 @@ class MultiReportOrchestrator:
         if(path.isfile(anls_fname)):
             anls_res = AnlsOutput.model_validate_json(open(anls_fname, encoding='utf8').read())
         else:
-            anls_res = self.agent.extract(report)
+            anls_res = self.tools.tool_extract(report)
             open(anls_fname, 'w', encoding='utf8').write(anls_res.json())
 
         # ---------- 第三步：多空初始立场 ----------
@@ -104,8 +104,8 @@ class MultiReportOrchestrator:
             history = json.loads(open(his_fname, encoding='utf8').read())
             bull_history, bear_history = history['bull'], history['bear']
         else:
-            bull_initial = self.agent.bull_initial(anls_res)
-            bear_initial = self.agent.bear_initial(anls_res)
+            bull_initial = self.tools.tool_bull_initial(anls_res)
+            bear_initial = self.tools.tool_bear_initial(anls_res)
 
             bull_history = [bull_initial]
             bear_history = [bear_initial]
@@ -119,10 +119,10 @@ class MultiReportOrchestrator:
         for round_idx in range(len(bull_history), self.debate_rounds):
             logger.info(f"辩论第 {round_idx+1} 轮...")
             # 空方反驳多方最新观点
-            bear_rebut = self.agent.bear_rebut(anls_res, bull_history[-1])
+            bear_rebut = self.tools.tool_bear_rebut(anls_res, bull_history[-1])
             bear_history.append(bear_rebut)
             # 多方反驳空方最新观点
-            bull_rebut = self.agent.bull_rebut(anls_res, bear_history[-1])
+            bull_rebut = self.tools.tool_bull_rebut(anls_res, bear_history[-1])
             bull_history.append(bull_rebut)
             open(his_fname, 'w', encoding='utf8') \
                 .write(json.dumps({
@@ -136,7 +136,7 @@ class MultiReportOrchestrator:
         if path.isfile(final_fname):
             final_verdict = JudgeResult.model_validate_json(open(final_fname, encoding='utf8').read())
         else:
-            final_verdict = self.agent.judge(anls_res, bull_history, bear_history)
+            final_verdict = self.tools.tool_judge(anls_res, bull_history, bear_history)
             open(final_fname, 'w', encoding='utf8').write(final_verdict.json())
 
         return OrchestratorResult(
@@ -169,22 +169,7 @@ class MultiReportOrchestrator:
         '''
         return result
 
-    def _get_pdf_md_files(self) -> List[str]:
-        """获取待处理的 PDF 文件列表。"""
-        if path.isfile(self.args.fname):
-            fnames = [self.args.fname]
-        elif path.isdir(self.args.fname):
-            fnames = [
-                path.join(self.args.fname, fname)
-                for fname in os.listdir(self.args.fname)
-            ]
-        else:
-            fnames = []
-        return [
-            fname for fname in fnames 
-            if fname.endswith('.pdf') or
-               fname.endswith('.md')
-        ]
+
 
     def _get_output_fname(self) -> str:
         """根据输入路径确定最终报告路径。"""
