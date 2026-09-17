@@ -118,6 +118,47 @@ def dispatch_tools(
     except Exception as ex:
         return None, traceback.format_exc()
 
+def _chat_cmpl_create_retry(
+    client: openai.Client, 
+    msgs, model_name,
+    tool_defs,
+    *, 
+    retry=10, temp=None,
+    top_p=None,
+    frequency_penalty=None,
+    presence_penalty=None,
+    max_tokens=None,
+    extra_body=None,
+):
+    for i in range(retry):
+        try:
+            res = client.chat.completions.create(
+                messages=msgs,
+                model=model_name,
+                temperature=temp,
+                top_p=top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                max_tokens=max_tokens,
+                extra_body=extra_body,
+                stream=openai.stream,
+                tools=tool_defs,
+                tool_choice='auto',
+            )
+            if openai.stream:
+                res: Iterable[ChatCompletionChunk]
+                toolcalls, ans = collect_stream_toolcalls(res)
+            else:
+                res: ChatCompletion
+                res_msg = res.choices[0].message
+                toolcalls, ans = res_msg.tool_calls, res_msg.content
+            return toolcalls, ans
+        except KeyboardInterrupt:
+            raise
+        except Exception as ex:
+            logger.debug(f'OpenAI retry {i+1}: {str(ex)}')
+            if i == retry - 1: raise ex
+
 def call_llm_with_toolcall(
     msgs, model_name,
     tool_defs, tool_dict, *,
@@ -142,26 +183,16 @@ def call_llm_with_toolcall(
         timeout=openai.timeout,
     )
     while True:
-        res = client.chat.completions.create(
-            messages=msgs,
-            model=model_name,
-            temperature=temp,
+        toolcalls, ans = _chat_cmpl_create_retry(
+            client, msgs, model_name,
+            tool_defs, 
+            temp=temp,
             top_p=top_p,
             frequency_penalty=frequency_penalty,
             presence_penalty=presence_penalty,
             max_tokens=max_tokens,
             extra_body=extra_body,
-            stream=openai.stream,
-            tools=tool_defs,
-            tool_choice='auto',
         )
-        if openai.stream:
-            res: Iterable[ChatCompletionChunk]
-            toolcalls, ans = collect_stream_toolcalls(res)
-        else:
-            res: ChatCompletion
-            res_msg = res.choices[0].message
-            toolcalls, ans = res_msg.tool_calls, res_msg.content
         msgs.append({
             'role': 'assistant',
             'content': ans,
@@ -397,7 +428,7 @@ def call_tti(
     size='1024x1024',
     ref_img: Optional[bytes]=None,
 ):
-    logging.debug(f'tti: %s', _json_dump(text))
+    logger.debug(f'tti: %s', _json_dump(text))
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
@@ -438,7 +469,7 @@ def call_tti_retry(
         except KeyboardInterrupt:
             raise
         except Exception as ex:
-            logging.debug(f'OpenAI retry {i+1}: {str(ex)}')
+            logger.debug(f'OpenAI retry {i+1}: {str(ex)}')
             if i == retry - 1 and not nothrow: raise ex
 
 def _json_dump(obj) -> str:
