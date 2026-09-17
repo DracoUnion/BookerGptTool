@@ -5,6 +5,7 @@ import json, json_repair
 import requests
 import logging
 import traceback
+from argparse import Namespace
 from typing import *
 from pydantic import BaseModel, parse_obj_as, ValidationError
 from .util import render_prompt
@@ -229,9 +230,16 @@ def call_llm_with_toolcall(
             tools=tool_defs,
             tool_choice='auto',
         )
-        res_msg = res.choices[0].message
-        msgs.append(res_msg)
-        toolcalls = getattr(res_msg, 'tool_calls', None)
+        if openai.stream:
+            toolcalls, ans = collect_stream_toolcalls(res)
+        else:
+            toolcalls = getattr(res.choices[0].message, 'tool_calls', [])
+            ans = getattr(res.choices[0].message, 'content', "")
+        msgs.append({
+            'role': 'assistant',
+            'content': ans,
+            "tool_calls": toolcalls,
+        })
         if not toolcalls:
             if not tool_finish_name: break
             errmsg = \
@@ -271,7 +279,7 @@ def call_llm_with_toolcall(
     ans = re.sub(r' thinking[\s\S]+? response', '', ans)
     logger.debug(f'ans: {json.dumps(ans, ensure_ascii=False)}')
     return ans
-    return res_msg
+    return ans
 
 def call_llm_with_toolcall_retry(
     msgs, model_name,
@@ -412,23 +420,27 @@ def collect_stream_toolcalls(resp):
         delta = ch.choices[0].delta
         
         # 1. 累积普通文本
-        if delta.content is not None:
+        if delta.content:
             content.append(delta.content)
         
         # 2. 累积工具调用片段
-        if delta.tool_calls is not None and len(delta.tool_calls) > 0:
+        if delta.tool_calls:
             for tool_call_delta in delta.tool_calls:
                 idx = tool_call_delta.index
                 if idx not in tool_calls:
-                    tool_calls[idx] = {'call_id': None, 'function': '', 'arguments': ''}
+                    # tool_calls[idx] = {'call_id': None, 'function': '', 'arguments': ''}
+                    tool_calls[idx] = Namespace(
+                        call_id=None, 
+                        function=Namespace(name='', arguments='')
+                    )
                 fc = tool_calls[idx]
-                if tool_call_delta.id is not None:
-                    fc['call_id'] = tool_call_delta.id
-                if tool_call_delta.function.name is not None:
-                    fc['function'] += tool_call_delta.function.name
-                if tool_call_delta.function.arguments is not None:
-                    fc['arguments'] += tool_call_delta.function.arguments
-    return tool_calls, ''.join(content)
+                if tool_call_delta.id:
+                    fc.call_id = tool_call_delta.id
+                if tool_call_delta.function.name:
+                    fc.function.name += tool_call_delta.function.name
+                if tool_call_delta.function.arguments:
+                    fc.function.arguments += tool_call_delta.function.arguments
+    return list(tool_calls.values()), ''.join(content)
 
 def collect_stream_content(resp):
     content = []
