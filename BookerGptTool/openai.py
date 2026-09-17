@@ -152,7 +152,7 @@ def _chat_cmpl_create_retry(
                 res: ChatCompletion
                 res_msg = res.choices[0].message
                 toolcalls, ans = res_msg.tool_calls, res_msg.content
-            return toolcalls, ans
+            return res, toolcalls, ans
         except KeyboardInterrupt:
             raise
         except Exception as ex:
@@ -183,7 +183,7 @@ def call_llm_with_toolcall(
         timeout=openai.timeout,
     )
     while True:
-        toolcalls, ans = _chat_cmpl_create_retry(
+        res, toolcalls, ans = _chat_cmpl_create_retry(
             client, msgs, model_name,
             tool_defs, 
             temp=temp,
