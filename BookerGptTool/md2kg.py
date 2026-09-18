@@ -48,6 +48,7 @@ class KnowledgeGraphOrchestrator:
     def run(self) -> Dict[str, Any]:
         """执行输入读取、知识图谱构建和结果输出的完整流程。"""
         logger.info(self.args)
+        logger.info('可用工具：%s', list(self.tools.get_tool_dict().keys()))
 
         fnames = self.tools.tool_list_input_files()
         if not fnames:

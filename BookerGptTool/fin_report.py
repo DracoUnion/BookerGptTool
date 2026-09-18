@@ -62,6 +62,7 @@ class MultiReportOrchestrator:
         if not fnames:
             print('请提供 PDF 或 MD 文件或目录')
             return None
+        logger.info('可用工具：%s', list(self.tools.get_tool_dict().keys()))
 
         call_llm_with_toolcall_retry(
             OVERALL_PMT, self.args.model, 
