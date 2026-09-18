@@ -7,7 +7,7 @@ from . import (
     infer, erchuang, note, paper2code, pdf_ocr, gts_fiction,
     md2skill, trans_epub, fmt_chunk, md2wiki, clean_heading, forward,
     novel_anls, xhs_img, play_game, play_android_game, paper2textbook,
-    article_img, ppt,
+    article_img, ppt, xhs_art, jike_art, podcast,
 )
 
 def main():
@@ -66,6 +66,9 @@ def main():
     paper2textbook.reg_subparser(subparsers)
     article_img.reg_subparser(subparsers)
     ppt.reg_subparser(subparsers)
+    xhs_art.reg_subparser(subparsers)
+    jike_art.reg_subparser(subparsers)
+    podcast.reg_subparser(subparsers)
 
     args = parser.parse_args()
     args.func(args)
