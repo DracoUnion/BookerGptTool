@@ -259,7 +259,7 @@ class Paper2TextbookTools(ToolsMixin):
         paper_desc: List[PaperConcepts],
     ) -> RestDetailResult:
         """基于概念分析结果生成第 i 章其余内容（目标/概念图/类比/小结/习题）。"""
-        cache_fname = 'detail_rest_' + gen_objs_md5(ourline, detail, paper_desc, i) + '.yaml'
+        cache_fname = 'detail_rest_' + gen_objs_md5(outline, detail, paper_desc, i) + '.yaml'
         r = read_yaml_model(cache_fname, RestDetailResult)
         if r: return r
         prompt = render_prompt(
@@ -366,16 +366,27 @@ class Paper2TextbookTools(ToolsMixin):
 
     def tool_check_consistency(self, previous_chapter: str, current_chapter: str) -> str:
         """检查当前章与上一章之间的术语/口径一致性，并返回问题反馈。"""
+        cache_fname = 'consist_check_' + gen_objs_md5(previous_chapter, current_chapter) + '.md'
+        if path.isfile(cache_fname) and path.getsize(cache_fname)
+            r = read_text(cache_fname)
+            return r
         prompt = render_prompt(
             CONSISTENCY_CHK_PMT,
             previous_chapters=previous_chapter, current_chapter=current_chapter,
         )
-        return self._text(prompt, self.model, self.args)
+        r = self._text(prompt, self.model, self.args)
+        write_text(cache_fname, r)
+        return r
 
     def tool_audit_citations(self, chapter: str, paper: str) -> CitationAudit:
         """审计章节中的引用情况，返回引用统计、无支撑观点与缺失概念。"""
+        cache_fname = 'audit_' + gen_objs_md5(chapter, paper) + '.yaml'
+        r = read_yaml_model(cache_fname, CitationAudit)
+        if r: return r
         prompt = render_prompt(CITATION_AUDIT_PMT, book=chapter, paper=paper)
-        return self._json(CitationAudit, prompt, self.model, self.args)
+        r = self._json(CitationAudit, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
 
 
 
