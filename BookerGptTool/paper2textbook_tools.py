@@ -187,16 +187,20 @@ class Paper2TextbookTools(ToolsMixin):
         concept_cards: List[PaperConcepts],
     ) -> List[OutlineChapter]:
         """根据书籍结构（struct）与概念卡片生成全书章级大纲。"""
-        cache_fname = 'ccpt'
+        cache_fname = 'outline_' + gen_objs_md5(concept_cards) + '.yaml'
+        r = read_yaml_model(cache_fname, List[OutlineChapter])
+        if r: return r
         prompt = render_prompt(
             OUTLINE_PMT,
             struct=json_dump_model(struct),
             concept_cards=json_dump_model(concept_cards),
         )
-        return self._json(
+        r = self._json(
             List[OutlineChapter],
             prompt, self.model, self.args
         )
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_fix_outline(
         self,
@@ -206,6 +210,9 @@ class Paper2TextbookTools(ToolsMixin):
         problem: str,
     ) -> List[OutlineChapter]:
         """根据问题描述（problem）修正已生成的全书大纲。"""
+        cache_fname = 'outline_fix_' + gen_objs_md5(outline, concept_cards, problem) + '.yaml'
+        r = read_yaml_model(cache_fname, List[OutlineChapter])
+        if r: return r
         prompt = render_prompt(
             OUTLINE_FIX_PMT,
             outline=json_dump_model(outline),
@@ -213,10 +220,12 @@ class Paper2TextbookTools(ToolsMixin):
             concept_cards=json_dump_model(concept_cards),
             problem=problem,
         )
-        return self._json(
+        r =  self._json(
             List[OutlineChapter],
             prompt, self.model, self.args
         )
+        write_yaml_model(cache_fname, r)
+        return r
 
     # ============================================================
     # 四、章节细纲
@@ -229,6 +238,7 @@ class Paper2TextbookTools(ToolsMixin):
         paper_desc: List[PaperConcepts],
     ) -> ConceptAnlsResult:
         """针对第 i 章做概念分析，产出知识单元（ConceptUnit）列表。"""
+        cache_fname = 'detail_ccpt_' + 
         prompt = render_prompt(
             CONCEPT_ANLS_DETAIL_PMT,
             i=str(i),
