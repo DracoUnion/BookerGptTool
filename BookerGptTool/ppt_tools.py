@@ -100,7 +100,7 @@ class PptTools(ToolsMixin):
             ]
         else:
             fnames = []
-        exts = {'md', 'txt', 'markdown', 'markdown'}
+        exts = {'md', 'txt', 'markdown'}
         return [
             f.replace('\\', '/')
             for f in fnames
@@ -224,10 +224,10 @@ class PptTools(ToolsMixin):
         title = plan.title.strip() or 'Deck'
         template = RE_TITLE.sub(f'<title>{title}</title>', template, count=1)
 
-        # 2. 幻灯片区域
-        if not RE_SLIDES.search(template):
+        # 2. 幻灯片区域（风格 B 会顺带清掉模板内置的示例页）
+        if not RE_DECK_REGION.search(template):
             raise ValueError('模板中未找到 SLIDES_HERE 占位符，模板可能已损坏')
-        template = RE_SLIDES.sub(slides_html.strip(), template, count=1)
+        template = RE_DECK_REGION.sub(slides_html.strip() + '\n', template, count=1)
 
         # 3. 演讲备注（由规划逐页组装，页面 ID 与 slide_id 一致）
         notes = []
