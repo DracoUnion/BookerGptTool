@@ -32,7 +32,12 @@ def md5(text: str):
     return hashlib.md5(text.encode('utf8')).hexdigest()
 
 def gen_objs_md5(*args):
-    args = [_json]
+    args = [
+        o if isinstance(o, str) else
+            json_dump_model(o)
+        for o in args
+    ]
+    return '_'.join(md5(o) for o in args)
 
 def get_md_title(text):
     RE_TITLE = r'^#+\x20+(.+?)$'
