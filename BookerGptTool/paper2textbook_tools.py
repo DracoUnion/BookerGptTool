@@ -238,14 +238,18 @@ class Paper2TextbookTools(ToolsMixin):
         paper_desc: List[PaperConcepts],
     ) -> ConceptAnlsResult:
         """针对第 i 章做概念分析，产出知识单元（ConceptUnit）列表。"""
-        cache_fname = 'detail_ccpt_' + 
+        cache_fname = 'detail_ccpt_' + gen_objs_md5(outline, paper_desc, i) + '.yaml'
+        r = read_yaml_model(cache_fname, ConceptAnlsResult)
+        if r: return r
         prompt = render_prompt(
             CONCEPT_ANLS_DETAIL_PMT,
             i=str(i),
             outline=json_dump_model(outline),
             paper_desc=json_dump_model(paper_desc),
         )
-        return self._json(ConceptAnlsResult, prompt, self.model, self.args)
+        r = self._json(ConceptAnlsResult, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_gen_rest_detail(
         self,
@@ -255,6 +259,9 @@ class Paper2TextbookTools(ToolsMixin):
         paper_desc: List[PaperConcepts],
     ) -> RestDetailResult:
         """基于概念分析结果生成第 i 章其余内容（目标/概念图/类比/小结/习题）。"""
+        cache_fname = 'detail_rest_' + gen_objs_md5(ourline, detail, paper_desc, i) + '.yaml'
+        r = read_yaml_model(cache_fname, RestDetailResult)
+        if r: return r
         prompt = render_prompt(
             REST_DETAIL_PMT,
             i=str(i),
@@ -262,7 +269,9 @@ class Paper2TextbookTools(ToolsMixin):
             detail=json_dump_model(detail),
             paper_desc=json_dump_model(paper_desc),
         )
-        return self._json(RestDetailResult, prompt, self.model, self.args)
+        r = self._json(RestDetailResult, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_fix_detail(
         self,
