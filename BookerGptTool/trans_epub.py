@@ -125,11 +125,8 @@ class TransEpubDispatcher:
         args = self.args
         logger.info('[1] 初始化元数据')
         os.makedirs(meta_dir, exist_ok=True)
-        if path.isfile(meta_fname) and \
-           path.getsize(meta_fname) != 0:
-            meta = yaml.safe_load(open(meta_fname, encoding='utf8').read())
-            meta = Meta(**meta)
-        else:
+        meta = read_yaml_model(meta_fname, Meta)
+        if not meta:
             name_cn = self.agent.translate_title(name)
             meta = Meta(name=name, slug=slug, name_cn=name_cn)
             open(meta_fname, 'w', encoding='utf8').write(yaml.safe_dump(meta.dict()))
@@ -184,11 +181,8 @@ class TransEpubDispatcher:
 
     def _format_translate(self, chunk_fname, md):
         logger.info('[4] 排版和翻译')
-        if path.isfile(chunk_fname) and \
-           path.getsize(chunk_fname) != 0:
-            chunks = yaml.safe_load(open(chunk_fname, encoding='utf8').read())
-            chunks = parse_obj_as(List[Chunk], chunks)
-        else:
+        chunks = read_yaml_model(chunk_fname, List[Chunk])
+        if not chunks:
             groups = group_chunks(split_md_lines(md))
             chunks = [Chunk(raw=c) for c in groups]
             write_yaml_model(chunk_fname, chunks)
@@ -260,10 +254,8 @@ class TransEpubDispatcher:
 
     def _split_chapters(self, chs_fname, md):
         logger.info('[6] 分章节')
-        if path.isfile(chs_fname) and \
-           path.getsize(chs_fname) != 0:
-            chs = yaml.safe_load(open(chs_fname, encoding='utf8').read())
-        else:
+        chs = read_yaml_model(chs_fname, None)
+        if not chs:
             chs = self._split_chs(md) if self.args.split else [md]
             write_yaml_model(chs_fname, chs)
         return chs
