@@ -331,6 +331,198 @@ class Md2KgTools(ToolsMixin):
 
         return '\n'.join(lines)
 
+    # ============================================================
+    # 十二、AutoSchemaKG 兼容工作流
+    # ============================================================
+    def tool_atlas_extract_triples(self, text: str) -> AtlasTripleList:
+        """从单个文本块抽取实体/事件三元组。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'atlas_triples_' + gen_objs_md5(text) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, AtlasTripleList)
+        if r: return r
+        prompt = render_prompt(ATLAS_TRIPLE_EXTRACT_PMT, text=text)
+        parse_output = lambda s: AtlasTripleList.model_validate_json(ext_code_block(s))
+        r = self._call('', prompt, parse_output=parse_output)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_atlas_generate_concepts(self, triples: AtlasTripleList) -> AtlasConceptList:
+        """基于三元组归纳概念 Schema。"""
+        triples_json = json_dump_model(triples)
+        cache_fname = path.join(
+            self.pj_dir,
+            'atlas_concepts_' + gen_objs_md5(triples) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, AtlasConceptList)
+        if r: return r
+        prompt = render_prompt(ATLAS_CONCEPT_GENERATE_PMT, triples_json=triples_json)
+        parse_output = lambda s: AtlasConceptList.model_validate_json(ext_code_block(s))
+        r = self._call('', prompt, parse_output=parse_output)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_atlas_run_pipeline(self, chunks: List[Chunk]) -> AtlasPipelineResult:
+        """完整管道：多块抽取三元组 -> 合并 -> 归纳概念 -> 生成 CSV/GraphML。"""
+        import json as _json
+        all_triples = []
+        for chunk in chunks:
+            triples = self.tool_atlas_extract_triples(chunk.content)
+            all_triples.extend(triples.triples)
+        merged = AtlasTripleList(triples=all_triples)
+        triples_json = json_dump_model(merged)
+        # 归纳概念
+        concepts = self.tool_atlas_generate_concepts(merged)
+        # 写入工作区文件
+        out_dir = self.pj_dir
+        triples_json_path = path.join(out_dir, 'triples.json')
+        triples_csv_path = path.join(out_dir, 'triples.csv')
+        concepts_csv_path = path.join(out_dir, 'concepts.csv')
+        graphml_path = path.join(out_dir, 'kg.graphml')
+        # JSON
+        write_text(triples_json_path, triples_json)
+        # CSV (简化版)
+        import csv
+        with open(triples_csv_path, 'w', encoding='utf8', newline='') as f:
+            w = csv.writer(f)
+            w.writerow(['head','head_type','relation','tail','tail_type','sentence','confidence'])
+            for t in all_triples:
+                w.writerow([t.head, t.head_type, t.relation, t.tail, t.tail_type, t.sentence, t.confidence])
+        with open(concepts_csv_path, 'w', encoding='utf8', newline='') as f:
+            w = csv.writer(f)
+            w.writerow(['name','description','parent','children','entities'])
+            for c in concepts.concepts:
+                w.writerow([c.name, c.description, c.parent, ';'.join(c.children), ';'.join(c.entities)])
+        # GraphML (最小版)
+        with open(graphml_path, 'w', encoding='utf8') as f:
+            f.write('<?xml version="1.0" encoding="UTF-8"?>\n<graphml xmlns="http://graphml.graphdrawing.org/xmlns">\n<graph id="G" edgedefault="directed">\n')
+            seen_nodes = set()
+            for t in all_triples:
+                for n, typ in [(t.head, t.head_type), (t.tail, t.tail_type)]:
+                    if n not in seen_nodes:
+                        f.write(f'  <node id="{n}"><data key="type">{typ}</data></node>\n')
+                        seen_nodes.add(n)
+                f.write(f'  <edge source="{t.head}" target="{t.tail}"><data key="relation">{t.relation}</data></edge>\n')
+            f.write('</graph>\n</graphml>')
+        return AtlasPipelineResult(
+            triples_json=triples_json_path,
+            triples_csv=triples_csv_path,
+            concepts_csv=concepts_csv_path,
+            graphml_path=graphml_path,
+        )
+
+    # ============================================================
+    # 十三、BookGraph 兼容工作流
+    # ============================================================
+    def tool_bookgraph_ingest(self, source_desc: str) -> BookGraphIngestionSource:
+        """多模态摄入：根据源描述生成标准化摄入记录。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'bg_ingest_' + gen_objs_md5(source_desc) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, BookGraphIngestionSource)
+        if r: return r
+        prompt = render_prompt(BOOKGRAPH_INGEST_PMT, source_desc=source_desc)
+        parse_output = lambda s: BookGraphIngestionSource.model_validate_json(ext_code_block(s))
+        r = self._call('', prompt, parse_output=parse_output)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_bookgraph_enrich(
+        self, source: BookGraphIngestionSource,
+        existing_concepts: List[BookGraphNode],
+    ) -> BookGraphEnrichment:
+        """LLM 富化：抽取核心概念、字段、完善书目、推断关系。"""
+        metadata_json = json_dump_model(source)
+        existing_json = json_dump_model(existing_concepts)
+        cache_fname = path.join(
+            self.pj_dir,
+            'bg_enrich_' + gen_objs_md5(source, existing_concepts) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, BookGraphEnrichment)
+        if r: return r
+        prompt = render_prompt(
+            BOOKGRAPH_ENRICH_PMT,
+            metadata_json=metadata_json,
+            existing_concepts_json=existing_json,
+        )
+        parse_output = lambda s: BookGraphEnrichment.model_validate_json(ext_code_block(s))
+        r = self._call('', prompt, parse_output=parse_output)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_bookgraph_build_graph(
+        self,
+        ingestions: List[BookGraphIngestionSource],
+        enrichments: List[BookGraphEnrichment],
+    ) -> BookGraphResult:
+        """合并所有摄入/富化结果，构建统一图谱并输出发现洞察。"""
+        ingestions_json = json_dump_model(ingestions)
+        enrichments_json = json_dump_model(enrichments)
+        cache_fname = path.join(
+            self.pj_dir,
+            'bg_graph_' + gen_objs_md5(ingestions, enrichments) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, BookGraphResult)
+        if r: return r
+        prompt = render_prompt(
+            BOOKGRAPH_BUILD_PMT,
+            ingestions_json=ingestions_json,
+            enrichments_json=enrichments_json,
+        )
+        parse_output = lambda s: BookGraphResult.model_validate_json(ext_code_block(s))
+        r = self._call('', prompt, parse_output=parse_output)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    # ============================================================
+    # 十四、DeepRead 兼容工作流
+    # ============================================================
+    def tool_deepread_parse_book(self, text: str) -> DeepReadBook:
+        """完整解析书籍：实体/关系/章节摘要/统计。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'dr_parse_' + gen_objs_md5(text) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, DeepReadBook)
+        if r: return r
+        prompt = render_prompt(DEEPREAD_PARSE_PMT, text=text)
+        parse_output = lambda s: DeepReadBook.model_validate_json(ext_code_block(s))
+        r = self._call('', prompt, parse_output=parse_output)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_deepread_generate_wiki(self, book: DeepReadBook) -> DeepReadWikiIndex:
+        """生成 Wiki 页面与首页索引。"""
+        book_json = json_dump_model(book)
+        cache_fname = path.join(
+            self.pj_dir,
+            'dr_wiki_' + gen_objs_md5(book) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, DeepReadWikiIndex)
+        if r: return r
+        prompt = render_prompt(DEEPREAD_WIKI_GENERATE_PMT, book_json=book_json)
+        parse_output = lambda s: DeepReadWikiIndex.model_validate_json(ext_code_block(s))
+        r = self._call('', prompt, parse_output=parse_output)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_deepread_run_pipeline(self, text: str) -> DeepReadWikiIndex:
+        """完整管道：解析全书 -> 生成 Wiki -> 写入 wiki/ 目录。"""
+        book = self.tool_deepread_parse_book(text)
+        wiki = self.tool_deepread_generate_wiki(book)
+        # 写入 wiki/ 目录
+        wiki_dir = path.join(self.pj_dir, 'wiki')
+        os.makedirs(wiki_dir, exist_ok=True)
+        write_text(path.join(wiki_dir, 'index.md'), wiki.homepage)
+        entities_dir = path.join(wiki_dir, 'entities')
+        os.makedirs(entities_dir, exist_ok=True)
+        for page in wiki.pages:
+            safe_title = page.title.replace('/', '_').replace('\\', '_')
+            write_text(path.join(entities_dir, f'{safe_title}.md'), page.content)
+        return wiki
+
     # 工具名 -> OpenAI parameters 结构（type/properties/required）。
     # name 与 description 不再硬编码，由 get_tool_defs 从函数 __name__ / __doc__ 取得。
     # pydantic 模型参数用 Model.schema() 展开，不写死 {"type":"object"}。
@@ -381,6 +573,50 @@ class Md2KgTools(ToolsMixin):
         "tool_render_output": params_schema(
             required=['result'],
             result=model_schema(Result, '知识图谱结果（Result）'),
+        ),
+
+        # ── 十二、AutoSchemaKG 兼容工作流 ──────────────────────────
+        "tool_atlas_extract_triples": params_schema(
+            required=['text'],
+            text=base_schema('string', '待抽取的文本块'),
+        ),
+        "tool_atlas_generate_concepts": params_schema(
+            required=['triples'],
+            triples=model_schema(AtlasTripleList, '已抽取的三元组（AtlasTripleList）'),
+        ),
+        "tool_atlas_run_pipeline": params_schema(
+            required=['chunks'],
+            chunks=model_list_schema(Chunk, '文本块列表（Chunk）'),
+        ),
+
+        # ── 十三、BookGraph 兼容工作流 ────────────────────────────
+        "tool_bookgraph_ingest": params_schema(
+            required=['source_desc'],
+            source_desc=base_schema('string', '摄入源描述（类型+标识符）'),
+        ),
+        "tool_bookgraph_enrich": params_schema(
+            required=['source', 'existing_concepts'],
+            source=model_schema(BookGraphIngestionSource, '摄入记录（BookGraphIngestionSource）'),
+            existing_concepts=model_list_schema(BookGraphNode, '图中已有概念/字段节点（BookGraphNode）'),
+        ),
+        "tool_bookgraph_build_graph": params_schema(
+            required=['ingestions', 'enrichments'],
+            ingestions=model_list_schema(BookGraphIngestionSource, '所有摄入记录（BookGraphIngestionSource）'),
+            enrichments=model_list_schema(BookGraphEnrichment, '所有富化结果（BookGraphEnrichment）'),
+        ),
+
+        # ── 十四、DeepRead 兼容工作流 ────────────────────────────
+        "tool_deepread_parse_book": params_schema(
+            required=['text'],
+            text=base_schema('string', '书籍全文'),
+        ),
+        "tool_deepread_generate_wiki": params_schema(
+            required=['book'],
+            book=model_schema(DeepReadBook, '书籍结构化数据（DeepReadBook）'),
+        ),
+        "tool_deepread_run_pipeline": params_schema(
+            required=['text'],
+            text=base_schema('string', '书籍全文'),
         ),
     }
 

@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Any
 from pydantic import BaseModel, Field
 
 
@@ -135,3 +135,157 @@ class SchemaInductionResult(BaseModel):
     relation_types: List[str] = Field(..., description="归纳出的关系类型列表")
     induction_log: List[str] = Field(default_factory=list, description="归纳过程日志")
 
+
+
+# ============================================================
+# 十二、AutoSchemaKG 兼容工作流：文本 → 三元组抽取 → 概念归纳 → KG 构建
+# ============================================================
+
+class AtlasTriple(BaseModel):
+    """AutoSchemaKG：单个三元组"""
+    head: str = Field(..., description='头实体')
+    head_type: str = Field(..., description='头实体类型')
+    relation: str = Field(..., description='关系')
+    tail: str = Field(..., description='尾实体')
+    tail_type: str = Field(..., description='尾实体类型')
+    sentence: str = Field(..., description='原文支撑句')
+    confidence: float = Field(1.0, description='置信度')
+
+
+class AtlasTripleList(BaseModel):
+    """三元组抽取结果"""
+    triples: List[AtlasTriple] = Field(default_factory=list, description='三元组列表')
+
+
+class AtlasConcept(BaseModel):
+    """AutoSchemaKG：概念"""
+    name: str = Field(..., description='概念名称')
+    description: str = Field(..., description='概念描述')
+    parent: str = Field('', description='父概念')
+    children: List[str] = Field(default_factory=list, description='子概念列表')
+    entities: List[str] = Field(default_factory=list, description='归属实体')
+
+
+class AtlasConceptList(BaseModel):
+    """概念归纳结果"""
+    concepts: List[AtlasConcept] = Field(default_factory=list, description='概念列表')
+
+
+class AtlasKGConfig(BaseModel):
+    """AutoSchemaKG 处理配置"""
+    batch_size_triple: int = Field(3, description='三元组抽取批大小')
+    batch_size_concept: int = Field(16, description='概念生成批大小')
+    max_new_tokens: int = Field(2048, description='最大生成 token')
+    max_workers: int = Field(3, description='并行工作进程数')
+    remove_doc_spaces: bool = Field(True, description='去除文档重复空格')
+
+
+class AtlasPipelineResult(BaseModel):
+    """AutoSchemaKG 完整管道结果"""
+    triples_json: str = Field('', description='三元组 JSON 路径')
+    triples_csv: str = Field('', description='三元组 CSV 路径')
+    concepts_csv: str = Field('', description='概念 CSV 路径')
+    graphml_path: str = Field('', description='GraphML 图文件路径')
+
+
+# ============================================================
+# 十三、BookGraph 兼容工作流：多模态摄入 → LLM 富化 → 图构建 → 发现引擎
+# ============================================================
+
+class BookGraphIngestionSource(BaseModel):
+    """BookGraph：摄入源"""
+    source_type: str = Field(..., description='openlibrary / googlebooks / arxiv / local_pdf')
+    identifier: str = Field(..., description='ISBN / arXiv ID / 文件路径')
+    metadata: Dict[str, Any] = Field(default_factory=dict, description='原始元数据')
+
+
+class BookGraphEnrichment(BaseModel):
+    """BookGraph：LLM 富化结果"""
+    core_concepts: List[str] = Field(default_factory=list, description='核心概念')
+    fields: List[str] = Field(default_factory=list, description='学科领域')
+    bibliographic: Dict[str, Any] = Field(default_factory=dict, description='书目信息')
+    relationships: List[str] = Field(default_factory=list, description='推断关系类型')
+
+
+class BookGraphNode(BaseModel):
+    """BookGraph：图节点"""
+    id: str = Field(..., description='节点 ID')
+    type: str = Field(..., description='Book / Paper / Author / Concept / Field')
+    properties: Dict[str, Any] = Field(default_factory=dict, description='节点属性')
+
+
+class BookGraphRelationship(BaseModel):
+    """BookGraph：图关系"""
+    source: str = Field(..., description='源节点 ID')
+    target: str = Field(..., description='目标节点 ID')
+    rel_type: str = Field(..., description='WRITTEN_BY / MENTIONS / BELONGS_TO / RELATED_TO / INFLUENCED_BY / CONTRADICTS / EXPANDS')
+    properties: Dict[str, Any] = Field(default_factory=dict, description='关系属性')
+
+
+class BookGraphDiscovery(BaseModel):
+    """BookGraph：自动发现洞察"""
+    type: str = Field(..., description='thematic_cluster / reading_path / author_influence')
+    description: str = Field(..., description='洞察描述')
+    node_ids: List[str] = Field(default_factory=list, description='涉及节点')
+
+
+class BookGraphResult(BaseModel):
+    """BookGraph 完整结果"""
+    nodes: List[BookGraphNode] = Field(default_factory=list, description='所有节点')
+    relationships: List[BookGraphRelationship] = Field(default_factory=list, description='所有关系')
+    discoveries: List[BookGraphDiscovery] = Field(default_factory=list, description='发现洞察')
+    ingestion_log: List[str] = Field(default_factory=list, description='摄入日志')
+
+
+# ============================================================
+# 十四、DeepRead 兼容工作流：书籍 → 智能解析 → 实体/关系抽取 → Wiki 知识库
+# ============================================================
+
+class DeepReadEntity(BaseModel):
+    """DeepRead：实体"""
+    name: str = Field(..., description='实体名称')
+    type: str = Field(..., description='人物 / 事件 / 概念 / 地点 / 组织 / 作品')
+    description: str = Field(..., description='实体描述')
+    aliases: List[str] = Field(default_factory=list, description='别名')
+    chapter_refs: List[int] = Field(default_factory=list, description='出现章节')
+
+
+class DeepReadRelation(BaseModel):
+    """DeepRead：关系"""
+    source: str = Field(..., description='源实体')
+    target: str = Field(..., description='目标实体')
+    rel_type: str = Field(..., description='关系类型')
+    evidence: str = Field(..., description='原文证据')
+
+
+class DeepReadChapter(BaseModel):
+    """DeepRead：章节摘要"""
+    chapter: int = Field(..., description='章节号')
+    title: str = Field('', description='章节标题')
+    summary: str = Field(..., description='章节摘要')
+    key_entities: List[str] = Field(default_factory=list, description='关键实体')
+    key_events: List[str] = Field(default_factory=list, description='关键事件')
+
+
+class DeepReadBook(BaseModel):
+    """DeepRead：整本书"""
+    title: str = Field(..., description='书名')
+    author: str = Field('', description='作者')
+    entities: List[DeepReadEntity] = Field(default_factory=list, description='所有实体')
+    relations: List[DeepReadRelation] = Field(default_factory=list, description='所有关系')
+    chapters: List[DeepReadChapter] = Field(default_factory=list, description='章节摘要')
+    stats: Dict[str, int] = Field(default_factory=dict, description='统计：节点数/关系数/章节数')
+
+
+class DeepReadWikiPage(BaseModel):
+    """DeepRead：Wiki 页面"""
+    title: str = Field(..., description='页面标题')
+    content: str = Field(..., description='页面内容（Markdown）')
+    backlinks: List[str] = Field(default_factory=list, description='反向链接')
+
+
+class DeepReadWikiIndex(BaseModel):
+    """DeepRead：Wiki 索引"""
+    book_title: str = Field(..., description='书名')
+    pages: List[DeepReadWikiPage] = Field(default_factory=list, description='所有页面')
+    homepage: str = Field('', description='首页内容')
