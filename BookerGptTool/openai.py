@@ -24,6 +24,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+NO_THINK_EXTRA_BODY = {
+    "reasoning_effort": "none",
+    "chat_template_kwargs": {
+        "enable_thinking": False, 
+        "thinking_mode": "off",
+        "reasoning_effort": "none",
+        "reasoning_strength":"none"
+    }
+}
+
 def request_retry(method, url, retry=10, check_status=False, **kw):
     kw.setdefault('timeout', 10)
     for i in range(retry):
@@ -181,8 +191,11 @@ def call_llm_with_toolcall_retry(
     if isinstance(msgs, str):
         msgs = [{'role': 'user', 'content': msgs}]
     msgs = repl_ins_token(msgs)
+    extra_body = extra_body or {}
     if isinstance(extra_body, str):
         extra_body = json.loads(extra_body)
+    if openai.no_think:
+        extra_body.update(NO_THINK_EXTRA_BODY)
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
@@ -290,8 +303,11 @@ def call_llm(
         msgs = [{'role': 'user', 'content': msgs}]
     # 改变指令符号的形式，避免模型出错
     msgs = repl_ins_token(msgs)
+    extra_body = extra_body or {}
     if isinstance(extra_body, str):
         extra_body = json.loads(extra_body)
+    if openai.no_think:
+        extra_body.update(NO_THINK_EXTRA_BODY)
     logger.debug(f'ques: %s', json_dump_model(get_msgs_text(msgs)))
     client = openai.OpenAI(
         base_url=openai.base_url,
@@ -337,6 +353,7 @@ def set_openai_props(args):
         pool=None,
     )
     openai.rpre = args.repetition_regex
+    openai.no_think = args.no_think
 
 def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
     tool_calls: Dict[int, ChatCompletionMessageToolCall] = {}
