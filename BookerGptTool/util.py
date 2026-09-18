@@ -284,7 +284,7 @@ def write_yaml_model(fname: str, obj: Any) -> None:
     with open(fname, 'w', encoding='utf8') as f:
         yaml.safe_dump(obj, f, allow_unicode=True, sort_keys=False)
 
-def read_yaml_model(fname: str, model: Type[BaseModel] | None):
+def read_yaml_model(fname: str, model: Optional[Type[BaseModel]]):
     """从 fname 读取 YAML 并解析为指定 pydantic 模型；文件缺失或损坏时返回 None。"""
     if not path.isfile(fname) or not path.getsize(fname):
         return None
