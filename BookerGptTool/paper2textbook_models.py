@@ -831,3 +831,76 @@ class TeachingPackage(_Base):
     outline: TeachingOutline = Field(..., description='讲义主线与幻灯片骨架')
     questions: TeachingQuestions = Field(..., description='讨论题')
     exercises: TeachingExercises = Field(..., description='习题简介')
+
+
+# ============================================================
+# 十二、kougi-forge 兼容工作流：需求分析 → 蓝图规划 → 样章确认 → 逐章生产 → 全书组装与一致性检查
+# ============================================================
+
+class KougiRequirements(_Base):
+    """需求分析结果（Phase 1）"""
+    project_def: str = Field(..., description='项目定义：教材主题、受众、课时、输出格式')
+    questions: List[str] = Field(default_factory=list, description='澄清问题列表')
+    is_sufficient: bool = Field(..., description='需求是否已充分')
+
+
+class KougiBlueprint(_Base):
+    """单个蓝图方案"""
+    id: str = Field(..., description='蓝图 ID，如 bp-1')
+    title: str = Field(..., description='教材标题')
+    chapters: List[str] = Field(..., description='章节标题列表')
+    rationale: str = Field(..., description='设计理由')
+
+
+class KougiBlueprints(_Base):
+    """多版本蓝图（Phase 2）"""
+    blueprints: List[KougiBlueprint] = Field(..., description='生成的多个蓝图方案')
+    merged: KougiBlueprint = Field(..., description='合并后的蓝图')
+    confirmed: bool = Field(False, description='是否已确认')
+
+
+class KougiSampleChapter(_Base):
+    """样章（Phase 3）"""
+    chapter_index: int = Field(..., description='章节索引')
+    title: str = Field(..., description='章节标题')
+    draft: str = Field(..., description='样章草稿')
+    confirmed: bool = Field(False, description='是否已确认')
+
+
+class KougiChapterDraft(_Base):
+    """章节草稿变体（Phase 4）"""
+    variant_id: str = Field(..., description='变体 ID，如 v1/v2/v3')
+    content: str = Field(..., description='草稿内容')
+    score: float = Field(0.0, description='质量评分')
+
+
+class KougiChapter(_Base):
+    """单个完成的章节"""
+    index: int = Field(..., description='章节序号')
+    title: str = Field(..., description='章节标题')
+    content: str = Field(..., description='最终内容')
+    exercises: List[str] = Field(default_factory=list, description='练习题')
+
+
+class KougiChapterProduction(_Base):
+    """章节生产结果（Phase 4）"""
+    chapters: List[KougiChapter] = Field(default_factory=list, description='已完成章节列表')
+    current_chapter: int = Field(0, description='当前处理到的章节索引')
+
+
+class KougiBookAssembly(_Base):
+    """全书组装结果（Phase 5）"""
+    full_markdown: str = Field(..., description='完整教材 Markdown')
+    glossary: str = Field('', description='术语表')
+    exercises_collection: str = Field('', description='练习题汇总')
+    consistency_report: str = Field('', description='一致性检查报告')
+    final_approved: bool = Field(False, description='是否最终确认')
+
+
+class KougiFullResult(_Base):
+    """kougi-forge 完整流程结果"""
+    requirements: KougiRequirements = Field(..., description='需求分析')
+    blueprints: KougiBlueprints = Field(..., description='蓝图规划')
+    sample_chapter: KougiSampleChapter = Field(..., description='样章确认')
+    chapter_production: KougiChapterProduction = Field(..., description='逐章生产')
+    assembly: KougiBookAssembly = Field(..., description='全书组装')

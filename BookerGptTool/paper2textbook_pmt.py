@@ -2262,3 +2262,259 @@ TEACH_PACKAGE_TMPL = '''
 
 {exercise_rows}
 '''
+
+
+# ============================================================
+# 十二、kougi-forge 兼容提示词：需求分析 → 蓝图规划 → 样章确认 → 逐章生产 → 全书组装与一致性检查
+# ============================================================
+
+KOUGI_PARSE_INPUT_PMT = '''
+你是一位教材项目经理。请解析用户输入的教材需求，识别主题、受众、课时、输出格式等要素。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "project_def": "教材主题、受众、课时、输出格式的初步定义",
+  "questions": ["需要追问用户的澄清问题"],
+  "is_sufficient": false
+}
+```
+
+规则：
+1. 尽力从输入中提取可用信息；信息不足时，把需要向用户澄清的问题写入 `questions`，`is_sufficient` 置 false。
+2. 若信息足够（至少主题+受众明确），`is_sufficient` 置 true。
+3. `project_def` 要总结：教材主题、目标受众、预计课时、输出格式（Markdown/LaTeX/PDF）。
+
+## 用户输入
+
+[content]
+{input}
+[/content]
+
+请输出 JSON。
+'''
+
+KOUGI_BLUEPRINT_PMT = '''
+你是一位教材主编。请基于项目定义，生成 2-3 个有差异化的全书蓝图方案，然后将它们合并为一个优选方案。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "blueprints": [
+    {
+      "id": "bp-1",
+      "title": "教材标题",
+      "chapters": ["第1章标题", "第2章标题", "..."],
+      "rationale": "该方案的设计理由"
+    }
+  ],
+  "merged": {
+    "id": "merged",
+    "title": "合并后教材标题",
+    "chapters": ["合并后的章节目录"],
+    "rationale": "合并理由"
+  },
+  "confirmed": false
+}
+```
+
+规则：
+1. 蓝图差别应体现在章节组织、叙述主线、深度侧重上。
+2. 章节标题两段式、注重类比（参考：注意力机制 —— 让模型学会“看哪里”）。
+3. 覆盖完整：从入门到进阶，含习题与项目章节。
+
+## 项目定义
+
+[content]
+{project_def}
+[/content]
+
+请输出 JSON。
+'''
+
+KOUGI_SAMPLE_PMT = '''
+你是一位章节作者。请为样章编写草稿：先规划教学顺序，再生成 2-3 个风格不同的草稿变体，
+最后综合成一个段落（作为样章候选人）。样章需包含概念解析、学习目标、生活类比、正文、小结、习题。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "chapter_index": 0,
+  "title": "章标题",
+  "draft": "样章草稿（Markdown）",
+  "confirmed": false
+}
+```
+
+规则：
+1. 内容须与蓝图目录一致，可溯源到项目定义。
+2. 样章是标准样例，供后续逐章生产对齐风格。
+
+## 项目定义
+
+[content]
+{project_def}
+[/content]
+
+## 蓝图
+
+[content]
+{blueprint_json}
+[/content]
+
+## 样章章节标题
+
+[content]
+{sample_title}
+[/content]
+
+请输出 JSON。
+'''
+
+KOUGI_CHAPTER_PMT = '''
+你是一位章节作者。请为一章生成多个草稿变体，综合后输出最终章节（含概念解析、学习目标、生活类比、正文、小结、练习题）。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "index": 1,
+  "title": "章节标题",
+  "content": "最终章节 Markdown",
+  "exercises": ["练习题1", "练习题2"]
+}
+```
+
+规则：
+1. 严格遵循样章确立的风格。
+2. 概念解析、学习目标、生活类比、正文、小结、习题都需覆盖。
+3. 全文可溯源到项目定义与蓝图。
+
+## 项目定义
+
+[content]
+{project_def}
+[/content]
+
+## 蓝图
+
+[content]
+{blueprint_json}
+[/content]
+
+## 样章参考
+
+[content]
+{sample_json}
+[/content]
+
+## 本章章节标题
+
+[content]
+{chapter_title}
+[/content]
+
+请输出 JSON。
+'''
+
+KOUGI_QUALITY_PMT = '''
+你是一位审校专家。请检查下列章节草稿的线索完整性与教学连贯性，输出评审意见。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "score": 0.9,
+  "issues": ["问题1", "问题2"],
+  "suggestions": ["建议1", "建议2"],
+  "pass": true
+}
+```
+
+规则：
+1. `score` 0-1，反映是否达到发布质量。
+2. `pass=false` 时给出可执行的改写建议。
+
+## 项目定义
+
+[content]
+{project_def}
+[/content]
+
+## 章节草稿
+
+[content]
+{chapter_draft}
+[/content]
+
+请输出 JSON。
+'''
+
+KOUGI_EXERCISES_PMT = '''
+你是一位习题设计师。请为指定章节生成配套练习题与参考答案。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "exercises": ["题目1", "题目2", "题目3"],
+  "answers": ["答案1", "答案2", "答案3"]
+}
+```
+
+规则：
+1. 难度覆盖：概念理解、应用分析、综合设计。
+2. 题目紧扣本章内容，避免泛泛而谈。
+
+## 章节内容
+
+[content]
+{chapter_content}
+[/content]
+
+请输出 JSON。
+'''
+
+KOUGI_ASSEMBLY_PMT = '''
+你是一位图书总编辑。请把已完成的全部章节组装为完整的教材 Markdown，生成术语表、练习题汇总，
+并执行全书一致性检查（术语统一、章节重复、前后矛盾），输出修订意见。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "full_markdown": "完整教材 Markdown（含目录、全部章节、术语表、练习题汇总）",
+  "glossary": "术语表 Markdown",
+  "exercises_collection": "练习题汇总 Markdown",
+  "consistency_report": "一致性检查报告",
+  "final_approved": false
+}
+```
+
+规则：
+1. 按蓝图目录顺序拼接章节。
+2. 一致性检查报告列出发现的问题；发现问题则 `final_approved=false` 并给出修订建议。
+
+## 项目定义
+
+[content]
+{project_def}
+[/content]
+
+## 蓝图
+
+[content]
+{blueprint_json}
+[/content]
+
+## 全部章节
+
+[content]
+{chapters_json}
+[/content]
+
+请输出 JSON。
+'''

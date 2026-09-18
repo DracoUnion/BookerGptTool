@@ -1024,6 +1024,137 @@ class Paper2TextbookTools(ToolsMixin):
         write_text(cache_fname, md)
         return md
 
+    # ============================================================
+    # 十二、kougi-forge 兼容工作流：需求分析 → 蓝图 → 样章 → 逐章 → 组装
+    # ============================================================
+    def tool_kougi_parse_input(self, input_text: str) -> KougiRequirements:
+        """解析教材需求，识别主题/受众/课时/格式，必要时追问澄清（Phase 1）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'kougi_reqs_' + gen_objs_md5(input_text) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, KougiRequirements)
+        if r: return r
+        prompt = render_prompt(KOUGI_PARSE_INPUT_PMT, input=input_text)
+        r = self._json(KougiRequirements, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_kougi_gen_blueprint(self, project_def: str) -> KougiBlueprints:
+        """生成 2-3 个蓝图方案并合并为优选方案（Phase 2）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'kougi_bp_' + gen_objs_md5(project_def) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, KougiBlueprints)
+        if r: return r
+        prompt = render_prompt(KOUGI_BLUEPRINT_PMT, project_def=project_def)
+        r = self._json(KougiBlueprints, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_kougi_write_sample(self, project_def: str, blueprint: KougiBlueprint,
+                                sample_title: str) -> KougiSampleChapter:
+        """编写样章：多个草稿变体综合为样章候选人（Phase 3）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'kougi_sample_' + gen_objs_md5(project_def, blueprint, sample_title) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, KougiSampleChapter)
+        if r: return r
+        prompt = render_prompt(
+            KOUGI_SAMPLE_PMT,
+            project_def=project_def,
+            blueprint_json=json_dump_model(blueprint),
+            sample_title=sample_title,
+        )
+        r = self._json(KougiSampleChapter, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_kougi_write_chapter(self, project_def: str, blueprint: KougiBlueprint,
+                                 sample: KougiSampleChapter, chapter_title: str,
+                                 index: int) -> KougiChapter:
+        """按样章风格生成单章（含概念解析/学习目标/类比/正文/小结/习题）（Phase 4）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'kougi_ch_' + gen_objs_md5(project_def, blueprint, sample, chapter_title, index) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, KougiChapter)
+        if r: return r
+        prompt = render_prompt(
+            KOUGI_CHAPTER_PMT,
+            project_def=project_def,
+            blueprint_json=json_dump_model(blueprint),
+            sample_json=json_dump_model(sample),
+            chapter_title=chapter_title,
+        )
+        r = self._json(KougiChapter, prompt, self.model, self.args)
+        r.index = index
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_kougi_generate_exercises(self, chapter: KougiChapter) -> Dict[str, List[str]]:
+        """为章节生成练习题与参考答案。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'kougi_ex_' + gen_objs_md5(chapter) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, dict)
+        if r: return r
+        prompt = render_prompt(KOUGI_EXERCISES_PMT, chapter_content=chapter.content)
+        r = self._json(Dict[str, List[str]], prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        if r.get('exercises'):
+            chapter.exercises = r['exercises']
+        return r
+
+    def tool_kougi_quality_gate(self, project_def: str, chapter: KougiChapter) -> Dict[str, Any]:
+        """对章节做审校质量门禁，输出评分与是否通过。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'kougi_q_' + gen_objs_md5(project_def, chapter) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, dict)
+        if r: return r
+        prompt = render_prompt(
+            KOUGI_QUALITY_PMT,
+            project_def=project_def,
+            chapter_draft=chapter.content,
+        )
+        r = self._json(Dict[str, Any], prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_kougi_assemble_book(self, project_def: str, blueprint: KougiBlueprint,
+                                 chapters: List[KougiChapter]) -> KougiBookAssembly:
+        """组装全书 Markdown + 术语表 + 练习题汇总，执行一致性检查（Phase 5）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'kougi_book_' + gen_objs_md5(project_def, blueprint, chapters) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, KougiBookAssembly)
+        if r: return r
+        prompt = render_prompt(
+            KOUGI_ASSEMBLY_PMT,
+            project_def=project_def,
+            blueprint_json=json_dump_model(blueprint),
+            chapters_json=json_dump_model(chapters),
+        )
+        r = self._json(KougiBookAssembly, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_kougi_render_book(self, assembly: KougiBookAssembly) -> str:
+        """把全书组装结果写入工作区文件，返回 Markdown（确定性渲染）。"""
+        cache_fname = path.join(self.pj_dir, '教材.md')
+        write_text(cache_fname, assembly.full_markdown)
+        if assembly.glossary:
+            write_text(path.join(self.pj_dir, 'glossary.md'), assembly.glossary)
+        if assembly.exercises_collection:
+            write_text(path.join(self.pj_dir, 'exercises.md'), assembly.exercises_collection)
+        return assembly.full_markdown
+
     # 工具名 -> OpenAI parameters 结构（type/properties/required）。
     # name 与 description 不再硬编码，由 get_tool_defs 从函数 __name__ / __doc__ 取得。
     # pydantic 模型参数用 Model.schema() 展开，不写死 {"type":"object"}。
@@ -1309,6 +1440,49 @@ class Paper2TextbookTools(ToolsMixin):
             outline=model_schema(TeachingOutline, '讲义主线与幻灯片骨架（TeachingOutline）'),
             questions=model_schema(TeachingQuestions, '讨论题（TeachingQuestions）'),
             exercises=model_schema(TeachingExercises, '习题简介（TeachingExercises），可选'),
+        ),
+
+        # ── 十二、kougi-forge 兼容工作流 ──────────────────────
+        "tool_kougi_parse_input": params_schema(
+            required=['input_text'],
+            input_text=base_schema('string', '用户输入的教材需求'),
+        ),
+        "tool_kougi_gen_blueprint": params_schema(
+            required=['project_def'],
+            project_def=base_schema('string', '项目定义（主题/受众/课时/格式）'),
+        ),
+        "tool_kougi_write_sample": params_schema(
+            required=['project_def', 'blueprint', 'sample_title'],
+            project_def=base_schema('string', '项目定义'),
+            blueprint=model_schema(KougiBlueprint, '全套蓝图（KougiBlueprint）'),
+            sample_title=base_schema('string', '样章章节标题'),
+        ),
+        "tool_kougi_write_chapter": params_schema(
+            required=['project_def', 'blueprint', 'sample', 'chapter_title', 'index'],
+            project_def=base_schema('string', '项目定义'),
+            blueprint=model_schema(KougiBlueprint, '全套蓝图（KougiBlueprint）'),
+            sample=model_schema(KougiSampleChapter, '样章参考（KougiSampleChapter）'),
+            chapter_title=base_schema('string', '本章章节标题'),
+            index=base_schema('integer', '章节序号'),
+        ),
+        "tool_kougi_generate_exercises": params_schema(
+            required=['chapter'],
+            chapter=model_schema(KougiChapter, '已完成章节（KougiChapter）'),
+        ),
+        "tool_kougi_quality_gate": params_schema(
+            required=['project_def', 'chapter'],
+            project_def=base_schema('string', '项目定义'),
+            chapter=model_schema(KougiChapter, '章节草稿（KougiChapter）'),
+        ),
+        "tool_kougi_assemble_book": params_schema(
+            required=['project_def', 'blueprint', 'chapters'],
+            project_def=base_schema('string', '项目定义'),
+            blueprint=model_schema(KougiBlueprint, '全套蓝图（KougiBlueprint）'),
+            chapters=model_list_schema(KougiChapter, '已完成全部章节（KougiChapter）'),
+        ),
+        "tool_kougi_render_book": params_schema(
+            required=['assembly'],
+            assembly=model_schema(KougiBookAssembly, '全书组装结果（KougiBookAssembly）'),
         ),
     }
 
