@@ -4,7 +4,7 @@ import os
 from . import __version__
 from . import (
     trans, fin_report, md2kg, code2doc, code2book, shengcai, call,
-    arxiv, infer, erchuang, note, paper2code, pdf_ocr, gts_fiction,
+    infer, erchuang, note, paper2code, pdf_ocr, gts_fiction,
     md2skill, trans_epub, fmt_chunk, md2wiki, clean_heading, forward,
     novel_anls, xhs_img, play_game, play_android_game, paper2textbook,
     article_img, ppt,
@@ -45,7 +45,6 @@ def main():
     code2book.reg_subparser(subparsers)
     shengcai.reg_subparser(subparsers)
     call.reg_subparser(subparsers)
-    arxiv.reg_subparser(subparsers)
     paper2code.reg_subparser(subparsers)
     clean_heading.reg_subparser(subparsers)
     infer.reg_subparser(subparsers)
