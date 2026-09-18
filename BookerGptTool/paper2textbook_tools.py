@@ -8,7 +8,6 @@ import yaml
 import json
 from os import path
 import os
-from functools import cache
 from typing import *
 
 from .openai import *
