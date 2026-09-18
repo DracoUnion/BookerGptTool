@@ -15,7 +15,7 @@ from os import path
 from typing import List, Optional, Dict, Any, Callable
 
 from .util import (ext_code_block, gen_objs_md5, read_yaml_model, write_yaml_model,
-                   read_text, write_text, to_kebab)
+                   read_text, write_text, to_kebab, render_prompt)
 from .openai import *
 from .md2wiki_models import *
 from .md2wiki_pmt import *
@@ -259,7 +259,7 @@ class Md2WikiTools(ToolsMixin):
         if not path.isfile(source_path):
             raise ValueError(f'文件不存在：{source_path}')
         topic = re.sub(r'[^a-z0-9-]', '', (topic or 'inbox').lower().replace('_', '-'))[:32] or 'inbox'
-        base = to_kebab(path.basename(source_path)).rsplit('.', 1)[0]
+        base = to_kebab(path.splitext(path.basename(source_path))[0])
         ext = path.splitext(source_path)[1].lower()
         dst_dir = self._res('raw', topic)
         os.makedirs(dst_dir, exist_ok=True)
@@ -321,10 +321,9 @@ class Md2WikiTools(ToolsMixin):
         cache = self._res('.discoveries/src-summary-' + ck + '.yaml')
         r = read_yaml_model(cache, WikiSourceSummary)
         if r: return r
-        user = SOURCE_SUMMARY_PMT.format(
+        user = render_prompt(SOURCE_SUMMARY_PMT,
             content=content, title=title or to_kebab(path.basename(source_file)),
-            source_file=source_file, source_type=source_type, date=date,
-        )
+            source_file=source_file, source_type=source_type, date=date)
         r = self._json(WikiSourceSummary, SOURCE_SUMMARY_SYSTEM, user)
         if not r.name:
             r.name = to_kebab(path.basename(source_file))
@@ -338,7 +337,7 @@ class Md2WikiTools(ToolsMixin):
         cache = self._res('.discoveries/ent-' + gen_objs_md5(content, context) + '.yaml')
         r = read_yaml_model(cache, List[WikiEntity])
         if not r:
-            user = ENTITY_EXT_PMT.format(content=content, context=context or '（尚无 wiki 内容）')
+            user = render_prompt(ENTITY_EXT_PMT, content=content, context=context or '（尚无 wiki 内容）')
             r = self._json(List[WikiEntity], ENTITY_EXT_SYSTEM, user)
             write_yaml_model(cache, r)
         return r
@@ -348,7 +347,7 @@ class Md2WikiTools(ToolsMixin):
         cache = self._res('.discoveries/ccpt-' + gen_objs_md5(content, context) + '.yaml')
         r = read_yaml_model(cache, List[WikiConcept])
         if not r:
-            user = CONCEPT_EXT_PMT.format(content=content, context=context or '（尚无 wiki 内容）')
+            user = render_prompt(CONCEPT_EXT_PMT, content=content, context=context or '（尚无 wiki 内容）')
             r = self._json(List[WikiConcept], CONCEPT_EXT_SYSTEM, user)
             write_yaml_model(cache, r)
         return r
@@ -359,18 +358,16 @@ class Md2WikiTools(ToolsMixin):
         cache = self._res('.discoveries/contra-' + ck + '.yaml')
         r = read_yaml_model(cache, List[str])
         if not r:
-            user = CONTRADICTION_PMT.format(page_content=page_content, new_content=new_content)
+            user = render_prompt(CONTRADICTION_PMT, page_content=page_content, new_content=new_content)
             r = self._json(List[str], CONTRADICTION_SYSTEM, user)
             write_yaml_model(cache, r)
         return r
 
     def tool_update_overview(self, new_summary):
         """根据当前 overview/index 与来源摘要，重写 wiki/overview.md。"""
-        ck = gen_objs_md5(new_summary)
-        cache = self._res('.discoveries/ov-" + ck + ".yaml') if False else None
         idx = path.isfile(self._res('wiki/index.md')) and read_text(self._res('wiki/index.md')) or ''
         ov = path.isfile(self._res('wiki/overview.md')) and read_text(self._res('wiki/overview.md')) or ''
-        user = OVERVIEW_UPDATE_PMT.format(overview=ov, index=idx, new_summary=new_summary)
+        user = render_prompt(OVERVIEW_UPDATE_PMT, overview=ov, index=idx, new_summary=new_summary)
         new_ov = self._text(OVERVIEW_UPDATE_SYSTEM, user)
         write_text(self._res('wiki/overview.md'), new_ov)
         return {'saved': 'wiki/overview.md'}
@@ -448,7 +445,7 @@ class Md2WikiTools(ToolsMixin):
         cache = self._res('.discoveries/q-' + gen_objs_md5(question, pages) + '.yaml')
         r = read_yaml_model(cache, QueryResult)
         if not r:
-            user = QUERY_PMT.format(pages=pages, question=question)
+            user = render_prompt(QUERY_PMT, pages=pages, question=question)
             r = self._json(QueryResult, QUERY_SYSTEM, user)
             r.question = question
             write_yaml_model(cache, r)
@@ -491,7 +488,7 @@ class Md2WikiTools(ToolsMixin):
         semantic = read_yaml_model(cache, None)
         if not semantic:
             try:
-                user = LINT_SEMANTIC_PMT.format(pages=sample)
+                user = render_prompt(LINT_SEMANTIC_PMT, pages=sample)
                 semantic = self._json(dict, LINT_SEMANTIC_SYSTEM, user)
                 write_yaml_model(cache, semantic)
             except Exception as e:
@@ -545,7 +542,7 @@ class Md2WikiTools(ToolsMixin):
             if not inferred:
                 try:
                     inferred = self._json(List[GraphEdge], GRAPH_INFER_SYSTEM,
-                                          GRAPH_INFER_PMT.format(pages=sample))
+                                          render_prompt(GRAPH_INFER_PMT, pages=sample))
                     write_yaml_model(cache, inferred)
                 except Exception:
                     inferred = []
@@ -603,7 +600,7 @@ class Md2WikiTools(ToolsMixin):
         cache = self._res('.discoveries/dis-' + gen_objs_md5(json.dumps(plan_in, ensure_ascii=False)) + '.yaml')
         r = read_yaml_model(cache, List[Dict[str, str]])
         if not r:
-            user = DISCOVER_PMT.format(config=json.dumps(plan_in, ensure_ascii=False))
+            user = render_prompt(DISCOVER_PMT, config=json.dumps(plan_in, ensure_ascii=False))
             r = self._json(List[Dict[str, str]], DISCOVER_SYSTEM, user)
             write_yaml_model(cache, r)
         # 去重：跳过 history 中已有 URL
@@ -628,7 +625,8 @@ class Md2WikiTools(ToolsMixin):
         cache = self._res('.discoveries/book-' + gen_objs_md5(content) + '.yaml')
         r = read_yaml_model(cache, BookSummary)
         if not r:
-            r = self._json(BookSummary, BOOK_SUMMARY_SYSTEM, BOOK_SUMMARY_PMT.format(wiki_content=content))
+            r = self._json(BookSummary, BOOK_SUMMARY_SYSTEM,
+                           render_prompt(BOOK_SUMMARY_PMT, wiki_content=content))
             write_yaml_model(cache, r)
         fname = f'outputs/book-summary-{basename_today()}.md'
         write_text(self._res(fname), _render_book_summary(r))
@@ -641,7 +639,8 @@ class Md2WikiTools(ToolsMixin):
         cache = self._res('.discoveries/brief-' + gen_objs_md5(name, content) + '.yaml')
         r = read_yaml_model(cache, CompetitiveBrief)
         if not r:
-            r = self._json(CompetitiveBrief, BRIEF_SYSTEM, BRIEF_PMT.format(name=name, context=content))
+            r = self._json(CompetitiveBrief, BRIEF_SYSTEM,
+                           render_prompt(BRIEF_PMT, name=name, context=content))
             r.competitor = name
             write_yaml_model(cache, r)
         slug = to_kebab(name)
@@ -657,7 +656,7 @@ class Md2WikiTools(ToolsMixin):
         r = read_yaml_model(cache, InterviewPrep)
         if not r:
             r = self._json(InterviewPrep, INTERVIEW_SYSTEM,
-                           INTERVIEW_PMT.format(company=company, context=content))
+                           render_prompt(INTERVIEW_PMT, company=company, context=content))
             r.company = company
             write_yaml_model(cache, r)
         slug = to_kebab(company)
@@ -687,7 +686,7 @@ class Md2WikiTools(ToolsMixin):
         r = read_yaml_model(cache_fname, CandidateItems)
         if r: return r
         from .md2wiki_pmt import EXT_SYSTEM_PROMPT, EXT_PMT
-        user = EXT_PMT.format(text=chunk.chunk)
+        user = render_prompt(EXT_PMT, text=chunk.chunk)
         parse = lambda s: CandidateItems.model_validate_json(ext_code_block(s))
         r = self._call(EXT_SYSTEM_PROMPT, user, parse_output=parse)
         for it in r.items:
@@ -704,7 +703,7 @@ class Md2WikiTools(ToolsMixin):
         from .md2wiki_pmt import ITEM_TMPL_MAP, WIKI_DRAFT_SYSTEM_PROMPT, DRAFT_USER_PMT, TERM_TMPL
         origin = '\n\n'.join(f'{i + 1}.  {l}' for i, l in enumerate(item.chunks))
         tmpl = ITEM_TMPL_MAP.get(item.type, TERM_TMPL)
-        user = DRAFT_USER_PMT.format(origin=origin, name=item.name, tmpl=tmpl)
+        user = render_prompt(DRAFT_USER_PMT, origin=origin, name=item.name, tmpl=tmpl)
         draft = self._call(WIKI_DRAFT_SYSTEM_PROMPT, user)
         draft = draft.replace('[content]', '').replace('[/content]', '').strip()
         r = item.model_copy(update={'draft': draft})

@@ -58,14 +58,10 @@ class WikiOrchestrator:
         target = getattr(self.args, 'target', '') or self.args.fname
         question = getattr(self.args, 'question', '') or ''
         try:
-            if action == 'competitive-brief':
-                return tmpl.format(TARGET=target)
-            if action == 'interview-prep':
-                return tmpl.format(TARGET=target)
             if action == 'query':
-                return tmpl.format(QUESTION=question or target)
-            if action == 'ingest':
-                return tmpl.format(TARGET=target)
+                return render_prompt(tmpl, QUESTION=question or target)
+            if action in ('competitive-brief', 'interview-prep', 'ingest'):
+                return render_prompt(tmpl, TARGET=target)
             return tmpl
         except Exception as e:
             logger.warning('动作模板渲染失败，回退：%s', e)
