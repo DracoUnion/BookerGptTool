@@ -71,7 +71,7 @@ class WikiOrchestrator:
         """启动工具调用循环，执行所选工作流。"""
         logger.info(self.args)
         logger.info('wiki_root: %s, action: %s', self.wiki_root, self.action)
-        logger.info('可用工具：%s', self.tools.get_tool_dict())
+        logger.info('可用工具：%s', list(self.tools.get_tool_dict().keys()))
 
         action_desc = self._action_desc()
         prompt = render_prompt(OVERALL_PMT, ACTION_DESC=action_desc)

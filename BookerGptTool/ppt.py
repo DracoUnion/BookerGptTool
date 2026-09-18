@@ -39,7 +39,7 @@ class PptOrchestrator:
     def run(self) -> None:
         """启动工具调用循环，执行完整 PPT 生成流程。"""
         logger.info(self.args)
-        logger.info('可用工具：%s', self.tools.get_tool_dict())
+        logger.info('可用工具：%s', list(self.tools.get_tool_dict().keys()))
 
         call_llm_with_toolcall_retry(
             OVERALL_PMT, self.args.model,
