@@ -155,6 +155,8 @@ def _chat_cmpl_create_retry(
                 res: ChatCompletion
                 res_msg = res.choices[0].message
                 toolcalls, ans = res_msg.tool_calls, res_msg.content
+            if not toolcalls and not ans:
+                raise ValueError(f'回复为空：{res}')
             return res, toolcalls, ans
         except KeyboardInterrupt:
             raise
@@ -229,8 +231,6 @@ def call_llm_with_toolcall_retry(
             logger.debug(f'toolcall_res: %s', _json_dump(msgs[-1])[:50])
 
         if finish: break
-
-    if not ans: raise ValueError(f'回复为空：{res}')
 
     # 还原指令格式
     ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
