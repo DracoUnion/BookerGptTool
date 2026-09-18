@@ -674,3 +674,77 @@ class CourseBundle(_Base):
     readme_md: str = Field(..., description='README.md 全文（Markdown 版课程文档）')
     slides_config_json: str = Field(..., description='slides-config.json 全文')
     build_sh: str = Field('', description='build.sh 打包脚本内容')
+
+
+# ============================================================
+# 十、report-to-lecture 兼容工作流：文章/研报/论文/白皮书 → 高保真讲义
+# ============================================================
+
+class LectureConfig(_Base):
+    """讲义生成护栏（保真/长度/覆盖/粒度/展开参数）"""
+    fidelity_mode: str = Field('balanced', description='保真模式：balanced / full-literal / teaching-first')
+    min_length_ratio: float = Field(0.8, description='输出长度与原文的最小比例下限')
+    min_coverage_ratio: float = Field(0.8, description='信息点覆盖率的最小比例下限')
+    coverage_granularity: str = Field('medium', description='覆盖粒度：coarse / medium / fine')
+    expansion_depth: str = Field('standard', description='展开深度：minimal / standard / deep')
+
+
+class LectureSection(_Base):
+    """讲义：原文的一个章节/小节"""
+    title: str = Field(..., description='章节标题')
+    purpose: str = Field(..., description='该部分讲什么、目的是什么')
+    key_points: List[str] = Field(default_factory=list, description='关键点')
+
+
+class LectureDocStructure(_Base):
+    """讲义：文档结构拆分（报告/论文/白皮书）"""
+    doc_title: str = Field(..., description='文档标题')
+    author_source: str = Field('', description='作者 / 机构 / 发布时间')
+    sections: List[LectureSection] = Field(..., description='章节结构列表')
+    figures: List[str] = Field(default_factory=list, description='图表 / 表格 / 图形清单')
+    key_conclusions: List[str] = Field(default_factory=list, description='关键结论段')
+
+
+class LectureInfoPoint(_Base):
+    """讲义：单个原子信息点"""
+    id: str = Field(..., description='信息点ID，如 P1 / P2')
+    kind: str = Field(..., description='类型：关键结论/关键事实/定义/因果链/方法步骤/风险提示/对比与取舍')
+    text: str = Field(..., description='信息点内容')
+    location: str = Field('', description='章节 / 小节定位')
+
+
+class CoverageLedger(_Base):
+    """讲义：信息点覆盖率账本（Coverage Ledger）"""
+    points: List[LectureInfoPoint] = Field(..., description='原子信息点列表')
+    total_count: int = Field(..., description='信息点总数')
+
+
+class ClaimEvidenceItem(_Base):
+    """讲义：Claim-Evidence 映射项"""
+    claim: str = Field(..., description='论断（Claim）')
+    evidence: str = Field(..., description='证据（Evidence）')
+    location: str = Field(..., description='在原文中的定位')
+    notes: str = Field('', description='备注 / 假设 / 证据强度分级')
+
+
+class ClaimEvidenceMap(_Base):
+    """讲义：Claim-Evidence 映射账本"""
+    items: List[ClaimEvidenceItem] = Field(default_factory=list, description='映射列表')
+
+
+class LectureCoverageReport(_Base):
+    """讲义：覆盖率与长度检查报告"""
+    length_ratio: float = Field(..., description='输出长度 / 原文长度比例')
+    coverage_ratio: float = Field(..., description='已覆盖信息点比例')
+    length_ok: bool = Field(..., description='是否达到长度下限')
+    coverage_ok: bool = Field(..., description='是否达到覆盖率下限')
+    missing_points: List[str] = Field(default_factory=list, description='缺失或覆盖不足的信息点')
+    suggestions: List[str] = Field(default_factory=list, description='补全建议')
+    passed: bool = Field(False, description='是否通过全部护栏')
+
+
+class LectureDeliverable(_Base):
+    """讲义：最终交付物"""
+    title: str = Field(..., description='讲义标题')
+    lecture: str = Field(..., description='讲义主体（Markdown，按输出模板）')
+    coverage: LectureCoverageReport = Field(..., description='覆盖率报告')

@@ -816,6 +816,112 @@ class Paper2TextbookTools(ToolsMixin):
         write_text(path.join(out, 'build.sh'), bundle.build_sh)
         return bundle
 
+    # ============================================================
+    # 十、report-to-lecture 兼容工作流：文章/研报/论文/白皮书 → 高保真讲义
+    # ============================================================
+    def tool_lecture_split_structure(self, text: str) -> LectureDocStructure:
+        """拆解文档结构：章节、图表、关键结论段（Step 1）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'lect_structure_' + gen_objs_md5(text) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, LectureDocStructure)
+        if r: return r
+        prompt = render_prompt(LECTURE_SPLIT_PMT, text=text)
+        r = self._json(LectureDocStructure, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_lecture_build_ledger(self, text: str) -> CoverageLedger:
+        """建立信息点覆盖率账本（Coverage Ledger，Step 2）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'lect_ledger_' + gen_objs_md5(text) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, CoverageLedger)
+        if r: return r
+        prompt = render_prompt(LECTURE_LEDGER_PMT, text=text)
+        r = self._json(CoverageLedger, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_lecture_build_claim_map(self, text: str) -> ClaimEvidenceMap:
+        """建立 Claim-Evidence 映射账本（Step 2）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'lect_claims_' + gen_objs_md5(text) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, ClaimEvidenceMap)
+        if r: return r
+        prompt = render_prompt(LECTURE_CLAIM_MAP_PMT, text=text)
+        r = self._json(ClaimEvidenceMap, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_lecture_gen_lecture(
+        self, text: str, structure: LectureDocStructure,
+        ledger: CoverageLedger, claim_map: ClaimEvidenceMap = None,
+    ) -> str:
+        """按教学顺序生成高保真讲义主体（Step 3-4，返回 Markdown 文本）。"""
+        cache_fname = path.join(
+            self.pj_dir, 'lect_body_' + gen_objs_md5(text) + '.md'
+        )
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
+        prompt = render_prompt(
+            LECTURE_GEN_PMT,
+            ledger_json=json_dump_model(ledger),
+            structure_json=json_dump_model(structure),
+            text=text,
+            LECTURE_GUARDRAILS=LECTURE_GUARDRAILS,
+            LECTURE_OUTLINE_TEMPLATE=LECTURE_OUTLINE_TEMPLATE,
+        )
+        body = self._text(prompt, self.model, self.args)
+        write_text(cache_fname, body)
+        return body
+
+    def tool_lecture_check_coverage(
+        self, text: str, ledger: CoverageLedger, lecture: str,
+    ) -> LectureCoverageReport:
+        """检查讲义长度比例与信息点覆盖率，判定是否通过护栏（Step 5）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'lect_check_' + gen_objs_md5(text, ledger, lecture) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, LectureCoverageReport)
+        if r: return r
+        prompt = render_prompt(
+            LECTURE_CHECK_PMT,
+            text=text,
+            ledger_json=json_dump_model(ledger),
+            lecture=lecture,
+            min_length_ratio=0.8,
+            min_coverage_ratio=0.8,
+        )
+        r = self._json(LectureCoverageReport, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_lecture_patch_lecture(self, lecture: str, report: LectureCoverageReport) -> str:
+        """根据覆盖率报告补全讲义缺失点，返回修订后的完整讲义（Step 5）。"""
+        missing_detail = '\n'.join(
+            f"- {p}" for p in (report.missing_points or report.suggestions)
+        ) or '（请按检查报告建议，优先补全：关键结论 > 关键证据 > 风险与边界 > 方法或行动建议）'
+        cache_fname = path.join(
+            self.pj_dir,
+            'lect_patch_' + gen_objs_md5(lecture, missing_detail) + '.md'
+        )
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
+        prompt = render_prompt(
+            LECTURE_PATCH_PMT,
+            missing_detail=missing_detail,
+            lecture=lecture,
+        )
+        body = self._text(prompt, self.model, self.args)
+        write_text(cache_fname, body)
+        return body
+
     # 工具名 -> OpenAI parameters 结构（type/properties/required）。
     # name 与 description 不再硬编码，由 get_tool_defs 从函数 __name__ / __doc__ 取得。
     # pydantic 模型参数用 Model.schema() 展开，不写死 {"type":"object"}。
@@ -1035,6 +1141,38 @@ class Paper2TextbookTools(ToolsMixin):
             course=model_schema(CoursePlan, '课程结构规划（CoursePlan）'),
             modules=model_list_schema(CourseModule, '已生成的 6 个 HTML 模块（CourseModule）'),
             slides=model_schema(SlidesConfig, 'PPTX 幻灯片配置（SlidesConfig）'),
+        ),
+
+        # ── 十、report-to-lecture 兼容工作流 ──────────────────────
+        "tool_lecture_split_structure": params_schema(
+            required=['text'],
+            text=base_schema('string', '原文全文文本'),
+        ),
+        "tool_lecture_build_ledger": params_schema(
+            required=['text'],
+            text=base_schema('string', '原文全文文本'),
+        ),
+        "tool_lecture_build_claim_map": params_schema(
+            required=['text'],
+            text=base_schema('string', '原文全文文本'),
+        ),
+        "tool_lecture_gen_lecture": params_schema(
+            required=['text', 'structure', 'ledger'],
+            text=base_schema('string', '原文全文文本'),
+            structure=model_schema(LectureDocStructure, '文档结构（LectureDocStructure）'),
+            ledger=model_schema(CoverageLedger, '信息点覆盖率账本（CoverageLedger）'),
+            claim_map=model_schema(ClaimEvidenceMap, 'Claim-Evidence 映射（ClaimEvidenceMap），可选'),
+        ),
+        "tool_lecture_check_coverage": params_schema(
+            required=['text', 'ledger', 'lecture'],
+            text=base_schema('string', '原文全文文本'),
+            ledger=model_schema(CoverageLedger, '信息点覆盖率账本（CoverageLedger）'),
+            lecture=base_schema('string', '已生成的讲义主体（Markdown）'),
+        ),
+        "tool_lecture_patch_lecture": params_schema(
+            required=['lecture', 'report'],
+            lecture=base_schema('string', '原讲义主体（Markdown）'),
+            report=model_schema(LectureCoverageReport, '覆盖率检查报告（LectureCoverageReport）'),
         ),
     }
 
