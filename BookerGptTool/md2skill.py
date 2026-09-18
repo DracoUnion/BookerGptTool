@@ -20,7 +20,7 @@ from .md2skill_pmt import *
 from .md2skill_gen import generate_claude_skills
 from .md2skill_chunker import chunk_markdown
 from .md2skill_models import BookSchema, RawSkill, ChunkSkill, SKUType
-
+from .util import *
 TYPE_PMT_MAP = {
     '技术手册': TECH_EXT_PMT,
     '叙事类': NARRATIVE_EXT_PMT,
@@ -324,7 +324,7 @@ class Md2SkillOrchestrator:
         if path.isfile(fname):
             return self._load_yaml(fname)
         result = generator_fn()
-        self._write_yaml(fname, result)
+        write_yaml_model(fname, result)
         return result
 
     def _step1_schema(self, md) -> BookSchema:
@@ -337,7 +337,7 @@ class Md2SkillOrchestrator:
 
         toc, preface = ext_toc_preface(md)
         schema = self.agent.generate_schema(toc, preface)
-        self._write_yaml(schema_fname, schema)
+        write_yaml_model(schema_fname, schema)
         return schema
 
     def _step2_raw_skills(self, md, schema: BookSchema) -> List[ChunkSkill]:
@@ -354,7 +354,7 @@ class Md2SkillOrchestrator:
             ChunkSkill(content=c.content, context=c.context)
             for c in chunks
         ]
-        self._write_yaml(raw_skill_fname, chunk_skills)
+        write_yaml_model(raw_skill_fname, chunk_skills)
 
         pool = ThreadPoolExecutor(self.args.threads)
         hdls = []
@@ -386,7 +386,7 @@ class Md2SkillOrchestrator:
         cs.generated = True
         for rs in cs.raw_skills:
             print(f'[2] {rs.name}')
-        self._write_yaml(raw_skill_fname, chunk_skills)
+        write_yaml_model(raw_skill_fname, chunk_skills)
 
     def _step3_clusters(self, chunk_skills: List[ChunkSkill]) -> List[List[RawSkill]]:
         print(f'[3] 原始技能聚类')
@@ -407,7 +407,7 @@ class Md2SkillOrchestrator:
 
         clusters = build()
         if clusters:
-            self._write_yaml(clusters_fname, clusters)
+            write_yaml_model(clusters_fname, clusters)
         return clusters
 
     def _step4_skills(self, clusters: List[List[RawSkill]]) -> List[RawSkill]:
@@ -434,13 +434,13 @@ class Md2SkillOrchestrator:
                 h.result()
 
             skills = [s for s in skills if s]
-            self._write_yaml(skills_fname, skills)
+            write_yaml_model(skills_fname, skills)
 
         for s in skills:
             print(f"[4] {s.name}")
             if s.type: continue
             s.type = classify_skill(s).value
-        self._write_yaml(skills_fname, skills)
+        write_yaml_model(skills_fname, skills)
 
         return skills
 
@@ -456,7 +456,7 @@ class Md2SkillOrchestrator:
                 'body': merged.body,
             })
             print(f'[3] {skills[idx].name}')
-        self._write_yaml(skills_fname, skills)
+        write_yaml_model(skills_fname, skills)
 
     def _step5_package(self, skills: List[RawSkill]):
         zip_fname = self.args.fname[:-3] + '.zip'

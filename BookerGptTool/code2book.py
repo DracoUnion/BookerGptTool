@@ -19,6 +19,8 @@ from .util import (
     ext_code_block,
     ext_cont_block,
     render_prompt,
+    read_yaml_model,
+    write_yaml_model,
 )
 from .openai import logger as oai_logger
 from .openai import ask_chatgpt_retry, set_openai_props
@@ -205,7 +207,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
     ):
         idx = int(re.search(r'detail_(\d+)\.yaml', detail_fname).group(1))
         logger.warn(f'[2] 校验细纲 {idx+1}')
-        detail = self._read_yaml(detail_fname, Detail)
+        detail = read_yaml_model(detail_fname, Detail)
         if detail is None:
             logger.warn(f'[2] 细纲 {idx+1} 加载失败')
             return
@@ -220,7 +222,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
             logger.warn(f'[2] 细纲 {idx+1} 校验失败：\n{prob}')
             detail = self.agent.fix_detail(idx, detail, outline_chs, code_desc_ch, prob)
 
-        self._write_yaml(detail_fname, detail)
+        write_yaml_model(detail_fname, detail)
 
     def _check_detail(
         self,
@@ -286,7 +288,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
         for f in tqdm(body_fnames):
             idx_str = re.search(r'article_(\d+)\.md$', f).group(1)
             detail_fname = path.join(self.pj_dir, f'detail_{idx_str}.yaml')
-            detail = self._read_yaml(detail_fname, Detail)
+            detail = read_yaml_model(detail_fname, Detail)
             if detail is None:
                 logger.warn(f'[3] {detail_fname} 不存在')
                 continue
@@ -304,7 +306,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
 
     def run(self):
         outline_fname = path.join(self.pj_dir, 'outline.yaml')
-        outline = self._read_yaml(outline_fname, List[OutlinePartResult])
+        outline = read_yaml_model(outline_fname, List[OutlinePartResult])
         if outline is None:
             logger.fatal(f'[1] 大纲加载失败')
             return
@@ -315,7 +317,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
             if re.search(r'_desc\.yaml$', f)
         ]
         code_desc = [
-            self._read_yaml(f, CodeDescItemResult)
+            read_yaml_model(f, CodeDescItemResult)
             for f in code_desc_fnames
         ]
         code_desc = list(filter(None, code_desc))
@@ -383,12 +385,12 @@ class Code2BookOrchestrator(Code2BookMixin):
             self.pj_dir,
             fname.replace('/', '----') + '_desc.yaml'
         )
-        desc = self._read_yaml(desc_fname, CodeDescItemResult)
+        desc = read_yaml_model(desc_fname, CodeDescItemResult)
         if desc is None:
             code = self._read_code(fname)
             desc = self.agent.gen_code_desc(fname, code)
             desc = CodeDescItemResult(file=fname, **desc.dict())
-            self._write_yaml(desc_fname, desc)
+            write_yaml_model(desc_fname, desc)
         return idx, desc
 
     def step_gen_code_desc(self, fnames: List[str]) -> List[CodeDescItemResult]:
@@ -415,13 +417,13 @@ class Code2BookOrchestrator(Code2BookMixin):
     ):
         logger.info('[3] 划分部分')
         part_clus_fname = path.join(self.pj_dir, 'parts.yaml')
-        parts = self._read_yaml(part_clus_fname, List[PartClusResult])
+        parts = read_yaml_model(part_clus_fname, List[PartClusResult])
         if parts is not None:
             return parts
 
         if len(fnames) <= self.args.chapter_limit:
             parts = [PartClusResult(no=1, title='全书', files=fnames)]
-            self._write_yaml(part_clus_fname, parts)
+            write_yaml_model(part_clus_fname, parts)
             return parts
         
         parts = self.agent.cluster_parts(fnames)
@@ -435,7 +437,7 @@ class Code2BookOrchestrator(Code2BookMixin):
                 break
             logger.warn(f'[3] 部分校验失败：\n{prob}')
             parts = self.agent.fix_parts(fnames, parts, prob)
-        self._write_yaml(part_clus_fname, parts)
+        write_yaml_model(part_clus_fname, parts)
         return parts
 
     # ── 步骤 3：生成大纲 ──────────────────────────────────
@@ -469,13 +471,13 @@ class Code2BookOrchestrator(Code2BookMixin):
     ) -> List[OutlinePartResult]:
         logger.info('[3] 生成大纲')
         outline_fname = path.join(self.pj_dir, 'outline.yaml')
-        outline = self._read_yaml(outline_fname, List[OutlinePartResult])
+        outline = read_yaml_model(outline_fname, List[OutlinePartResult])
         if outline is None:
             outline = [
                 OutlinePartResult(**pt.dict(), chapters=[]) 
                 for pt in parts
             ]
-            self._write_yaml(outline_fname, outline)
+            write_yaml_model(outline_fname, outline)
         
         save_step = max(min(len(parts) // 5, 100), 1)
         def res_callback(tpl):
@@ -496,7 +498,7 @@ class Code2BookOrchestrator(Code2BookMixin):
                 if len(self.hdls) > self.args.threads:
                     self._collect_hdls(res_callback)
             if i % save_step == 0:
-                self._write_yaml(outline_fname, outline)
+                write_yaml_model(outline_fname, outline)
 
         self._collect_hdls(res_callback)
         # 重排章节序号
@@ -505,7 +507,7 @@ class Code2BookOrchestrator(Code2BookMixin):
             for ch in pt.chapters:
                 ch.no = idx
                 idx += 1
-        self._write_yaml(outline_fname, outline)
+        write_yaml_model(outline_fname, outline)
         return outline
 
     # ── 步骤 4：生成细纲 ──────────────────────────────────
@@ -522,7 +524,7 @@ class Code2BookOrchestrator(Code2BookMixin):
         l = len(str(len(outline_chs)))
         detail_fname = f'detail_{str(idx+1).zfill(l)}.yaml'
         detail_fname = path.join(self.pj_dir, detail_fname)
-        detail = self._read_yaml(detail_fname, Detail)
+        detail = read_yaml_model(detail_fname, Detail)
         if detail is not None:
             return idx, detail
         
@@ -542,7 +544,7 @@ class Code2BookOrchestrator(Code2BookMixin):
             logger.warn(f'[4] 细纲 {idx+1} 校验失败：\n{prob}')
             detail = self.agent.fix_detail(idx, detail, outline_chs, code_desc_ch, prob)
 
-        self._write_yaml(detail_fname, detail)
+        write_yaml_model(detail_fname, detail)
         return idx, detail
 
     def step_gen_details(

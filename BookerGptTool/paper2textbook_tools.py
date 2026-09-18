@@ -14,7 +14,7 @@ from typing import *
 from .openai import *
 from .paper2textbook_models import *
 from .paper2textbook_pmt import *
-from .util import ext_code_block, ext_cont_block, render_prompt, extname
+from .util import *
 from pydantic import parse_obj_as
 
 
@@ -90,7 +90,12 @@ class Paper2TextbookTools(ToolsMixin):
         }
 
     @staticmethod
-    def _json(schema, prompt, model, args):
+    def _json(
+        schema: Type[BaseModel], 
+        prompt: str, 
+        model: str, 
+        args
+    ) -> BaseModel:
         """调用 LLM 并把 ```json 代码块解析为 pydantic 对象。"""
         return ask_chatgpt_retry(
             prompt, model, args,
@@ -111,6 +116,12 @@ class Paper2TextbookTools(ToolsMixin):
 
     def tool_ext_concepts(self, paper_name: str, paper: str) -> PaperConcepts:
         """从单篇论文中抽取核心概念/方法/定理/发现，形成概念卡片。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'ccpt_' + md5(paper) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, PaperConcepts)
+        if r: return r
         prompt = render_prompt(
             CONCEPT_EXT_PMT,
             paper=paper, pname=paper_name,
@@ -120,6 +131,7 @@ class Paper2TextbookTools(ToolsMixin):
             prompt, self.model, self.args,
         )
         r.paper = paper_name
+        write_yaml_model(cache_fname, r)
         return r
 
     # ============================================================
@@ -128,13 +140,22 @@ class Paper2TextbookTools(ToolsMixin):
 
     def tool_cluster_papers(self, paper_briefs: Dict[str, str]) -> List[PartClus]:
         """根据论文简报将论文聚类为若干分部（PartClus）。"""
+        paper_briefs_json = json_dump_model(paper_briefs)
+        cache_fname = path.join(
+            self.pj_dir,
+            'part_' + md5(paper_briefs_json) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[PartClus])
+        if r: return r
         prompt = render_prompt(
             PAPER_CLUSTER_PMT,
-            paper_briefs=self._json_dump(paper_briefs)
+            paper_briefs=paper_briefs_json
         )
-        return self._json(
+        r = self._json(
             List[PartClus], prompt, self.model, self.args
         )
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_fix_cluster(
         self,
@@ -143,10 +164,19 @@ class Paper2TextbookTools(ToolsMixin):
         problem: str
     ) -> List[PartClus]:
         """根据问题描述（problem）修正已生成的论文聚类结果。"""
+        parts_json = json_dump_model(parts)
+        paper_briefs_json = json_dump_model(paper_briefs)
+        cache_fname = path.join(
+            self.pj_dir,
+            'part_fix_' + md5(parts_json) + 
+                md5(paper_briefs_json) + md5(problem) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[PartClus])
+        if r: return r
         prompt = render_prompt(
             PAPER_CLUSTER_FIX_PMT,
-            paper_briefs=self._json_dump(paper_briefs),
-            parts=self._json_dump(parts),
+            paper_briefs=paper_briefs_json,
+            parts=parts_json,
             problem=problem,
         )
         return self._json(List[PartClus], prompt, self.model, self.args)
@@ -163,8 +193,8 @@ class Paper2TextbookTools(ToolsMixin):
         """根据书籍结构（struct）与概念卡片生成全书章级大纲。"""
         prompt = render_prompt(
             OUTLINE_PMT,
-            struct=self._json_dump(struct),
-            concept_cards=self._json_dump(concept_cards),
+            struct=json_dump_model(struct),
+            concept_cards=json_dump_model(concept_cards),
         )
         return self._json(
             List[OutlineChapter],
@@ -181,9 +211,9 @@ class Paper2TextbookTools(ToolsMixin):
         """根据问题描述（problem）修正已生成的全书大纲。"""
         prompt = render_prompt(
             OUTLINE_FIX_PMT,
-            outline=self._json_dump(outline),
-            struct=self._json_dump(struct),
-            concept_cards=self._json_dump(concept_cards),
+            outline=json_dump_model(outline),
+            struct=json_dump_model(struct),
+            concept_cards=json_dump_model(concept_cards),
             problem=problem,
         )
         return self._json(
@@ -205,8 +235,8 @@ class Paper2TextbookTools(ToolsMixin):
         prompt = render_prompt(
             CONCEPT_ANLS_DETAIL_PMT,
             i=str(i),
-            outline=self._json_dump(outline),
-            paper_desc=self._json_dump(paper_desc),
+            outline=json_dump_model(outline),
+            paper_desc=json_dump_model(paper_desc),
         )
         return self._json(ConceptAnlsResult, prompt, self.model, self.args)
 
@@ -221,9 +251,9 @@ class Paper2TextbookTools(ToolsMixin):
         prompt = render_prompt(
             REST_DETAIL_PMT,
             i=str(i),
-            outline=self._json_dump(outline),
-            detail=self._json_dump(detail),
-            paper_desc=self._json_dump(paper_desc),
+            outline=json_dump_model(outline),
+            detail=json_dump_model(detail),
+            paper_desc=json_dump_model(paper_desc),
         )
         return self._json(RestDetailResult, prompt, self.model, self.args)
 
@@ -239,9 +269,9 @@ class Paper2TextbookTools(ToolsMixin):
         prompt = render_prompt(
             DETAIL_FIX_PMT,
             i=str(i),
-            detail=self._json_dump(detail),
-            outline=self._json_dump(outline),
-            paper_desc=self._json_dump(paper_desc),
+            detail=json_dump_model(detail),
+            outline=json_dump_model(outline),
+            paper_desc=json_dump_model(paper_desc),
             problem=problem,
         )
         return self._json(ChapterDetail, prompt, self.model, self.args)
@@ -260,15 +290,15 @@ class Paper2TextbookTools(ToolsMixin):
         prompt = render_prompt(
             BODY_PMT,
             i=str(i),
-            outline=self._json_dump(outline),
-            detail=self._json_dump(detail),
-            paper_desc=self._json_dump(paper_desc),
+            outline=json_dump_model(outline),
+            detail=json_dump_model(detail),
+            paper_desc=json_dump_model(paper_desc),
         )
         return self._text(prompt, self.model, self.args)
 
     def tool_check_body(self, body: str, detail: ChapterDetail) -> str:
         """检查章节正文是否与细纲一致，并返回问题反馈。"""
-        prompt = render_prompt(BODY_CHK_PMT, body=body, detail=self._json_dump(detail))
+        prompt = render_prompt(BODY_CHK_PMT, body=body, detail=json_dump_model(detail))
         return self._text(prompt, self.model, self.args)
 
     def tool_fix_body(self, body: str, comment: str, paper_desc: List[PaperConcepts]) -> str:
@@ -277,7 +307,7 @@ class Paper2TextbookTools(ToolsMixin):
             BODY_FIX_PMT,
             body=body,
             comment=comment,
-            paper_desc=self._json_dump(paper_desc),
+            paper_desc=json_dump_model(paper_desc),
         )
         return self._text(prompt, self.model, self.args)
 

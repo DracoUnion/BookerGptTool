@@ -33,6 +33,8 @@ from .util import (
     ext_cont_block,
     render_prompt,
     malloc_trim_linux,
+    read_yaml_model,
+    write_yaml_model,
 )
 from .openai import (
     call_vlm_retry,
@@ -268,14 +270,10 @@ class PDFOcrOrchestrator:
     def init_page(self, doc: pymu.Document, page_fname: str) -> List[Page]:
         """[2] 加载或初始化 meta.yaml。返回 Meta。"""
         logger.info(f'[2] 初始化 {page_fname}')
-        if path.isfile(page_fname) and \
-           path.getsize(page_fname) != 0:
-            pages = yaml.safe_load(
-                open(page_fname, encoding='utf8').read()
-            )
-            return parse_obj_as(List[Page], pages)
+        pages = read_yaml_model(page_fname, List[Page])
+        if pages: return pages
         pages = [Page(pgno=i) for i in range(len(doc))]
-        self._write_yaml(pages, page_fname)
+        write_yaml_model(page_fname, pages)
         return pages
 
     def ocr_pages(
@@ -295,9 +293,9 @@ class PDFOcrOrchestrator:
                 if len(self._hdls) > self.args.page_threads:
                     self._collect_hdls()
             if i % save_step == 0:
-                self._write_yaml(pages, page_fname)
+                write_yaml_model(page_fname, pages)
         self._collect_hdls()
-        self._write_yaml(pages, page_fname)
+        write_yaml_model(page_fname, pages)
 
     def process_images(
         self, doc: pymu.Document, pages: List[Page], 
@@ -319,22 +317,17 @@ class PDFOcrOrchestrator:
                 if len(self._hdls) > self.args.page_threads:
                    self._collect_hdls() 
             if i % save_step == 0:
-                self._write_yaml(pages, page_fname)
+                write_yaml_model(page_fname, pages)
         self._collect_hdls()
-        self._write_yaml(pages, page_fname)
+        write_yaml_model(page_fname, pages)
 
     def group_pages(self, pages: List[Page], group_fname: str) -> List[Group]:
         """[5] 按长度分组，后处理 + 翻译。填充 res.groups。"""
         logger.info('[5] 处理页间合并')
-        if path.isfile(group_fname) and \
-           path.getsize(group_fname) != 0:
-            groups = yaml.safe_load(
-                open(group_fname, encoding='utf8').read()
-            )
-            groups = parse_obj_as(List[Group], groups)
-        else:
+        groups = read_yaml_model(group_fname, List[Group])
+        if not groups:
             groups = mkgroups(pages, self.args)
-            self._write_yaml(groups, group_fname)
+            write_yaml_model(group_fname, groups)
 
         save_step = max(min(len(groups) // 5, 100), 1)
         for i, g in enumerate(tqdm.tqdm(groups)):
@@ -345,9 +338,9 @@ class PDFOcrOrchestrator:
                 if len(self._hdls) > self.args.page_threads:
                     self._collect_hdls()
             if i % save_step == 0:
-                self._write_yaml(groups, group_fname)
+                write_yaml_model(group_fname, groups)
         self._collect_hdls()
-        self._write_yaml(groups, group_fname)
+        write_yaml_model(group_fname, groups)
         return groups
 
     def merge_groups(self, groups: List[Group], group_fname: str) -> None:
@@ -362,9 +355,9 @@ class PDFOcrOrchestrator:
                 if len(self._hdls) > self.args.page_threads:
                     self._collect_hdls()
             if i % save_step == 0:
-                self._write_yaml(groups, group_fname)
+                write_yaml_model(group_fname, groups)
         self._collect_hdls()
-        self._write_yaml(groups, group_fname)
+        write_yaml_model(group_fname, groups)
 
     def build_full_text(self, groups: List[Group], name: str) -> Tuple[str, str]:
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
@@ -386,15 +379,11 @@ class PDFOcrOrchestrator:
     def fix_toc(self, full_text: str, toc_fname: str) -> str:
         """[7] 修正目录层级。返回修正后的 full_text。"""
         logger.info('[7] 修正目录')
-        if path.isfile(toc_fname) and \
-           path.getsize(toc_fname) != 0:
-            toc = yaml.safe_load(
-                open(toc_fname, encoding='utf8').read()
-            )
-        else:
+        toc = read_yaml_model(toc_fname, None)
+        if not toc:
             toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
             toc = self.agent.fix_toc(toc_text='\n'.join(toc))
-            self._write_yaml(toc, toc_fname)
+            write_yaml_model(toc_fname, toc)
         for lvl, title in toc:
             logger.debug(f'[7] {lvl} {title}')
             try:

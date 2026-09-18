@@ -12,7 +12,7 @@ import traceback
 from argparse import Namespace
 from typing import *
 from pydantic import BaseModel, parse_obj_as, ValidationError
-from .util import render_prompt
+from .util import *
 from openai.types.chat import *
 from ctx_compact import compact
 
@@ -191,7 +191,7 @@ def call_llm_with_toolcall_retry(
     )
     while True:
         msgs = compact(msgs, max_tokens=100_000).messages
-        logger.debug(f'ques: %s', _json_dump(get_msgs_text(msgs)))
+        logger.debug(f'ques: %s', json_dump_model(get_msgs_text(msgs)))
         res, toolcalls, ans = _chat_cmpl_create_retry(
             client, msgs, model_name,
             tool_defs, 
@@ -214,7 +214,7 @@ def call_llm_with_toolcall_retry(
                 f"未找到任何工具调用，如果你想结束整个流程，调用`{tool_finish_name}`。"
             msgs.append({"role": "user", "content": errmsg})
             continue
-        logger.info(f'toolcall: %s', _json_dump(toolcalls))
+        logger.info(f'toolcall: %s', json_dump_model(toolcalls))
         finish = False
         for tc in toolcalls:
             if tc.function.name == tool_finish_name:
@@ -228,16 +228,16 @@ def call_llm_with_toolcall_retry(
             msgs.append({
                 "role": "tool",
                 "tool_call_id": tc.id,
-                "content": errmsg if errmsg else _json_dump(tc_res),
+                "content": errmsg if errmsg else json_dump_model(tc_res),
             })
-            logger.debug(f'toolcall_res: %s', _json_dump(msgs[-1])[:50])
+            logger.debug(f'toolcall_res: %s', json_dump_model(msgs[-1])[:50])
 
         if finish: break
 
     # 还原指令格式
     ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
     ans = re.sub(r' thinking[\s\S]+? response', '', ans)
-    logger.debug(f'ans: %s', _json_dump(ans))
+    logger.debug(f'ans: %s', json_dump_model(ans))
     if parse_output:
         ans = parse_output(ans)
     return ans
@@ -292,7 +292,7 @@ def call_llm(
     msgs = repl_ins_token(msgs)
     if isinstance(extra_body, str):
         extra_body = json.loads(extra_body)
-    logger.debug(f'ques: %s', _json_dump(get_msgs_text(msgs)))
+    logger.debug(f'ques: %s', json_dump_model(get_msgs_text(msgs)))
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
@@ -322,7 +322,7 @@ def call_llm(
     # 还原指令格式
     ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
     ans = re.sub(r' thinking[\s\S]+? response', '', ans)
-    logger.debug(f'ans: %s', _json_dump(ans))
+    logger.debug(f'ans: %s', json_dump_model(ans))
     return ans
 
 def set_openai_props(args):
@@ -349,7 +349,7 @@ def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
         
         # 1. 累积普通文本
         if delta.content:
-            logger.debug(f"stream: %s", _json_dump(delta.content))
+            logger.debug(f"stream: %s", json_dump_model(delta.content))
             content.append(delta.content)
         
         # 2. 累积工具调用片段
@@ -382,7 +382,7 @@ def collect_stream_content(resp: Iterable[ChatCompletionChunk]):
             continue
         content.append(delta_content)
         check_model_repetition(''.join(content))
-        logger.debug(f'stream: %s', _json_dump(delta_content))
+        logger.debug(f'stream: %s', json_dump_model(delta_content))
     return ''.join(content)
 
 def check_model_repetition(text):
@@ -394,7 +394,7 @@ def call_tti(
     size='1024x1024',
     ref_img: Optional[bytes]=None,
 ):
-    logger.debug(f'tti: %s', _json_dump(text))
+    logger.debug(f'tti: %s', json_dump_model(text))
     client = openai.OpenAI(
         base_url=openai.base_url,
         api_key=openai.api_key,
@@ -437,17 +437,6 @@ def call_tti_retry(
         except Exception as ex:
             logger.debug(f'OpenAI retry {i+1}: {str(ex)}')
             if i == retry - 1 and not nothrow: raise ex
-
-def _json_dump(obj) -> str:
-    """将对象（含 pydantic 模型/列表）序列化为 JSON 字符串。"""
-    if isinstance(obj, BaseModel):
-        obj = obj.model_dump()
-    elif isinstance(obj, list):
-        obj = [
-            it.dict() if isinstance(it, BaseModel) else it
-            for it in obj
-        ]
-    return json.dumps(obj, ensure_ascii=False)
 
 
 
@@ -539,38 +528,6 @@ class ToolsMixin:
     def __init__(self):
         self.pj_dir = '.'
 
-    def _write_text(self, fname: str, text: str) -> None:
-        """将 text 以 UTF-8 写入 fname（自动创建父目录）。"""
-        os.makedirs(path.dirname(fname), exist_ok=True)
-        open(fname, 'w', encoding='utf8').write(text)
-
-    def _read_text(self, fname: str) -> str:
-        """以 UTF-8 读取 fname 的文本内容。"""
-        return open(fname, encoding='utf8').read()
-
-    def _write_yaml(self, fname: str, obj: Any) -> None:
-        """将对象（含 pydantic 模型/列表）以 YAML 形式写入 fname。"""
-        if isinstance(obj, BaseModel):
-            obj = obj.dict()
-        elif isinstance(obj, list):
-            obj = [
-                it.dict() if isinstance(it, BaseModel) else it
-                for it in obj
-            ]
-        os.makedirs(path.dirname(fname), exist_ok=True)
-        with open(fname, 'w', encoding='utf8') as f:
-            yaml.safe_dump(obj, f, allow_unicode=True, sort_keys=False)
-
-    def _read_yaml(self, fname: str, model: Type[BaseModel]):
-        """从 fname 读取 YAML 并解析为指定 pydantic 模型；文件缺失或损坏时返回 None。"""
-        if not path.isfile(fname) or not path.getsize(fname):
-            return None
-        try:
-            data = yaml.safe_load(open(fname, encoding='utf8').read())
-        except yaml.error.YAMLError:
-            return None
-        return parse_obj_as(model, data)
-
     def tool_list_workspace(self):
         return [
             path.join(root, f)
@@ -603,22 +560,6 @@ class ToolsMixin:
         """将对象以 YAML 形式写入项目目录（fname 为项目内相对路径）。"""
         return self.tool_write_workspace_text(
             fname, yaml.safe_dump(obj, allow_unicode=True))
-
-    def _json_dump(self, obj) -> str:
-        """将对象（含 pydantic 模型/列表）序列化为 JSON 字符串。"""
-        if isinstance(obj, BaseModel):
-            obj = obj.model_dump()
-        elif isinstance(obj, list):
-            obj = [
-                it.dict() if isinstance(it, BaseModel) else it
-                for it in obj
-            ]
-        return json.dumps(obj, ensure_ascii=False, indent=2)
-
-    def _json_load(self, text: str, model: Type[BaseModel]):
-        """将 JSON 文本解析为指定 pydantic 模型。"""
-        return parse_obj_as(model, json.loads(text))
-
 
     def tool_finish(self):
         """结束整个工具调用流程"""
