@@ -601,3 +601,76 @@ class ArticleInventory(_Base):
     readable_count: int = Field(..., description='可直接通读数')
     need_preprocess_count: int = Field(..., description='需预处理数')
     skip_count: int = Field(..., description='暂不纳入数')
+
+
+# ============================================================
+# 九、paper-to-course 兼容工作流：论文 → 交互式 HTML 课程 + Markdown + PPTX
+# ============================================================
+
+class CoursePaperInfo(_Base):
+    """论文主题验证结果（paper-to-course Step 0）"""
+    title: str = Field(..., description='论文原标题')
+    authors: str = Field(..., description='作者/机构')
+    abstract: str = Field(..., description='摘要（核心发现一句话）')
+    keywords: List[str] = Field(default_factory=list, description='关键词 / CCS Concepts')
+    domain: str = Field(..., description='判断领域，如 CV / NLP / RL / 安全')
+
+
+class CourseModuleSpec(_Base):
+    """单个课程模块的规划（paper-to-course Step 2）"""
+    id: str = Field(..., description='模块ID，如 module-01')
+    slug: str = Field(..., description='模块slug，如 problem')
+    title: str = Field(..., description='模块标题，如 问题与动机')
+    outline: List[str] = Field(default_factory=list, description='模块内容要点列表')
+
+
+class CoursePlan(_Base):
+    """课程目录结构规划（paper-to-course Step 2）"""
+    course_name: str = Field(..., description='课程目录名（英文，如 3dgs-course）')
+    course_title: str = Field(..., description='课程标题')
+    subtitle: str = Field('', description='副标题 / 会议 / 年份')
+    modules: List[CourseModuleSpec] = Field(..., description='6 个模块规划（problem/evolution/comparison/method/experiments/limitations）')
+
+
+class CourseModule(_Base):
+    """单个 HTML 课程模块（paper-to-course Step 3）"""
+    id: str = Field(..., description='模块ID，如 module-01')
+    slug: str = Field(..., description='模块slug，如 problem')
+    title: str = Field(..., description='模块标题')
+    html: str = Field(..., description='模块 HTML 内容（使用设计系统 CSS class，禁止内联样式）')
+
+
+class CourseSlide(_Base):
+    """单页幻灯片配置（paper-to-course Step 4）"""
+    type: str = Field(..., description='类型：title/outline/content/flow/table/bars/stats/formula/timeline/summary/limitations')
+    title: str = Field('', description='标题')
+    subtitle: str = Field('', description='副标题')
+    note: str = Field('', description='演讲者备注')
+    layout: str = Field('', description='content 页布局：bullets/cards-2/cards-3/cards-4/steps/grid-2x2')
+    items: List[Any] = Field(default_factory=list, description='outline/content/bars/timeline/summary 等页的列表数据')
+    cards: List[Any] = Field(default_factory=list, description='content 页卡片数据')
+    steps: List[Any] = Field(default_factory=list, description='flow 页步骤数据')
+    headers: List[str] = Field(default_factory=list, description='table 页表头')
+    rows: List[List[Any]] = Field(default_factory=list, description='table 页行数据')
+    highlightRows: List[int] = Field(default_factory=list, description='table 页高亮行索引')
+    stats: List[Any] = Field(default_factory=list, description='stats 页大数字统计')
+    formula: str = Field('', description='formula 页公式')
+    lines: List[Any] = Field(default_factory=list, description='formula 页逐行通俗解释')
+    limitations: List[str] = Field(default_factory=list, description='limitations 页当前局限性')
+    futureWork: List[str] = Field(default_factory=list, description='limitations 页未来研究方向')
+
+
+class SlidesConfig(_Base):
+    """PPTX 演示文稿配置（paper-to-course Step 4，通常 16 页）"""
+    title: str = Field(..., description='论文标题')
+    subtitle: str = Field('', description='副标题 / 会议 / 年份')
+    slides: List[CourseSlide] = Field(..., description='幻灯片配置列表')
+
+
+class CourseBundle(_Base):
+    """课程交付包（paper-to-course Step 5 渲染结果）"""
+    course_name: str = Field(..., description='课程目录名')
+    index_html: str = Field(..., description='index.html 全文（含 6 个模块 HTML 与设计系统内联样式）')
+    readme_md: str = Field(..., description='README.md 全文（Markdown 版课程文档）')
+    slides_config_json: str = Field(..., description='slides-config.json 全文')
+    build_sh: str = Field('', description='build.sh 打包脚本内容')

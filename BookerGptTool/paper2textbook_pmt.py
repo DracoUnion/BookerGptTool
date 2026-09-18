@@ -1584,3 +1584,173 @@ JSON 格式输出，包含在三个反引号（```）中。
 {screening}
 [/content]
 '''
+
+
+# ============================================================
+# 九、paper-to-course 兼容提示词：论文 → 交互式 HTML 课程 + Markdown + PPTX
+# ============================================================
+
+# Step 0 — 验证论文内容
+COURSE_VERIFY_PMT = '''
+你是一位学术论文分析专家。请先提取并确认下面这篇论文的核心信息，用于后续课程生成前的主题校验。
+
+要求输出为 JSON（```json 代码块包裹），严格遵循以下 Schema：
+
+```
+{
+  "title": "论文原标题",
+  "authors": "作者/机构",
+  "abstract": "摘要（核心发现一句话）",
+  "keywords": ["关键词", "关键词"],
+  "domain": "判断领域，如 CV / NLP / RL / 安全"
+}
+```
+
+规则：
+1. `abstract`：提取摘要前 2-3 句，能概括核心发现即可。
+2. `domain`：依据题目、关键词、方法特征判断研究领域。
+3. 只做忠实提取，不要补充训练数据里没有的字段。
+
+## 论文全文
+
+[content]
+{paper}
+[/content]
+
+请输出 JSON。
+'''
+
+# Step 2 — 规划课程目录结构（6 个模块）
+COURSE_PLAN_PMT = '''
+你是一位课程设计专家。请为下面这篇论文规划一份交互式 HTML 课程的结构，作为后续生成 6 个 HTML 模块的蓝图。
+
+要求输出为 JSON（```json 代码块包裹），严格遵循以下 Schema：
+
+```
+{
+  "course_name": "课程目录名（英文，如 3dgs-course）",
+  "course_title": "课程标题",
+  "subtitle": "副标题 / 会议 / 年份",
+  "modules": [
+    { "id": "module-01", "slug": "problem", "title": "问题与动机", "outline": ["要点1", "要点2"] },
+    { "id": "module-02", "slug": "evolution", "title": "发展脉络", "outline": [] },
+    { "id": "module-03", "slug": "comparison", "title": "主流方法对比", "outline": [] },
+    { "id": "module-04", "slug": "method", "title": "本文方法详解", "outline": [] },
+    { "id": "module-05", "slug": "experiments", "title": "实验与验证", "outline": [] },
+    { "id": "module-06", "slug": "limitations", "title": "局限与展望", "outline": [] }
+  ]
+}
+```
+
+6 个模块的内容要点要求：
+
+- **Module 1 问题与动机**：背景问题与重要性、现有方法瓶颈（3-4 个）、核心研究问题、为何值得研究。
+- **Module 2 发展脉络**：领域关键节点时间线（年份、方法、突破）、与相关方法的关键区别。
+- **Module 3 主流方法对比**：各方法优缺点、对比要点，用于制作可交互对比表与方法对话。
+- **Module 4 本文方法详解**：架构信息、核心公式、关键组件协作方式，用于制作架构图与公式拆解。
+- **Module 5 实验与验证**：主实验结果、消融实验、分类型性能数据（数字精确到个位）。
+- **Module 6 局限与展望**：当前局限（3-4 条）、未来方向（3-5 条）、核心贡献总结、理解测验。
+
+## 论文信息
+
+[content]
+{paper_details}
+[/content]
+
+请输出 JSON。
+'''
+
+# Step 3 — 生成单个 HTML 课程模块
+COURSE_MODULE_PMT = '''
+你是一位前端工程师与教育内容创作者。请为论文课程生成一个 HTML 模块的内容。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "id": "模块ID，如 module-01",
+  "slug": "模块slug，如 problem",
+  "title": "模块标题",
+  "html": "模块 HTML 内容（字符串，使用设计系统 CSS class，禁止内联 style）"
+}
+```
+
+## 设计规范（必须遵守）
+
+- 暖色调"开发者笔记本"美学：米白背景（#FAF7F2）+ 珊瑚红强调色（#D94F30）。
+- 所有样式通过 CSS class 引用，禁止内联 style 属性。
+- HTML 内只写结构，交互逻辑由 main.js 处理。
+- 可使用以下交互元素 class（具体模式见下文）：`timeline-container`（时间线）、`comparison-table`（可交互对比表）、`chat-window`/`group-chat`（方法对话）、`formula-block`（公式逐行解释）、`ablation-container`（消融可视化）、`quiz-container`（选择题测验）、`term`（术语悬停提示）。
+- HTML 字符串中的反引号、换行请按 JSON 转义要求处理（可用 `\n`）。
+
+## 模块规划
+
+[content]
+{module_json}
+[/content]
+
+## 论文素材
+
+[content]
+{paper}
+[/content]
+
+请只输出该模块的 JSON。
+'''
+
+# Step 4 — 生成 PPTX 幻灯片配置（通常 16 页）
+COURSE_SLIDES_PMT = '''
+你是一位组会汇报主讲人。请为下面这篇论文生成一份 PPTX 幻灯片配置（slides-config.json），用于"论文汇报"。
+
+要求输出为 JSON（```json 代码块包裹），严格遵循以下 Schema：
+
+```
+{
+  "title": "论文标题",
+  "subtitle": "副标题 / 会议 / 年份",
+  "slides": [
+    { "type": "title", "title": "...", "subtitle": "...", "note": "" },
+    { "type": "outline", "title": "汇报提纲", "items": ["...", "..."] },
+    { "type": "content", "title": "研究背景", "layout": "cards-3", "cards": [...] },
+    { "type": "timeline", "title": "发展脉络", "items": [...] },
+    { "type": "table", "title": "Benchmark 对比", "headers": [...], "rows": [[...]], "highlightRows": [3] },
+    { "type": "flow", "title": "方法流程", "steps": [...] },
+    { "type": "bars", "title": "消融实验", "items": [...] },
+    { "type": "stats", "title": "核心结果", "stats": [...] },
+    { "type": "formula", "title": "核心公式", "formula": "...", "lines": [...] },
+    { "type": "summary", "title": "总结", "items": [...] },
+    { "type": "limitations", "title": "局限与展望", "limitations": [...], "futureWork": [...] }
+  ]
+}
+```
+
+支持的 slide type 与关键字段：
+
+- `title`：`title`, `subtitle`, `note`
+- `outline`：`items[]`
+- `content`：`layout`（bullets/bullets-large/cards-2/cards-3/cards-4/steps/grid-2x2），`cards[]` 或 `items[]`
+- `flow`：`steps[]`（含 `num`/`title`/`subtitle`/`desc`）
+- `table`：`headers[]`, `rows[][]`, `highlightRows[]`
+- `bars`：`items[]`（含 `label`/`value`/`drop`）
+- `stats`：`stats[]`（含 `value`/`label`/`color`/`big`）
+- `formula`：`formula`, `lines[]`（含 `symbol`/`english`）
+- `timeline`：`items[]`（含 `year`/`title`/`desc`）
+- `summary`：`items[]`（含 `text`/`color`）
+- `limitations`：`limitations[]`, `futureWork[]`
+
+请生成完整约 16 页的结构化汇报幻灯片配置。实验数字精确到个位。
+
+## 课程信息与会者摘要
+
+[content]
+{course_desc}
+[/content]
+
+## 论文要点
+
+[content]
+{paper_key_points}
+[/content]
+
+请输出 JSON。
+'''

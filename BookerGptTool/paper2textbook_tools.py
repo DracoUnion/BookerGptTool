@@ -736,6 +736,86 @@ class Paper2TextbookTools(ToolsMixin):
         write_text(cache_fname, md)
         return md
 
+    # ============================================================
+    # 九、paper-to-course 兼容工作流：论文 → HTML 课程 + Markdown + PPTX
+    # ============================================================
+    def tool_course_verify_paper(self, paper: str) -> CoursePaperInfo:
+        """校验论文主题：提取标题/作者/摘要/关键词/领域（Step 0）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'course_verify_' + gen_objs_md5(paper) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, CoursePaperInfo)
+        if r: return r
+        prompt = render_prompt(COURSE_VERIFY_PMT, paper=paper)
+        r = self._json(CoursePaperInfo, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_course_plan_structure(self, paper: str, info: CoursePaperInfo) -> CoursePlan:
+        """规划 6 模块的课程目录结构（Step 2）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'course_plan_' + gen_objs_md5(paper) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, CoursePlan)
+        if r: return r
+        prompt = render_prompt(
+            COURSE_PLAN_PMT,
+            paper_details=json_dump_model(info),
+        )
+        r = self._json(CoursePlan, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_course_gen_module(self, module: CourseModuleSpec, paper: str) -> CourseModule:
+        """生成单个 HTML 课程模块的内容（Step 3）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'course_mod_' + gen_objs_md5(module, paper) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, CourseModule)
+        if r: return r
+        prompt = render_prompt(
+            COURSE_MODULE_PMT,
+            module_json=json_dump_model(module),
+            paper=paper,
+        )
+        r = self._json(CourseModule, prompt, self.model, self.args)
+        # 以规划为准回填，防止模型串改 id/slug/title
+        r.id, r.slug, r.title = module.id, module.slug, module.title
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_course_gen_slides(self, course: CoursePlan, paper: str) -> SlidesConfig:
+        """生成约 16 页 PPTX 幻灯片配置（Step 4）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'course_slides_' + gen_objs_md5(course, paper) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, SlidesConfig)
+        if r: return r
+        prompt = render_prompt(
+            COURSE_SLIDES_PMT,
+            course_desc=json_dump_model(course),
+            paper_key_points=paper[:4000],
+        )
+        r = self._json(SlidesConfig, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_course_render_bundle(self, course: CoursePlan, modules: List[CourseModule], slides: SlidesConfig) -> CourseBundle:
+        """渲染课程交付包：index.html + README.md + slides-config.json + build.sh，并写入工作区（Step 5）。"""
+        bundle = _render_course_bundle(course, modules, slides)
+        # 写入工作区 course_name/ 子目录
+        out = path.join(self.pj_dir, course.course_name)
+        os.makedirs(out, exist_ok=True)
+        write_text(path.join(out, 'index.html'), bundle.index_html)
+        write_text(path.join(out, 'README.md'), bundle.readme_md)
+        write_text(path.join(out, 'slides-config.json'), bundle.slides_config_json)
+        write_text(path.join(out, 'build.sh'), bundle.build_sh)
+        return bundle
+
     # 工具名 -> OpenAI parameters 结构（type/properties/required）。
     # name 与 description 不再硬编码，由 get_tool_defs 从函数 __name__ / __doc__ 取得。
     # pydantic 模型参数用 Model.schema() 展开，不写死 {"type":"object"}。
@@ -929,6 +1009,33 @@ class Paper2TextbookTools(ToolsMixin):
             required=['opinion'],
             opinion=model_schema(PlanningOpinion, '书稿策划意见（PlanningOpinion）'),
         ),
+
+        # ── 九、paper-to-course 兼容工作流 ──────────────────────
+        "tool_course_verify_paper": params_schema(
+            required=['paper'],
+            paper=base_schema('string', '论文全文文本'),
+        ),
+        "tool_course_plan_structure": params_schema(
+            required=['paper', 'info'],
+            paper=base_schema('string', '论文全文文本'),
+            info=model_schema(CoursePaperInfo, '论文主题验证结果（CoursePaperInfo）'),
+        ),
+        "tool_course_gen_module": params_schema(
+            required=['module', 'paper'],
+            module=model_schema(CourseModuleSpec, '模块规划（CourseModuleSpec）'),
+            paper=base_schema('string', '论文全文文本'),
+        ),
+        "tool_course_gen_slides": params_schema(
+            required=['course', 'paper'],
+            course=model_schema(CoursePlan, '课程结构规划（CoursePlan）'),
+            paper=base_schema('string', '论文全文文本'),
+        ),
+        "tool_course_render_bundle": params_schema(
+            required=['course', 'modules', 'slides'],
+            course=model_schema(CoursePlan, '课程结构规划（CoursePlan）'),
+            modules=model_list_schema(CourseModule, '已生成的 6 个 HTML 模块（CourseModule）'),
+            slides=model_schema(SlidesConfig, 'PPTX 幻灯片配置（SlidesConfig）'),
+        ),
     }
 
 
@@ -1044,3 +1151,130 @@ def _render_planning_opinion_md(opinion: PlanningOpinion) -> str:
 """
     return md
 
+
+
+# ============================================================
+# paper-to-course 兼容：课程交付包渲染（确定性、脚本级）
+# ============================================================
+
+# 内联设计系统样式（暖色调"开发者笔记本"美学）
+_COURSE_DESIGN_CSS = """
+    :root{
+      --paper:#FAF7F2; --ink:#2E2B27; --accent:#D94F30;
+      --muted:#8A8378; --card:#FFFFFF; --line:#E8E2D6;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--paper);color:var(--ink);
+      font-family:'DM Sans',-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+      line-height:1.7}
+    header.course{background:var(--ink);color:#fff;padding:3rem 2rem}
+    header.course h1{margin:0;font-size:2rem;color:#fff}
+    header.course .sub{color:#c9c2b8;margin-top:.5rem}
+    main{max-width:960px;margin:0 auto;padding:2rem 1.5rem 4rem}
+    nav.course{position:sticky;top:0;background:var(--paper);border-bottom:1px solid var(--line);
+      display:flex;gap:1rem;flex-wrap:wrap;padding:.6rem 1.5rem}
+    nav.course a{color:var(--accent);text-decoration:none;font-weight:600}
+    section.module{padding:2.5rem 0;border-bottom:1px solid var(--line)}
+    section.module h2{color:var(--accent);font-size:1.5rem;margin-top:0}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1.2rem;margin:1rem 0}
+    .tag{display:inline-block;background:var(--accent);color:#fff;border-radius:4px;padding:.1rem .5rem;font-size:.75rem}
+    .term{border-bottom:1px dashed var(--accent);cursor:help}
+    table.comparison-table,.comparison-table{border-collapse:collapse;width:100%;background:var(--card)}
+    .comparison-table th,.comparison-table td{border:1px solid var(--line);padding:.5rem .8rem;text-align:left}
+    .comparison-table th{background:var(--ink);color:#fff}
+    .formula-block{background:var(--ink);color:#eef;border-radius:8px;padding:1rem;font-family:'JetBrains Mono',monospace;overflow-x:auto}
+    .timeline-container{border-left:2px solid var(--accent);padding-left:1rem}
+    .timeline-container .tl-item{margin:.6rem 0}
+    .chat-window,.group-chat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1rem}
+    .chat-window .msg,.group-chat .msg{margin:.4rem 0;padding:.4rem .8rem;border-radius:6px;background:#F3EEE5}
+    .ablation-container{display:flex;gap:1rem;flex-wrap:wrap}
+    .quiz-container .q{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1rem;margin:.8rem 0}
+    .grid-2x2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    @media(max-width:720px){.grid-2x2{grid-template-columns:1fr}}
+    footer.course{background:var(--ink);color:#c9c2b8;text-align:center;padding:2rem;font-size:.85rem}
+"""
+
+
+def _render_course_bundle(course: CoursePlan, modules: List[CourseModule], slides: SlidesConfig) -> CourseBundle:
+    """把课程结构 + 各模块 HTML + 幻灯片配置渲染为课程交付包。"""
+    nav = '\n'.join(
+        f'<a href="#{m.id}">{m.title}</a>'
+        for m in modules
+    )
+    sections = '\n'.join(
+        f'<section class="module" id="{m.id}">\n'
+        f'  <span class="tag">{m.slug}</span>\n'
+        f'  <h2>{m.title}</h2>\n{m.html}\n</section>'
+        for m in modules
+    )
+    index_html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{course.course_title}</title>
+<style>{_COURSE_DESIGN_CSS}</style>
+</head>
+<body>
+<header class="course">
+  <h1>{course.course_title}</h1>
+  <div class="sub">{course.subtitle}</div>
+</header>
+<nav class="course">{nav}</nav>
+<main>
+{nav}
+{sections}
+</main>
+<footer class="course">由 paper-to-course 工作流生成 · {course.course_title}</footer>
+<script>
+document.querySelectorAll('.term').forEach(t=>t.title=t.textContent);
+</script>
+</body>
+</html>"""
+    readme_md = _render_course_readme(course, modules)
+    slides_json = json.dumps(slides.model_dump(), ensure_ascii=False, indent=2)
+    build_sh = _render_course_build_sh(course)
+    return CourseBundle(
+        course_name=course.course_name,
+        index_html=index_html,
+        readme_md=readme_md,
+        slides_config_json=slides_json,
+        build_sh=build_sh,
+    )
+
+
+def _render_course_readme(course: CoursePlan, modules: List[CourseModule]) -> str:
+    """渲染课程 README.md（Markdown 版课程文档）。"""
+    lines = [
+        f'# {course.course_title}',
+        '',
+        f'> {course.subtitle}',
+        '',
+        '## 课程目录',
+        '',
+    ]
+    for i, m in enumerate(modules, 1):
+        lines.append(f'- **{i}. {m.title}**（{m.slug}）')
+    lines += ['', '## 模块内容', '']
+    for m in modules:
+        # 简单去 HTML 标签，保留纯文本要点
+        text = re.sub(r'<[^>]+>', '\n', m.html)
+        text = re.sub(r'\n{2,}', '\n', text).strip()
+        lines.append(f'### {m.title}')
+        lines.append('')
+        lines.append(text[:1200])
+        lines.append('')
+    return '\n'.join(lines)
+
+
+def _render_course_build_sh(course: CoursePlan) -> str:
+    """渲染 build.sh 打包脚本。"""
+    return f'''#!/usr/bin/env bash
+# {course.course_title} 打包脚本
+set -euo pipefail
+cd "$(dirname "$0")"
+# 本包为自包含静态课程（index.html 已内联样式与模块内容），无需额外构建。
+# 如需分离 HTML/MD/PPTX 资产，可在此调用 build-all.js。
+# node scripts/build-all.js .
+echo "课程已生成：index.html / README.md / slides-config.json"
+'''
