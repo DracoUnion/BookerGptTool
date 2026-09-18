@@ -71,7 +71,7 @@ class Paper2TextbookTools(ToolsMixin):
         """读取论文全文：文本格式直接读，PDF 通过 PyMuPDF 抽取文本。"""
         ext = extname(fname).lower()
         if ext in {'md', 'markdown', 'tex', 'txt'}:
-            return self._read_text(fname)
+            return read_text(fname)
         if ext == 'pdf':
             try:
                 import fitz

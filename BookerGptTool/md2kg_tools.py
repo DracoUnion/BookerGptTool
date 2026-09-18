@@ -130,7 +130,7 @@ class Md2KgTools(ToolsMixin):
 
     def tool_read_input_file(self, fname) -> str:
         """读取待处理的 Markdown 文件。"""
-        return self._read_text(fname)
+        return read_text(fname)
 
     def tool_list_input_files(self) -> List[str]:
         """获取待处理的 Markdown 文件。"""
