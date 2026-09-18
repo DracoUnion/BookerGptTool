@@ -308,13 +308,6 @@ class Md2SkillOrchestrator:
         self.agent = Md2SkillAgent(args.model, args)
         self.lock = Lock()
 
-    def _write_yaml(self, fname, res):
-        """线程安全写入 YAML（支持 Pydantic 对象和普通对象）。"""
-        with self.lock:
-            data = res.model_dump(mode="json") if hasattr(res, 'model_dump') else res
-            with open(fname, 'w', encoding='utf8') as f:
-                f.write(yaml.safe_dump(data, allow_unicode=True))
-
     def _load_yaml(self, fname) -> Any:
         """从文件加载 YAML。"""
         return yaml.safe_load(open(fname, encoding='utf8').read())

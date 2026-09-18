@@ -115,29 +115,6 @@ class Code2BookMixin:
 
     # ── 持久化工具 ──────────────────────────────────────────
 
-    def _read_yaml(self, fname: str, model: type):
-        if not (path.isfile(fname) and \
-           path.getsize(fname)):
-            return None
-        try:
-            obj = yaml.safe_load(
-                open(fname, encoding='utf8').read())
-        except yaml.error.YAMLError:
-            return None
-        return parse_obj_as(model, obj)
-
-    def _write_yaml(self, fname: str, obj: BaseModel | List[BaseModel]):
-        """在主线程中将 meta 写回 yaml 文件。"""
-        if isinstance(obj, BaseModel):
-            obj = obj.dict()
-        elif isinstance(obj, list):
-            obj = [
-                it.dict() if isinstance(it, BaseModel) else it
-                for it in obj
-            ]
-        with open(fname, 'w', encoding='utf8') as f:
-            f.write(yaml.safe_dump(obj, allow_unicode=True))
-            f.flush()
 
     def _collect_hdls(self, 
         res_callback: Optional[Callable] = None,

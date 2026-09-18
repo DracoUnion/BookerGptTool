@@ -24,6 +24,8 @@ from .util import (
     ext_code_block,
     render_prompt,
     malloc_trim_linux,
+    read_yaml_model,
+    write_yaml_model
 )
 from .openai import logger as oai_logger
 from .openai import set_openai_props, ask_chatgpt_retry
@@ -173,17 +175,6 @@ class TransEpubDispatcher:
         if not chunk.trans:
             chunk.trans = fmt_zh(self.agent.translate_body(chunk.fmt))
 
-    def _write_yaml(self, fname, obj):
-        if isinstance(obj, BaseModel):
-            obj = obj.dict()
-        elif isinstance(obj, list):
-            obj = [
-                it.dict() if isinstance(it, BaseModel) else it
-                for it in obj
-            ]
-        with open(fname, 'w', encoding='utf8') as f:
-            f.write(yaml.safe_dump(obj, allow_unicode=True))
-            f.flush()
 
     def _collect_hdls(self, res_callback:Optional[Callable]=None):
         for h in self.hdls:
@@ -200,7 +191,7 @@ class TransEpubDispatcher:
         else:
             groups = group_chunks(split_md_lines(md))
             chunks = [Chunk(raw=c) for c in groups]
-            self._write_yaml(chunk_fname, chunks)
+            write_yaml_model(chunk_fname, chunks)
 
         save_step = max(min(len(chunks) // 5, 100), 1)
         for i, c in enumerate(tqdm.tqdm(chunks)):
@@ -210,9 +201,9 @@ class TransEpubDispatcher:
                 if len(self.hdls) > self.args.page_threads:
                     self._collect_hdls()
             if i % save_step == 0:
-                self._write_yaml(chunk_fname, chunks)
+                write_yaml_model(chunk_fname, chunks)
         self._collect_hdls()
-        self._write_yaml(chunk_fname, chunks)
+        write_yaml_model(chunk_fname, chunks)
         return chunks
 
     def _fix_toc(self, chunks, meta, meta_fname):
@@ -229,7 +220,7 @@ class TransEpubDispatcher:
             ans = self.agent.fix_toc('\n'.join(toc))
             toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
             meta.toc = toc
-            self._write_yaml(meta_fname, meta)
+            write_yaml_model(meta_fname, meta)
         for lvl, title in toc:
             logger.debug(f'[7] {lvl} {title}')
             try:
@@ -274,7 +265,7 @@ class TransEpubDispatcher:
             chs = yaml.safe_load(open(chs_fname, encoding='utf8').read())
         else:
             chs = self._split_chs(md) if self.args.split else [md]
-            self._write_yaml(chs_fname, chs)
+            write_yaml_model(chs_fname, chs)
         return chs
 
     def _write_chapters(self, proj_dir, slug, chs):

@@ -152,19 +152,6 @@ class PDFOcrOrchestrator:
 
     # ── 主线程写入 ──────────────────────────────────
 
-    def _write_yaml(self, obj: Meta, yaml_fname: str) -> None:
-        """在主线程中将 meta 写回 yaml 文件。"""
-        if isinstance(obj, BaseModel):
-            obj = obj.dict()
-        elif isinstance(obj, list):
-            obj = [
-                it.dict() if isinstance(it, BaseModel) else it
-                for it in obj
-            ]
-        with open(yaml_fname, 'w', encoding='utf8') as f:
-            f.write(yaml.safe_dump(obj, allow_unicode=True))
-            f.flush()
-
     # ── 线程池任务 ────────────────────────────────
 
     def _tr_ocr_page(self, pymu_page: pymu.Page, page: Page) -> None:
