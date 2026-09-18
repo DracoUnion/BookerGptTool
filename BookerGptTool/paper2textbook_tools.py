@@ -336,15 +336,19 @@ class Paper2TextbookTools(ToolsMixin):
 
     def tool_fix_body(self, body: str, comment: str, paper_desc: List[PaperConcepts]) -> str:
         """根据检查反馈（comment）修正章节正文。"""
-        cache_fane = 'body_fix_' + gen_objs_md5(body, comment, paper_desc) + '.md'
-        
+        cache_fname = 'body_fix_' + gen_objs_md5(body, comment, paper_desc) + '.md'
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            r = read_text(cache_fname)
+            return r
         prompt = render_prompt(
             BODY_FIX_PMT,
             body=body,
             comment=comment,
             paper_desc=json_dump_model(paper_desc),
         )
-        return self._text(prompt, self.model, self.args)
+        r = self._text(prompt, self.model, self.args)
+        write_text(cache_fname, r)
+        return r
 
     # ============================================================
     # 六、辅助检查（术语对照 / 跨章一致性 / 引用审计）
@@ -352,8 +356,13 @@ class Paper2TextbookTools(ToolsMixin):
 
     def tool_gen_glossary(self, paper: str) -> List[GlossaryEntry]:
         """根据论文内容生成术语对照表（术语/别名/首次出现位置）。"""
+        cache_fname = 'glossary_' + gen_objs_md5(paper) + '.yaml'
+        r = read_yaml_model(cache_fname, List[GlossaryEntry])
+        if r: return r
         prompt = render_prompt(TERM_GLOSSARY_PMT, paper=paper)
-        return self._json(List[GlossaryEntry], prompt, self.model, self.args)
+        r = self._json(List[GlossaryEntry], prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_check_consistency(self, previous_chapter: str, current_chapter: str) -> str:
         """检查当前章与上一章之间的术语/口径一致性，并返回问题反馈。"""
