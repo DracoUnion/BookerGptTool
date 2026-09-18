@@ -16,7 +16,7 @@ from typing import List, Optional, Callable, Tuple, Dict, Any
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from .util import ext_code_block, ext_cont_block, to_kebab, render_prompt, read_pdf_text
+from .util import ext_code_block, ext_cont_block, to_kebab, render_prompt, read_pdf_text, gen_objs_md5, read_yaml_model, write_yaml_model, read_text, write_text
 
 from .openai import *
 
@@ -63,30 +63,54 @@ class FinReportTools(ToolsMixin):
 
     def tool_anls_fund(self, report: str) -> FundAnlsResult:
         """分析报告的基本面（增长、ROE、资本开支、毛利率等），返回 FundAnlsResult。"""
+        cache_fname = path.join(
+            self.proj_dir,
+            'fund_' + gen_objs_md5(report) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, FundAnlsResult)
+        if r: return r
         ques = render_prompt(FUND_ANLS_PROMPT, report=report)
         parse_output = lambda s: \
             FundAnlsResult.model_validate_json(ext_code_block(s))
-        return ask_chatgpt_retry(
+        r = ask_chatgpt_retry(
             ques, self.model, self.args, parse_output
         )
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_anls_value(self, report: str) -> ValueAnlsResult:
         """分析报告的估值（PE/PB 百分位、资金流向、拥挤度等），返回 ValueAnlsResult。"""
+        cache_fname = path.join(
+            self.proj_dir,
+            'value_' + gen_objs_md5(report) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, ValueAnlsResult)
+        if r: return r
         ques = render_prompt(VAL_ANLS_PROMPT, report=report)
         parse_output = lambda s: \
             ValueAnlsResult.model_validate_json(ext_code_block(s))
-        return ask_chatgpt_retry(
+        r = ask_chatgpt_retry(
             ques, self.model, self.args, parse_output
         )
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_anls_sentiment(self, report: str) -> SentiAnlsResult:
         """分析报告的市场情绪（风格、换手、分析师共识、动量等），返回 SentiAnlsResult。"""
+        cache_fname = path.join(
+            self.proj_dir,
+            'senti_' + gen_objs_md5(report) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, SentiAnlsResult)
+        if r: return r
         ques = render_prompt(SENTI_ANLS_PROMPT, report=report)
         parse_output = lambda s: \
             SentiAnlsResult.model_validate_json(ext_code_block(s))
-        return ask_chatgpt_retry(
+        r = ask_chatgpt_retry(
             ques, self.model, self.args, parse_output
         )
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_extract(self, report: str) -> AnlsOutput:
         """完整提取报告的基本面、估值与情绪分析，返回 AnlsOutput。"""
@@ -98,50 +122,88 @@ class FinReportTools(ToolsMixin):
 
     def tool_bull_initial(self, analysis: AnlsOutput) -> str:
         """生成看多方的初始论点。"""
+        cache_fname = path.join(
+            self.proj_dir,
+            'bull_init_' + gen_objs_md5(analysis.json()) + '.md'
+        )
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
         user_prompt = render_prompt(BULL_INITIAL_USER, analysis=analysis.json())
-        return self._call(
+        r = self._call(
             BULL_SYSTEM_PROMPT, user_prompt,
             temperature=0.7,
             parse_output=ext_cont_block,
         )
+        write_text(cache_fname, r)
+        return r
 
     def tool_bull_rebut(self, analysis: AnlsOutput, opponent_argument: str) -> str:
         """生成看多方对空方论点的反驳。"""
+        cache_fname = path.join(
+            self.proj_dir,
+            'bull_rebut_' + gen_objs_md5(analysis.json(), opponent_argument) + '.md'
+        )
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
         user_prompt = render_prompt(
             BULL_REBUT_USER,
             analysis=analysis.json(),
             opponent_argument=opponent_argument,
         )
-        return self._call(
+        r = self._call(
             BULL_SYSTEM_PROMPT, user_prompt,
             temperature=0.7,
             parse_output=ext_cont_block,
         )
+        write_text(cache_fname, r)
+        return r
 
     def tool_bear_initial(self, analysis: AnlsOutput) -> str:
         """生成看空方的初始论点。"""
+        cache_fname = path.join(
+            self.proj_dir,
+            'bear_init_' + gen_objs_md5(analysis.json()) + '.md'
+        )
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
         user_prompt = render_prompt(BEAR_INITIAL_USER, analysis=analysis.json())
-        return self._call(
+        r = self._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
             temperature=0.7,
             parse_output=ext_cont_block,
         )
+        write_text(cache_fname, r)
+        return r
 
     def tool_bear_rebut(self, analysis: AnlsOutput, opponent_argument: str) -> str:
         """生成看空方对多方论点的反驳。"""
+        cache_fname = path.join(
+            self.proj_dir,
+            'bear_rebut_' + gen_objs_md5(analysis.json(), opponent_argument) + '.md'
+        )
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
         user_prompt = render_prompt(
             BEAR_REBUT_USER,
             analysis=analysis.json(),
             opponent_argument=opponent_argument,
         )
-        return self._call(
+        r = self._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
             temperature=0.7,
             parse_output=ext_cont_block,
         )
+        write_text(cache_fname, r)
+        return r
 
     def tool_judge(self, analysis: AnlsOutput, bull_history: List[str], bear_history: List[str]) -> JudgeResult:
         """综合多方与空方论点，给出最终投资裁决（JudgeResult）。"""
+        cache_fname = path.join(
+            self.proj_dir,
+            'judge_' + gen_objs_md5(analysis.json(), bull_history, bear_history) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, JudgeResult)
+        if r: return r
         user_prompt = render_prompt(
             JUDGE_USER,
             analysis=analysis.json(),
@@ -150,12 +212,13 @@ class FinReportTools(ToolsMixin):
         )
         parse_output = lambda s: \
             JudgeResult.model_validate_json(ext_code_block(s))
-        res = self._call(
+        r = self._call(
             JUDGE_SYSTEM_PROMPT, user_prompt,
             temperature=0.2,
             parse_output=parse_output,
         )
-        return res
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_read_input_file(self, fname: str):
         """读取待处理的 PDF/MD 文件。"""

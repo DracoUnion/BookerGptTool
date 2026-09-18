@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any, Callable
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from .util import ext_code_block
+from .util import ext_code_block, gen_objs_md5, read_yaml_model, write_yaml_model, read_text, write_text
 
 from .openai import *
 
@@ -57,24 +57,46 @@ class Md2KgTools(ToolsMixin):
 
     def tool_extract_entities(self, chunk_text: str, chunk_id: str, context_summary: str = "") -> EntityList:
         """从单个文本块中抽取实体（EntityList）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'entities_' + gen_objs_md5(chunk_text, chunk_id, context_summary) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, EntityList)
+        if r: return r
         user_prompt = ENTITY_EXTRACTOR_USER_PROMPT.format(
             chunk_id=chunk_id, context_summary=context_summary, chunk_text=chunk_text
         )
         parse_output = lambda s: EntityList.model_validate_json(ext_code_block(s))
-        return self._call(ENTITY_EXTRACTOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
+        r = self._call(ENTITY_EXTRACTOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_extract_relations(self, chunk_text: str, chunk_id: str, entity_list: EntityList, context_summary: str = "") -> RelationList:
         """结合已知实体，从单个文本块中抽取关系（RelationList）。"""
         entity_context = "\n".join([f"{e.id}: {e.canonical_name} ({e.type})" for e in entity_list.entities])
+        cache_fname = path.join(
+            self.pj_dir,
+            'relations_' + gen_objs_md5(chunk_text, chunk_id, entity_list, context_summary) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, RelationList)
+        if r: return r
         user_prompt = RELATION_EXTRACTOR_USER_PROMPT.format(
             chunk_id=chunk_id, context_summary=context_summary,
             entity_context=entity_context, chunk_text=chunk_text
         )
         parse_output = lambda s: RelationList.model_validate_json(ext_code_block(s))
-        return self._call(RELATION_EXTRACTOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
+        r = self._call(RELATION_EXTRACTOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_resolve_conflicts(self, all_entity_lists: List[EntityList], all_relation_lists: List[RelationList]) -> ResolvedGraph:
         """合并多个文本块的实体与关系，解决重复和矛盾，得到全局图谱（ResolvedGraph）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'resolve_' + gen_objs_md5(all_entity_lists, all_relation_lists) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, ResolvedGraph)
+        if r: return r
         input_data = {
             "entity_lists": [el.model_dump() for el in all_entity_lists],
             "relation_lists": [rl.model_dump() for rl in all_relation_lists]
@@ -82,7 +104,9 @@ class Md2KgTools(ToolsMixin):
         input_data_json = json.dumps(input_data, indent=2, ensure_ascii=False)
         user_prompt = CONFLICT_RESOLVER_USER_PROMPT.format(input_data_json=input_data_json)
         parse_output = lambda s: ResolvedGraph.model_validate_json(ext_code_block(s))
-        return self._call(CONFLICT_RESOLVER_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
+        r = self._call(CONFLICT_RESOLVER_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_align_schema(self, resolved_graph: ResolvedGraph, target_schema: Dict[str, List[str]] = None) -> SchemaAlignmentResult:
         if target_schema is None:
@@ -102,6 +126,13 @@ class Md2KgTools(ToolsMixin):
             indent=2, ensure_ascii=False
         )
 
+        cache_fname = path.join(
+            self.pj_dir,
+            'align_' + gen_objs_md5(resolved_graph, target_schema) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, SchemaAlignmentResult)
+        if r: return r
+
         user_prompt = SCHEMA_ALIGNER_USER_PROMPT.format(
             entity_types=", ".join(target_schema["entity_types"]),
             relation_types=", ".join(target_schema["relation_type"]),
@@ -109,7 +140,9 @@ class Md2KgTools(ToolsMixin):
             relations_json=relations_json
         )
         parse_output = lambda s: SchemaAlignmentResult.model_validate_json(ext_code_block(s))
-        return self._call(SCHEMA_ALIGNER_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
+        r = self._call(SCHEMA_ALIGNER_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_evaluate(self, resolved_graph: ResolvedGraph, integration_threshold: float = 0.6) -> EvaluationResult:
         triplets = []
@@ -124,9 +157,18 @@ class Md2KgTools(ToolsMixin):
             })
 
         triplets_json = json.dumps(triplets, indent=2, ensure_ascii=False)
+        cache_fname = path.join(
+            self.pj_dir,
+            'eval_' + gen_objs_md5(resolved_graph, integration_threshold) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, EvaluationResult)
+        if r: return r
+
         user_prompt = EVALUATOR_USER_PROMPT.format(triplets_json=triplets_json)
         parse_output = lambda s: EvaluationResult.model_validate_json(ext_code_block(s))
-        return self._call(EVALUATOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
+        r = self._call(EVALUATOR_SYSTEM_PROMPT, user_prompt, parse_output=parse_output)
+        write_yaml_model(cache_fname, r)
+        return r
 
     def tool_read_input_file(self, fname) -> str:
         """读取待处理的 Markdown 文件。"""
@@ -169,6 +211,13 @@ class Md2KgTools(ToolsMixin):
             indent=2, ensure_ascii=False
         )
 
+        cache_fname = path.join(
+            self.pj_dir,
+            'induce_' + gen_objs_md5(resolved_graph) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, None)
+        if r: return r
+
         user_prompt = SCHEMA_INDUCER_USER_PROMPT.format(
             entities_json=entities_json,
             relations_json=relations_json
@@ -181,10 +230,12 @@ class Md2KgTools(ToolsMixin):
             logger.info(f"Schema归纳完成: {len(induction_result.entity_types)} 种实体类型, "
                         f"{len(induction_result.relation_types)} 种关系类型")
             logger.debug(f"归纳日志: {induction_result.induction_log}")
-            return {
+            result = {
                 "entity_types": induction_result.entity_types,
                 "relation_types": induction_result.relation_types
             }
+            write_yaml_model(cache_fname, result)
+            return result
         except Exception as e:
             logger.error(f"Schema归纳失败: {e}")
             # 归纳失败时回退到默认Schema
