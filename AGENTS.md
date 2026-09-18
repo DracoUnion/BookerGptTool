@@ -41,3 +41,27 @@ Pydantic 模型：
 
 - 在`<sub_cmd>.py`中的`reg_subparser(subparsers)`函数中注册子命令。
 - 然后在`__main__.py`中调用该函数来注册。
+
+## 为子命令添加工具
+
+（当用户要求为子命令添加工具时使用。）
+
+把子命令名称`sub-cmd`转换为下划线格式`sub_cmd`。
+
+确保子命令是开放工具调用循环结构，即：
+
+- `<sub_cmd>.py`的编排器类的`run()`方法调用`call_llm_with_toolcall_retry()`
+- 不存在`<sub_cmd>_agent.py`，但存在`<sub_cmd>_tools.py`。
+
+你需要：
+
+1.  理解待添加项目的工作流的步骤。
+2.  对比当前项目的工作流步骤，找出缺失步骤
+3.  将缺失步骤添加到`<sub_cmd>_tools.py`中的工具类中，每个步骤实现为一个方法，名称添加前缀`tool_*`。
+    3.  确保工具类方法符合【添加子命令】一节中智能体方法的要求。
+    3.  确保工具类方法具有文件缓存，调用`util.py`的`read_yaml_model`来加载文件缓存，判断非空，调用大模型后调用`write_yaml_model`来保存文件缓存。
+    3.  工具类应继承`ToolsMixin`类
+    3.  工具类应具有`_TOOL_PARAMS`类属性，描述所有`tool_*`方法的参数 Schema。
+    3.  具体参见`md2kg.py`。
+4.  将依赖的提示词写到`<sub_cmd>_pmt.py`，要求同【添加子命令】一节。
+5.  将依赖的 Pydantic 模型写到`<sub_cmd>_models.py`，要求同【添加子命令】一节。
