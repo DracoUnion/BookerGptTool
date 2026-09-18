@@ -64,9 +64,8 @@ class Md2WikiTools(ToolsMixin):
         self.stream = getattr(args, 'stream', False)
         # WIKI_ROOT：优先命令行 --workspace，否则 pj_dir
         ws = getattr(args, 'workspace', None)
-        self.wiki_root = os.path.abspath(ws) if ws else self._default_root()
-        os.makedirs(self.wiki_root, exist_ok=True)
-        self.pj_dir = self.wiki_root
+        self.pj_dir = os.path.abspath(ws) if ws else self._default_root()
+        os.makedirs(self.pj_dir, exist_ok=True)
         self._ensure_structure()
 
     def _default_root(self) -> str:
@@ -80,8 +79,8 @@ class Md2WikiTools(ToolsMixin):
     # ── 路径安全 ──────────────────────────────────────────
     def _res(self, *parts: str) -> str:
         """把相对路径解析到 WIKI_ROOT 内，阻止路径穿越。"""
-        p = os.path.abspath(path.join(self.wiki_root, *parts))
-        if not (p == self.wiki_root or p.startswith(self.wiki_root + os.sep)):
+        p = os.path.abspath(path.join(self.pj_dir, *parts))
+        if not (p == self.pj_dir or p.startswith(self.pj_dir + os.sep)):
             raise ValueError(f'非法路径：{parts!r}（只能访问工作区内的文件）')
         return p
 
@@ -140,7 +139,7 @@ class Md2WikiTools(ToolsMixin):
     def tool_workspace_show(self):
         """显示当前 wiki 工作区路径与目录状态。"""
         return {
-            'wiki_root': self.wiki_root,
+            'wiki_root': self.pj_dir,
             'raw_files': len(self.tool_list_raw_sources()),
             'wiki_pages': {
                 s: len(self._list_md(f'wiki/{s}'))
@@ -150,11 +149,11 @@ class Md2WikiTools(ToolsMixin):
 
     def tool_workspace_set(self, path):
         """设置 wiki 工作区路径并重建目录结构（path 替换当前 workspace）。"""
-        self.wiki_root = os.path.abspath(path)
-        os.makedirs(self.wiki_root, exist_ok=True)
-        self.pj_dir = self.wiki_root
+        self.pj_dir = os.path.abspath(path)
+        os.makedirs(self.pj_dir, exist_ok=True)
+        self.pj_dir = self.pj_dir
         self._ensure_structure()
-        return {'wiki_root': self.wiki_root}
+        return {'wiki_root': self.pj_dir}
 
     def tool_read_config(self):
         """读取 config.yaml（无则返回默认配置）。"""
@@ -184,7 +183,7 @@ class Md2WikiTools(ToolsMixin):
         if not path.isdir(raw_root):
             return []
         return [
-            path.relpath(path.join(root, f), self.wiki_root).replace(os.sep, '/')
+            path.relpath(path.join(root, f), self.pj_dir).replace(os.sep, '/')
             for root, _, files in os.walk(raw_root)
             for f in files
         ]
@@ -269,7 +268,7 @@ class Md2WikiTools(ToolsMixin):
             dst = path.join(dst_dir, f'{base}-{n}{ext}')
             n += 1
         shutil.copy2(source_path, dst)
-        rel = path.relpath(dst, self.wiki_root).replace(os.sep, '/')
+        rel = path.relpath(dst, self.pj_dir).replace(os.sep, '/')
         return {'archived': rel, 'source_file': rel, 'source_type': self._source_type(ext)}
 
     @staticmethod
@@ -402,7 +401,7 @@ class Md2WikiTools(ToolsMixin):
         dst = self._page_path(page)
         existed = path.isfile(dst)
         write_text(dst, self._render(page))
-        return {'path': path.relpath(dst, self.wiki_root).replace(os.sep, '/'),
+        return {'path': path.relpath(dst, self.pj_dir).replace(os.sep, '/'),
                 'updated': existed}
 
     def tool_update_index(self):

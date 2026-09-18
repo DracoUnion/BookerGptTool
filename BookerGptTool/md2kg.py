@@ -60,6 +60,7 @@ class KnowledgeGraphOrchestrator:
             self.tools.get_tool_defs(),
             self.tools.get_tool_dict(),
             tool_finish_name='tool_finish',
+            history_fname=path.join(self.pj_dir, 'history.yaml'),
             retry=self.args.retry, 
             temp=self.args.temp, 
             top_p=self.args.top_p,

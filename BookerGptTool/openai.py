@@ -179,6 +179,7 @@ def call_llm_with_toolcall_retry(
     msgs, model_name,
     tool_defs, tool_dict, *,
     tool_finish_name='',
+    history_fname='',
     retry=10,
     temp=None,
     top_p=None,
@@ -191,6 +192,9 @@ def call_llm_with_toolcall_retry(
     if isinstance(msgs, str):
         msgs = [{'role': 'user', 'content': msgs}]
     msgs = repl_ins_token(msgs)
+    if history_fname:
+        history = read_yaml_model(history_fname, None)
+        if history: msgs = history
     extra_body = extra_body or {}
     if isinstance(extra_body, str):
         extra_body = json.loads(extra_body)
@@ -204,6 +208,8 @@ def call_llm_with_toolcall_retry(
     )
     while True:
         msgs = compact(msgs, max_tokens=100_000).messages
+        if history_fname:
+            write_yaml_model(history_fname, msgs)
         logger.debug(f'ques: %s', json_dump_model(get_msgs_text(msgs)))
         res, toolcalls, ans = _chat_cmpl_create_retry(
             client, msgs, model_name,

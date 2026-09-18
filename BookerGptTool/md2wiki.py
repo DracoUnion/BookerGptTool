@@ -50,7 +50,7 @@ class WikiOrchestrator:
         if self.action not in ACTION_MAP:
             raise ValueError(f'未知动作：{self.action}，可选：{", ".join(ACTION_MAP)}')
         self.tools = Md2WikiTools(args)
-        self.wiki_root = self.tools.wiki_root
+        self.pj_dir = self.tools.pj_dir
 
     def _action_desc(self) -> str:
         tmpl = ACTION_MAP[self.action]
@@ -70,7 +70,7 @@ class WikiOrchestrator:
     def run(self) -> Dict[str, Any]:
         """启动工具调用循环，执行所选工作流。"""
         logger.info(self.args)
-        logger.info('wiki_root: %s, action: %s', self.wiki_root, self.action)
+        logger.info('wiki_root: %s, action: %s', self.pj_dir, self.action)
         logger.info('可用工具：%s', list(self.tools.get_tool_dict().keys()))
 
         action_desc = self._action_desc()
@@ -81,6 +81,7 @@ class WikiOrchestrator:
             self.tools.get_tool_defs(),
             self.tools.get_tool_dict(),
             tool_finish_name='tool_finish',
+            history_fname=path.join(self.pj_dir, 'history.yaml'),
             retry=self.args.retry,
             temp=self.args.temp,
             top_p=self.args.top_p,
@@ -90,8 +91,8 @@ class WikiOrchestrator:
             extra_body=self.args.extra_body,
         )
 
-        logger.info(f'[*] 已完成，wiki 工作区：{self.wiki_root}')
-        return {'wiki_root': self.wiki_root, 'action': self.action}
+        logger.info(f'[*] 已完成，wiki 工作区：{self.pj_dir}')
+        return {'wiki_root': self.pj_dir, 'action': self.action}
 
 
 def md2wiki_handle(args):

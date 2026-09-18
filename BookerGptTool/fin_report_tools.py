@@ -38,12 +38,12 @@ class FinReportTools(ToolsMixin):
         self.max_tokens = getattr(args, 'max_tokens', None) or 2000
         self.retry = getattr(args, 'retry', 3)
         self.stream = getattr(args, 'stream', False)
-        self.proj_dir = (
+        self.pj_dir = (
             args.fname[:-4] + '_fin_report'
             if path.isfile(args.fname)
             else path.abspath(args.fname) +  '_fin_report'
         )
-        os.makedirs(self.proj_dir, exist_ok=True)
+        os.makedirs(self.pj_dir, exist_ok=True)
 
     def _call(self, system_prompt: str, user_prompt: str,
               temperature: float = 0.0, max_tokens: Optional[int] = None,
@@ -64,7 +64,7 @@ class FinReportTools(ToolsMixin):
     def tool_anls_fund(self, report: str) -> FundAnlsResult:
         """分析报告的基本面（增长、ROE、资本开支、毛利率等），返回 FundAnlsResult。"""
         cache_fname = path.join(
-            self.proj_dir,
+            self.pj_dir,
             'fund_' + gen_objs_md5(report) + '.yaml'
         )
         r = read_yaml_model(cache_fname, FundAnlsResult)
@@ -81,7 +81,7 @@ class FinReportTools(ToolsMixin):
     def tool_anls_value(self, report: str) -> ValueAnlsResult:
         """分析报告的估值（PE/PB 百分位、资金流向、拥挤度等），返回 ValueAnlsResult。"""
         cache_fname = path.join(
-            self.proj_dir,
+            self.pj_dir,
             'value_' + gen_objs_md5(report) + '.yaml'
         )
         r = read_yaml_model(cache_fname, ValueAnlsResult)
@@ -98,7 +98,7 @@ class FinReportTools(ToolsMixin):
     def tool_anls_sentiment(self, report: str) -> SentiAnlsResult:
         """分析报告的市场情绪（风格、换手、分析师共识、动量等），返回 SentiAnlsResult。"""
         cache_fname = path.join(
-            self.proj_dir,
+            self.pj_dir,
             'senti_' + gen_objs_md5(report) + '.yaml'
         )
         r = read_yaml_model(cache_fname, SentiAnlsResult)
@@ -123,7 +123,7 @@ class FinReportTools(ToolsMixin):
     def tool_bull_initial(self, analysis: AnlsOutput) -> str:
         """生成看多方的初始论点。"""
         cache_fname = path.join(
-            self.proj_dir,
+            self.pj_dir,
             'bull_init_' + gen_objs_md5(analysis.json()) + '.md'
         )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
@@ -140,7 +140,7 @@ class FinReportTools(ToolsMixin):
     def tool_bull_rebut(self, analysis: AnlsOutput, opponent_argument: str) -> str:
         """生成看多方对空方论点的反驳。"""
         cache_fname = path.join(
-            self.proj_dir,
+            self.pj_dir,
             'bull_rebut_' + gen_objs_md5(analysis.json(), opponent_argument) + '.md'
         )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
@@ -161,7 +161,7 @@ class FinReportTools(ToolsMixin):
     def tool_bear_initial(self, analysis: AnlsOutput) -> str:
         """生成看空方的初始论点。"""
         cache_fname = path.join(
-            self.proj_dir,
+            self.pj_dir,
             'bear_init_' + gen_objs_md5(analysis.json()) + '.md'
         )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
@@ -178,7 +178,7 @@ class FinReportTools(ToolsMixin):
     def tool_bear_rebut(self, analysis: AnlsOutput, opponent_argument: str) -> str:
         """生成看空方对多方论点的反驳。"""
         cache_fname = path.join(
-            self.proj_dir,
+            self.pj_dir,
             'bear_rebut_' + gen_objs_md5(analysis.json(), opponent_argument) + '.md'
         )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
@@ -199,7 +199,7 @@ class FinReportTools(ToolsMixin):
     def tool_judge(self, analysis: AnlsOutput, bull_history: List[str], bear_history: List[str]) -> JudgeResult:
         """综合多方与空方论点，给出最终投资裁决（JudgeResult）。"""
         cache_fname = path.join(
-            self.proj_dir,
+            self.pj_dir,
             'judge_' + gen_objs_md5(analysis.json(), bull_history, bear_history) + '.yaml'
         )
         r = read_yaml_model(cache_fname, JudgeResult)

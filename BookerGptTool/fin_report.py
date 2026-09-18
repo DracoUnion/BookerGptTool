@@ -45,12 +45,12 @@ class MultiReportOrchestrator:
 
     def __init__(self, args):
         self.args = args
-        self.proj_dir = (
+        self.pj_dir = (
             args.fname[:-4] + '_fin_report'
             if path.isfile(args.fname)
             else path.abspath(args.fname) +  '_fin_report'
         )
-        os.makedirs(self.proj_dir, exist_ok=True)
+        os.makedirs(self.pj_dir, exist_ok=True)
 
         # 初始化 Agent
         self.tools = FinReportTools(args)
@@ -69,6 +69,7 @@ class MultiReportOrchestrator:
             self.tools.get_tool_defs(),
             self.tools.get_tool_dict(),
             tool_finish_name='tool_finish',
+            history_fname=path.join(self.pj_dir, 'history.yaml'),
             retry=self.args.retry, 
             temp=self.args.temp, 
             top_p=self.args.top_p,
