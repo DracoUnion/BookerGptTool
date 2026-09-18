@@ -2052,3 +2052,213 @@ LECTURE_PATCH_PMT = '''
 {lecture}
 [/content]
 '''
+
+
+# ============================================================
+# 十一、teach-from-paper 兼容提示词：论文 → 教学包
+# ============================================================
+
+TEACH_AUDIENCE_PMT = '''
+你是一位教学设计师。请通读论文，输出 Pre-Flight 报告：标题/作者/年份、一句话核心论点、受众级别、课时预算、假定前置知识与贯穿讲座的示例候选。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "paper_title": "论文标题",
+  "authors": "作者",
+  "year": "年份",
+  "thesis": "一句话核心论点（用自己的话概括论文的中心主张）",
+  "audience_level": "undergrad | phd | seminar",
+  "time_minutes": 60,
+  "prerequisites": ["学生必须先掌握的概念1", "概念2"],
+  "running_example": "文章里可贯穿整场讲座的应用示例"
+}
+```
+
+受众级别决定下游的符号深度与保留哪些证明：
+- undergrad：保留直觉、去掉证明；
+- phd：保留识别性假设与一次关键推导；
+- seminar：突出"贡献 vs 文献"的框架。
+Note：标题、作者、年份须从全文提取，不要凭记忆猜测。
+
+## 论文
+
+[content]
+{text}
+[/content]
+
+请输出 JSON。
+'''
+
+TEACH_RESULTS_PMT = '''
+你是一位讲师。请从论文中挑出**值得在课堂上讲授的 3-5 个结果**——不是罗列每条命题，
+而是学生听完应记住的：首选核心结论、使结论可信的关键识别性假设、以及一个意外点或局限。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "results": [
+    {
+      "id": "R1",
+      "name": "结果名称",
+      "statement": "形式化陈述（按受众级别裁剪长度）",
+      "intuition": "为什么成立（一句话，不要代数）",
+      "failure_mode": "何时会失效",
+      "method_vs_takeaway": "方法（他们如何得到）与结论（我们现在相信什么）之辨析"
+    }
+  ],
+  "notation_notes": ["符号映射提醒1", "学生容易混淆的符号说明2"]
+}
+```
+
+## 受众设定
+
+[content]
+{audience_json}
+[/content]
+
+## 论文
+
+[content]
+{text}
+[/content]
+
+请输出 JSON。
+'''
+
+TEACH_OUTLINE_PMT = '''
+你是一位课程设计专家。请为论文设计一条"动机 -> 设定 -> 核心结果 -> 方法 -> 可迁移结论"的讲义主线，
+再生成与课时匹配的幻灯片骨架（约 1 分钟/页）。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "arc_motivation": "动机一句话",
+  "arc_setup": "设定一句话",
+  "arc_key_result": "核心结果一句话",
+  "arc_method": "方法一句话",
+  "arc_takeaways": "可迁移结论一句话",
+  "slides": [
+    { "num": 1, "title": "标题", "content_note": "一行内容要点", "figure": "配图/图表占位" },
+    { "num": 2, "title": "...", "content_note": "...", "figure": "..." }
+  ]
+}
+```
+
+教学结构须符合：动机先于形式化、每个定义附近有一个例子、每个幕间有过渡页。
+幻灯片数量约 = ceil(time_minutes / 2)；每页只需标题 + 一行要点 + 图表占位，供下游起草，不需成稿。
+
+## 受众与课时
+
+[content]
+{audience_json}
+[/content]
+
+## 值得讲授的结果
+
+[content]
+{results_json}
+[/content]
+
+请输出 JSON。
+'''
+
+TEACH_QUESTIONS_PMT = '''
+你是一位讨论课讲师。请围绕论文写 4-6 道分级讨论题，按 comprehension → application → critique 的顺序由浅入深，
+其中至少一道 critique 类（"这个方法在哪里会失效/这个识别会在哪里失败"）。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "questions": [
+    { "depth": "comprehension | application | critique", "text": "题目" },
+    { "depth": "...", "text": "..." }
+  ]
+}
+```
+
+## 受众级别
+
+[content]
+{audience_json}
+[/content]
+
+## 值得讲授的结果
+
+[content]
+{results_json}
+[/content]
+
+请输出 JSON。
+'''
+
+TEACH_EXERCISES_PMT = '''
+你是一位习题设计师。请为论文写 2-4 个习题简介（Brief）——给出题干、训练的技能、期望答案形态，
+**不要写完整解答**（由下游脚手架技能补充题目、数据与答案）。
+
+要求输出为 JSON（```json 代码块包裹）：
+
+```
+{
+  "exercises": [
+    { "id": "E1", "prompt": "题干", "drills": "训练的技能", "answer_shape": "期望答案形态" }
+  ]
+}
+```
+
+## 受众级别
+
+[content]
+{audience_json}
+[/content]
+
+## 值得讲授的结果
+
+[content]
+{results_json}
+[/content]
+
+请输出 JSON。
+'''
+
+# 教学包交付物模板
+TEACH_PACKAGE_TMPL = '''
+# Teaching Package: {paper_title}
+
+**Audience:** {audience_level} · **Budget:** {time_minutes} min · **Date:** {date}
+
+## 1. Lecture Outline
+
+- Motivation -> {arc_motivation}
+- Setup -> {arc_setup}
+- Key Result -> {arc_key_result}
+- Method -> {arc_method}
+- Takeaways -> {arc_takeaways}
+
+## 2. Results Worth Presenting
+
+### {rid} — {rname}
+
+- **Statement:** {statement}
+- **Intuition:** {intuition}
+- **Breaks when:** {failure_mode}
+- **Method vs Takeaway:** {method_vs_takeaway}
+
+## 3. Slide Skeleton
+
+| # | Title | Content note | Figure/diagram |
+| --- | --- | --- | --- |
+{skeleton_rows}
+
+## 4. Discussion Questions
+
+{discussion_rows}
+
+## 5. Exercise Brief
+
+{exercise_rows}
+'''

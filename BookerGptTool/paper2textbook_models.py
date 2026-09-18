@@ -748,3 +748,86 @@ class LectureDeliverable(_Base):
     title: str = Field(..., description='讲义标题')
     lecture: str = Field(..., description='讲义主体（Markdown，按输出模板）')
     coverage: LectureCoverageReport = Field(..., description='覆盖率报告')
+
+
+# ============================================================
+# 十一、teach-from-paper 兼容工作流：论文 → 教学包（讲义/要点/幻灯片骨架/讨论题/习题简介）
+# ============================================================
+
+class TeachingAudience(_Base):
+    """教学受众设定与 Pre-Flight 报告（Phase 0）"""
+    paper_title: str = Field(..., description='论文标题')
+    authors: str = Field('', description='作者')
+    year: str = Field('', description='年份')
+    thesis: str = Field(..., description='一句话核心论点')
+    audience_level: str = Field(..., description='受众级别：undergrad / phd / seminar')
+    time_minutes: int = Field(60, description='课时预算（分钟）')
+    prerequisites: List[str] = Field(default_factory=list, description='假定的前置知识')
+    running_example: str = Field('', description='贯穿讲座的示例候选')
+
+
+class TeachingResult(_Base):
+    """单个值得讲授的结果"""
+    id: str = Field(..., description='编号，如 R1')
+    name: str = Field(..., description='结果名称')
+    statement: str = Field(..., description='形式化陈述（按受众裁剪）')
+    intuition: str = Field(..., description='直觉解释（一句话，无代数）')
+    failure_mode: str = Field(..., description='何时失效')
+    method_vs_takeaway: str = Field('', description='方法（如何得到）与结论（我们相信什么）之辨析')
+
+
+class TeachingResults(_Base):
+    """Phase 1：值得讲授的 3-5 个结果"""
+    results: List[TeachingResult] = Field(..., description='结果列表（3-5 个）')
+    notation_notes: List[str] = Field(default_factory=list, description='符号映射 / 易混符号提醒')
+
+
+class TeachingSlide(_Base):
+    """单页幻灯片骨架条目"""
+    num: int = Field(..., description='页码')
+    title: str = Field(..., description='标题')
+    content_note: str = Field(..., description='一行内容要点')
+    figure: str = Field('', description='配图 / 图表占位')
+
+
+class TeachingOutline(_Base):
+    """Phase 2：讲义主线 + 幻灯片骨架"""
+    arc_motivation: str = Field('', description='动机（Motivation）')
+    arc_setup: str = Field('', description='设定（Setup）')
+    arc_key_result: str = Field('', description='核心结果（Key Result）')
+    arc_method: str = Field('', description='方法（Method）')
+    arc_takeaways: str = Field('', description='可迁移结论（Takeaways）')
+    slides: List[TeachingSlide] = Field(..., description='幻灯片骨架（约 课时/2 页）')
+
+
+class TeachingQuestion(_Base):
+    """讨论题"""
+    depth: str = Field(..., description='深度：comprehension / application / critique')
+    text: str = Field(..., description='题目')
+
+
+class TeachingQuestions(_Base):
+    """Phase 3a：4-6 道分级讨论题"""
+    questions: List[TeachingQuestion] = Field(..., description='讨论题列表（按 comprehension→application→critique 排序）')
+
+
+class TeachingExercise(_Base):
+    """习题简介（Brief，非完整解答）"""
+    id: str = Field(..., description='编号，如 E1')
+    prompt: str = Field(..., description='题干')
+    drills: str = Field(..., description='训练的技能')
+    answer_shape: str = Field(..., description='期望答案形态')
+
+
+class TeachingExercises(_Base):
+    """Phase 3b：2-4 个习题简介"""
+    exercises: List[TeachingExercise] = Field(default_factory=list, description='习题简介列表')
+
+
+class TeachingPackage(_Base):
+    """教学包：最终交付物"""
+    audience: TeachingAudience = Field(..., description='受众设定')
+    results: TeachingResults = Field(..., description='值得讲授的结果')
+    outline: TeachingOutline = Field(..., description='讲义主线与幻灯片骨架')
+    questions: TeachingQuestions = Field(..., description='讨论题')
+    exercises: TeachingExercises = Field(..., description='习题简介')

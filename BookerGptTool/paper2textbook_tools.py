@@ -922,6 +922,108 @@ class Paper2TextbookTools(ToolsMixin):
         write_text(cache_fname, body)
         return body
 
+    # ============================================================
+    # 十一、teach-from-paper 兼容工作流：论文 → 教学包
+    # ============================================================
+    def tool_teach_audience(self, text: str) -> TeachingAudience:
+        """读取论文并输出 Pre-Flight 报告：标题/论点/受众级别/课时/前置知识（Phase 0）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'teach_aud_' + gen_objs_md5(text) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, TeachingAudience)
+        if r: return r
+        prompt = render_prompt(TEACH_AUDIENCE_PMT, text=text)
+        r = self._json(TeachingAudience, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_teach_extract_results(self, text: str, audience: TeachingAudience) -> TeachingResults:
+        """提取值得讲授的 3-5 个结果：陈述/直觉/失效模式/方法-结论辨析（Phase 1）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'teach_results_' + gen_objs_md5(text, audience) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, TeachingResults)
+        if r: return r
+        prompt = render_prompt(
+            TEACH_RESULTS_PMT,
+            audience_json=json_dump_model(audience),
+            text=text,
+        )
+        r = self._json(TeachingResults, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_teach_build_outline(self, audience: TeachingAudience, results: TeachingResults) -> TeachingOutline:
+        """生成讲义主线（动机→设定→核心结果→方法→结论）与幻灯片骨架（Phase 2）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'teach_outline_' + gen_objs_md5(audience, results) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, TeachingOutline)
+        if r: return r
+        prompt = render_prompt(
+            TEACH_OUTLINE_PMT,
+            audience_json=json_dump_model(audience),
+            results_json=json_dump_model(results),
+        )
+        r = self._json(TeachingOutline, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_teach_discussion_questions(self, audience: TeachingAudience, results: TeachingResults) -> TeachingQuestions:
+        """写 4-6 道分级讨论题（comprehension→application→critique）（Phase 3a）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'teach_questions_' + gen_objs_md5(audience, results) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, TeachingQuestions)
+        if r: return r
+        prompt = render_prompt(
+            TEACH_QUESTIONS_PMT,
+            audience_json=json_dump_model(audience),
+            results_json=json_dump_model(results),
+        )
+        r = self._json(TeachingQuestions, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_teach_exercise_brief(self, audience: TeachingAudience, results: TeachingResults) -> TeachingExercises:
+        """写 2-4 个习题简介（题干/技能/答案形态，非完整解答）（Phase 3b）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'teach_exercises_' + gen_objs_md5(audience, results) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, TeachingExercises)
+        if r: return r
+        prompt = render_prompt(
+            TEACH_EXERCISES_PMT,
+            audience_json=json_dump_model(audience),
+            results_json=json_dump_model(results),
+        )
+        r = self._json(TeachingExercises, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_teach_render_package(
+        self, audience: TeachingAudience, results: TeachingResults,
+        outline: TeachingOutline, questions: TeachingQuestions,
+        exercises: TeachingExercises,
+    ) -> str:
+        """把教学包渲染为 Markdown 报告（确定性渲染，写入工作区并返回文本）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'teach_package_' + gen_objs_md5(audience, results, outline, questions, exercises) + '.md'
+        )
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
+        md = _render_teaching_package(
+            audience, results, outline, questions, exercises,
+        )
+        write_text(cache_fname, md)
+        return md
+
     # 工具名 -> OpenAI parameters 结构（type/properties/required）。
     # name 与 description 不再硬编码，由 get_tool_defs 从函数 __name__ / __doc__ 取得。
     # pydantic 模型参数用 Model.schema() 展开，不写死 {"type":"object"}。
@@ -1174,6 +1276,40 @@ class Paper2TextbookTools(ToolsMixin):
             lecture=base_schema('string', '原讲义主体（Markdown）'),
             report=model_schema(LectureCoverageReport, '覆盖率检查报告（LectureCoverageReport）'),
         ),
+
+        # ── 十一、teach-from-paper 兼容工作流 ──────────────────────
+        "tool_teach_audience": params_schema(
+            required=['text'],
+            text=base_schema('string', '论文全文文本'),
+        ),
+        "tool_teach_extract_results": params_schema(
+            required=['text', 'audience'],
+            text=base_schema('string', '论文全文文本'),
+            audience=model_schema(TeachingAudience, '受众设定（TeachingAudience）'),
+        ),
+        "tool_teach_build_outline": params_schema(
+            required=['audience', 'results'],
+            audience=model_schema(TeachingAudience, '受众设定（TeachingAudience）'),
+            results=model_schema(TeachingResults, '值得讲授的结果（TeachingResults）'),
+        ),
+        "tool_teach_discussion_questions": params_schema(
+            required=['audience', 'results'],
+            audience=model_schema(TeachingAudience, '受众设定（TeachingAudience）'),
+            results=model_schema(TeachingResults, '值得讲授的结果（TeachingResults）'),
+        ),
+        "tool_teach_exercise_brief": params_schema(
+            required=['audience', 'results'],
+            audience=model_schema(TeachingAudience, '受众设定（TeachingAudience）'),
+            results=model_schema(TeachingResults, '值得讲授的结果（TeachingResults）'),
+        ),
+        "tool_teach_render_package": params_schema(
+            required=['audience', 'results', 'outline', 'questions'],
+            audience=model_schema(TeachingAudience, '受众设定（TeachingAudience）'),
+            results=model_schema(TeachingResults, '值得讲授的结果（TeachingResults）'),
+            outline=model_schema(TeachingOutline, '讲义主线与幻灯片骨架（TeachingOutline）'),
+            questions=model_schema(TeachingQuestions, '讨论题（TeachingQuestions）'),
+            exercises=model_schema(TeachingExercises, '习题简介（TeachingExercises），可选'),
+        ),
     }
 
 
@@ -1416,3 +1552,68 @@ cd "$(dirname "$0")"
 # node scripts/build-all.js .
 echo "课程已生成：index.html / README.md / slides-config.json"
 '''
+
+
+# ============================================================
+# teach-from-paper 兼容：教学包渲染（确定性）
+# ============================================================
+
+def _render_teaching_package(
+    audience: TeachingAudience,
+    results: TeachingResults,
+    outline: TeachingOutline,
+    questions: TeachingQuestions,
+    exercises: TeachingExercises,
+) -> str:
+    """把教学包结构化对象渲染为 `teach_from_paper_[标题].md` 的 Markdown 文本。"""
+    date = datetime.now().strftime('%Y-%m-%d')
+    lines = [
+        f'# Teaching Package: {audience.paper_title}',
+        '',
+        f'**Audience:** {audience.audience_level} · **Budget:** {audience.time_minutes} min · '
+        f'**Date:** {date}',
+        '',
+        '## 1. Lecture Outline',
+        '',
+        f'- Motivation -> {outline.arc_motivation or "（待定）"}',
+        f'- Setup -> {outline.arc_setup or "（待定）"}',
+        f'- Key Result -> {outline.arc_key_result or "（待定）"}',
+        f'- Method -> {outline.arc_method or "（待定）"}',
+        f'- Takeaways -> {outline.arc_takeaways or "（待定）"}',
+        '',
+        '## 2. Results Worth Presenting',
+        '',
+    ]
+    for r in results.results:
+        lines += [
+            f'### {r.id} — {r.name}',
+            '',
+            f'- **Statement:** {r.statement}',
+            f'- **Intuition:** {r.intuition}',
+            f'- **Breaks when:** {r.failure_mode}',
+        ]
+        if r.method_vs_takeaway:
+            lines += [f'- **Method vs Takeaway:** {r.method_vs_takeaway}']
+        lines += ['']
+    if results.notation_notes:
+        lines += ['**Notation notes:**']
+        lines += [f'- {n}' for n in results.notation_notes]
+        lines += ['']
+
+    lines += ['## 3. Slide Skeleton', '', '| # | Title | Content note | Figure/diagram |', '| --- | --- | --- | --- |']
+    for s in outline.slides:
+        lines.append(f'| {s.num} | {s.title} | {s.content_note} | {s.figure or "—"} |')
+    lines += ['']
+
+    lines += ['## 4. Discussion Questions', '']
+    for i, q in enumerate(questions.questions, 1):
+        lines.append(f'{i}. [{q.depth}] {q.text}')
+    lines += ['']
+
+    if exercises.exercises:
+        lines += ['## 5. Exercise Brief', '']
+        for e in exercises.exercises:
+            lines += [
+                f'- **{e.id}:** {e.prompt} — drills {e.drills} — answer shape: {e.answer_shape}',
+            ]
+    return '\n'.join(lines)
