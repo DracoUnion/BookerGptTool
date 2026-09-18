@@ -14,6 +14,7 @@ from typing import *
 from pydantic import BaseModel, parse_obj_as, ValidationError
 from .util import render_prompt
 from openai.types.chat import *
+from ctx_compact import compact
 
 logging.getLogger("openai._base_client").setLevel(logging.CRITICAL)
 logging.getLogger("httpx").setLevel(logging.CRITICAL)
@@ -189,6 +190,7 @@ def call_llm_with_toolcall_retry(
         timeout=openai.timeout,
     )
     while True:
+        msgs = compact(msgs, max_tokens=100_000).messages
         logger.debug(f'ques: %s', _json_dump(get_msgs_text(msgs)))
         res, toolcalls, ans = _chat_cmpl_create_retry(
             client, msgs, model_name,
