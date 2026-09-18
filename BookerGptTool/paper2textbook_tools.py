@@ -187,7 +187,10 @@ class Paper2TextbookTools(ToolsMixin):
         concept_cards: List[PaperConcepts],
     ) -> List[OutlineChapter]:
         """根据书籍结构（struct）与概念卡片生成全书章级大纲。"""
-        cache_fname = 'outline_' + gen_objs_md5(concept_cards) + '.yaml'
+        cache_fname = path.join(
+            self.pj_dir,
+            'outline_' + gen_objs_md5(concept_cards) + '.yaml',
+        )
         r = read_yaml_model(cache_fname, List[OutlineChapter])
         if r: return r
         prompt = render_prompt(
@@ -210,7 +213,10 @@ class Paper2TextbookTools(ToolsMixin):
         problem: str,
     ) -> List[OutlineChapter]:
         """根据问题描述（problem）修正已生成的全书大纲。"""
-        cache_fname = 'outline_fix_' + gen_objs_md5(outline, concept_cards, problem) + '.yaml'
+        cache_fname = path.join(
+            self.pj_dir,
+            'outline_fix_' + gen_objs_md5(outline, concept_cards, problem) + '.yaml',
+        )
         r = read_yaml_model(cache_fname, List[OutlineChapter])
         if r: return r
         prompt = render_prompt(
@@ -238,7 +244,10 @@ class Paper2TextbookTools(ToolsMixin):
         paper_desc: List[PaperConcepts],
     ) -> ConceptAnlsResult:
         """针对第 i 章做概念分析，产出知识单元（ConceptUnit）列表。"""
-        cache_fname = 'detail_ccpt_' + gen_objs_md5(outline, paper_desc, i) + '.yaml'
+        cache_fname = path.join(
+            self.pj_dir,
+            'detail_ccpt_' + gen_objs_md5(outline, paper_desc, i) + '.yaml',
+        )
         r = read_yaml_model(cache_fname, ConceptAnlsResult)
         if r: return r
         prompt = render_prompt(
@@ -259,7 +268,10 @@ class Paper2TextbookTools(ToolsMixin):
         paper_desc: List[PaperConcepts],
     ) -> RestDetailResult:
         """基于概念分析结果生成第 i 章其余内容（目标/概念图/类比/小结/习题）。"""
-        cache_fname = 'detail_rest_' + gen_objs_md5(outline, detail, paper_desc, i) + '.yaml'
+        cache_fname = path.join(
+            self.pj_dir,
+            'detail_rest_' + gen_objs_md5(outline, detail, paper_desc, i) + '.yaml',
+        )
         r = read_yaml_model(cache_fname, RestDetailResult)
         if r: return r
         prompt = render_prompt(
@@ -282,7 +294,10 @@ class Paper2TextbookTools(ToolsMixin):
         problem: str,
     ) -> ChapterDetail:
         """根据问题描述（problem）修正第 i 章的章节细纲。"""
-        cache_fname = 'detail_fix_' + gen_objs_md5(detail, outline, paper_desc, problem) + '.yaml'
+        cache_fname = path.join(
+            self.pj_dir,
+            'detail_fix_' + gen_objs_md5(detail, outline, paper_desc, problem) + '.yaml',
+        )
         r = read_yaml_model(cache_fname, ChapterDetail)
         if r: return r
         prompt = render_prompt(
@@ -308,7 +323,10 @@ class Paper2TextbookTools(ToolsMixin):
         paper_desc: List[PaperConcepts],
     ) -> str:
         """基于章节细纲生成第 i 章的章节正文。"""
-        cache_fname = 'body_' + gen_objs_md5(outline, detail, paper_desc, i) + '.md'
+        cache_fname = path.join(
+            self.pj_dir,
+            'body_' + gen_objs_md5(outline, detail, paper_desc, i) + '.md',
+        )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
             r = read_text(cache_fname)
             return r
@@ -325,7 +343,10 @@ class Paper2TextbookTools(ToolsMixin):
 
     def tool_check_body(self, body: str, detail: ChapterDetail) -> str:
         """检查章节正文是否与细纲一致，并返回问题反馈。"""
-        cache_fname = 'body_check_' + gen_objs_md5(body, detail) + '.md'
+        cache_fname = path.join(
+            self.pj_dir,
+            'body_check_' + gen_objs_md5(body, detail) + '.md',
+        )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
             r = read_text(cache_fname)
             return r
@@ -336,7 +357,10 @@ class Paper2TextbookTools(ToolsMixin):
 
     def tool_fix_body(self, body: str, comment: str, paper_desc: List[PaperConcepts]) -> str:
         """根据检查反馈（comment）修正章节正文。"""
-        cache_fname = 'body_fix_' + gen_objs_md5(body, comment, paper_desc) + '.md'
+        cache_fname = path.join(
+            self.pj_dir,
+            'body_fix_' + gen_objs_md5(body, comment, paper_desc) + '.md',
+        )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
             r = read_text(cache_fname)
             return r
@@ -356,7 +380,10 @@ class Paper2TextbookTools(ToolsMixin):
 
     def tool_gen_glossary(self, paper: str) -> List[GlossaryEntry]:
         """根据论文内容生成术语对照表（术语/别名/首次出现位置）。"""
-        cache_fname = 'glossary_' + gen_objs_md5(paper) + '.yaml'
+        cache_fname = path.join(
+            self.pj_dir,
+            'glossary_' + gen_objs_md5(paper) + '.yaml',
+        )
         r = read_yaml_model(cache_fname, List[GlossaryEntry])
         if r: return r
         prompt = render_prompt(TERM_GLOSSARY_PMT, paper=paper)
@@ -366,7 +393,10 @@ class Paper2TextbookTools(ToolsMixin):
 
     def tool_check_consistency(self, previous_chapter: str, current_chapter: str) -> str:
         """检查当前章与上一章之间的术语/口径一致性，并返回问题反馈。"""
-        cache_fname = 'consist_check_' + gen_objs_md5(previous_chapter, current_chapter) + '.md'
+        cache_fname = path.join(
+            self.pj_dir,
+            'consist_check_' + gen_objs_md5(previous_chapter, current_chapter) + '.md',
+        )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
             r = read_text(cache_fname)
             return r
@@ -380,7 +410,10 @@ class Paper2TextbookTools(ToolsMixin):
 
     def tool_audit_citations(self, chapter: str, paper: str) -> CitationAudit:
         """审计章节中的引用情况，返回引用统计、无支撑观点与缺失概念。"""
-        cache_fname = 'audit_' + gen_objs_md5(chapter, paper) + '.yaml'
+        cache_fname = path.join(
+            self.pj_dir,
+            'audit_' + gen_objs_md5(chapter, paper) + '.yaml',
+        )
         r = read_yaml_model(cache_fname, CitationAudit)
         if r: return r
         prompt = render_prompt(CITATION_AUDIT_PMT, book=chapter, paper=paper)
