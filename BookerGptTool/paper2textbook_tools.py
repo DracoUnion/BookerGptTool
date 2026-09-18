@@ -367,7 +367,7 @@ class Paper2TextbookTools(ToolsMixin):
     def tool_check_consistency(self, previous_chapter: str, current_chapter: str) -> str:
         """检查当前章与上一章之间的术语/口径一致性，并返回问题反馈。"""
         cache_fname = 'consist_check_' + gen_objs_md5(previous_chapter, current_chapter) + '.md'
-        if path.isfile(cache_fname) and path.getsize(cache_fname)
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
             r = read_text(cache_fname)
             return r
         prompt = render_prompt(
