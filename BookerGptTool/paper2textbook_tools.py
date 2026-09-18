@@ -282,6 +282,9 @@ class Paper2TextbookTools(ToolsMixin):
         problem: str,
     ) -> ChapterDetail:
         """根据问题描述（problem）修正第 i 章的章节细纲。"""
+        cache_fname = 'detail_fix_' + gen_objs_md5(detail, outline, paper_desc, problem) + '.yaml'
+        r = read_yaml_model(cache_fname, ChapterDetail)
+        if r: return r
         prompt = render_prompt(
             DETAIL_FIX_PMT,
             i=str(i),
@@ -290,7 +293,9 @@ class Paper2TextbookTools(ToolsMixin):
             paper_desc=json_dump_model(paper_desc),
             problem=problem,
         )
-        return self._json(ChapterDetail, prompt, self.model, self.args)
+        r = self._json(ChapterDetail, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
 
     # ============================================================
     # 五、章节正文
@@ -303,6 +308,10 @@ class Paper2TextbookTools(ToolsMixin):
         paper_desc: List[PaperConcepts],
     ) -> str:
         """基于章节细纲生成第 i 章的章节正文。"""
+        cache_fname = 'body_' + gen_objs_md5(outline, detail, paper_desc, i) + '.md'
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            r = read_text(cache_fname)
+            return r
         prompt = render_prompt(
             BODY_PMT,
             i=str(i),
@@ -310,15 +319,25 @@ class Paper2TextbookTools(ToolsMixin):
             detail=json_dump_model(detail),
             paper_desc=json_dump_model(paper_desc),
         )
-        return self._text(prompt, self.model, self.args)
+        r = self._text(prompt, self.model, self.args)
+        write_text(cache_fname, r)
+        return r
 
     def tool_check_body(self, body: str, detail: ChapterDetail) -> str:
         """检查章节正文是否与细纲一致，并返回问题反馈。"""
+        cache_fname = 'body_check_' + gen_objs_md5(body, detail) + '.md'
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            r = read_text(cache_fname)
+            return r
         prompt = render_prompt(BODY_CHK_PMT, body=body, detail=json_dump_model(detail))
-        return self._text(prompt, self.model, self.args)
+        r = self._text(prompt, self.model, self.args)
+        write_text(cache_fname, r)
+        return r
 
     def tool_fix_body(self, body: str, comment: str, paper_desc: List[PaperConcepts]) -> str:
         """根据检查反馈（comment）修正章节正文。"""
+        cache_fane = 'body_fix_' + gen_objs_md5(body, comment, paper_desc) + '.md'
+        
         prompt = render_prompt(
             BODY_FIX_PMT,
             body=body,
