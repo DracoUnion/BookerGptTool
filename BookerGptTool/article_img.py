@@ -360,7 +360,7 @@ def article_img_handle(args):
 
 def reg_subparser(subparsers):
     parser = subparsers.add_parser(
-        'article-img',
+        'art-img',
         help='文章配图生成器（01fish 风格，HTML 可下载 / PNG 导出）',
     )
     parser.add_argument('input', help='文章 Markdown 文件路径')
