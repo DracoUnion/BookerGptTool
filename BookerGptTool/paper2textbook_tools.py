@@ -118,7 +118,7 @@ class Paper2TextbookTools(ToolsMixin):
         """从单篇论文中抽取核心概念/方法/定理/发现，形成概念卡片。"""
         cache_fname = path.join(
             self.pj_dir,
-            'ccpt_' + md5(paper) + '.yaml'
+            'ccpt_' + gen_objs_md5(paper) + '.yaml'
         )
         r = read_yaml_model(cache_fname, PaperConcepts)
         if r: return r
@@ -140,16 +140,15 @@ class Paper2TextbookTools(ToolsMixin):
 
     def tool_cluster_papers(self, paper_briefs: Dict[str, str]) -> List[PartClus]:
         """根据论文简报将论文聚类为若干分部（PartClus）。"""
-        paper_briefs_json = json_dump_model(paper_briefs)
         cache_fname = path.join(
             self.pj_dir,
-            'part_' + md5(paper_briefs_json) + '.yaml'
+            'part_' + gen_objs_md5(paper_briefs) + '.yaml'
         )
         r = read_yaml_model(cache_fname, List[PartClus])
         if r: return r
         prompt = render_prompt(
             PAPER_CLUSTER_PMT,
-            paper_briefs=paper_briefs_json
+            paper_briefs=json_dump_model(paper_briefs)
         )
         r = self._json(
             List[PartClus], prompt, self.model, self.args
@@ -164,19 +163,16 @@ class Paper2TextbookTools(ToolsMixin):
         problem: str
     ) -> List[PartClus]:
         """根据问题描述（problem）修正已生成的论文聚类结果。"""
-        parts_json = json_dump_model(parts)
-        paper_briefs_json = json_dump_model(paper_briefs)
         cache_fname = path.join(
             self.pj_dir,
-            'part_fix_' + md5(parts_json) + 
-                md5(paper_briefs_json) + md5(problem) + '.yaml'
+            'part_fix_' + gen_objs_md5(parts, paper_briefs, problem) + '.yaml'
         )
         r = read_yaml_model(cache_fname, List[PartClus])
         if r: return r
         prompt = render_prompt(
             PAPER_CLUSTER_FIX_PMT,
-            paper_briefs=paper_briefs_json,
-            parts=parts_json,
+            paper_briefs=json_dump_model(paper_briefs),
+            parts=json_dump_model(parts),
             problem=problem,
         )
         return self._json(List[PartClus], prompt, self.model, self.args)
@@ -191,6 +187,7 @@ class Paper2TextbookTools(ToolsMixin):
         concept_cards: List[PaperConcepts],
     ) -> List[OutlineChapter]:
         """根据书籍结构（struct）与概念卡片生成全书章级大纲。"""
+        cache_fname = 'ccpt'
         prompt = render_prompt(
             OUTLINE_PMT,
             struct=json_dump_model(struct),
