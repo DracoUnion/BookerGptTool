@@ -574,6 +574,168 @@ class Paper2TextbookTools(ToolsMixin):
 
 
 
+    # ============================================================
+    # 八、article2book 兼容工作流：内容资产重组
+    # ============================================================
+
+    # @cache
+    def tool_build_article_inventory(self, source: str) -> ArticleInventory:
+        """扫描素材目录，建立素材清单与预处理状态索引（脚本辅助）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'inv_' + gen_objs_md5(source) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, ArticleInventory)
+        if r: return r
+        if path.isfile(source):
+            files = [source.replace('\\', '/')]
+        else:
+            files = [
+                path.join(root, f).replace('\\', '/')
+                for root, _, fnames in os.walk(source)
+                for f in sorted(fnames)
+            ]
+        prompt = render_prompt(
+            ARTICLE_INVENTORY_PMT,
+            file_list='\n'.join(files),
+        )
+        r: ArticleInventory = self._json(
+            ArticleInventory, prompt, self.model, self.args,
+        )
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_read_article(self, fname: str) -> str:
+        """读取素材全文：文本格式直接读，PDF 通过 PyMuPDF 抽取文本。"""
+        ext = extname(fname).lower()
+        if ext in {'md', 'markdown', 'mdx', 'tex', 'txt', 'srt', 'vtt'}:
+            return read_text(fname)
+        if ext == 'pdf':
+            try:
+                import fitz
+            except ImportError as ex:
+                raise ValueError('读取 PDF 需要安装 PyMuPDF') from ex
+            with fitz.open(fname) as doc:
+                return '\n\n'.join(page.get_text() for page in doc)
+        if ext == 'docx':
+            try:
+                import docx
+            except ImportError as ex:
+                raise ValueError('读取 DOCX 需要安装 python-docx') from ex
+            doc = docx.Document(fname)
+            return '\n\n'.join(p.text for p in doc.paragraphs)
+        raise ValueError(f'不支持的素材格式：{fname}')
+
+    def tool_read_articles_batch(self, file_paths: List[str], batch_no: int = 1) -> List[ArticleReadingNote]:
+        """分批通读一批素材并形成结构化通读笔记（Agent 通读协议）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            f'read_batch_{batch_no:02d}_' + gen_objs_md5(file_paths, batch_no) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[ArticleReadingNote])
+        if r: return r
+        articles = '\n\n'.join(
+            f"=== {f} ===\n{self.tool_read_article(f)}"
+            for f in file_paths
+        )
+        prompt = render_prompt(
+            ARTICLE_READING_NOTE_PMT,
+            articles=articles,
+        )
+        r: List[ArticleReadingNote] = self._json(
+            List[ArticleReadingNote], prompt, self.model, self.args,
+        )
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_screen_articles(self, reading_notes: List[ArticleReadingNote]) -> ContentScreeningResult:
+        """基于通读笔记做"保留 / 降权 / 排除"三分类筛选。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'screen_' + gen_objs_md5(reading_notes) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, ContentScreeningResult)
+        if r: return r
+        prompt = render_prompt(
+            CONTENT_SCREENING_PMT,
+            reading_notes=json_dump_model(reading_notes),
+        )
+        r: ContentScreeningResult = self._json(
+            ContentScreeningResult, prompt, self.model, self.args,
+        )
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_judge_content_shape(self, screening: ContentScreeningResult) -> ContentShapeJudgment:
+        """判断这批素材最适合转化为何种内容产品（书/小册子/课程/系列/手册/知识库）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'shape_' + gen_objs_md5(screening) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, ContentShapeJudgment)
+        if r: return r
+        prompt = render_prompt(
+            CONTENT_SHAPE_JUDGMENT_PMT,
+            screening=json_dump_model(screening),
+        )
+        r: ContentShapeJudgment = self._json(
+            ContentShapeJudgment, prompt, self.model, self.args,
+        )
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_assess_book_viability(self, screening: ContentScreeningResult) -> BookViabilityAssessment:
+        """按 7 个维度评估成书可行性，并给出替代形态建议。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'viability_' + gen_objs_md5(screening) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, BookViabilityAssessment)
+        if r: return r
+        prompt = render_prompt(
+            BOOK_VIABILITY_PMT,
+            screening=json_dump_model(screening),
+        )
+        r: BookViabilityAssessment = self._json(
+            BookViabilityAssessment, prompt, self.model, self.args,
+        )
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_gen_planning_opinion(
+        self,
+        screening: ContentScreeningResult,
+        shape: ContentShapeJudgment,
+        viability: BookViabilityAssessment,
+    ) -> PlanningOpinion:
+        """综合形态判断与可行性评估，生成集中的书稿策划意见。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'opinion_' + gen_objs_md5(screening, shape, viability) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, PlanningOpinion)
+        if r: return r
+        prompt = render_prompt(
+            PLANNING_OPINION_PMT,
+            screening=json_dump_model(screening),
+            shape_judgment=json_dump_model(shape),
+            viability=json_dump_model(viability),
+        )
+        r: PlanningOpinion = self._json(
+            PlanningOpinion, prompt, self.model, self.args,
+        )
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_write_planning_opinion_md(self, opinion: PlanningOpinion) -> str:
+        """把 PlanningOpinion 渲染为 `书稿策划意见.md` 的 Markdown 文本。"""
+        cache_fname = path.join(self.pj_dir, '书稿策划意见.md')
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
+        md = _render_planning_opinion_md(opinion)
+        write_text(cache_fname, md)
+        return md
+
     # 工具名 -> OpenAI parameters 结构（type/properties/required）。
     # name 与 description 不再硬编码，由 get_tool_defs 从函数 __name__ / __doc__ 取得。
     # pydantic 模型参数用 Model.schema() 展开，不写死 {"type":"object"}。
@@ -730,5 +892,155 @@ class Paper2TextbookTools(ToolsMixin):
             rounds=model_list_schema(RoundRecord, '审查轮次记录列表'),
             fmt=base_schema('string', '输出格式（html/pdf/both）'),
         ),
+
+        # ── 八、article2book 兼容工作流 ──────────────────────
+        "tool_build_article_inventory": params_schema(
+            required=['source'],
+            source=base_schema('string', '素材目录或文件路径'),
+        ),
+        "tool_read_article": params_schema(
+            required=['fname'],
+            fname=base_schema('string', '素材文件路径'),
+        ),
+        "tool_read_articles_batch": params_schema(
+            required=['file_paths', 'batch_no'],
+            file_paths=str_list_schema('素材文件路径列表'),
+            batch_no=base_schema('integer', '批次序号'),
+        ),
+        "tool_screen_articles": params_schema(
+            required=['reading_notes'],
+            reading_notes=model_list_schema(ArticleReadingNote, '通读笔记列表（ArticleReadingNote）'),
+        ),
+        "tool_judge_content_shape": params_schema(
+            required=['screening'],
+            screening=model_schema(ContentScreeningResult, '内容筛选结果（ContentScreeningResult）'),
+        ),
+        "tool_assess_book_viability": params_schema(
+            required=['screening'],
+            screening=model_schema(ContentScreeningResult, '内容筛选结果（ContentScreeningResult）'),
+        ),
+        "tool_gen_planning_opinion": params_schema(
+            required=['screening', 'shape', 'viability'],
+            screening=model_schema(ContentScreeningResult, '内容筛选结果（ContentScreeningResult）'),
+            shape=model_schema(ContentShapeJudgment, '内容形态判断（ContentShapeJudgment）'),
+            viability=model_schema(BookViabilityAssessment, '成书可行性评估（BookViabilityAssessment）'),
+        ),
+        "tool_write_planning_opinion_md": params_schema(
+            required=['opinion'],
+            opinion=model_schema(PlanningOpinion, '书稿策划意见（PlanningOpinion）'),
+        ),
     }
+
+
+# ============================================================
+# article2book 兼容：PlanningOpinion -> Markdown 渲染
+# ============================================================
+
+_SHAPE_LABELS = {
+    "book": "成书",
+    "booklet": "小册子",
+    "course": "课程",
+    "series": "系列文章",
+    "handbook": "实务手册",
+    "kb": "知识库",
+    "pool": "暂不建议产品化",
+}
+
+_WORTHI_LABELS = {
+    "worth": "值得",
+    "potential": "有潜力但需收束",
+    "not_recommended": "暂不建议",
+}
+
+_CONCLUSION_LABELS = {
+    "ready": "可以直接推进",
+    "needs_rewrite": "可以成书但需重写",
+    "not_recommended": "暂不建议成书",
+}
+
+
+def _render_planning_opinion_md(opinion: PlanningOpinion) -> str:
+    """把 PlanningOpinion 结构化对象渲染为 `书稿策划意见.md` 的 Markdown 文本。"""
+    o = opinion
+    best_shape = _SHAPE_LABELS.get(o.best_shape, o.best_shape)
+    book_worth = _WORTHI_LABELS.get(o.book_worthiness, o.book_worthiness)
+    conclusion = _CONCLUSION_LABELS.get(o.conclusion_type, o.conclusion_type)
+
+    def _list(items: List[str]) -> str:
+        return '\n'.join(f"- {i}" for i in items) if items else "- 未提及"
+
+    def _blank(items: List[str]) -> str:
+        return '\n'.join(items) if items else "- 未提及"
+
+    md = f"""# 书稿策划意见
+
+## 一、结论
+
+- **最佳内容形态**：{best_shape}
+- **是否值得成书**：{book_worth}
+- **结论类型**：{conclusion}
+- **一句话总判断**：{o.one_line_judgment}
+
+## 二、这批素材真正适合做成什么
+
+- **推荐主形态**：{o.recommended_shape}
+- **推荐理由**：{o.shape_reason}
+- **不建议走的形态**：{o.not_recommended_shapes or ['未提及']}
+- **不建议理由**：
+{_list(o.not_recommended_reasons)}
+- **如果一定要成书，需要先补足什么**：{o.if_force_book_need or '未提及'}
+
+## 三、主命题、目标读者与定位
+
+- **推荐主命题**：{o.core_proposition}
+- **目标读者**：{o.target_reader}
+- **读者最想解决的问题**：{o.reader_problem}
+- **这份内容产品与常见同类内容的差异**：{o.differentiation}
+
+## 四、推荐标题或产品名方向
+
+- **推荐名称**：{o.recommended_title}
+- **副标题**：{o.subtitle or '未提及'}
+- **备选 1**：{o.alt_title_1 or '未提及'}
+- **备选 2**：{o.alt_title_2 or '未提及'}
+
+## 五、推荐结构草案
+
+### 形态说明
+- **推荐产物**：{o.shape_description}
+- **结构逻辑**：{o.structure_logic}
+
+### 目录 / 单元 / 栏目草案
+{_list(o.toc_draft)}
+
+## 六、最重要的删改动作
+
+- **建议保留**：
+{_list(o.to_retain)}
+- **建议删除**：
+{_list(o.to_delete)}
+- **建议合并重写**：
+{_list(o.to_merge_rewrite)}
+- **建议补写**：
+{_list(o.to_supplement)}
+- **保留 / 合并 / 排除原则**：{o.retain_principles}
+
+## 七、转化路径
+
+- **第一步**：{o.steps[0] if o.steps else '未提及'}
+- **第二步**：{o.steps[1] if len(o.steps) > 1 else '未提及'}
+- **第三步**：{o.steps[2] if len(o.steps) > 2 else '未提及'}
+- **风险点**：
+{_list(o.risks)}
+
+## 八、如果确认推进，第二阶段将怎么写
+
+- **下一步产物**：{o.next_product}
+- **默认输出文件**：{o.default_output_file}
+- **写作方式**：{o.writing_approach}
+- **是否拆分**：{'是' if o.will_split else '否'}
+- **预计先从哪几章 / 单元 / 条目起草**：
+{_list(o.start_from)}
+"""
+    return md
 

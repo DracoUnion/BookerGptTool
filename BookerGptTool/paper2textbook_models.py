@@ -450,3 +450,154 @@ class CLIResult(_Base):
     output_dir: Optional[str] = Field(None, description='输出目录')
     manifest: Optional[str] = Field(None, description='交付清单路径')
     message: str = Field(..., description='结果消息')
+
+
+########################################################
+# article2book 兼容模型：内容资产重组
+########################################################
+
+class SourceKindArticle(str, Enum):
+    """article2book 支持的素材来源类型"""
+    MARKDOWN = "markdown"
+    MDX = "mdx"
+    TXT = "txt"
+    SRT = "srt"
+    VTT = "vtt"
+    DOCX = "docx"
+    PDF = "pdf"
+    NOTE = "note"           # 短笔记/卡片/Obsidian
+    TRANSCRIPT = "transcript"  # 字幕/逐字稿/直播稿
+    INTERVIEW = "interview"    # 访谈稿/问答记录
+    SLIDES = "slides"          # 课件/大纲/讲义
+    MINUTES = "minutes"        # 会议纪要/项目记录
+    CASE = "case"              # 案例材料
+    OTHER = "other"
+
+
+class PreprocessStatus(str, Enum):
+    """预处理状态"""
+    READY = "ready"              # 可直接通读
+    NEED_TRANSCRIBE = "need_transcribe"  # 需转写(音频/视频)
+    NEED_OCR = "need_ocr"        # 需 OCR(扫描件/图片型PDF)
+    NEED_CONVERT = "need_convert"  # 需转换格式
+    SKIP = "skip"                # 暂不纳入(配图/附件/自动生成)
+
+
+class ArticleReadingNote(_Base):
+    """单份素材的 Agent 通读笔记"""
+    file_path: str = Field(..., description='素材文件路径')
+    title: str = Field(..., description='素材标题')
+    summary: str = Field(..., description='一句话摘要')
+    core_question: str = Field(..., description='核心问题：它在回答什么')
+    key_judgment: str = Field(..., description='关键判断：真正有价值的观点')
+    depth: Literal["high", "medium", "low"] = Field(..., description='深度判断')
+    suggested_destination: Literal["chapter", "course_unit", "handbook_entry", "kb_entry", "case", "appendix", "exclude"] = Field(..., description='建议去向')
+    possible_shape: Literal["book", "booklet", "course", "series", "handbook", "kb", "pool"] = Field(..., description='可能形态')
+    risks: List[str] = Field(default_factory=list, description='风险提示: 时效性/重复/口语化/格式预处理/其他')
+    screening_conclusion: Literal["retain", "demote", "exclude"] = Field(..., description='筛选结论: 保留/降权/排除')
+    reason: str = Field(..., description='判断理由')
+
+
+class ContentScreeningResult(_Base):
+    """内容筛选结果：保留/降权/排除"""
+    retained: List[ArticleReadingNote] = Field(..., description='保留的素材')
+    demoted: List[ArticleReadingNote] = Field(..., description='降权的素材(仅作案例/附录/练习)')
+    excluded: List[ArticleReadingNote] = Field(..., description='排除的素材')
+    screening_principles: str = Field(..., description='筛选原则说明')
+
+
+class ContentShapeJudgment(_Base):
+    """内容形态判断结果"""
+    best_shape: Literal["book", "booklet", "course", "series", "handbook", "kb", "pool"] = Field(..., description='最佳内容形态')
+    reason: str = Field(..., description='推荐理由')
+    not_recommended_shapes: List[str] = Field(default_factory=list, description='不建议的形态')
+    not_recommended_reasons: List[str] = Field(default_factory=list, description='不建议理由')
+    if_force_book_need: str = Field("", description='如果一定要成书，需要先补足什么')
+
+
+class BookViabilityDimension(_Base):
+    """成书可行性评估维度"""
+    name: str = Field(..., description='维度名称')
+    score: int = Field(ge=1, le=5, description='1-5分')
+    evidence: str = Field(..., description='具体素材依据')
+
+
+class BookViabilityAssessment(_Base):
+    """成书可行性评估"""
+    dimensions: List[BookViabilityDimension] = Field(..., description='7个评分维度')
+    total_score: int = Field(..., description='总分')
+    conclusion: Literal["ready", "potential", "defer", "not_recommended"] = Field(..., description='成书结论')
+    recommended_shape: str = Field(..., description='推荐内容形态')
+    alternative_path: str = Field(..., description='替代路径建议')
+    next_steps: List[str] = Field(..., description='进入下一阶段前最需要补写/删改/预处理的内容')
+
+
+class PlanningOpinion(_Base):
+    """书稿策划意见"""
+    # 一、结论
+    best_shape: str = Field(..., description='最佳内容形态')
+    book_worthiness: Literal["worth", "potential", "not_recommended"] = Field(..., description='是否值得成书')
+    conclusion_type: Literal["ready", "needs_rewrite", "not_recommended"] = Field(..., description='结论类型')
+    one_line_judgment: str = Field(..., description='一句话总判断')
+
+    # 二、这批素材真正适合做成什么
+    recommended_shape: str = Field(..., description='推荐主形态')
+    shape_reason: str = Field(..., description='推荐理由')
+    not_recommended_shapes: List[str] = Field(default_factory=list, description='不建议走的形态')
+    not_recommended_reasons: List[str] = Field(default_factory=list, description='不建议理由')
+    if_force_book_need: str = Field("", description='如果一定要成书，需要先补足什么')
+
+    # 三、主命题、目标读者与定位
+    core_proposition: str = Field(..., description='推荐主命题')
+    target_reader: str = Field(..., description='目标读者')
+    reader_problem: str = Field(..., description='读者最想解决的问题')
+    differentiation: str = Field(..., description='与常见同类内容的差异')
+
+    # 四、推荐标题或产品名方向
+    recommended_title: str = Field(..., description='推荐名称')
+    subtitle: str = Field("", description='副标题')
+    alt_title_1: str = Field("", description='备选1')
+    alt_title_2: str = Field("", description='备选2')
+
+    # 五、推荐结构草案
+    shape_description: str = Field(..., description='推荐产物')
+    structure_logic: str = Field(..., description='结构逻辑')
+    toc_draft: List[str] = Field(..., description='目录/单元/栏目草案')
+
+    # 六、最重要的删改动作
+    to_retain: List[str] = Field(default_factory=list, description='建议保留')
+    to_delete: List[str] = Field(default_factory=list, description='建议删除')
+    to_merge_rewrite: List[str] = Field(default_factory=list, description='建议合并重写')
+    to_supplement: List[str] = Field(default_factory=list, description='建议补写')
+    retain_principles: str = Field(..., description='保留/合并/排除原则')
+
+    # 七、转化路径
+    steps: List[str] = Field(..., description='转化步骤')
+    risks: List[str] = Field(default_factory=list, description='风险点')
+
+    # 八、如果确认推进，第二阶段将怎么写
+    next_product: str = Field(..., description='下一步产物')
+    default_output_file: str = Field(..., description='默认输出文件')
+    writing_approach: str = Field(..., description='写作方式')
+    will_split: bool = Field(False, description='是否拆分')
+    start_from: List[str] = Field(default_factory=list, description='预计先从哪几章/单元/条目起草')
+
+
+class SourceMaterial(_Base):
+    """素材清单项"""
+    file_path: str = Field(..., description='文件路径')
+    title: str = Field("", description='标题')
+    source_kind: SourceKindArticle = Field(..., description='素材类型')
+    preprocess_status: PreprocessStatus = Field(..., description='预处理状态')
+    preprocess_note: str = Field("", description='预处理备注')
+    word_count: int = Field(0, description='字数估算')
+    batch_no: int = Field(0, description='所属批次')
+
+
+class ArticleInventory(_Base):
+    """素材清单（脚本生成的基础索引）"""
+    materials: List[SourceMaterial] = Field(..., description='素材列表')
+    total_count: int = Field(..., description='总数')
+    readable_count: int = Field(..., description='可直接通读数')
+    need_preprocess_count: int = Field(..., description='需预处理数')
+    skip_count: int = Field(..., description='暂不纳入数')

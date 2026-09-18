@@ -1263,3 +1263,324 @@ ROUND_FOCUS_MAP = {
     2: "目标读者是否能独立理解并使用？",
     3: "困难案例或集成变更是否暴露了剩余弱点？",
 }
+
+########################################################
+# 八、article2book 兼容提示词：内容资产重组
+########################################################
+
+# ============================================================
+# 1. 素材清单 / 预处理状态提示词
+# ============================================================
+
+ARTICLE_INVENTORY_PMT = '''
+你是一位内容资产管理专家。你的任务是给定一个素材目录的文件列表，判断每份素材的类型、预处理状态与可读性，建立基础索引清单。按照指定格式以 JSON 输出。
+
+## 要求
+
+1.  根据文件扩展名判断 `source_kind`：markdown / mdx / txt / srt / vtt / docx / pdf / note / transcript / interview / slides / minutes / case / other。
+2.  判断 `preprocess_status`：
+    - `ready`：可直接通读的文本（如 .md/.txt/.srt/.vtt）。
+    - `need_transcribe`：音频、视频、直播素材需先转成文本。
+    - `need_ocr`：扫描件或图片型 PDF 需先识别文字。
+    - `need_convert`：.docx、复杂 PDF、课件等需先转为可读文本。
+    - `skip`：配图、附件、自动生成目录等不进入内容判断。
+3.  对每份素材给出预处理备注、字数估算和批次号。
+4.  JSON 格式输出，包含在三个反引号（```）中。
+
+## 格式
+
+{
+    "materials": [
+        {
+            "file_path": "articles/01-intro.md",
+            "title": "",
+            "source_kind": "markdown",
+            "preprocess_status": "ready",
+            "preprocess_note": "",
+            "word_count": 0,
+            "batch_no": 1
+        },
+        { ... }
+    ],
+    "total_count": 0,
+    "readable_count": 0,
+    "need_preprocess_count": 0,
+    "skip_count": 0
+}
+
+## 素材目录文件列表
+
+[content]
+{file_list}
+[/content]
+'''
+
+# ============================================================
+# 2. Agent 通读笔记提示词
+# ============================================================
+
+ARTICLE_READING_NOTE_PMT = '''
+你是一位内容策划编辑。你的任务是阅读给定素材，形成结构化通读笔记，为后续的主题聚类、内容形态判断和成书可行性评估提供依据。按照指定格式以 JSON 输出。
+
+## 要求
+
+对每份素材至少记录：
+1.  一句话摘要 `summary`。
+2.  核心问题 `core_question`：它在回答什么问题。
+3.  关键判断 `key_judgment`：这份素材真正有价值的观点。
+4.  深度判断 `depth`：high / medium / low。
+5.  建议去向 `suggested_destination`：chapter / course_unit / handbook_entry / kb_entry / case / appendix / exclude。
+6.  可能形态 `possible_shape`：book / booklet / course / series / handbook / kb / pool。
+7.  风险提示 `risks`：时效性 / 重复 / 口语化 / 格式预处理 / 其他。
+8.  筛选结论 `screening_conclusion`：retain / demote / exclude。
+9.  理由 `reason`。
+
+原则：
+- 老内容不等于低质量，短内容不等于低质量。
+- 排除必须写明理由，不能只凭直觉。
+- 不要只看文件名或标题就下结论。
+
+JSON 格式输出，包含在三个反引号（```）中。
+
+## 格式
+
+[
+    {
+        "file_path": "articles/01-intro.md",
+        "title": "xxx",
+        "summary": "xxx",
+        "core_question": "xxx",
+        "key_judgment": "xxx",
+        "depth": "high",
+        "suggested_destination": "chapter",
+        "possible_shape": "book",
+        "risks": ["时效性", "重复"],
+        "screening_conclusion": "retain",
+        "reason": "xxx"
+    },
+    { ... }
+]
+
+## 素材
+
+[content]
+{articles}
+[/content]
+'''
+
+# ============================================================
+# 3. 内容筛选提示词
+# ============================================================
+
+CONTENT_SCREENING_PMT = '''
+你是一位内容策划编辑。你的任务是基于通读笔记，对一批素材做"保留 / 降权 / 排除"的三分类筛选，并给出筛选原则。按照指定格式以 JSON 输出。
+
+## 分类标准
+
+### 保留（retain）
+- 能承载核心命题、关键章节、课程单元、手册条目或知识库条目。
+- 观点清晰，论证完整，有作者独特判断。
+- 即使较早写成，仍可转化为常青表达。
+
+### 降权（demote）
+- 有可用材料，但不够强，只适合作为案例、附录、练习或补充说明。
+- 与更强文本重复，保留它只是为了补案例或补细节。
+- 口语化较重，需要重写后才能进入正文。
+
+### 排除（exclude）
+- 信息陈旧且难以改写为常青表达。
+- 只有工具资讯、热点评论或清单堆砌，没有稳定判断。
+- 与主线关联很弱，纳入后只会稀释全书。
+- 与其他文本重复度高，且明显是更弱版本。
+- 读完后几乎提炼不出能进入章节、单元、条目或案例的有效信息。
+
+## 输出
+
+把每份素材放入 `retained` / `demoted` / `excluded` 之一，并保持原笔记字段，同时给出筛选原则说明。
+
+JSON 格式输出，包含在三个反引号（```）中。
+
+## 格式
+
+{
+    "retained": [ {笔记条目}, ... ],
+    "demoted": [ {笔记条目}, ... ],
+    "excluded": [ {笔记条目}, ... ],
+    "screening_principles": "xxx"
+}
+
+## 通读笔记
+
+[content]
+{reading_notes}
+[/content]
+'''
+
+# ============================================================
+# 4. 内容形态判断提示词
+# ============================================================
+
+CONTENT_SHAPE_JUDGMENT_PMT = '''
+你是一位内容产品策划专家。你的任务是先判断一批素材最适合转化为何种内容产品，再决定是否进入成书路径。按照指定格式以 JSON 输出。
+
+## 形态选择
+
+1.  **成书（book）**：素材有稳定母题、明确读者、足够厚度（6-10 章）和可持续扩写空间。
+2.  **小册子（booklet）**：主题集中但厚度不足，适合短平快交付。
+3.  **课程（course）**：素材以讲授顺序、操作演示、练习任务或学习路径为主。
+4.  **系列文章（series）**：观点有价值但主题尚未形成完整体系。
+5.  **实务手册（handbook）**：素材以流程、清单、标准、案例和操作口径为主。
+6.  **知识库（kb）**：素材多主题并存，适合持续维护和检索。
+7.  **暂不建议产品化（pool）**：素材过散、重复、过时或缺少足够原创判断。
+
+## 输出
+
+JSON 格式输出，包含在三个反引号（```）中。
+
+## 格式
+
+{
+    "best_shape": "book",
+    "reason": "xxx",
+    "not_recommended_shapes": ["course", "series"],
+    "not_recommended_reasons": ["xxx", "xxx"],
+    "if_force_book_need": "xxx"
+}
+
+## 筛选结果与素材
+
+[content]
+{screening}
+[/content]
+'''
+
+# ============================================================
+# 5. 成书可行性评估提示词
+# ============================================================
+
+BOOK_VIABILITY_PMT = '''
+你是一位出版策划专家。你的任务是按 7 个维度对一批素材做"是否适合成书"的评估打分，每项 1-5 分，并给出替代形态建议。按照指定格式以 JSON 输出。
+
+## 评分维度
+
+1.  **主题集中度**：5 分=大多围绕同一问题；3 分=有主线但多旁支；1 分=明显分叉。
+2.  **核心命题清晰度**：5 分=有鲜明一句话主张；3 分=方向清晰需提炼；1 分=话题堆叠。
+3.  **目标读者清晰度**：5 分=读者明确且持续回应；3 分=需取舍；1 分=过于分散。
+4.  **内容厚度与互补性**：5 分=互相补强可成章节体系；3 分=有厚度但有重复/断层；1 分=零散观点。
+5.  **区分度与新颖性**：5 分=有独特框架/视角；3 分=表达有个性；1 分=资讯综述/同质化。
+6.  **时效风险**：5 分=多可常青；3 分=部分依赖特定工具/热点；1 分=多为强时评。
+7.  **可持续扩写空间**：5 分=接近半本且可自然扩展；3 分=需较多补写；1 分=只能拼小册子/素材库。
+
+## 结论参考
+
+- 30-35 分：适合直接进入书稿策划。
+- 24-29 分：具备成书潜力，但需主题收束与重写。
+- 18-23 分：暂缓按图书推进，更适合先做小册子、课程、系列文章或手册。
+- 17 分及以下：不建议按一本书处理，先重新组织内容资产。
+
+## 输出
+
+JSON 格式输出，包含在三个反引号（```）中。
+
+## 格式
+
+{
+    "dimensions": [
+        {"name": "主题集中度", "score": 4, "evidence": "xxx"},
+        { ... }
+    ],
+    "total_score": 0,
+    "conclusion": "potential",
+    "recommended_shape": "book",
+    "alternative_path": "xxx",
+    "next_steps": ["xxx", "xxx"]
+}
+
+## 筛选结果与素材
+
+[content]
+{screening}
+[/content]
+'''
+
+# ============================================================
+# 6. 书稿策划意见提示词
+# ============================================================
+
+PLANNING_OPINION_PMT = '''
+你是一位资深出版策划。你的任务是综合内容形态判断和成书可行性评估，输出一份集中的 `书稿策划意见.md`。按照指定格式以 JSON 输出。
+
+## 结构
+
+意见需覆盖以下八大部分：
+1.  **结论**：最佳内容形态、是否值得成书、结论类型、一句话总判断。
+2.  **这批素材真正适合做成什么**：推荐主形态、理由、不建议走的形态、如果一定要成书需补足什么。
+3.  **主命题、目标读者与定位**：推荐主命题、目标读者、读者最想解决的问题、与常见同类内容的差异。
+4.  **推荐标题或产品名方向**：推荐名称、副标题、备选。
+5.  **推荐结构草案**：推荐产物、结构逻辑、目录/单元/栏目草案。
+6.  **最重要的删改动作**：建议保留 / 删除 / 合并重写 / 补写，以及保留/合并/排除原则。
+7.  **转化路径**：第一步、第二步、第三步、风险点。
+8.  **如果确认推进，第二阶段将怎么写**：下一步产物、默认输出文件、写作方式、是否拆分、先从哪几章起草。
+
+原则：
+- 结论必须明确，不要模糊描述。
+- 区分"内容已有"与"必须补写"。
+- 对缺失信息标注"未提及 / 待补充 / 需作者确认"。
+
+JSON 格式输出，包含在三个反引号（```）中。
+
+## 格式
+
+{
+    "best_shape": "book",
+    "book_worthiness": "worth",
+    "conclusion_type": "ready",
+    "one_line_judgment": "xxx",
+    "recommended_shape": "book",
+    "shape_reason": "xxx",
+    "not_recommended_shapes": ["xxx"],
+    "not_recommended_reasons": ["xxx"],
+    "if_force_book_need": "xxx",
+    "core_proposition": "xxx",
+    "target_reader": "xxx",
+    "reader_problem": "xxx",
+    "differentiation": "xxx",
+    "recommended_title": "xxx",
+    "subtitle": "xxx",
+    "alt_title_1": "xxx",
+    "alt_title_2": "xxx",
+    "shape_description": "xxx",
+    "structure_logic": "xxx",
+    "toc_draft": ["1. xxx", "2. xxx"],
+    "to_retain": ["xxx"],
+    "to_delete": ["xxx"],
+    "to_merge_rewrite": ["xxx"],
+    "to_supplement": ["xxx"],
+    "retain_principles": "xxx",
+    "steps": ["第一步：xxx", "第二步：xxx", "第三步：xxx"],
+    "risks": ["xxx"],
+    "next_product": "xxx",
+    "default_output_file": "全书初稿.md",
+    "writing_approach": "xxx",
+    "will_split": false,
+    "start_from": ["xxx"]
+}
+
+## 形态判断
+
+[content]
+{shape_judgment}
+[/content]
+
+## 可行性评估
+
+[content]
+{viability}
+[/content]
+
+## 筛选结果与素材
+
+[content]
+{screening}
+[/content]
+'''
