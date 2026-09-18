@@ -6,6 +6,7 @@ paper2textbook_agent.py —— 封装 paper2textbook 的独立 LLM 调用。
 
 import yaml
 import json
+import shutil
 from os import path
 import os
 from typing import *
@@ -15,6 +16,7 @@ from .paper2textbook_models import *
 from .paper2textbook_pmt import *
 from .util import *
 from pydantic import parse_obj_as
+from datetime import datetime, timezone
 
 
 SUPPORTED_PAPER_EXTS = {'md', 'markdown', 'tex', 'txt', 'pdf'}
@@ -420,6 +422,106 @@ class Paper2TextbookTools(ToolsMixin):
         write_yaml_model(cache_fname, r)
         return r
 
+    # ============================================================
+    # 七、Textbook Anything 兼容工作流
+    # ============================================================
+
+    def tool_ta_interview(self, subject: str, answers: List[str]) -> TeachingBrief:
+        """根据访谈答案生成 TeachingBrief（教学简报）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'ta_brief_' + gen_objs_md5(subject, answers) + '.yaml',
+        )
+        r = read_yaml_model(cache_fname, TeachingBrief)
+        if r: return r
+        prompt = render_prompt(
+            BRIEF_FILL_SYSTEM,
+            brief=TeachingBrief(id=f"ta-{gen_objs_md5(subject)[:12]}", subject=subject, scope=subject).model_dump_json(indent=2),
+            answers='\n'.join(f"Q{i+1}: {a}" for i, a in enumerate(answers)),
+        )
+        r = self._json(TeachingBrief, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_ta_research(self, brief: TeachingBrief) -> ResearchPlan:
+        """根据 TeachingBrief 追踪依赖并生成研究计划。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'ta_research_' + gen_objs_md5(brief) + '.yaml',
+        )
+        r = read_yaml_model(cache_fname, ResearchPlan)
+        if r: return r
+        prompt = render_prompt(RESEARCH_SYSTEM, brief=brief.model_dump_json(indent=2))
+        r = self._json(ResearchPlan, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_ta_design(self, brief: TeachingBrief, research: ResearchPlan) -> TutorialDesign:
+        """根据 TeachingBrief 和 ResearchPlan 生成教程设计。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'ta_design_' + gen_objs_md5(brief, research) + '.yaml',
+        )
+        r = read_yaml_model(cache_fname, TutorialDesign)
+        if r: return r
+        prompt = render_prompt(
+            DESIGN_SYSTEM,
+            brief=brief.model_dump_json(indent=2),
+            research=research.model_dump_json(indent=2),
+        )
+        r = self._json(TutorialDesign, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_ta_round(self, brief: TeachingBrief, design: TutorialDesign, round_num: int, total_rounds: int,
+                      previous_rounds: List[RoundRecord] = None) -> RoundRecord:
+        """执行一轮审查，生成 RoundRecord。"""
+        tier_label = brief.tier.label_zh
+        focus = ROUND_FOCUS_MAP.get(round_num, f"第 {round_num} 轮审查")
+        cache_fname = path.join(
+            self.pj_dir,
+            f'ta_round_{round_num:02d}_' + gen_objs_md5(brief, design, round_num, previous_rounds or []) + '.yaml',
+        )
+        r = read_yaml_model(cache_fname, RoundRecord)
+        if r: return r
+        prompt = render_prompt(
+            ROUND_SYSTEM,
+            round_num=str(round_num),
+            total_rounds=str(total_rounds),
+            tier=tier_label,
+            focus=focus,
+            brief=brief.model_dump_json(indent=2),
+            design=design.model_dump_json(indent=2),
+            previous_rounds=json.dumps([rr.model_dump() for rr in (previous_rounds or [])], ensure_ascii=False, indent=2),
+        )
+        r = self._json(RoundRecord, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_ta_deliver(self, brief: TeachingBrief, design: TutorialDesign, rounds: List[RoundRecord],
+                        fmt: str = "both") -> TutorialDocument:
+        """根据所有产物生成最终交付文档。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'ta_deliver_' + gen_objs_md5(brief, design, rounds, fmt) + '.yaml',
+        )
+        r = read_yaml_model(cache_fname, TutorialDocument)
+        if r: return r
+        # TutorialDocument 生成逻辑：组装所有产物
+        doc = TutorialDocument(
+            title=brief.subject,
+            subtitle=f"{brief.tier.label_zh}教程",
+            language=brief.language,
+            brief=brief,
+            research=ResearchPlan(dependency_map=[], sources=[]),
+            design=design,
+            sections=[],
+            review_records=rounds,
+            delivery_notes=[f"格式: {fmt}", f"生成时间: {datetime.now(timezone.utc).isoformat()}"],
+        )
+        write_yaml_model(cache_fname, doc)
+        return doc
+
 
 
     @staticmethod
@@ -596,6 +698,37 @@ class Paper2TextbookTools(ToolsMixin):
             required=['chapter', 'detail'],
             chapter=model_schema(OutlineChapter, '大纲章（OutlineChapter）'),
             detail=model_schema(ChapterDetail, '章节细纲（ChapterDetail）'),
+        ),
+
+        # ── 七、Textbook Anything 兼容工作流 ──────────────────
+        "tool_ta_interview": params_schema(
+            required=['subject', 'answers'],
+            subject=base_schema('string', '教学主题/范围'),
+            answers=str_list_schema('访谈答案列表'),
+        ),
+        "tool_ta_research": params_schema(
+            required=['brief'],
+            brief=model_schema(TeachingBrief, '教学简报（TeachingBrief）'),
+        ),
+        "tool_ta_design": params_schema(
+            required=['brief', 'research'],
+            brief=model_schema(TeachingBrief, '教学简报（TeachingBrief）'),
+            research=model_schema(ResearchPlan, '研究计划（ResearchPlan）'),
+        ),
+        "tool_ta_round": params_schema(
+            required=['brief', 'design', 'round_num', 'total_rounds'],
+            brief=model_schema(TeachingBrief, '教学简报（TeachingBrief）'),
+            design=model_schema(TutorialDesign, '教程设计（TutorialDesign）'),
+            round_num=base_schema('integer', '审查轮次序号'),
+            total_rounds=base_schema('integer', '总审查轮数'),
+            previous_rounds=model_list_schema(RoundRecord, '前轮审查记录列表'),
+        ),
+        "tool_ta_deliver": params_schema(
+            required=['brief', 'design', 'rounds'],
+            brief=model_schema(TeachingBrief, '教学简报（TeachingBrief）'),
+            design=model_schema(TutorialDesign, '教程设计（TutorialDesign）'),
+            rounds=model_list_schema(RoundRecord, '审查轮次记录列表'),
+            fmt=base_schema('string', '输出格式（html/pdf/both）'),
         ),
     }
 
