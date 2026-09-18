@@ -46,7 +46,7 @@ class FindingCard(_Base):
 
 class PaperConcepts(_Base):
     """单篇论文的拆解结果：一张可复用的概念卡片集合。"""
-    paper: str = Field(..., description='论文标识（文件名或 ID）')
+    paper: str = Field('', description='论文标识（文件名或 ID）')
     desc: str = Field(..., description='整篇论文的概要描述')
     concepts: List[ConceptCard] = Field(..., description='概念卡片列表')
     methods: List[MethodCard] = Field(..., description='方法卡片列表')
