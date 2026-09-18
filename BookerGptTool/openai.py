@@ -548,7 +548,7 @@ class ToolsMixin:
         """以 UTF-8 读取 fname 的文本内容。"""
         return open(fname, encoding='utf8').read()
 
-    def _write_yaml(self, fname: str, obj) -> None:
+    def _write_yaml(self, fname: str, obj: Any) -> None:
         """将对象（含 pydantic 模型/列表）以 YAML 形式写入 fname。"""
         if isinstance(obj, BaseModel):
             obj = obj.dict()
@@ -561,7 +561,7 @@ class ToolsMixin:
         with open(fname, 'w', encoding='utf8') as f:
             yaml.safe_dump(obj, f, allow_unicode=True, sort_keys=False)
 
-    def _read_yaml(self, fname: str, model):
+    def _read_yaml(self, fname: str, model: Type[BaseModel]):
         """从 fname 读取 YAML 并解析为指定 pydantic 模型；文件缺失或损坏时返回 None。"""
         if not path.isfile(fname) or not path.getsize(fname):
             return None
@@ -615,7 +615,7 @@ class ToolsMixin:
             ]
         return json.dumps(obj, ensure_ascii=False, indent=2)
 
-    def _json_load(self, text: str, model):
+    def _json_load(self, text: str, model: Type[BaseModel]):
         """将 JSON 文本解析为指定 pydantic 模型。"""
         return parse_obj_as(model, json.loads(text))
 
