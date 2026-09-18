@@ -541,7 +541,7 @@ class ToolsMixin:
 
     def tool_write_workspace_text(self, fname: str, text: str):
         """向项目目录写入文本文件（fname 为项目内相对路径）。"""
-        return self._write_text(path.join(self.pj_dir, fname), text)
+        return write_text(path.join(self.pj_dir, fname), text)
 
     def tool_read_workspace_json(self, fname: str):
         """读取项目目录下的 JSON 文件并解析为对象。"""
