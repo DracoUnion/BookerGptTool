@@ -85,8 +85,8 @@ def clean_file(args):
 
 
 def reg_subparser(subparsers):
-    clean_parser = subparsers.add_parser("clean-heading", help="clean heading")
-    clean_parser.add_argument("fname", help="MD for dir of them")
-    clean_parser.add_argument("-l", "--lines", type=float, default=3000, help="ratio/lines of heading")
-    clean_parser.add_argument("-t", "--threads", type=int, default=8, help="num of threads")
+    clean_parser = subparsers.add_parser("clean-heading", help="清理 Markdown 标题")
+    clean_parser.add_argument("fname", help="Markdown 文件或目录")
+    clean_parser.add_argument("-l", "--lines", type=float, default=3000, help="标题行数/比例")
+    clean_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
     clean_parser.set_defaults(func=clean_handle)

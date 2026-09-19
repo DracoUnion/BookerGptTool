@@ -230,7 +230,7 @@ def code2doc_handle(args):
 
 
 def reg_subparser(subparsers):
-    comm_parser = subparsers.add_parser("code2doc", help="comment code")
-    comm_parser.add_argument('fname', help='file or dir name')
-    comm_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    comm_parser = subparsers.add_parser("code2doc", help="为代码添加注释")
+    comm_parser.add_argument('fname', help='文件或目录名')
+    comm_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
     comm_parser.set_defaults(func=code2doc_handle)

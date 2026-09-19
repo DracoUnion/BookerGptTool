@@ -92,6 +92,6 @@ def fin_report_handle(args):
 
 
 def reg_subparser(subparsers):
-    fin_report_parser = subparsers.add_parser("fin-report", help="make financial report")
-    fin_report_parser.add_argument("fname", help="PDF file name")
+    fin_report_parser = subparsers.add_parser("fin-report", help="生成财务报告")
+    fin_report_parser.add_argument("fname", help="PDF 文件名")
     fin_report_parser.set_defaults(func=fin_report_handle)

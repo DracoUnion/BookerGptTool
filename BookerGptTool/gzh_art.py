@@ -94,10 +94,10 @@ def gzh_art_handle(args):
 def reg_subparser(subparsers):
     parser = subparsers.add_parser(
         'gzh-art',
-        help='出稿：素材 JSON → 公众号文章 Markdown (LLM)',
+        help='出稿：素材目录 → 公众号文章 Markdown (LLM)',
     )
     parser.add_argument('input', help='素材目录路径（读取其中所有 .md 文件作为素材）')
-    parser.add_argument('-o', '--output', help='输出 md 路径（默认 [目录名].md）')
+    parser.add_argument('-o', '--output', help='输出 md 路径（默认写在输入目录下）')
     parser.add_argument('--owner', default='', help='人类作者名（用于诚实标注）')
     parser.set_defaults(func=gzh_art_handle)
     return parser

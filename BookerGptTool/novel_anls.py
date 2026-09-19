@@ -220,11 +220,11 @@ def novel_anls(args):
 
 
 def reg_subparser(subparsers):
-    novel_anls_parser = subparsers.add_parser("novel-anls", help="analyze novel from epub")
-    novel_anls_parser.add_argument("fname", help="EPUB file name")
-    novel_anls_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
-    novel_anls_parser.add_argument("-mc", "--max-chapters", type=int, default=None, help="max chapters to process")
-    novel_anls_parser.add_argument("--book-title", default=None, help="book title")
-    novel_anls_parser.add_argument("--author", default=None, help="author name")
-    novel_anls_parser.add_argument("--blurb", default=None, help="book blurb")
+    novel_anls_parser = subparsers.add_parser("novel-anls", help="分析 EPUB 小说")
+    novel_anls_parser.add_argument("fname", help="EPUB 文件名")
+    novel_anls_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
+    novel_anls_parser.add_argument("-mc", "--max-chapters", type=int, default=None, help="处理章节数上限")
+    novel_anls_parser.add_argument("--book-title", default=None, help="书名")
+    novel_anls_parser.add_argument("--author", default=None, help="作者名")
+    novel_anls_parser.add_argument("--blurb", default=None, help="书籍简介")
     novel_anls_parser.set_defaults(func=novel_anls)

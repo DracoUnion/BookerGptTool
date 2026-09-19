@@ -108,12 +108,12 @@ def write_fiction(args):
 
 
 def reg_subparser(subparsers):
-    fiction_parser = subparsers.add_parser("gts-fiction", help="write fiction")
-    fiction_parser.add_argument("idea", help="idea")
-    fiction_parser.add_argument("-o", "--out-dir", help="output dir")
-    fiction_parser.add_argument("-c", "--chapters", type=int, default=20, help="num chapters")
-    fiction_parser.add_argument("-w", "--words", type=int, default=5000, help="num words")
-    fiction_parser.add_argument("-wc", "--write_command", default=DFT_WRITE_CMD, help="writing coommand")
-    fiction_parser.add_argument("-pc", "--polish_command", default=DFT_POLISH_CMD, help="polishing coommand")
-    fiction_parser.add_argument("-se", "--style-example", default='', help="style example")
+    fiction_parser = subparsers.add_parser("gts-fiction", help="生成小说")
+    fiction_parser.add_argument("idea", help="创意/题材")
+    fiction_parser.add_argument("-o", "--out-dir", help="输出目录")
+    fiction_parser.add_argument("-c", "--chapters", type=int, default=20, help="章节数")
+    fiction_parser.add_argument("-w", "--words", type=int, default=5000, help="字数")
+    fiction_parser.add_argument("-wc", "--write_command", default=DFT_WRITE_CMD, help="写作指令")
+    fiction_parser.add_argument("-pc", "--polish_command", default=DFT_POLISH_CMD, help="润色指令")
+    fiction_parser.add_argument("-se", "--style-example", default='', help="风格示例")
     fiction_parser.set_defaults(func=write_fiction)

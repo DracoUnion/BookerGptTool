@@ -322,13 +322,13 @@ def trans_epub_file_safe(args):
 
 
 def reg_subparser(subparsers):
-    trans_epub_parser = subparsers.add_parser("trans-epub", help="translate epub")
-    trans_epub_parser.add_argument("fname", help="epub file name")
-    trans_epub_parser.add_argument("-ft", "--file-threads", type=int, default=1, help="num file threads")
-    trans_epub_parser.add_argument("-pt", "--page-threads", type=int, default=8, help="num page threads")
-    trans_epub_parser.add_argument("-l", "--limit", type=int, default=8000, help="chunk limit")
-    trans_epub_parser.add_argument("-m", "--fmt-mode", default='none', help="format mode")
-    trans_epub_parser.add_argument("-D", "--debug", action='store_true', help="debug mode")
-    trans_epub_parser.add_argument("--split", action='store_true', help="whether to split chs")
-    trans_epub_parser.add_argument("--clean", action='store_true', help="whether to clean heading")
+    trans_epub_parser = subparsers.add_parser("trans-epub", help="翻译 EPUB")
+    trans_epub_parser.add_argument("fname", help="EPUB 文件名")
+    trans_epub_parser.add_argument("-ft", "--file-threads", type=int, default=1, help="文件线程数")
+    trans_epub_parser.add_argument("-pt", "--page-threads", type=int, default=8, help="页面线程数")
+    trans_epub_parser.add_argument("-l", "--limit", type=int, default=8000, help="分块大小上限")
+    trans_epub_parser.add_argument("-m", "--fmt-mode", default='none', help="格式化模式")
+    trans_epub_parser.add_argument("-D", "--debug", action='store_true', help="调试模式")
+    trans_epub_parser.add_argument("--split", action='store_true', help="是否拆分中文")
+    trans_epub_parser.add_argument("--clean", action='store_true', help="是否清理标题")
     trans_epub_parser.set_defaults(func=trans_epub)

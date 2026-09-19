@@ -73,14 +73,14 @@ def erchuang_handle(args):
 
 
 def reg_subparser(subparsers):
-    erchuang_parser = subparsers.add_parser("erchuang", help="gen xhs notes")
-    erchuang_parser.add_argument("fname", help="fname")
-    erchuang_parser.add_argument("-t", "--threads", type=int, default=8, help="threadcount")
+    erchuang_parser = subparsers.add_parser("erchuang", help="生成小红书/公众号等风格内容")
+    erchuang_parser.add_argument("fname", help="文件名")
+    erchuang_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
     erchuang_parser.add_argument(
         "-s", "--style",
         type=str, default='xhs',
         choices=['xhs', 'gzh', 'fmt', 'sum', 'qa', 'koubo', 'human'],
-        help="article style"
+        help="文章风格"
     )
     erchuang_parser.set_defaults(func=erchuang_handle)
     

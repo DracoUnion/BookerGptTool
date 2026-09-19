@@ -124,10 +124,10 @@ def reg_subparser(subparsers):
     )
     parser.add_argument(
         "-t", "--topic", default='inbox',
-        help="input/ingest 时的 topic slug",
+        help="输入/摄入时的主题 slug",
     )
     parser.add_argument(
         "-T", "--target", default="",
-        help="competitive-brief / interview-prep 的动作对象名",
+        help="competitive-brief / interview-prep 的目标对象名",
     )
     parser.set_defaults(func=md2wiki_handle)

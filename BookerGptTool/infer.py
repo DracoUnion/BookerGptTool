@@ -39,10 +39,10 @@ def infer(args):
 
 
 def reg_subparser(subparsers):
-    infer_parser = subparsers.add_parser("infer", help="free inference")
-    infer_parser.add_argument("fname", help="fname")
-    infer_parser.add_argument("-p", "--prompt", default="{question}", help="prompt")
-    infer_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    infer_parser.add_argument("--ques-col", default="question", help="question column name")
-    infer_parser.add_argument("--ans-col", default="answer", help="answer column name")
+    infer_parser = subparsers.add_parser("infer", help="自由推理")
+    infer_parser.add_argument("fname", help="文件名")
+    infer_parser.add_argument("-p", "--prompt", default="{question}", help="提示词模板")
+    infer_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
+    infer_parser.add_argument("--ques-col", default="question", help="问题列名")
+    infer_parser.add_argument("--ans-col", default="answer", help="答案列名")
     infer_parser.set_defaults(func=infer)

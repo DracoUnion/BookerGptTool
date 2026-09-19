@@ -231,7 +231,7 @@ def paper2code(args):
 
 
 def reg_subparser(subparsers):
-    paper2code_parser = subparsers.add_parser("paper2code", help="summarize arxiv papers")
-    paper2code_parser.add_argument("fname", help="MD/TEX/TXT file or ARXIV ID（arxiv:\d+\.\d+）")
-    paper2code_parser.add_argument("-o", "--out", type=str, help="output dir name")
+    paper2code_parser = subparsers.add_parser("paper2code", help="从论文生成代码方案")
+    paper2code_parser.add_argument("fname", help="MD/TEX/TXT 文件或 ARXIV ID（arxiv:\d+\.\d+）")
+    paper2code_parser.add_argument("-o", "--out", type=str, help="输出目录名")
     paper2code_parser.set_defaults(func=paper2code)

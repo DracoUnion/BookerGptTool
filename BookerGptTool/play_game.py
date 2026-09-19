@@ -437,30 +437,30 @@ def play_game(args) -> None:
 
 def reg_subparser(subparsers):
     p = subparsers.add_parser(
-        'play-game', help='use LLM to play a game in a window'
+        'play-game', help='用 LLM 在窗口中玩游戏'
     )
     p.add_argument(
         'target', nargs='?', default='',
-        help='window title (substring) or PID',
+        help='窗口标题（子串匹配）或 PID',
     )
     p.add_argument(
         '-g', '--goal',
         default='这是一款游戏。请尽量推进游戏进度、获得更高的分数。',
-        help='game goal for the LLM',
+        help='LLM 的游戏目标',
     )
-    p.add_argument('-ms', '--max-steps', type=int, default=1000, help='max loop steps')
+    p.add_argument('-ms', '--max-steps', type=int, default=1000, help='最大循环步数')
     p.add_argument(
         '-i', '--interval', type=float, default=0.5,
-        help='seconds to wait between steps',
+        help='每步之间的等待秒数',
     )
-    p.add_argument('-sp', '--save-png', default='', help='dir to save screenshots')
+    p.add_argument('-sp', '--save-png', default='', help='截图保存目录')
     p.add_argument(
         '-lw', '--list-windows', action='store_true',
-        help='list visible windows (PID\\ttitle) and exit',
+        help='列出可见窗口（PID\t标题）并退出',
     )
     p.add_argument(
         '-lm', '--list-max', type=int, default=50,
-        help='max windows to print when target not found',
+        help='未找到目标时最多打印的窗口数',
     )
-    p.add_argument('-D', '--debug', action='store_true', help='debug mode')
+    p.add_argument('-D', '--debug', action='store_true', help='调试模式')
     p.set_defaults(func=play_game)

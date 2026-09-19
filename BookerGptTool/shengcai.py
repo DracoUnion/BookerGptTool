@@ -99,11 +99,11 @@ def parse_shengcai(args):
 
 
 def reg_subparser(subparsers):
-    shengcai_parser = subparsers.add_parser("shengcai", help="parse shengcai fengxiangbiao")
-    shengcai_parser.add_argument('fname', help='epub file name')
-    shengcai_parser.add_argument('-p', '--prompt', default=DFT_SHENGCAI_PROMPT, help='prompt for code comment')
-    shengcai_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
-    shengcai_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
-    shengcai_parser.add_argument("-s", "--start", type=int, default=2, help="page to start")
-    shengcai_parser.add_argument("--min", type=int, default=200, help="max token limit")
+    shengcai_parser = subparsers.add_parser("shengcai", help="解析 EPUB 中的生词/词汇分享表")
+    shengcai_parser.add_argument('fname', help='EPUB 文件名')
+    shengcai_parser.add_argument('-p', '--prompt', default=DFT_SHENGCAI_PROMPT, help='提示词（用于代码注释）')
+    shengcai_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
+    shengcai_parser.add_argument("-l", "--limit", type=int, default=3000, help="token 上限")
+    shengcai_parser.add_argument("-s", "--start", type=int, default=2, help="起始页码")
+    shengcai_parser.add_argument("--min", type=int, default=200, help="token 上限")
     shengcai_parser.set_defaults(func=parse_shengcai)

@@ -189,16 +189,16 @@ def trans_handle(args):
 
 
 def reg_subparser(subparsers):
-    trans_parser = subparsers.add_parser("trans-yaml", help="translate YAML files")
-    trans_parser.add_argument("fname", help="yaml file name of dir")
-    trans_parser.add_argument("-p", "--prompt", default=DFT_TRANS_PROMPT, help="prompt for trans")
-    trans_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
-    trans_parser.add_argument("-t", "--threads", type=int, default=8, help="thread num")
+    trans_parser = subparsers.add_parser("trans-yaml", help="翻译 YAML 文件")
+    trans_parser.add_argument("fname", help="YAML 文件或目录名")
+    trans_parser.add_argument("-p", "--prompt", default=DFT_TRANS_PROMPT, help="翻译提示词")
+    trans_parser.add_argument("-l", "--limit", type=int, default=3000, help="token 上限")
+    trans_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
     trans_parser.set_defaults(func=trans_yaml_handle)
 
-    test_parser = subparsers.add_parser("trans", help="translate one sentence")
-    test_parser.add_argument("en", help="en text")
-    test_parser.add_argument("-p", "--prompt", default=DFT_TRANS_PROMPT, help="prompt for trans")
-    test_parser.add_argument("-l", "--limit", type=int, default=3000, help="max token limit")
+    test_parser = subparsers.add_parser("trans", help="翻译一句话")
+    test_parser.add_argument("en", help="英文文本")
+    test_parser.add_argument("-p", "--prompt", default=DFT_TRANS_PROMPT, help="翻译提示词")
+    test_parser.add_argument("-l", "--limit", type=int, default=3000, help="token 上限")
     test_parser.set_defaults(func=trans_handle)
     

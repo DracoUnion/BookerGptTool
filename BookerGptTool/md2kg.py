@@ -88,6 +88,6 @@ def md2kg_handle(args):
 
 
 def reg_subparser(subparsers):
-    md2kg_parser = subparsers.add_parser("md2kg", help="md2kg")
-    md2kg_parser.add_argument("fname", help="MD file name")
+    md2kg_parser = subparsers.add_parser("md2kg", help="将 Markdown 转换为知识图谱数据")
+    md2kg_parser.add_argument("fname", help="Markdown 文件名")
     md2kg_parser.set_defaults(func=md2kg_handle)

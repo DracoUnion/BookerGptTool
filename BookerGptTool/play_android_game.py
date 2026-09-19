@@ -357,26 +357,26 @@ def play_android_game(args) -> None:
 
 def reg_subparser(subparsers):
     p = subparsers.add_parser(
-        'play-android-game', help='use LLM + adb to play a game on an Android device'
+        'play-android-game', help='用 LLM + adb 在安卓设备上玩游戏'
     )
     p.add_argument(
         'target', nargs='?', default='',
-        help='adb serial (e.g. emulator-5554) or index',
+        help='adb 序列号（如 emulator-5554）或设备索引',
     )
     p.add_argument(
         '-g', '--goal',
         default='这是一款安卓游戏。请尽量推进游戏进度、获得更高的分数。',
-        help='game goal for the LLM',
+        help='LLM 的游戏目标',
     )
-    p.add_argument('-ms', '--max-steps', type=int, default=1000, help='max loop steps')
+    p.add_argument('-ms', '--max-steps', type=int, default=1000, help='最大循环步数')
     p.add_argument(
         '-i', '--interval', type=float, default=0.2,
-        help='seconds to wait between operations',
+        help='操作之间的等待秒数',
     )
-    p.add_argument('-sp', '--save-png', default='', help='dir to save screenshots')
+    p.add_argument('-sp', '--save-png', default='', help='截图保存目录')
     p.add_argument(
         '-ld', '--list-devices', action='store_true',
-        help='list connected adb devices and exit',
+        help='列出已连接的 adb 设备并退出',
     )
-    p.add_argument('-D', '--debug', action='store_true', help='debug mode')
+    p.add_argument('-D', '--debug', action='store_true', help='调试模式')
     p.set_defaults(func=play_android_game)

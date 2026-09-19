@@ -100,11 +100,11 @@ def forward(args):
 
 
 def reg_subparser(subparsers):
-    forward_parser = subparsers.add_parser("forward", help="forward oopenai api")
-    forward_parser.add_argument("fname", help="yaml file name containing keys")
-    forward_parser.add_argument("-lh", "--listen-host", type=str, default='localhost', help="")
-    forward_parser.add_argument("-lp", "--listen-port", type=int, default=5000, help="")
-    forward_parser.add_argument("-w", "--waitress", action='store_true', help="")
-    forward_parser.add_argument("-t", "--threads", type=int, default=8, help="")
-    forward_parser.add_argument("-D", "--debug", action='store_true', help="")
+    forward_parser = subparsers.add_parser("forward", help="启动 OpenAI API 转发服务")
+    forward_parser.add_argument("fname", help="包含 key 的 YAML 文件名")
+    forward_parser.add_argument("-lh", "--listen-host", type=str, default='localhost', help="监听地址")
+    forward_parser.add_argument("-lp", "--listen-port", type=int, default=5000, help="监听端口")
+    forward_parser.add_argument("-w", "--waitress", action='store_true', help="使用 waitress 服务")
+    forward_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
+    forward_parser.add_argument("-D", "--debug", action='store_true', help="调试模式")
     forward_parser.set_defaults(func=forward)

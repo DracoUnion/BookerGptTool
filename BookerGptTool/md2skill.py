@@ -487,7 +487,7 @@ def md2skill(args):
 
 
 def reg_subparser(subparsers):
-    md2skill_parser = subparsers.add_parser("md2skill", help="md2skill")
-    md2skill_parser.add_argument("fname", help="fname")
-    md2skill_parser.add_argument("-t", "--threads", type=int, default=8, help="num threads")
+    md2skill_parser = subparsers.add_parser("md2skill", help="将 Markdown 转换为技能定义")
+    md2skill_parser.add_argument("fname", help="文件名")
+    md2skill_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
     md2skill_parser.set_defaults(func=md2skill)
