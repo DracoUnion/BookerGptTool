@@ -188,8 +188,8 @@ Visual 模型使用通用参数 `-vm` 指定，未设置时回退到 `-m`。
 以下子命令来自 `content-pipeline`，按 AGENTS.md 约定（Agent + Orchestrator + `_pmt` + `_models`）迁入本项目，统一使用 01fish 色板与写作风格。
 
 ```bash
-# 出稿：素材 JSON → 公众号文章 Markdown（01fish 写作风格）
-gpt-tool gzh-art drafts/current.json -o article.md
+# 出稿：素材目录 → 公众号文章 Markdown（01fish 写作风格）
+gpt-tool gzh-art drafts -o article.md
 
 # 文章 → 小红书轮播图 HTML + 发布文案
 gpt-tool xhs-art article.md -o out
@@ -201,12 +201,15 @@ gpt-tool jike-art article.md -o out
 gpt-tool podcast article.md --no-tts
 ```
 
+`gzh-art` 的输入是一个**素材目录**，会读取其中所有 `.md` 文件作为素材列表（按文件名排序）。
+每条素材的 `content` 取文件正文，`type` / `context` 取文件名（不含扩展名），`time` 取文件最后修改时间。
+输出默认写在输入目录下，文件名为目录名 + `.md`（如 `drafts/materials.md`）。
+
 `gzh-art` 的写作风格指南内置在 `gzh_art_assets/references/writing-style.md`；
 `podcast` 的音频生成依赖本地 IndexTTS2（`INDEXTTS_DIR` / `VOICE_REF` 环境变量），
 未配置时跳过音频，仅输出脚本与封面。
 
-`gzh-art` 的输入是出稿素材 `current.json`，格式如下（`topic` 为可选，
-`materials` 为素材列表，每项可选 `time` / `type` / `context` 字段）：
+`gzh-art` 内部将素材组装为如下清单结构传给 LLM（`topic` 由 LLM 自行提炼，`created` 为可选字段）：
 
 ```json
 {
