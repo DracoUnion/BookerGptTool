@@ -205,6 +205,31 @@ gpt-tool podcast article.md --no-tts
 `podcast` 的音频生成依赖本地 IndexTTS2（`INDEXTTS_DIR` / `VOICE_REF` 环境变量），
 未配置时跳过音频，仅输出脚本与封面。
 
+`gzh-art` 的输入是出稿素材 `current.json`，格式如下（`topic` 为可选，
+`materials` 为素材列表，每项可选 `time` / `type` / `context` 字段）：
+
+```json
+{
+  "topic": "如何用 AI 一天写出一篇 3000 字技术长文",
+  "materials": [
+    {
+      "time": "2026-01-30 14:30",
+      "content": "试了三种方案都不行，最后发现是环境变量没加载",
+      "type": "踩坑翻车",
+      "context": "python-dotenv 的坑",
+      "auto": true
+    },
+    {
+      "time": "2026-01-30 15:02",
+      "content": "居然用 json_repair 一行就修好了模型输出的坏 JSON",
+      "type": "意外发现",
+      "auto": true
+    }
+  ],
+  "created": "2026-01-30"
+}
+```
+
 小红书信息图卡片生成器：
 
 ```bash
