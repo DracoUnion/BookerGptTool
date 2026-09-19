@@ -183,6 +183,28 @@ gpt-tool play-game 12345 --goal "尽快通关并获得最高分"
 `play-game` 依赖 Windows 平台（通过 Win32 API 模拟鼠标点击与键盘按键），
 Visual 模型使用通用参数 `-vm` 指定，未设置时回退到 `-m`。
 
+### 内容管线（从 content-pipeline 迁移）
+
+以下子命令来自 `content-pipeline`，按 AGENTS.md 约定（Agent + Orchestrator + `_pmt` + `_models`）迁入本项目，统一使用 01fish 色板与写作风格。
+
+```bash
+# 出稿：素材 JSON → 公众号文章 Markdown（01fish 写作风格）
+gpt-tool gzh-art drafts/current.json -o article.md
+
+# 文章 → 小红书轮播图 HTML + 发布文案
+gpt-tool xhs-art article.md -o out
+
+# 文章 → 即刻发布文案
+gpt-tool jike-art article.md -o out
+
+# 文章 → 播客脚本 + 音频 + 封面 + 小宇宙文案
+gpt-tool podcast article.md --no-tts
+```
+
+`gzh-art` 的写作风格指南内置在 `gzh_art_assets/references/writing-style.md`；
+`podcast` 的音频生成依赖本地 IndexTTS2（`INDEXTTS_DIR` / `VOICE_REF` 环境变量），
+未配置时跳过音频，仅输出脚本与封面。
+
 小红书信息图卡片生成器：
 
 ```bash
