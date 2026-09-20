@@ -224,7 +224,7 @@ def call_llm_with_toolcall_retry(
         )
         msgs.append({
             'role': 'assistant',
-            'content': None,
+            'content': ans,
             "tool_calls": [tc.dict() for tc in toolcalls],
         })
         if not toolcalls:
@@ -234,6 +234,7 @@ def call_llm_with_toolcall_retry(
             msgs.append({"role": "user", "content": errmsg})
             continue
         logger.info(f'toolcall: %s', json_dump_model(toolcalls))
+        logger.info(f'ans: %s', json_dump_model(ans))
         finish = False
         for tc in toolcalls:
             if tc.function.name == tool_finish_name:
