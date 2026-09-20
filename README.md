@@ -199,6 +199,9 @@ gpt-tool jike-art article.md -o out
 
 # 文章 → 播客脚本 + 音频 + 封面 + 小宇宙文案
 gpt-tool podcast article.md --no-tts
+
+# 人脸融合：人脸 + 多场景 → 融合图
+gpt-tool zhanshimian face.jpg scenes_dir -o output_dir
 ```
 
 `gzh-art` 的输入是一个**素材目录**，会读取其中所有 `.md` 文件作为素材列表（按文件名排序）。
