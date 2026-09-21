@@ -234,6 +234,7 @@ OVERALL_PMT = '''
 
 ## 大致步骤
 
+1.  调用`tool_list_workspace`获取项目空间文件，确认进度。
 1.  读取输入文件：调用 `tool_list_input_files` 获取待处理的研报列表，
     并调用 `tool_read_input_file` 读取每份研报全文。
 2.  多维分析：

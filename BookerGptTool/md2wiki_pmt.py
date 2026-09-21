@@ -376,6 +376,7 @@ ACTION_INGEST = '''
 目标：{TARGET}（可以是 raw/ 下文件，或任意待摄入文件路径）。
 
 流程（严格按顺序）：
+1. 调用`tool_list_workspace`获取项目空间文件，确认进度。
 1. 若目标不是 raw/ 下的文件：先调用 `tool_input_source` 把文件归档到 raw/<topic>/。
 2. 调用 `tool_check_ingested` 判断是否已摄入过（查 log.md），已摄入则询问是否强制重摄。
 3. 调用 `tool_extract_content` 把文件转为 Markdown 文本（PDF/DOCX/PPTX/XLSX/图片等）。

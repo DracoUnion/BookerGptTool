@@ -30,6 +30,7 @@ OVERALL_PMT = """
 
 ## 工作流（按顺序执行）
 
+1. 调用`tool_list_workspace`获取项目空间文件，确认进度。
 1. **读取素材**：先调用 `tool_list_input_files` 查看有哪些素材，再用 `tool_read_input_file`
    读取与 PPT 相关的内容。如果没有素材，可以直接基于用户描述来设计。
 2. **生成规划**：调用 `tool_gen_plan`，把素材全文、受众、时长传入，得到一份 DeckPlan

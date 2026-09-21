@@ -317,6 +317,7 @@ OVERALL_PMT = '''
 
 ## 大致步骤
 
+1.  调用`tool_list_workspace`获取项目空间文件，确认进度。
 1.  读取输入文件：调用 `tool_list_input_files` 获取待处理的 Markdown 文件列表，
     并读取其内容。
 2.  切分文本：调用 `tool_build_chunks` 将文档按段落切分为文本块。
