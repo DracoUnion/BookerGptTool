@@ -262,10 +262,10 @@ def json_load_model(text: str, model: Type[BaseModel]):
     return parse_obj_as(model, json.loads(text))
 
 
-def write_text(fname: str, text: str) -> None:
+def write_text(fname: str, text: str, append: bool = False) -> None:
     """将 text 以 UTF-8 写入 fname（自动创建父目录）。"""
     os.makedirs(path.dirname(fname), exist_ok=True)
-    open(fname, 'w', encoding='utf8').write(text)
+    open(fname, 'a' if append else 'w', encoding='utf8').write(text)
 
 def read_text(fname: str) -> str:
     """以 UTF-8 读取 fname 的文本内容。"""

@@ -523,6 +523,7 @@ class ToolsMixin:
             required=['fname', 'text'],
             fname=base_schema('string', '项目内相对路径'),
             text=base_schema('string', '要写入的文本内容'),
+            append=base_schema('boolean', '是否附加'),
         ),
         "tool_read_workspace_json": params_schema(
             required=['fname'],
@@ -563,9 +564,9 @@ class ToolsMixin:
         """读取项目目录下的文本文件（fname 为项目内相对路径）。"""
         return read_text(path.join(self.pj_dir, fname))
 
-    def tool_write_workspace_text(self, fname: str, text: str):
+    def tool_write_workspace_text(self, fname: str, text: str, append: bool = False):
         """向项目目录写入文本文件（fname 为项目内相对路径）。"""
-        write_text(path.join(self.pj_dir, fname), text)
+        write_text(path.join(self.pj_dir, fname), text, append)
         return True
 
     def tool_read_workspace_json(self, fname: str):
