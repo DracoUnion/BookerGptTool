@@ -234,7 +234,7 @@ def call_llm_with_toolcall_retry(
             msgs.append({"role": "user", "content": errmsg})
             continue
         logger.info(f'toolcall: %s', json_dump_model(toolcalls))
-        logger.info(f'ans: %s', json_dump_model(ans))
+        logger.debug(f'ans: %s', json_dump_model(ans))
         finish = False
         for tc in toolcalls:
             if tc.function.name == tool_finish_name:
@@ -250,7 +250,7 @@ def call_llm_with_toolcall_retry(
                 "tool_call_id": tc.id,
                 "content": errmsg if errmsg else json_dump_model(tc_res),
             })
-            logger.debug(f'toolcall_res: %s', json_dump_model(msgs[-1])[:50])
+            logger.info(f'toolcall_res: %s', json_dump_model(msgs[-1]))
 
         if finish: break
 
