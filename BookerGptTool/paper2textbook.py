@@ -124,22 +124,22 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
 
     # ── 1. 读取论文 ──────────────────────────────────────────
 
-    def step_read_papers(self) -> Tuple[List[str], Dict[str, str], Dict[str, str]]:
+    def step_discover_papers(self) -> Dict[str, str]:
         logger.info('[1] 读取论文列表与全文')
         paper_fnames = self.agent.tool_list_papers()
-        papers_text = {f: self.agent.tool_read_paper(f) for f in paper_fnames}
         paper_briefs = self.agent.tool_paper_brief(paper_fnames)
-        return paper_fnames, papers_text, paper_briefs
+        return paper_briefs
 
     # ── 2. 概念卡片 ──────────────────────────────────────────
 
-    def step_ext_concepts(self, papers_text: Dict[str, str]) -> List[PaperConcepts]:
+    def step_ext_concepts(self, papers_briefs: Dict[str, str]) -> List[PaperConcepts]:
         logger.info('[2] 生成概念卡片')
         concepts = []
-        for fname, text in papers_text.items():
+        for fname in papers_briefs:
             cache_fname = path.join(self.pj_dir, 'ccpt_' + gen_objs_md5(text) + '.yaml')
             r = read_yaml_model(cache_fname, PaperConcepts)
             if r is None:
+                text = self.agent.tool_read_paper(fname)
                 r = self.agent.tool_ext_concepts(fname, text)
                 write_yaml_model(cache_fname, r)
             concepts.append(r)
@@ -148,13 +148,14 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
 
     # ── 3. 论文聚类 ──────────────────────────────────────────
 
-    def step_cluster_papers(self, paper_briefs: Dict[str, str], paper_fnames: List[str]) -> List[PartClus]:
+    def step_cluster_papers(self, paper_briefs: Dict[str, str]) -> List[PartClus]:
         logger.info('[3] 论文聚类')
         cache_fname = path.join(self.pj_dir, 'parts.yaml')
         parts = read_yaml_model(cache_fname, List[PartClus])
         if parts:
             return parts
         parts = self.agent.tool_cluster_papers(paper_briefs)
+        paper_fnames = list(paper_briefs.keys())
         for _ in range(self.check):
             prob = self._parts_check_problem(parts, paper_fnames)
             if not prob:
@@ -304,9 +305,9 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         os.makedirs(self.pj_dir, exist_ok=True)
         logger.info(self.args)
 
-        paper_fnames, papers_text, paper_briefs = self.step_read_papers()
-        concept_cards = self.step_ext_concepts(papers_text)
-        parts = self.step_cluster_papers(paper_briefs, paper_fnames)
+        paper_briefs = self.step_discover_papers()
+        concept_cards = self.step_ext_concepts(paper_briefs)
+        parts = self.step_cluster_papers(paper_briefs)
         outline = self.step_gen_outline(parts, concept_cards)
         details = self.step_gen_details(outline, concept_cards)
         bodies = self.step_gen_bodies(outline, details, concept_cards)
