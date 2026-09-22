@@ -163,6 +163,12 @@ gpt-tool gts-fiction "一个关于时间旅行的悬疑故事"
 # 解析 EPUB 中的生词/词汇分享表
 gpt-tool shengcai book.epub
 
+# 网页 PPT：素材 → 单文件 HTML 横向翻页 PPT（电子杂志风 / 瑞士国际主义风）
+gpt-tool ppt article.md
+
+# 可选：指定受众与分享时长（用于控制页数与风格选择）
+gpt-tool ppt article.md -a "行业内部" -t 30
+
 # 启动 OpenAI API 转发服务
 gpt-tool forward keys.yaml
 ```

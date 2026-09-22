@@ -11,68 +11,38 @@ CSS/JS 花括号冲突（CSS 形如 `{color:red}`，其中不会出现 `{占位�
 """
 
 # ============================================================================
-# 1. 总编排提示词（工具调用循环的起始用户消息）
+# 0. 常量：内置参考文档与模板资产
 # ============================================================================
-OVERALL_PMT = """
-你是一位基于「guizang-ppt-skill」的网页 PPT 设计师。你的任务是把用户提供的素材（大纲、正文、
-数据、要点）转化为一份**单文件 HTML 的横向翻页网页 PPT**，并写入磁盘。
 
-你需要通过**调用工具**来完成整个流程。可用的工具如下：
+# 内置参考文档白名单
+REFERENCE_FILES = [
+    'checklist.md',
+    'components.md',
+    'image-prompts.md',
+    'layouts.md',
+    'layouts-swiss.md',
+    'presenter-mode.md',
+    'screenshot-framing.md',
+    'swiss-layout-lock.md',
+    'swiss-map-component.md',
+    'themes.md',
+    'themes-swiss.md',
+]
 
-- `tool_list_input_files`：列出输入素材文件（来自命令行 fname 参数）。
-- `tool_read_input_file`：读取某个输入素材文件的内容。
-- `tool_list_references`：列出本项目内置的设计参考文档（主题色、版式、组件、检查清单等）。
-- `tool_read_reference`：读取某份设计参考文档的全文。
-- `tool_read_template`：读取模板 HTML（风格 A：template.html；风格 B：template-swiss.html）。
-- `tool_gen_plan`：根据素材生成整份 Deck 的规划（标题、风格、主题、逐页明细），内部会调用大模型。
-- `tool_write_deck`：根据规划生成幻灯片 HTML 并写入 index.html，内部会调用大模型。
-- `tool_finish`：所有内容生成完毕，结束整个流程。
-
-## 工作流（按顺序执行）
-
-1. 调用`tool_list_workspace`获取项目空间文件，确认进度。
-1. **读取素材**：先调用 `tool_list_input_files` 查看有哪些素材，再用 `tool_read_input_file`
-   读取与 PPT 相关的内容。如果没有素材，可以直接基于用户描述来设计。
-2. **生成规划**：调用 `tool_gen_plan`，把素材全文、受众、时长传入，得到一份 DeckPlan
-   （包含标题、风格 A/B、主题名、逐页 slide 明细）。工具内部会参考两套主题色预设来帮你选风格与主题。
-3. **读取设计参考（可选但强烈建议）**：用 `tool_list_references` 看有哪些文档，按需用
-   `tool_read_reference` 读取：主题色（themes.md / themes-swiss.md）、版式（layouts.md 或
-   swiss-layout-lock.md / layouts-swiss.md）、检查清单（checklist.md）、演讲者备注（presenter-mode.md）。
-4. **读取模板**：用 `tool_read_template` 按规划的 `style` 读取对应模板，确认 class 与占位符结构。
-5. **生成 Deck**：调用 `tool_write_deck`，把规划传入，工具内部会生成幻灯片 HTML 并写入
-   `index.html`（同时建好 `images/` 目录、复制动效脚本）。
-6. **收尾**：确认 `index.html` 已生成后，调用 `tool_finish` 结束。
-
-## 设计铁律
-
-- **风格二选一，不可混用**：风格 A = 电子杂志 × 电子墨水（衬线标题 + 流体背景）；风格 B = 瑞士国际主义
-  （无衬线 + 网格点阵 + 单一高亮色）。两份模板的 class 互不通用，选 A 只能读 layouts.md / themes.md，
-  选 B 只能读 swiss-layout-lock.md / layouts-swiss.md / themes-swiss.md。
-- **主题色只从预设里选**：风格 A 五套（墨水经典 / 靛蓝瓷 / 森林墨 / 牛皮纸 / 沙丘）；风格 B 四套
-  （克莱因蓝 IKB / 柠檬黄 / 柠檬绿 / 安全橙）。不要接受任意自定义 hex，不要中途换色、不要混搭。
-- **类名必须来自模板或版式参考**：写任何 slide 之前先用 `tool_read_template` 核对要用的 class 在
-  模板 `<style>` 里存在；不要发明新类名，需要自定义时用 `style="..."` 内联或追加 `<style>` 覆盖主题变量。
-- **主题节奏**：每页 section 必须带 `light` / `dark` / `hero light` / `hero dark` 之一；连续 3 页以上
-  同主题属视觉疲劳，不允许；8 页以上必须有 ≥1 个 `hero dark` 和 ≥1 个 `hero light`；每 3-4 页插入一个
-  hero 页。
-- **版式多样性**：7-8 页 deck 至少用 6 个不同版式；10 页以上至少 8 个（风格 B 用登记的 S01-S22 编号，
-  每页写 `data-layout`）。
-- **图片**：图片统一放 `images/`，命名 `{页号}-{语义}.{ext}`；用标准比例（16:9 / 21:9 / 16:10 / 4:3 /
-  3:2 / 1:1），不要原图奇葩比例；风格 A 网格图用固定 `height:Nvh`，不用 aspect-ratio。
-- **演讲者备注**：每个 slide 写唯一且稳定的 `data-slide-id`；`tool_write_deck` 会依据规划的
-  purpose / talk / minutes / transition 自动生成 `SPEAKER_NOTES`。
-
-## 输出格式
-
-- 你在正文中的解释性文字、进度说明：用 [content]...[/content] 包裹。
-- 需要返回结构化数据时，工具会自动处理；你只需决定调用哪个工具并传入正确参数。
-
-完成所有工作后，调用 `tool_finish`。
-"""
+# 风格 -> (模板文件, 布局参考文件, 主题参考文件)
+STYLE_ASSETS = {
+    'A': ('template.html', ['layouts.md'], 'themes.md'),
+    'B': ('template-swiss.html', ['swiss-layout-lock.md', 'layouts-swiss.md'], 'themes-swiss.md'),
+}
 
 
 # ============================================================================
-# 2. Deck 规划提示词（tool_gen_plan 内部调用，JSON 输出）
+# 1. Deck 规划提示词（agent.gen_plan 内部调用，JSON 输出）
+# ============================================================================
+
+
+# ============================================================================
+# 2. Deck 规划提示词（agent.gen_plan 内部调用，JSON 输出）
 # ============================================================================
 DECK_PLAN_PMT = """
 你是网页 PPT 的策划。请根据用户提供的素材，规划一份完整的 Deck（JSON 输出）。
