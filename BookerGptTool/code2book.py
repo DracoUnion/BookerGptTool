@@ -100,7 +100,20 @@ class Code2BookMixin:
         return prob
 
     @staticmethod
-    def _code_desc_ch(detail: Detail, code_desc: List[CodeDescItemResult]):
+    def _code_desc_ch_outline(outline: OutlineChapterResult, code_desc: List[CodeDescItemResult]):
+        code_fnames = [
+            f for pt in outline.nodes
+            for f in pt.src
+        ]
+        code_fname_set = set(code_fnames)
+        code_desc_ch = [
+            d for d in code_desc 
+            if d.file in code_fname_set
+        ]
+        return code_desc_ch
+
+    @staticmethod
+    def _code_desc_ch_detail(detail: Detail, code_desc: List[CodeDescItemResult]):
         code_fnames = [
             c.file
             for u in detail.units
@@ -188,7 +201,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
         if detail is None:
             logger.warn(f'[2] 细纲 {idx+1} 加载失败')
             return
-        code_desc_ch = self._code_desc_ch(detail, code_desc)
+        code_desc_ch = self._code_desc_ch_outline(outline_chs[idx], code_desc)
         total_funcs = self._code_descs_total_funcs(code_desc_ch)
 
         for _ in range(self.args.check):
@@ -236,7 +249,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
         if not body:
             logger.warn(f'[3] 正文 {idx+1} 加载失败')
             return
-        code_desc_ch = self._code_desc_ch(detail, code_desc)
+        code_desc_ch = self._code_desc_ch_detail(detail, code_desc)
         body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
 
         # 校验正文
@@ -505,7 +518,7 @@ class Code2BookOrchestrator(Code2BookMixin):
         if detail is not None:
             return idx, detail
         
-        code_desc_ch = self._code_desc_ch(detail, code_desc)
+        code_desc_ch = self._code_desc_ch_outline(outline_chs[idx], code_desc)
         total_funcs = self._code_descs_total_funcs(code_desc_ch)
         # 源码解析部分
         src_anls_result = self.agent.gen_src_anls_detail(idx, outline_chs, code_desc_ch)
@@ -565,7 +578,7 @@ class Code2BookOrchestrator(Code2BookMixin):
             body = open(body_fname, encoding='utf8').read()
             return idx, body
         
-        code_desc_ch = self._code_desc_ch(detail, code_desc)
+        code_desc_ch = self._code_desc_ch_detail(detail, code_desc)
         body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)
 
         # 校验正文
