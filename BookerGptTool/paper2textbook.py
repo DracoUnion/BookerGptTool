@@ -46,12 +46,9 @@ class Paper2TextbookOrchestrator:
     def __init__(self, args):
         self.args = args
         self.tools = Paper2TextbookTools(args)
-        self.pj_dir = (
-            path.dirname(args.dir) + '_paper2textbook'
-            if path.isfile(args.dir) else
-            path.abspath(args.dir) + '_paper2textbook'
-        )
-        os.makedirs(self.pj_dir, exist_ok=True)
+        self.pj_dir = self.tools.pj_dir
+        self.pool = ThreadPoolExecutor(getattr(args, 'threads', 8))
+        self.hdls: List[Future] = []
 
 
     # ── 主流程 ──────────────────────────────────────────

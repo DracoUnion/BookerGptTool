@@ -86,6 +86,9 @@ class PptOrchestrator:
     def run(self) -> None:
         """按固定顺序执行：读素材 → 读参考 → 生成规划 → 生成 Deck → 写出。"""
         logger.info(self.args)
+        if path.isfile(path.join(self.pj_dir, 'index.html')):
+            logger.warn(f'[*] {self.args.fname} 已处理')
+            return
 
         material = self.step_read_materials()
         refs = self.step_read_refs()
