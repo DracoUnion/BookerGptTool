@@ -233,7 +233,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         detail = ChapterDetail(no=i+1, **anls.dict(), **rest.dict())
 
         for _ in range(self.check):
-            prob = self._detail_check_problem(outline, detail)
+            prob = self._detail_check_problem(outline[i], detail)
             if not prob:
                 logger.info(f'[5] 细纲 {i+1} 校验通过')
                 break
