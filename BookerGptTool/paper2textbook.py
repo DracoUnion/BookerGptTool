@@ -152,19 +152,17 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         logger.info('[3] 论文聚类')
         cache_fname = path.join(self.pj_dir, 'parts.yaml')
         parts = read_yaml_model(cache_fname, List[PartClus])
-        if parts is None:
-            parts = self.agent.tool_cluster_papers(paper_briefs)
-            for pt in parts:
-                if 'README.md' not in pt.papers:
-                    pt.papers.append('README.md')
-            for _ in range(self.check):
-                prob = self._parts_check_problem(parts, paper_fnames)
-                if not prob:
-                    logger.info('[3] 聚类校验通过')
-                    break
-                logger.warn(f'[3] 聚类校验失败：\n{prob}')
-                parts = self.agent.tool_fix_cluster(paper_briefs, parts, prob)
-            write_yaml_model(cache_fname, parts)
+        if parts:
+            return parts
+        parts = self.agent.tool_cluster_papers(paper_briefs)
+        for _ in range(self.check):
+            prob = self._parts_check_problem(parts, paper_fnames)
+            if not prob:
+                logger.info('[3] 聚类校验通过')
+                break
+            logger.warn(f'[3] 聚类校验失败：\n{prob}')
+            parts = self.agent.tool_fix_cluster(paper_briefs, parts, prob)
+        write_yaml_model(cache_fname, parts)
         return parts
 
     # ── 4. 全书大纲 ──────────────────────────────────────────
@@ -173,17 +171,18 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         logger.info('[4] 生成全书大纲')
         cache_fname = path.join(self.pj_dir, 'outline.yaml')
         outline = read_yaml_model(cache_fname, List[OutlineChapter])
-        if outline is None:
-            struct = [pt.title for pt in parts]
-            outline = self.agent.tool_gen_outline(struct, concept_cards)
-            for _ in range(self.check):
-                prob = self._outline_check_problem(outline, concept_cards)
-                if not prob:
-                    logger.info('[4] 大纲校验通过')
-                    break
-                logger.warn(f'[4] 大纲校验失败：\n{prob}')
-                outline = self.agent.tool_fix_outline(outline, struct, concept_cards, prob)
-            write_yaml_model(cache_fname, outline)
+        if outline:
+            return outline
+        struct = [pt.title for pt in parts]
+        outline = self.agent.tool_gen_outline(struct, concept_cards)
+        for _ in range(self.check):
+            prob = self._outline_check_problem(outline, concept_cards)
+            if not prob:
+                logger.info('[4] 大纲校验通过')
+                break
+            logger.warn(f'[4] 大纲校验失败：\n{prob}')
+            outline = self.agent.tool_fix_outline(outline, struct, concept_cards, prob)
+        write_yaml_model(cache_fname, outline)
         return outline
 
     # ── 5. 逐章细纲（并行）───────────────────────────────────
@@ -197,13 +196,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
             details[idx] = detail
 
         for i, ch in enumerate(outline):
-            cache_fname = path.join(self.pj_dir, f'detail_{i+1:03d}.yaml')
-            if path.isfile(cache_fname) and path.getsize(cache_fname):
-                d = read_yaml_model(cache_fname, ChapterDetail)
-                if d:
-                    details[i] = d
-                    continue
-            h = self.pool.submit(self._tr_gen_detail, i, ch, concept_cards)
+            h = self.pool.submit(self._tr_gen_detail, i, outline, concept_cards)
             self.hdls.append(h)
             if len(self.hdls) > self.pool._max_workers:
                 self._collect_hdls(res_callback)
@@ -212,7 +205,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         write_yaml_model(path.join(self.pj_dir, 'details.yaml'), details)
         return details
 
-    def _tr_gen_detail(self, i: int, ch: OutlineChapter, concept_cards: List[PaperConcepts]) -> Tuple[int, ChapterDetail]:
+    def _tr_gen_detail(self, i: int, outline: List[OutlineChapter], concept_cards: List[PaperConcepts]) -> Tuple[int, ChapterDetail]:
         logger.info(f'[5] 编写第{i+1}章细纲')
         cache_fname = path.join(self.pj_dir, f'detail_{i+1:03d}.yaml')
         d = read_yaml_model(cache_fname, ChapterDetail)
@@ -224,7 +217,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         detail = ChapterDetail(no=i+1, **anls.dict(), **rest.dict())
 
         for _ in range(self.check):
-            prob = self._detail_check_problem(ch, detail)
+            prob = self._detail_check_problem(outline, detail)
             if not prob:
                 logger.info(f'[5] 细纲 {i+1} 校验通过')
                 break
@@ -244,12 +237,8 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
             idx, body = tpl
             bodies[idx] = body
 
-        for i, (ch, detail) in enumerate(zip(outline, details)):
-            cache_fname = path.join(self.pj_dir, f'chapter_{i+1:03d}.md')
-            if path.isfile(cache_fname) and path.getsize(cache_fname):
-                bodies[i] = read_text(cache_fname)
-                continue
-            h = self.pool.submit(self._tr_gen_body, i, ch, detail, concept_cards)
+        for i,  detail in enumerate(details):
+            h = self.pool.submit(self._tr_gen_body, i, outline, detail, concept_cards)
             self.hdls.append(h)
             if len(self.hdls) > self.pool._max_workers:
                 self._collect_hdls(res_callback)
@@ -266,7 +255,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
                 write_text(path.join(self.pj_dir, f'chapter_{i+1:03d}.md'), bodies[i])
         return bodies
 
-    def _tr_gen_body(self, i: int, ch: OutlineChapter, detail: ChapterDetail, concept_cards: List[PaperConcepts]) -> Tuple[int, str]:
+    def _tr_gen_body(self, i: int, outline: List[OutlineChapter], detail: ChapterDetail, concept_cards: List[PaperConcepts]) -> Tuple[int, str]:
         logger.info(f'[6] 编写第{i+1}章正文')
         cache_fname = path.join(self.pj_dir, f'chapter_{i+1:03d}.md')
         if path.isfile(cache_fname) and path.getsize(cache_fname):
