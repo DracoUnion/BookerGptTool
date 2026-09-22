@@ -12,8 +12,8 @@ import os
 from typing import *
 
 from .openai import *
-from .paper2textbook_open_models import *
-from .paper2textbook_open_pmt import *
+from .any2textbook_models import *
+from .any2textbook_pmt import *
 from .util import *
 from pydantic import parse_obj_as
 from datetime import datetime, timezone
@@ -24,7 +24,7 @@ SUPPORTED_SURVEY_EXTS = {'md', 'markdown', 'tex', 'txt'}
 FORMAT_LABELS = {'md': 'Markdown', 'tex': 'LaTeX'}
 
 
-class Paper2TextbookOpenTools(ToolsMixin):
+class Any2TextbookTools(ToolsMixin):
     """封装 paper2textbook 的独立 LLM 调用。"""
 
     def __init__(self, args):

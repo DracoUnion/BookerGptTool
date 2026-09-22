@@ -25,12 +25,12 @@ import yaml
 from pydantic import BaseModel, parse_obj_as
 
 from .openai import logger as oai_logger
-from .paper2textbook_open_tools import Paper2TextbookOpenTools
-from .paper2textbook_open_models import *
-from .paper2textbook_open_pmt import *
+from .any2textbook_tools import Any2TextbookTools
+from .any2textbook_models import *
+from .any2textbook_pmt import *
 from .util import extname
 from .openai import call_llm_with_toolcall_retry
-from .paper2textbook_open_pmt import OVERALL_PMT
+from .any2textbook_pmt import OVERALL_PMT
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,12 +40,12 @@ logger = logging.getLogger(__name__)
 
 
 
-class Paper2TextbookOpenOrchestrator:
+class Any2TextbookOrchestrator:
     """编排论文拆解、教学设计、章节写作和教材交付。"""
 
     def __init__(self, args):
         self.args = args
-        self.tools = Paper2TextbookOpenTools(args)
+        self.tools = Any2TextbookTools(args)
         self.pj_dir = (
             path.dirname(args.dir) + '_paper2textbook-open'
             if path.isfile(args.dir) else
@@ -87,13 +87,13 @@ def paper2textbook_open(args):
     if args.debug:
         logger.setLevel(logging.DEBUG)
         oai_logger.setLevel(logging.DEBUG)
-    Paper2TextbookOpenOrchestrator(args).run()
+    Any2TextbookOrchestrator(args).run()
 
 
 def reg_subparser(subparsers):
     parser = subparsers.add_parser(
-        'paper2textbook-open',
-        help='多篇论文到可溯源教科书',
+        'any2textbook',
+        help='多篇素材到可溯源教科书',
     )
     parser.add_argument('dir', help='论文文件、论文目录或 ARXIV ID（暂以本地文件/目录为主）')
     parser.add_argument('-D', '--debug', action='store_true', help='调试模式')
