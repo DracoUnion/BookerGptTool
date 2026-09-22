@@ -61,12 +61,12 @@ class Paper2TextbookAgent(ToolsMixin):
             raise ValueError(f'请提供 MD/TEX/TXT/PDF 文件或所在目录')
         return result
 
-    def tool_list_papers(self):
+    def list_papers(self):
         """列出 args.dir 下的所有论文文件路径。"""
         return self._list_papers(self.args.dir)
 
     # @cache
-    def tool_read_paper(self, fname: str) -> str:
+    def read_paper(self, fname: str) -> str:
         """读取论文全文：文本格式直接读，PDF 通过 PyMuPDF 抽取文本。"""
         ext = extname(fname).lower()
         if ext in {'md', 'markdown', 'tex', 'txt'}:
@@ -81,10 +81,10 @@ class Paper2TextbookAgent(ToolsMixin):
         raise ValueError(f'不支持的论文格式：{fname}')
 
     # @cache
-    def tool_paper_brief(self, paper_fnames: List[str], limit=500) -> Dict[str, str]:
+    def paper_brief(self, paper_fnames: List[str], limit=500) -> Dict[str, str]:
         """为每篇论文生成前 limit 字符的简报（换行转空格）。"""
         return {
-            f: self.tool_read_paper(f)[:limit].replace('\n', ' ')
+            f: self.read_paper(f)[:limit].replace('\n', ' ')
             for f in paper_fnames
         }
 
@@ -113,7 +113,7 @@ class Paper2TextbookAgent(ToolsMixin):
     # 一、概念卡片：单篇论文拆解
     # ============================================================
 
-    def tool_ext_concepts(self, paper_name: str, paper: str) -> PaperConcepts:
+    def ext_concepts(self, paper_name: str, paper: str) -> PaperConcepts:
         """从单篇论文中抽取核心概念/方法/定理/发现，形成概念卡片。"""
         cache_fname = path.join(
             self.pj_dir,
@@ -137,7 +137,7 @@ class Paper2TextbookAgent(ToolsMixin):
     # 二、论文聚类
     # ============================================================
 
-    def tool_cluster_papers(self, paper_briefs: Dict[str, str]) -> List[PartClus]:
+    def cluster_papers(self, paper_briefs: Dict[str, str]) -> List[PartClus]:
         """根据论文简报将论文聚类为若干分部（PartClus）。"""
         cache_fname = path.join(
             self.pj_dir,
@@ -155,7 +155,7 @@ class Paper2TextbookAgent(ToolsMixin):
         write_yaml_model(cache_fname, r)
         return r
 
-    def tool_fix_cluster(
+    def fix_cluster(
         self,
         paper_briefs: Dict[str, str],
         parts: List[PartClus],
@@ -180,7 +180,7 @@ class Paper2TextbookAgent(ToolsMixin):
     # 三、全书大纲
     # ============================================================
 
-    def tool_gen_outline(
+    def gen_outline(
         self,
         struct: List[str],
         concept_cards: List[PaperConcepts],
@@ -204,7 +204,7 @@ class Paper2TextbookAgent(ToolsMixin):
         write_yaml_model(cache_fname, r)
         return r
 
-    def tool_fix_outline(
+    def fix_outline(
         self,
         outline: List[OutlineChapter],
         struct: List[str],
@@ -236,7 +236,7 @@ class Paper2TextbookAgent(ToolsMixin):
     # 四、章节细纲
     # ============================================================
 
-    def tool_gen_concept_anls_detail(
+    def gen_concept_anls_detail(
         self,
         i: int,
         outline: List[OutlineChapter],
@@ -259,7 +259,7 @@ class Paper2TextbookAgent(ToolsMixin):
         write_yaml_model(cache_fname, r)
         return r
 
-    def tool_gen_rest_detail(
+    def gen_rest_detail(
         self,
         i: int,
         outline: List[OutlineChapter],
@@ -284,7 +284,7 @@ class Paper2TextbookAgent(ToolsMixin):
         write_yaml_model(cache_fname, r)
         return r
 
-    def tool_fix_detail(
+    def fix_detail(
         self,
         i: int,
         detail: ChapterDetail,
@@ -315,7 +315,7 @@ class Paper2TextbookAgent(ToolsMixin):
     # 五、章节正文
     # ============================================================
 
-    def tool_gen_body(
+    def gen_body(
         self, i: int,
         outline: List[OutlineChapter],
         detail: ChapterDetail,
@@ -340,7 +340,7 @@ class Paper2TextbookAgent(ToolsMixin):
         write_text(cache_fname, r)
         return r
 
-    def tool_check_body(self, body: str, detail: ChapterDetail) -> str:
+    def check_body(self, body: str, detail: ChapterDetail) -> str:
         """检查章节正文是否与细纲一致，并返回问题反馈。"""
         cache_fname = path.join(
             self.pj_dir,
@@ -354,7 +354,7 @@ class Paper2TextbookAgent(ToolsMixin):
         write_text(cache_fname, r)
         return r
 
-    def tool_fix_body(self, body: str, comment: str, paper_desc: List[PaperConcepts]) -> str:
+    def fix_body(self, body: str, comment: str, paper_desc: List[PaperConcepts]) -> str:
         """根据检查反馈（comment）修正章节正文。"""
         cache_fname = path.join(
             self.pj_dir,
@@ -377,7 +377,7 @@ class Paper2TextbookAgent(ToolsMixin):
     # 六、辅助检查（术语对照 / 跨章一致性 / 引用审计）
     # ============================================================
 
-    def tool_gen_glossary(self, paper: str) -> List[GlossaryEntry]:
+    def gen_glossary(self, paper: str) -> List[GlossaryEntry]:
         """根据论文内容生成术语对照表（术语/别名/首次出现位置）。"""
         cache_fname = path.join(
             self.pj_dir,
@@ -390,7 +390,7 @@ class Paper2TextbookAgent(ToolsMixin):
         write_yaml_model(cache_fname, r)
         return r
 
-    def tool_check_consistency(self, previous_chapter: str, current_chapter: str) -> str:
+    def check_consistency(self, previous_chapter: str, current_chapter: str) -> str:
         """检查当前章与上一章之间的术语/口径一致性，并返回问题反馈。"""
         cache_fname = path.join(
             self.pj_dir,
@@ -407,7 +407,7 @@ class Paper2TextbookAgent(ToolsMixin):
         write_text(cache_fname, r)
         return r
 
-    def tool_audit_citations(self, chapter: str, paper: str) -> CitationAudit:
+    def audit_citations(self, chapter: str, paper: str) -> CitationAudit:
         """审计章节中的引用情况，返回引用统计、无支撑观点与缺失概念。"""
         cache_fname = path.join(
             self.pj_dir,

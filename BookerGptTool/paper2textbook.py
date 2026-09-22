@@ -126,25 +126,40 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
 
     def step_discover_papers(self) -> Dict[str, str]:
         logger.info('[1] 读取论文列表与全文')
-        paper_fnames = self.agent.tool_list_papers()
-        paper_briefs = self.agent.tool_paper_brief(paper_fnames)
+        paper_fnames = self.agent.list_papers()
+        paper_briefs = self.agent.paper_brief(paper_fnames)
         return paper_briefs
 
     # ── 2. 概念卡片 ──────────────────────────────────────────
 
-    def step_ext_concepts(self, papers_briefs: Dict[str, str]) -> List[PaperConcepts]:
+    def step_ext_concepts(self, paper_briefs: Dict[str, str]) -> List[PaperConcepts]:
         logger.info('[2] 生成概念卡片')
-        concepts = []
-        for fname in papers_briefs:
-            cache_fname = path.join(self.pj_dir, 'ccpt_' + gen_objs_md5(text) + '.yaml')
-            r = read_yaml_model(cache_fname, PaperConcepts)
-            if r is None:
-                text = self.agent.tool_read_paper(fname)
-                r = self.agent.tool_ext_concepts(fname, text)
-                write_yaml_model(cache_fname, r)
-            concepts.append(r)
+        concepts = [None] * len(paper_briefs)
+
+        def res_callback(tpl):
+            idx, r = tpl
+            concepts[idx] = r
+
+        for i, fname in enumerate(paper_briefs):
+            h = self.pool.submit(self._tr_ext_concepts, i, fname)
+            self.hdls.append(h)
+            if len(self.hdls) > self.pool._max_workers:
+                self._collect_hdls(res_callback)
+        self._collect_hdls(res_callback)
+
         write_yaml_model(path.join(self.pj_dir, 'concepts.yaml'), concepts)
         return concepts
+
+    def _tr_ext_concepts(self, i: int, fname: str) -> Tuple[int, PaperConcepts]:
+        logger.info(f'[2] 抽取论文 {fname} 的概念卡片')
+        text = self.agent.read_paper(fname)
+        cache_fname = path.join(self.pj_dir, 
+            'ccpt_' + fname.replace('/', '----') +  '.yaml')
+        r = read_yaml_model(cache_fname, PaperConcepts)
+        if r is None:
+            r = self.agent.ext_concepts(fname, text)
+            write_yaml_model(cache_fname, r)
+        return i, r
 
     # ── 3. 论文聚类 ──────────────────────────────────────────
 
@@ -154,7 +169,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         parts = read_yaml_model(cache_fname, List[PartClus])
         if parts:
             return parts
-        parts = self.agent.tool_cluster_papers(paper_briefs)
+        parts = self.agent.cluster_papers(paper_briefs)
         paper_fnames = list(paper_briefs.keys())
         for _ in range(self.check):
             prob = self._parts_check_problem(parts, paper_fnames)
@@ -162,7 +177,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
                 logger.info('[3] 聚类校验通过')
                 break
             logger.warn(f'[3] 聚类校验失败：\n{prob}')
-            parts = self.agent.tool_fix_cluster(paper_briefs, parts, prob)
+            parts = self.agent.fix_cluster(paper_briefs, parts, prob)
         write_yaml_model(cache_fname, parts)
         return parts
 
@@ -175,14 +190,14 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         if outline:
             return outline
         struct = [pt.title for pt in parts]
-        outline = self.agent.tool_gen_outline(struct, concept_cards)
+        outline = self.agent.gen_outline(struct, concept_cards)
         for _ in range(self.check):
             prob = self._outline_check_problem(outline, concept_cards)
             if not prob:
                 logger.info('[4] 大纲校验通过')
                 break
             logger.warn(f'[4] 大纲校验失败：\n{prob}')
-            outline = self.agent.tool_fix_outline(outline, struct, concept_cards, prob)
+            outline = self.agent.fix_outline(outline, struct, concept_cards, prob)
         write_yaml_model(cache_fname, outline)
         return outline
 
@@ -213,8 +228,8 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         if d:
             return i, d
 
-        anls = self.agent.tool_gen_concept_anls_detail(i, outline, concept_cards)
-        rest = self.agent.tool_gen_rest_detail(i, outline, anls, concept_cards)
+        anls = self.agent.gen_concept_anls_detail(i, outline, concept_cards)
+        rest = self.agent.gen_rest_detail(i, outline, anls, concept_cards)
         detail = ChapterDetail(no=i+1, **anls.dict(), **rest.dict())
 
         for _ in range(self.check):
@@ -223,7 +238,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
                 logger.info(f'[5] 细纲 {i+1} 校验通过')
                 break
             logger.warn(f'[5] 细纲 {i+1} 校验失败：\n{prob}')
-            detail = self.agent.tool_fix_detail(i, detail, outline, concept_cards, prob)
+            detail = self.agent.fix_detail(i, detail, outline, concept_cards, prob)
 
         write_yaml_model(cache_fname, detail)
         return i, detail
@@ -249,10 +264,10 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         for i in range(1, len(bodies)):
             if not bodies[i] or not bodies[i-1]:
                 continue
-            cmt2 = self.agent.tool_check_consistency(bodies[i-1], bodies[i])
+            cmt2 = self.agent.check_consistency(bodies[i-1], bodies[i])
             if cmt2.strip():
                 logger.info(f'[6] 跨章一致性提示（第{i+1}章）：\n{cmt2}')
-                bodies[i] = self.agent.tool_fix_body(bodies[i], cmt2, concept_cards)
+                bodies[i] = self.agent.fix_body(bodies[i], cmt2, concept_cards)
                 write_text(path.join(self.pj_dir, f'chapter_{i+1:03d}.md'), bodies[i])
         return bodies
 
@@ -262,18 +277,18 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         if path.isfile(cache_fname) and path.getsize(cache_fname):
             return i, read_text(cache_fname)
 
-        body = self.agent.tool_gen_body(i, outline, detail, concept_cards)
+        body = self.agent.gen_body(i, outline, detail, concept_cards)
 
         for _ in range(self.check):
-            cmt = self.agent.tool_check_body(body, detail)
+            cmt = self.agent.check_body(body, detail)
             if '[PERFECT/]' in cmt:
                 logger.info(f'[6] 正文 {i+1} 校验通过')
                 break
             logger.warn(f'[6] 正文 {i+1} 校验未通过：\n{cmt}')
-            body = self.agent.tool_fix_body(body, cmt, concept_cards)
+            body = self.agent.fix_body(body, cmt, concept_cards)
 
-        paper_text = '\n\n'.join(self.agent.tool_read_paper(c.paper) for c in concept_cards)
-        audit = self.agent.tool_audit_citations(body, paper_text)
+        paper_text = '\n\n'.join(self.agent.read_paper(c.paper) for c in concept_cards)
+        audit = self.agent.audit_citations(body, paper_text)
         if audit.unsupported_claims:
             logger.info(f'[6] 引用审计提示无支撑观点：{len(audit.unsupported_claims)} 条')
 
