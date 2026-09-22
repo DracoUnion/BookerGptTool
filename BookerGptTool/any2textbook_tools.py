@@ -34,9 +34,9 @@ class Any2TextbookTools(ToolsMixin):
         self.model = args.model
         set_openai_props(args)
         self.pj_dir = (
-            path.dirname(args.dir) + '_paper2textbook-open'
+            path.dirname(args.dir) + '_any2textbook'
             if path.isfile(args.dir) else
-            path.abspath(args.dir) + '_paper2textbook-open'
+            path.abspath(args.dir) + '_any2textbook'
         )
         os.makedirs(self.pj_dir, exist_ok=True)
 
