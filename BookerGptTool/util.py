@@ -22,7 +22,7 @@ import tempfile
 import uuid
 import hashlib
 from typing import *
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, parse_obj_as, ValidationError
 
 def d(name):
     DIR = path.dirname(path.abspath(__file__))
@@ -259,7 +259,12 @@ def json_dump_model(obj) -> str:
 
 def json_load_model(text: str, model: Type[BaseModel]):
     """将 JSON 文本解析为指定 pydantic 模型。"""
-    return parse_obj_as(model, json.loads(text))
+    try:
+        return parse_obj_as(model, json.loads(text))
+    except json.JSONDecodeError:
+        return None
+    except ValidationError:
+        return None
 
 
 def write_text(fname: str, text: str, append: bool = False) -> None:
@@ -290,6 +295,8 @@ def read_yaml_model(fname: str, model: Optional[Type[BaseModel]]):
         return None
     try:
         data = yaml.safe_load(open(fname, encoding='utf8').read())
+        return parse_obj_as(model, data) if model else data
     except yaml.error.YAMLError:
         return None
-    return parse_obj_as(model, data) if model else data
+    except ValidationError:
+        return None
