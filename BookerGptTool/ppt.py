@@ -13,6 +13,7 @@ from os import path
 from .ppt_agent import PptAgent
 from .ppt_models import *
 from .ppt_pmt import *
+from .openai import logger as oai_logger
 
 logging.basicConfig(
     level=logging.INFO,
@@ -96,6 +97,9 @@ class PptOrchestrator:
 
 def ppt(args):
     """入口函数：创建编排器并运行完整流程。"""
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        oai_logger.setLevel(logging.DEBUG)
     return PptOrchestrator(args).run()
 
 
@@ -107,4 +111,5 @@ def reg_subparser(subparsers):
     parser.add_argument('fname', help='素材文件或目录（markdown/文本，作为 PPT 内容来源）')
     parser.add_argument('-a', '--audience', default='', help='受众与分享场景')
     parser.add_argument('-t', '--duration', default='', help='分享时长（分钟）')
+    parser.add_argument("-D", "--debug", action='store_true', help="调试模式")
     parser.set_defaults(func=ppt)
