@@ -354,17 +354,18 @@ class Paper2TextbookAgent(ToolsMixin):
         write_text(cache_fname, r)
         return r
 
-    def fix_body(self, body: str, comment: str, paper_desc: List[PaperConcepts]) -> str:
+    def fix_body(self, detail: ChapterDetail, body: str, comment: str, paper_desc: List[PaperConcepts]) -> str:
         """根据检查反馈（comment）修正章节正文。"""
         cache_fname = path.join(
             self.pj_dir,
-            'body_fix_' + gen_objs_md5(body, comment, paper_desc) + '.md',
+            'body_fix_' + gen_objs_md5(detail, body, comment, paper_desc) + '.md',
         )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
             r = read_text(cache_fname)
             return r
         prompt = render_prompt(
             BODY_FIX_PMT,
+            detail=json_dump_model(detail),
             body=body,
             comment=comment,
             paper_desc=json_dump_model(paper_desc),

@@ -916,4 +916,10 @@ BODY_FIX_PMT = '''
 [content]
 {code_desc}
 [/content]
+
+## 细纲
+
+```
+{detail}
+```
 '''

@@ -182,21 +182,58 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
 
     # ── 4. 全书大纲 ──────────────────────────────────────────
 
-    def step_gen_outline(self, parts: List[PartClus], concept_cards: List[PaperConcepts]) -> List[OutlineChapter]:
-        logger.info('[4] 生成全书大纲')
-        cache_fname = path.join(self.pj_dir, 'outline.yaml')
-        outline = read_yaml_model(cache_fname, List[OutlineChapter])
-        if outline:
-            return outline
-        struct = [pt.title for pt in parts]
-        outline = self.agent.gen_outline(struct, concept_cards)
+    def _tr_gen_outline(
+        self, idx: int,
+        part: PartClus, 
+        concept_cards: List[PaperConcepts]
+    ) -> Tuple[int, List[OutlineChapter]]:
+        part_fnames = part.papers
+        part_fnames_set = set(part_fnames)
+        part_cards = [
+            c for c in concept_cards 
+            if c.paper in part_fnames_set
+        ]
+        outline = self.agent.gen_outline(part_fnames, part_cards)
         for _ in range(self.check):
-            prob = self._outline_check_problem(outline, concept_cards)
+            prob = self._outline_check_problem(outline, part_cards)
             if not prob:
                 logger.info('[4] 大纲校验通过')
                 break
             logger.warn(f'[4] 大纲校验失败：\n{prob}')
-            outline = self.agent.fix_outline(outline, struct, concept_cards, prob)
+            outline = self.agent.fix_outline(outline, part_fnames, part_cards, prob)
+        return idx, outline
+
+    def step_gen_outline(
+        self, 
+        parts: List[PartClus], 
+        concept_cards: List[PaperConcepts]
+    ) -> List[OutlineParts]:
+        logger.info('[4] 生成全书大纲')
+        cache_fname = path.join(self.pj_dir, 'outline.yaml')
+        outline = read_yaml_model(cache_fname, List[OutlineParts])
+        if not outline:
+            outline = [
+                OutlineParts(no=i, chapters=[]) 
+                for i, pt in enumerate(parts)
+            ]
+            write_yaml_model(cache_fname, outline)
+        save_step = max(min(len(parts) // 5, 100), 1)
+        def res_callback(tpl):
+            idx, pt_outline = tpl
+            outline[idx].chapters = pt_outline
+        for i, pt in enumerate(parts):
+            if not outline[i].chapters:
+                h = self.pool.submit(
+                    self._tr_gen_outline,
+                    i, pt, concept_cards,
+                )
+                self.hdls.append(h)
+                if len(self.hdls) > self.args.threads:
+                    self._collect_hdls(res_callback)
+            if i % save_step == 0:
+                write_yaml_model(cache_fname, outline)
+        
+        self._collect_hdls(res_callback)
         write_yaml_model(cache_fname, outline)
         return outline
 
@@ -220,6 +257,24 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         write_yaml_model(path.join(self.pj_dir, 'details.yaml'), details)
         return details
 
+    @staticmethod
+    def _cards_ch_outline(outline: OutlineChapter, cards: List[PaperConcepts]) -> List[PaperConcepts]:
+        papers = {
+            s.paper
+            for n in outline.nodes
+            for s in n.src
+        }
+        return [c for c in cards if c.paper in papers]
+
+    @staticmethod
+    def _cards_ch_detail(detail: ChapterDetail, cards: List[PaperConcepts]) -> List[PaperConcepts]:
+        papers = {
+            s.paper
+            for u in detail.units
+            for s in u.sources
+        }
+        return [c for c in cards if c.paper in papers]
+
     def _tr_gen_detail(self, i: int, outline: List[OutlineChapter], concept_cards: List[PaperConcepts]) -> Tuple[int, ChapterDetail]:
         logger.info(f'[5] 编写第{i+1}章细纲')
         cache_fname = path.join(self.pj_dir, f'detail_{i+1:03d}.yaml')
@@ -227,8 +282,9 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         if d:
             return i, d
 
-        anls = self.agent.gen_concept_anls_detail(i, outline, concept_cards)
-        rest = self.agent.gen_rest_detail(i, outline, anls, concept_cards)
+        cards_ch = self._cards_ch_outline(outline[i], concept_cards)
+        anls = self.agent.gen_concept_anls_detail(i, outline, cards_ch)
+        rest = self.agent.gen_rest_detail(i, outline, anls, cards_ch)
         detail = ChapterDetail(no=i+1, **anls.dict(), **rest.dict())
 
         for _ in range(self.check):
@@ -266,7 +322,8 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
             cmt2 = self.agent.check_consistency(bodies[i-1], bodies[i])
             if cmt2.strip():
                 logger.info(f'[6] 跨章一致性提示（第{i+1}章）：\n{cmt2}')
-                bodies[i] = self.agent.fix_body(bodies[i], cmt2, concept_cards)
+                cards_ch = self._cards_ch_detail(detail[i], concept_cards)
+                bodies[i] = self.agent.fix_body(details[i], bodies[i], cmt2, cards_ch)
                 write_text(path.join(self.pj_dir, f'chapter_{i+1:03d}.md'), bodies[i])
         return bodies
 
@@ -276,7 +333,8 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         if path.isfile(cache_fname) and path.getsize(cache_fname):
             return i, read_text(cache_fname)
 
-        body = self.agent.gen_body(i, outline, detail, concept_cards)
+        cards_ch = self._cards_ch_detail(detail, concept_cards)
+        body = self.agent.gen_body(i, outline, detail, cards_ch)
 
         for _ in range(self.check):
             cmt = self.agent.check_body(body, detail)
@@ -284,7 +342,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
                 logger.info(f'[6] 正文 {i+1} 校验通过')
                 break
             logger.warn(f'[6] 正文 {i+1} 校验未通过：\n{cmt}')
-            body = self.agent.fix_body(body, cmt, concept_cards)
+            body = self.agent.fix_body(detail, body, cmt, cards_ch)
 
         paper_text = '\n\n'.join(self.agent.read_paper(c.paper) for c in concept_cards)
         audit = self.agent.audit_citations(body, paper_text)
@@ -323,9 +381,10 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         concept_cards = self.step_ext_concepts(paper_briefs)
         parts = self.step_cluster_papers(paper_briefs)
         outline = self.step_gen_outline(parts, concept_cards)
-        details = self.step_gen_details(outline, concept_cards)
-        bodies = self.step_gen_bodies(outline, details, concept_cards)
-        self.step_write_book(outline, details, bodies)
+        outline_chs = sum([o.chapters for o in outline], [])
+        details = self.step_gen_details(outline_chs, concept_cards)
+        bodies = self.step_gen_bodies(outline_chs, details, concept_cards)
+        self.step_write_book(outline_chs, details, bodies)
 
         logger.info(f'[*] 已完成，目标文件已写入 {self.pj_dir}')
 
