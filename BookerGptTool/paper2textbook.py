@@ -126,8 +126,12 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
 
     def step_discover_papers(self) -> Dict[str, str]:
         logger.info('[1] 读取论文列表与全文')
+        cache_fname = path.join(self.pj_dir, 'paper_brief.yaml')
+        paper_briefs = read_yaml_model(cache_fname, None)
+        if paper_briefs: return paper_briefs
         paper_fnames = self.agent.list_papers()
         paper_briefs = self.agent.paper_brief(paper_fnames)
+        write_yaml_model(cache_fname, paper_briefs)
         return paper_briefs
 
     # ── 2. 概念卡片 ──────────────────────────────────────────
