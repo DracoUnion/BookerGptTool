@@ -147,7 +147,6 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
                 self._collect_hdls(res_callback)
         self._collect_hdls(res_callback)
 
-        write_yaml_model(path.join(self.pj_dir, 'concepts.yaml'), concepts)
         return concepts
 
     def _tr_ext_concepts(self, i: int, fname: str) -> Tuple[int, PaperConcepts]:
