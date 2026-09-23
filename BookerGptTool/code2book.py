@@ -434,10 +434,16 @@ class Code2BookOrchestrator(Code2BookMixin):
 
     def _tr_gen_outline(
         self, idx: int,
-        part_fnames: List[str], 
-        part_code_desc: List[CodeDescItemResult],
+        part: PartClusResult, 
+        code_desc: List[CodeDescItemResult],
     ) -> Tuple[int, List[OutlineChapterResult]]:
         logger.info(f'[3] 生成大纲 {idx+1}')
+        part_fnames = part.files
+        part_fnames_set = set(part_fnames)
+        part_code_desc = [
+            d for d in code_desc 
+            if d.file in part_fnames_set
+        ]
         readme = open(path.join(self.args.dir, 'README.md'), encoding='utf8').read()
         outline = self.agent.gen_outline(part_fnames, part_code_desc, readme)
 
@@ -475,14 +481,9 @@ class Code2BookOrchestrator(Code2BookMixin):
             outline[idx].chapters = pt_outline
         for i, pt in enumerate(tqdm(parts)):
             if not outline[i].chapters:
-                pt_fnames_set = set(pt.files)
-                pt_code_desc = [
-                    it for it in code_desc 
-                    if it.file in pt_fnames_set
-                ]
                 h = self.pool.submit(
                     self._tr_gen_outline,
-                    i, pt.files, pt_code_desc
+                    i, pt, code_desc
                 )
                 self.hdls.append(h)
                 if len(self.hdls) > self.args.threads:
