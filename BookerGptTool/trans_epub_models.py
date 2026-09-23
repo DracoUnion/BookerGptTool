@@ -15,4 +15,5 @@ class Chunk(BaseModel):
 
 class TocExtResult(BaseModel):
     no: int
+    chapter_title: bool
     reason: str

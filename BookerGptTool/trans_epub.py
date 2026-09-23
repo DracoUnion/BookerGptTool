@@ -246,7 +246,7 @@ class TransEpubDispatcher:
                 it['after'].append(trunc_text(lines[i]))
 
         res: List[TocExtResult] = self.agent.extract_chapter_toc(titles)
-        title_nos = set(it.no for it in res if it.no != 0)
+        title_nos = set(it.no for it in res if it.no != 0 and it.chapter_title)
         for i, l in enumerate(lines):
             if i in title_nos:
                 lines[i] = '[split/]' + l

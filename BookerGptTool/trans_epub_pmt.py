@@ -174,7 +174,7 @@ TOC_EXT_PMT = '''
 
 ```
 [
-	{"no": 1, "reason": "..."},
+	{"no": 1, "chapter_title": true|false, "reason": "..."},
 	...
 ]
 ```
