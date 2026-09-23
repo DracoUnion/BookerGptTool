@@ -41,8 +41,9 @@ class Code2BookMixin:
     @staticmethod
     def _outline_check_problem(
         outline: List[OutlineChapterResult],
-        part_fnames: List[str],
+        part: PartClusResult,
     ):
+        part_fnames = part.files
         outline_fnames = [
             f.replace('\\', '/')
             for o in outline
@@ -449,7 +450,7 @@ class Code2BookOrchestrator(Code2BookMixin):
 
         # 校验源码文件完整覆盖
         for _ in range(self.args.check):
-            prob = self._outline_check_problem(outline, part_fnames)
+            prob = self._outline_check_problem(outline, part)
             if not prob:
                 logger.info(f'[3] 大纲 {idx+1} 校验通过')
                 break
