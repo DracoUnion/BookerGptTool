@@ -20,17 +20,22 @@ OVERALL_PMT = '''
 # 可用工作流（根据输入素材选择其一，不要混用）
 
 ## 一、论文 → 可溯源教科书（paper2textbook）
-适用于：一篇或多篇同领域论文，目标是成体系、可溯源到页码的教科书。
+适用于：一篇或多篇同领域论文/素材，目标是成体系、可溯源到原文的教科书。
 工具链（按序）：
 1. `tool_list_papers` 列出论文文件；`tool_read_paper` 读取全文；
    `tool_paper_brief` 为每篇生成简报。
-2. `tool_ta_interview` 由主题与访谈答案生成教学简报（TeachingBrief）→
-   `tool_ta_research` 追踪依赖并生成研究计划（ResearchPlan）→
-   `tool_ta_design` 生成教程设计（TutorialDesign）。
-3. 逐轮调用 `tool_ta_round` 执行审查：`round_num` 从 1 递增到 `total_rounds`，
-   并把之前的记录作为 `previous_rounds` 传入，得到 RoundRecord。
-4. `tool_ta_deliver` 汇总生成最终交付文档（TutorialDocument），
-   `fmt` 取 html / pdf / both。
+2. 逐篇调用 `tool_ext_concepts` 抽取概念卡片（PaperConcepts）。
+3. `tool_cluster_papers` 按知识主题聚类论文（List[PartClus]）；
+   若聚类遗漏或出现不存在的论文，用 `tool_fix_cluster` 修正，直到覆盖完整。
+4. 对每个分部调用 `tool_gen_outline` 生成章级大纲（List[OutlineChapter]）；
+   校验不通过时用 `tool_fix_outline` 修正。
+5. 逐章调用 `tool_gen_detail` 生成章节细纲（ChapterDetail）；
+   覆盖不足时用 `tool_fix_detail` 修正。
+6. 逐章调用 `tool_gen_body` 生成正文；用 `tool_check_body` 校验格式与细纲一致性，
+   未通过则用 `tool_fix_body` 修订，直到反馈含 `[PERFECT/]`；
+   章间用 `tool_check_consistency` 做跨章一致性检查。
+7. 用 `tool_audit_citations` 审计引用，用 `tool_gen_glossary` 生成术语表。
+8. 最后用 `tool_assemble_book` 合并全部章节导出 `教科书.md`，再调用 `tool_finish`。
 
 ## 二、内容资产重组（article2book）
 适用于：一批零散文章/笔记/转录，需先判断"真正适合做成什么"，再决定是否成书。
@@ -43,6 +48,19 @@ OVERALL_PMT = '''
 5. `tool_assess_book_viability` 按维度评估成书可行性（BookViabilityAssessment）。
 6. `tool_gen_planning_opinion` 汇总为书稿策划意见（PlanningOpinion）。
 7. `tool_write_planning_opinion_md` 渲染并落盘 `书稿策划意见.md`。
+8. 若策划意见判断"可以直接推进"或"可以成书但需重写"（结论类型为
+   `ready` / `needs_rewrite`），不要停在策划意见，继续用「一、论文→可溯源教科书」的
+   章节工具把书籍正文真正写出来：
+   - 以保留（retain）的素材为源，用 `tool_read_paper` 读取全文、
+     `tool_paper_brief` 生成简报；
+   - 逐篇 `tool_ext_concepts` 抽取概念卡片；
+   - `tool_cluster_papers` 聚类，必要时 `tool_fix_cluster` 修正；
+   - 每分部 `tool_gen_outline` 生成章级大纲，必要时 `tool_fix_outline` 修正；
+   - 逐章 `tool_gen_detail` 生成细纲，必要时 `tool_fix_detail` 修正；
+   - 逐章 `tool_gen_body` 生成正文，`tool_check_body` 校验，
+     未通过用 `tool_fix_body` 修订直到含 `[PERFECT/]`；
+   - `tool_audit_citations` 审计引用、`tool_gen_glossary` 生成术语表；
+   - 最后 `tool_assemble_book` 合并全部章节导出 `教科书.md`，再调用 `tool_finish`。
 
 ## 三、论文 → HTML 课程 + Markdown + PPTX（paper2course）
 适用于：单篇论文，目标是交互式 HTML 课程与组会汇报幻灯片。

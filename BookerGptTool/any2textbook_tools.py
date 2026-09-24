@@ -112,6 +112,228 @@ class Any2TextbookTools(ToolsMixin):
         )
 
     # ============================================================
+    # 一、论文 → 可溯源教科书（paper2textbook）核心工作流
+    #    概念卡片 → 论文聚类 → 全书大纲 → 章节细纲 → 章节正文 → 汇总导出
+    # ============================================================
+
+    def tool_ext_concepts(self, paper_name: str, paper: str) -> PaperConcepts:
+        """从单篇论文/素材中抽取核心概念/方法/定理/发现，形成概念卡片。"""
+        cache_fname = path.join(
+            self.pj_dir, 'ccpt_' + gen_objs_md5(paper) + '.yaml')
+        r = read_yaml_model(cache_fname, PaperConcepts)
+        if r: return r
+        prompt = render_prompt(
+            CONCEPT_EXT_PMT, paper=paper, pname=paper_name)
+        r = self._json(PaperConcepts, prompt, self.model, self.args)
+        r.paper = paper_name
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_cluster_papers(self, paper_briefs) -> List[PartClus]:
+        """根据论文简报将论文聚类为若干分部（PartClus）。"""
+        cache_fname = path.join(
+            self.pj_dir, 'part_' + gen_objs_md5(paper_briefs) + '.yaml')
+        r = read_yaml_model(cache_fname, List[PartClus])
+        if r: return r
+        prompt = render_prompt(
+            PAPER_CLUSTER_PMT, paper_briefs=json_dump_model(paper_briefs))
+        r = self._json(List[PartClus], prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_fix_cluster(self, paper_briefs, parts, problem: str) -> List[PartClus]:
+        """根据问题描述（problem）修正论文聚类结果。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'part_fix_' + gen_objs_md5(parts, paper_briefs, problem) + '.yaml')
+        r = read_yaml_model(cache_fname, List[PartClus])
+        if r: return r
+        prompt = render_prompt(
+            PAPER_CLUSTER_FIX_PMT,
+            paper_briefs=json_dump_model(paper_briefs),
+            parts=json_dump_model(parts),
+            problem=problem,
+        )
+        r = self._json(List[PartClus], prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_gen_outline(self, struct, concept_cards) -> List[OutlineChapter]:
+        """根据分部结构（struct）与概念卡片生成章级大纲。"""
+        cache_fname = path.join(
+            self.pj_dir, 'outline_' + gen_objs_md5(concept_cards) + '.yaml')
+        r = read_yaml_model(cache_fname, List[OutlineChapter])
+        if r: return r
+        prompt = render_prompt(
+            OUTLINE_PMT,
+            struct=json_dump_model(struct),
+            concept_cards=json_dump_model(concept_cards),
+        )
+        r = self._json(List[OutlineChapter], prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_fix_outline(self, outline, struct, concept_cards, problem: str) -> List[OutlineChapter]:
+        """根据问题描述（problem）修正已生成的全书大纲。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'outline_fix_' + gen_objs_md5(outline, concept_cards, problem) + '.yaml')
+        r = read_yaml_model(cache_fname, List[OutlineChapter])
+        if r: return r
+        prompt = render_prompt(
+            OUTLINE_FIX_PMT,
+            outline=json_dump_model(outline),
+            struct=json_dump_model(struct),
+            concept_cards=json_dump_model(concept_cards),
+            problem=problem,
+        )
+        r = self._json(List[OutlineChapter], prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_gen_detail(self, i: int, outline, paper_desc) -> ChapterDetail:
+        """生成第 i 章细纲（概念解析 + 学习目标/概念图/类比/小结/习题）。"""
+        cache_fname = path.join(self.pj_dir, f'detail_{i+1:03d}.yaml')
+        r = read_yaml_model(cache_fname, ChapterDetail)
+        if r: return r
+        prompt1 = render_prompt(
+            CONCEPT_ANLS_DETAIL_PMT,
+            i=str(i),
+            outline=json_dump_model(outline),
+            paper_desc=json_dump_model(paper_desc),
+        )
+        anls: ConceptAnlsResult = self._json(
+            ConceptAnlsResult, prompt1, self.model, self.args)
+        prompt2 = render_prompt(
+            REST_DETAIL_PMT,
+            i=str(i),
+            outline=json_dump_model(outline),
+            detail=json_dump_model(anls),
+            paper_desc=json_dump_model(paper_desc),
+        )
+        rest: RestDetailResult = self._json(
+            RestDetailResult, prompt2, self.model, self.args)
+        detail = ChapterDetail(no=i + 1, **anls.dict(), **rest.dict())
+        write_yaml_model(cache_fname, detail)
+        return detail
+
+    def tool_fix_detail(self, i: int, detail, outline, paper_desc, problem: str) -> ChapterDetail:
+        """根据问题描述（problem）修正第 i 章细纲。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'detail_fix_' + gen_objs_md5(detail, outline, paper_desc, problem) + '.yaml')
+        r = read_yaml_model(cache_fname, ChapterDetail)
+        if r: return r
+        prompt = render_prompt(
+            DETAIL_FIX_PMT,
+            i=str(i),
+            detail=json_dump_model(detail),
+            outline=json_dump_model(outline),
+            paper_desc=json_dump_model(paper_desc),
+            problem=problem,
+        )
+        r = self._json(ChapterDetail, prompt, self.model, self.args)
+        r.no = i + 1
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_gen_body(self, i: int, outline, detail, paper_desc) -> str:
+        """基于章节细纲生成第 i 章正文（Markdown 文本）。"""
+        cache_fname = path.join(self.pj_dir, f'chapter_{i+1:03d}.md')
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
+        prompt = render_prompt(
+            BODY_PMT,
+            i=str(i),
+            outline=json_dump_model(outline),
+            detail=json_dump_model(detail),
+            paper_desc=json_dump_model(paper_desc),
+        )
+        body = self._text(prompt, self.model, self.args)
+        write_text(cache_fname, body)
+        return body
+
+    def tool_check_body(self, body: str, detail) -> str:
+        """检查章节正文是否与细纲一致，返回问题反馈。"""
+        cache_fname = path.join(
+            self.pj_dir, 'body_check_' + gen_objs_md5(body, detail) + '.md')
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
+        prompt = render_prompt(
+            BODY_CHK_PMT, body=body, detail=json_dump_model(detail))
+        cmt = self._text(prompt, self.model, self.args)
+        write_text(cache_fname, cmt)
+        return cmt
+
+    def tool_fix_body(self, detail, body: str, comment: str, paper_desc) -> str:
+        """根据检查反馈（comment）修正章节正文。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'body_fix_' + gen_objs_md5(detail, body, comment, paper_desc) + '.md')
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
+        prompt = render_prompt(
+            BODY_FIX_PMT,
+            detail=json_dump_model(detail),
+            body=body,
+            comment=comment,
+            paper_desc=json_dump_model(paper_desc),
+        )
+        r = self._text(prompt, self.model, self.args)
+        write_text(cache_fname, r)
+        return r
+
+    def tool_check_consistency(self, previous_chapter: str, current_chapter: str) -> str:
+        """检查当前章与上一章的术语/口径一致性，返回问题反馈。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'consist_check_' + gen_objs_md5(previous_chapter, current_chapter) + '.md')
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
+        prompt = render_prompt(
+            CONSISTENCY_CHK_PMT,
+            previous_chapters=previous_chapter,
+            current_chapter=current_chapter,
+        )
+        r = self._text(prompt, self.model, self.args)
+        write_text(cache_fname, r)
+        return r
+
+    def tool_audit_citations(self, chapter: str, paper: str) -> CitationAudit:
+        """审计章节引用情况，返回引用统计、无支撑观点与缺失概念。"""
+        cache_fname = path.join(
+            self.pj_dir, 'audit_' + gen_objs_md5(chapter, paper) + '.yaml')
+        r = read_yaml_model(cache_fname, CitationAudit)
+        if r: return r
+        prompt = render_prompt(CITATION_AUDIT_PMT, book=chapter, paper=paper)
+        r = self._json(CitationAudit, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_gen_glossary(self, paper: str) -> List[GlossaryEntry]:
+        """根据素材内容生成术语对照表（术语/别名/首次出现位置）。"""
+        cache_fname = path.join(
+            self.pj_dir, 'glossary_' + gen_objs_md5(paper) + '.yaml')
+        r = read_yaml_model(cache_fname, List[GlossaryEntry])
+        if r: return r
+        prompt = render_prompt(TERM_GLOSSARY_PMT, paper=paper)
+        r = self._json(List[GlossaryEntry], prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_assemble_book(self, outline, bodies) -> str:
+        """把全部章节正文合并为完整教科书并写入 教科书.md，返回 Markdown。"""
+        lines = ['# 教科书\n']
+        for ch, body in zip(outline, bodies):
+            lines.append(f'## {ch.no}. {ch.name}\n')
+            lines.append(f'{ch.desc}\n')
+            lines.append(body)
+            lines.append('')
+        full_md = '\n'.join(lines)
+        write_text(path.join(self.pj_dir, '教科书.md'), full_md)
+        return full_md
+
+    # ============================================================
     # 七、Textbook Anything 兼容工作流
     # ============================================================
 
@@ -800,6 +1022,87 @@ class Any2TextbookTools(ToolsMixin):
         # ── IO：论文文件与工作区读写 ──────────────────────────
         **ToolsMixin._TOOL_PARAMS,
         "tool_list_papers": params_schema(),
+
+        # ── 一、论文→可溯源教科书（paper2textbook）核心工作流 ──────────
+        "tool_ext_concepts": params_schema(
+            required=['paper_name', 'paper'],
+            paper_name=base_schema('string', '论文/素材标识（文件名或 ID）'),
+            paper=base_schema('string', '论文/素材全文文本'),
+        ),
+        "tool_cluster_papers": params_schema(
+            required=['paper_briefs'],
+            paper_briefs=str_str_map_schema('论文标识到简报的映射'),
+        ),
+        "tool_fix_cluster": params_schema(
+            required=['paper_briefs', 'parts', 'problem'],
+            paper_briefs=str_str_map_schema('论文标识到简报的映射'),
+            parts=model_list_schema(PartClus, '待修正的聚类结果（PartClus）'),
+            problem=base_schema('string', '需要修正的问题描述'),
+        ),
+        "tool_gen_outline": params_schema(
+            required=['struct', 'concept_cards'],
+            struct=str_list_schema('分部下的论文标识列表'),
+            concept_cards=model_list_schema(PaperConcepts, '概念卡片列表（PaperConcepts）'),
+        ),
+        "tool_fix_outline": params_schema(
+            required=['outline', 'struct', 'concept_cards', 'problem'],
+            outline=model_list_schema(OutlineChapter, '待修正的大纲（OutlineChapter）'),
+            struct=str_list_schema('分部下的论文标识列表'),
+            concept_cards=model_list_schema(PaperConcepts, '概念卡片列表（PaperConcepts）'),
+            problem=base_schema('string', '需要修正的问题描述'),
+        ),
+        "tool_gen_detail": params_schema(
+            required=['i', 'outline', 'paper_desc'],
+            i=base_schema('integer', '章序号（从 0 开始）'),
+            outline=model_list_schema(OutlineChapter, '全书/分部章级大纲'),
+            paper_desc=model_list_schema(PaperConcepts, '本章涉及的概念卡片列表'),
+        ),
+        "tool_fix_detail": params_schema(
+            required=['i', 'detail', 'outline', 'paper_desc', 'problem'],
+            i=base_schema('integer', '章序号（从 0 开始）'),
+            detail=model_schema(ChapterDetail, '待修正的章节细纲（ChapterDetail）'),
+            outline=model_list_schema(OutlineChapter, '全书/分部章级大纲'),
+            paper_desc=model_list_schema(PaperConcepts, '本章涉及的概念卡片列表'),
+            problem=base_schema('string', '需要修正的问题描述'),
+        ),
+        "tool_gen_body": params_schema(
+            required=['i', 'outline', 'detail', 'paper_desc'],
+            i=base_schema('integer', '章序号（从 0 开始）'),
+            outline=model_list_schema(OutlineChapter, '全书/分部章级大纲'),
+            detail=model_schema(ChapterDetail, '本章细纲（ChapterDetail）'),
+            paper_desc=model_list_schema(PaperConcepts, '本章涉及的概念卡片列表'),
+        ),
+        "tool_check_body": params_schema(
+            required=['body', 'detail'],
+            body=base_schema('string', '已生成的章节正文（Markdown）'),
+            detail=model_schema(ChapterDetail, '本章细纲（ChapterDetail）'),
+        ),
+        "tool_fix_body": params_schema(
+            required=['detail', 'body', 'comment', 'paper_desc'],
+            detail=model_schema(ChapterDetail, '本章细纲（ChapterDetail）'),
+            body=base_schema('string', '原章节正文（Markdown）'),
+            comment=base_schema('string', '检查反馈/修改意见'),
+            paper_desc=model_list_schema(PaperConcepts, '本章涉及的概念卡片列表'),
+        ),
+        "tool_check_consistency": params_schema(
+            required=['previous_chapter', 'current_chapter'],
+            previous_chapter=base_schema('string', '上一章正文（Markdown）'),
+            current_chapter=base_schema('string', '当前章正文（Markdown）'),
+        ),
+        "tool_audit_citations": params_schema(
+            required=['chapter', 'paper'],
+            chapter=base_schema('string', '章节/全书正文'),
+            paper=base_schema('string', '全部论文/素材全文拼接'),
+        ),
+        "tool_gen_glossary": params_schema(
+            required=['paper'],
+            paper=base_schema('string', '论文/素材全文文本'),
+        ),
+        "tool_assemble_book": params_schema(
+            required=['outline', 'bodies'],
+            outline=model_list_schema(OutlineChapter, '全书章级大纲（OutlineChapter）'),
+            bodies=str_list_schema('各章正文（Markdown）列表，顺序与大纲一致'),
+        ),
         "tool_read_paper": params_schema(
             required=['fname'],
             fname=base_schema('string', '论文文件路径'),
