@@ -164,7 +164,7 @@ class MaterialContentType(str, Enum):
 
 class MaterialTypeJudgment(_Base):
     """素材整体内容类型判断结果"""
-    content_type: MaterialContentType = Field(..., description='判断出的素材内容类型')
+    content_type: Literal["academic_papers", "articles_notes", "single_paper", "long_document", "teaching_paper", "requirements_only"] = Field(..., description='判断出的素材内容类型')
     confidence: float = Field(ge=0.0, le=1.0, description='置信度 0-1')
     reason: str = Field(..., description='判断理由')
     workflow: str = Field(..., description='推荐使用的工作流标识')
@@ -173,6 +173,47 @@ class MaterialTypeJudgment(_Base):
     total_word_count: int = Field(0, description='预估总字数')
     key_characteristics: List[str] = Field(default_factory=list, description='关键特征列表')
     suggested_preprocess: List[str] = Field(default_factory=list, description='建议的预处理步骤')
+
+
+class SingleTextType(str, Enum):
+    """单篇文本的内容类型（对齐 md2skill 的 book_type）"""
+    TECH_MANUAL = "技术手册"        # 配置/部署/操作手册
+    METHODOLOGY = "方法论"          # 方法/框架
+    OPERATION_GUIDE = "操作规范"     # 规程/条例
+    ACADEMIC = "学术教材"            # 学术/教材
+    NARRATIVE = "叙事类"             # 故事/叙事
+
+
+class TextTypeJudgment(_Base):
+    """单篇文本内容类型判断结果（对齐 md2skill 的 BookSchema）"""
+    book_type: Literal["技术手册", "方法论", "操作规范", "学术教材", "叙事类"] = Field(..., description='文本内容类型')
+    domains: List[str] = Field(default_factory=list, description='领域列表（kebab-case 英文命名）')
+    core_components: List[str] = Field(default_factory=list, description='该文本应该覆盖的核心组件/概念')
+    skill_types: List[str] = Field(default_factory=list, description='该文本能提取的内容/技能类型，如：故障排查、配置部署、分析框架')
+    toc: str = Field('', description='文本目录（标题层级）')
+    confidence: float = Field(ge=0.0, le=1.0, default=0.8, description='置信度 0-1')
+    reason: str = Field('', description='判断理由')
+
+
+class TypeInfoUnit(_Base):
+    """单篇文本按内容类型提取出的关键信息单元"""
+    name: str = Field(..., description='单元名称（英文 kebab-case 或简短中文）')
+    category: str = Field(..., description='单元类型：步骤/概念/方法/决策/事件/规则/模型')
+    trigger: str = Field('', description='何时适用/前置条件')
+    summary: str = Field('', description='一句话概述')
+    key_points: List[str] = Field(default_factory=list, description='要点列表')
+    parameters: List[Dict[str, Any]] = Field(default_factory=list, description='参数/配置项/取值列表（每项含名称、取值、说明）')
+    branches: List[Dict[str, Any]] = Field(default_factory=list, description='判断分支（if/then/else）')
+    details: List[Dict[str, Any]] = Field(default_factory=list, description='类型相关细节（人物/事件/时间线/因果链等）')
+    source_ref: str = Field('', description='原文出处（章节/位置）')
+    confidence: float = Field(0.0, description='置信度 0-1')
+
+
+class TypeInfoExtraction(_Base):
+    """单篇文本按内容类型提取出的关键信息集合"""
+    content_type: str = Field(..., description='内容类型')
+    title: str = Field('', description='文本标题')
+    units: List[TypeInfoUnit] = Field(default_factory=list, description='提取到的关键信息单元列表')
 
 
 ########################################################

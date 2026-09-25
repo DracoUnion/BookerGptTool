@@ -24,6 +24,15 @@ SUPPORTED_SURVEY_EXTS = {'md', 'markdown', 'tex', 'txt'}
 FORMAT_LABELS = {'md': 'Markdown', 'tex': 'LaTeX'}
 
 
+def ext_toc_preface(md: str, preface_len: int = 3000):
+    """从 Markdown 提取目录（标题层级）与前 preface_len 字符的正文开头。"""
+    toc = '\n'.join(re.findall(r'^#+\s+.+?$', md, re.M))
+    preface = md[:preface_len]
+    if len(md) > preface_len:
+        preface += '\n\n[正文省略...]'
+    return toc, preface
+
+
 class Any2TextbookTools(ToolsMixin):
     """封装 paper2textbook 的独立 LLM 调用。"""
 
@@ -332,6 +341,86 @@ class Any2TextbookTools(ToolsMixin):
         full_md = '\n'.join(lines)
         write_text(path.join(self.pj_dir, '教科书.md'), full_md)
         return full_md
+
+    # ============================================================
+    # 零、素材内容类型判断工具
+    # ============================================================
+
+    def tool_judge_material_type(self, file_list: str = None, content_sample: str = None) -> MaterialTypeJudgment:
+        """判断素材目录的整体内容类型，决定使用哪个工作流。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'material_type_' + gen_objs_md5(file_list or '', content_sample or '') + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, MaterialTypeJudgment)
+        if r: return r
+
+        # 如果未传 file_list，自动列出
+        if not file_list:
+            files = self.tool_list_papers()
+            file_list = '\n'.join(files)
+
+        # 如果未传 content_sample，读取前几个文件的前 2000 字
+        if not content_sample:
+            files = file_list.split('\n')
+            samples = []
+            total_chars = 0
+            for f in files[:3]:
+                if total_chars >= 2000:
+                    break
+                try:
+                    text = self.tool_read_paper(f.strip())
+                    samples.append(f"=== {f.strip()} ===\n{text[:2000]}")
+                    total_chars += len(text[:2000])
+                except Exception:
+                    pass
+            content_sample = '\n\n'.join(samples)
+
+        prompt = render_prompt(
+            MATERIAL_TYPE_JUDGMENT_PMT,
+            file_list=file_list,
+            content_sample=content_sample,
+        )
+        r = self._json(MaterialTypeJudgment, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_judge_text_type(self, text: str) -> TextTypeJudgment:
+        """判断单篇文本的内容类型（技术手册/方法论/操作规范/学术教材/叙事类），对齐 md2skill 的 SCHEMA。"""
+        toc, preface = ext_toc_preface(text, preface_len=3000)
+        cache_fname = path.join(
+            self.pj_dir,
+            'text_type_' + gen_objs_md5(text) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, TextTypeJudgment)
+        if r: return r
+
+        prompt = render_prompt(
+            TEXT_TYPE_JUDGMENT_PMT,
+            toc=toc,
+            preface=preface,
+        )
+        r = self._json(TextTypeJudgment, prompt, self.model, self.args)
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def tool_extract_type_info(self, content_type: str, text: str) -> TypeInfoExtraction:
+        """按内容类型从单篇文本中提取关键信息（JSON 输出，对齐 md2skill 的 *_EXT_PMT）。"""
+        cache_fname = path.join(
+            self.pj_dir,
+            'ext_' + gen_objs_md5(content_type, text) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, TypeInfoExtraction)
+        if r: return r
+
+        prompt = render_prompt(
+            resolve_type_ext_pmt(content_type),
+            text=text,
+        )
+        r = self._json(TypeInfoExtraction, prompt, self.model, self.args)
+        r.content_type = content_type
+        write_yaml_model(cache_fname, r)
+        return r
 
     # ============================================================
     # 七、Textbook Anything 兼容工作流
@@ -1022,6 +1111,22 @@ class Any2TextbookTools(ToolsMixin):
         # ── IO：论文文件与工作区读写 ──────────────────────────
         **ToolsMixin._TOOL_PARAMS,
         "tool_list_papers": params_schema(),
+
+        # ── 零、素材内容类型判断 ───────────────────────────────
+        "tool_judge_material_type": params_schema(
+            required=[],
+            file_list=base_schema('string', '素材文件列表（每行一个路径），可选，默认自动列出'),
+            content_sample=base_schema('string', '内容样本文本（前 2000 字），可选，默认自动读取'),
+        ),
+        "tool_judge_text_type": params_schema(
+            required=['text'],
+            text=base_schema('string', '单篇文本内容'),
+        ),
+        "tool_extract_type_info": params_schema(
+            required=['content_type', 'text'],
+            content_type=base_schema('string', '内容类型（技术手册/方法论/操作规范/学术教材/叙事类）'),
+            text=base_schema('string', '单篇文本内容'),
+        ),
 
         # ── 一、论文→可溯源教科书（paper2textbook）核心工作流 ──────────
         "tool_ext_concepts": params_schema(
