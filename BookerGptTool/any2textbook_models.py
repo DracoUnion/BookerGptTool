@@ -149,6 +149,33 @@ class PaperMeta(_Base):
 
 
 ########################################################
+# 素材内容类型判断模型
+########################################################
+
+class MaterialContentType(str, Enum):
+    """输入素材的整体内容类型，决定使用哪个工作流"""
+    ACADEMIC_PAPERS = "academic_papers"      # 多篇同领域学术论文 -> workflow 1: paper2textbook
+    ARTICLES_NOTES = "articles_notes"        # 零散文章/笔记/转录 -> workflow 2: article2book
+    SINGLE_PAPER = "single_paper"            # 单篇论文 -> workflow 3: paper2course
+    LONG_DOCUMENT = "long_document"          # 单篇长文档/研报/白皮书 -> workflow 4: report2lecture
+    TEACHING_PAPER = "teaching_paper"        # 单篇论文用于教学 -> workflow 5: teachfrompaper
+    REQUIREMENTS_ONLY = "requirements_only"  # 仅有主题/受众/课时需求，无现成素材 -> workflow 6: kougiforge
+
+
+class MaterialTypeJudgment(_Base):
+    """素材整体内容类型判断结果"""
+    content_type: MaterialContentType = Field(..., description='判断出的素材内容类型')
+    confidence: float = Field(ge=0.0, le=1.0, description='置信度 0-1')
+    reason: str = Field(..., description='判断理由')
+    workflow: str = Field(..., description='推荐使用的工作流标识')
+    workflow_desc: str = Field(..., description='工作流中文描述')
+    material_count: int = Field(..., description='素材文件数量')
+    total_word_count: int = Field(0, description='预估总字数')
+    key_characteristics: List[str] = Field(default_factory=list, description='关键特征列表')
+    suggested_preprocess: List[str] = Field(default_factory=list, description='建议的预处理步骤')
+
+
+########################################################
 # 七、Textbook Anything 兼容模型
 ########################################################
 

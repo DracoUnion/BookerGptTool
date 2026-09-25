@@ -21,37 +21,6 @@ from .md2skill_gen import generate_claude_skills
 from .md2skill_chunker import chunk_markdown
 from .md2skill_models import BookSchema, RawSkill, ChunkSkill, SKUType
 from .util import *
-TYPE_PMT_MAP = {
-    '技术手册': TECH_EXT_PMT,
-    '叙事类': NARRATIVE_EXT_PMT,
-    '方法论': METHOD_EXT_PMT,
-    '学术教材': ACADEMIC_EXT_PMT,
-    '保险合同': INSURANCE_EXT_PMT,
-    '行业报告': REPORT_EXT_PMT,
-    '医学法律': MED_LGL_EXT_PMT,
-    '流程规范': PROC_EXT_PMT,
-}
-
-# 领域同义词库：值 → 标准化标签
-DOMAIN_SYNONYMS: Dict[str, str] = {
-    # 保险领域
-    "保险": "保险", "insurance": "保险", "保障": "保险",
-    "理赔": "保险·理赔", "赔付": "保险·理赔", "claims": "保险·理赔",
-    "核保": "保险·核保", "承保": "保险·核保", "underwriting": "保险·核保",
-    # 法律领域
-    "法律": "法律", "法规": "法律", "legal": "法律", "法务": "法律",
-    "合同": "法律·合同", "contract": "法律·合同", "条款": "法律·合同",
-    # 技术领域
-    "技术": "技术", "technology": "技术", "tech": "技术",
-    "开发": "技术·开发", "编程": "技术·开发", "programming": "技术·开发",
-    "运维": "技术·运维", "devops": "技术·运维", "ops": "技术·运维",
-    # 医学领域
-    "医学": "医学", "medical": "医学", "临床": "医学·临床",
-    "药学": "医学·药学", "pharmacy": "医学·药学",
-    # 金融领域
-    "金融": "金融", "finance": "金融", "财务": "金融",
-    "投资": "金融·投资", "investment": "金融·投资",
-}
 
 
 def parse_raw_skill(raw_skill: str) -> Optional[RawSkill]:
