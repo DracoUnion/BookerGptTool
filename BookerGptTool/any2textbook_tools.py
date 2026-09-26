@@ -536,14 +536,7 @@ class Any2TextbookTools(ToolsMixin):
         )
         r = read_yaml_model(cache_fname, ArticleInventory)
         if r: return r
-        if path.isfile(source):
-            files = [source.replace('\\', '/')]
-        else:
-            files = [
-                path.join(root, f).replace('\\', '/')
-                for root, _, fnames in os.walk(source)
-                for f in sorted(fnames)
-            ]
+        files = self._list_papers(path.join(self.args.dir, source))
         prompt = render_prompt(
             ARTICLE_INVENTORY_PMT,
             file_list='\n'.join(files),
