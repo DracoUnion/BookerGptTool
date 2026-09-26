@@ -901,7 +901,9 @@ graph TD
 [content]
 ### 2.1 缩放点积注意力
 
-> [P001, p.5] "We call our particular attention 'Scaled Dot-Product Attention'. The input consists of queries and keys of dimension d_k, and values of dimension d_v."
+> "We call our particular attention 'Scaled Dot-Product Attention'. The input consists of queries and keys of dimension d_k, and values of dimension d_v."
+> 
+> ——《P001, p.5》
 
 这段话告诉我们，注意力机制的核心是把输入拆成三种角色：**Query**（我在找什么）、**Key**（我有什么标签）、**Value**（我实际提供什么）。你可以把它类比成一次检索：Query 是你的搜索关键词，Key 是每篇文档的标题，Value 是文档正文。
 
@@ -919,15 +921,15 @@ $$
 [content]
 ### 2.2 多头注意力的多种解释
 
-不同素材对"为什么多头有效"给出了不同答案。
+不同论文对"为什么多头有效"给出了不同答案。
 
 **共识**：多头允许模型在不同子空间并行关注不同类型的关系。
 
 **分歧**：
 
-- [P004, p.3] 认为多头的作用是"增加表达能力"，每个头可以专注于不同的语言现象；
-- [P007, p.5] 则认为多头的主要收益来自"优化景观的改善"，即多个头提供的梯度信号更平滑；
-- [P009, p.8] 通过消融案例与结论，去掉一半的头对性能影响很小，暗示存在冗余。
+- 《P004, p.3》认为多头的作用是"增加表达能力"，每个头可以专注于不同的语言现象；
+- 《P007, p.5》则认为多头的主要收益来自"优化景观的改善"，即多个头提供的梯度信号更平滑；
+- 《P009, p.8》通过消融实验发现，去掉一半的头对性能影响很小，暗示存在冗余。
 [/content]
 
 **设计取舍分析**：
