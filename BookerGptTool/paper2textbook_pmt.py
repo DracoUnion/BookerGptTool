@@ -688,7 +688,7 @@ BODY_PMT = '''
 ## 模板
 
 [content]
-# {章标题}
+# 第 X 章 {章标题}
 
 ## 学习目标
 
@@ -706,13 +706,15 @@ BODY_PMT = '''
 
 （核心概念解释，完整段落，由细纲的 `unit[*].points` 扩写而成）
 
-（原文摘录：）
+（原文摘录格式如下：）
 
-> [P001, p.5] "We call our particular attention 'Scaled Dot-Product Attention'. ..."
+> "We call our particular attention 'Scaled Dot-Product Attention'. ..."
+> 
+> ——《{原文名称}》
 
-（核心定义与推导：）
+（核心定义与推导格式如下：）
 
-**定义**（来源：`[P001, p.5-6]`，概念：`Scaled Dot-Product Attention`）
+> {概念名称}**定义**（来源：《{原文标题}》）
 
 $$
 \\text{Attention}(Q,K,V) = \\text{softmax}\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)V
@@ -722,9 +724,9 @@ $$
 
 第一个公式展示了 xxx ...
 
-（关键算法或推导：）
+（关键算法或推导格式如下：）
 
-来源：`[P001, p.7]`，算法：`Algorithm 1: Multi-Head Attention`
+> {算法名称}算法（来源：《{原文标题}》）
 
 ```
 1. 将 Q、K、V 分别线性投影到 h 个子空间
@@ -890,7 +892,7 @@ BODY_CHK_PMT = '''
 ## 模板
 
 [content]
-# {章标题}
+# 第 X 章 {章标题}
 
 ## 学习目标
 
@@ -908,13 +910,15 @@ BODY_CHK_PMT = '''
 
 （核心概念解释，完整段落，由细纲的 `unit[*].points` 扩写而成）
 
-（原文摘录：）
+（原文摘录格式如下：）
 
-> [P001, p.5] "We call our particular attention 'Scaled Dot-Product Attention'. ..."
+> "We call our particular attention 'Scaled Dot-Product Attention'. ..."
+> 
+> ——《{原文名称}》
 
-（核心定义与推导：）
+（核心定义与推导格式如下：）
 
-**定义**（来源：`[P001, p.5-6]`，概念：`Scaled Dot-Product Attention`）
+> {概念名称}**定义**（来源：《{原文标题}》）
 
 $$
 \\text{Attention}(Q,K,V) = \\text{softmax}\\left(\\frac{QK^T}{\\sqrt{d_k}}\\right)V
@@ -924,9 +928,9 @@ $$
 
 第一个公式展示了 xxx ...
 
-（关键算法或推导：）
+（关键算法或推导格式如下：）
 
-来源：`[P001, p.7]`，算法：`Algorithm 1: Multi-Head Attention`
+> {算法名称}算法（来源：《{原文标题}》）
 
 ```
 1. 将 Q、K、V 分别线性投影到 h 个子空间
