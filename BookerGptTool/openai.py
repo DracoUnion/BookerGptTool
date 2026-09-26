@@ -248,7 +248,7 @@ def call_llm_with_toolcall_retry(
             msgs.append({
                 "role": "tool",
                 "tool_call_id": tc.id,
-                "content": errmsg if errmsg else json_dump_model(tc_res),
+                "content": (errmsg if errmsg else json_dump_model(tc_res))[:50_000],
             })
             logger.info(f'toolcall_res: %s', json_dump_model(msgs[-1]))
 
