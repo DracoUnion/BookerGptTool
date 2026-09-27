@@ -129,7 +129,7 @@ class Md2WikiOrchestrator:
         files = []
         for p in sorted((self.wiki_dir / "sources").rglob("*.md")):
             meta, _ = _parse_front(p.read_text(encoding='utf8'))
-            if meta.get("compiled") is False:
+            if not meta.get("compiled"):
                 # YAML 会把 `date: 2026-08-26` 解析为 date 对象、引号形式为 str，
                 # 两种形态都存在于 sources/ 且不可比较，因此统一字符串化后排序。
                 files.append((str(meta.get("date", "")), p))
