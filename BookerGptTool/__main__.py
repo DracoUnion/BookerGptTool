@@ -5,7 +5,7 @@ from . import __version__, any2textbook
 from . import (
     trans, fin_report, md2kg, code2doc, code2book, shengcai, call,
     infer, erchuang, note, paper2code, pdf_ocr, gts_fiction,
-    md2skill, trans_epub, fmt_chunk, md2wiki, clean_heading, forward,
+    md2skill, trans_epub, fmt_chunk, clean_heading, forward,
     novel_anls, xhs_img, play_game, play_android_game, paper2textbook, article_img, ppt, xhs_art, jike_art, podcast, gzh_art, zhanshimian,
 )
 
@@ -53,7 +53,6 @@ def main():
     pdf_ocr.reg_subparser(subparsers)
     gts_fiction.reg_subparser(subparsers)
     md2skill.reg_subparser(subparsers)
-    md2wiki.reg_subparser(subparsers)
     trans_epub.reg_subparser(subparsers)
     fmt_chunk.reg_subparser(subparsers)
     forward.reg_subparser(subparsers)
