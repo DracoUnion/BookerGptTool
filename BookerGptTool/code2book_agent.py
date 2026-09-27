@@ -223,7 +223,7 @@ class Code2BookAgent:
         """校验细纲未覆盖所有函数时，补充缺少的函数重写细纲。"""
         ques = render_prompt(
             DETAIL_FIX_PMT,
-            i=str(idx),
+            i=str(idx + 1),
             outline=self._json_dump(outline_chs),
             detail=detail.json(),
             code_desc=self._json_dump(code_desc),

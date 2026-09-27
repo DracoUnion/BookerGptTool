@@ -196,7 +196,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
         outline_chs: List[OutlineChapterResult],
         code_desc: List[CodeDescItemResult],
     ):
-        idx = int(re.search(r'detail_(\d+)\.yaml', detail_fname).group(1))
+        idx = int(re.search(r'detail_(\d+)\.yaml', detail_fname).group(1)) - 1
         logger.warn(f'[2] 校验细纲 {idx+1}')
         detail = read_yaml_model(detail_fname, Detail)
         if detail is None:
@@ -244,7 +244,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
         detail: Detail, 
         code_desc: List[CodeDescItemResult],
     ):
-        idx = int(re.search(r'article_(\d+)\.md', body_fname).group(1))
+        idx = int(re.search(r'article_(\d+)\.md', body_fname).group(1)) - 1
         logger.info(f'[3] 校验正文 {idx+1}')
         body = open(body_fname, encoding='utf8').read()
         if not body:
