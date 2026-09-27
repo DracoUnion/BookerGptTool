@@ -251,7 +251,7 @@ class Paper2TextbookAgent(ToolsMixin):
         if r: return r
         prompt = render_prompt(
             CONCEPT_ANLS_DETAIL_PMT,
-            i=str(i),
+            i=str(i + 1),
             outline=json_dump_model(outline),
             paper_desc=json_dump_model(paper_desc),
         )
@@ -275,7 +275,7 @@ class Paper2TextbookAgent(ToolsMixin):
         if r: return r
         prompt = render_prompt(
             REST_DETAIL_PMT,
-            i=str(i),
+            i=str(i + 1),
             outline=json_dump_model(outline),
             detail=json_dump_model(detail),
             paper_desc=json_dump_model(paper_desc),
@@ -301,7 +301,7 @@ class Paper2TextbookAgent(ToolsMixin):
         if r: return r
         prompt = render_prompt(
             DETAIL_FIX_PMT,
-            i=str(i),
+            i=str(i + 1),
             detail=json_dump_model(detail),
             outline=json_dump_model(outline),
             paper_desc=json_dump_model(paper_desc),
@@ -331,7 +331,7 @@ class Paper2TextbookAgent(ToolsMixin):
             return r
         prompt = render_prompt(
             BODY_PMT,
-            i=str(i),
+            i=str(i + 1),
             outline=json_dump_model(outline),
             detail=json_dump_model(detail),
             paper_desc=json_dump_model(paper_desc),
