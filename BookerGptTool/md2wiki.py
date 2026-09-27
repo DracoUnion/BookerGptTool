@@ -17,6 +17,9 @@ import re
 from datetime import date
 from pathlib import Path
 from typing import List, Dict, Tuple
+import os
+import shutil
+from os import path
 
 import yaml
 
@@ -101,13 +104,28 @@ class Md2WikiOrchestrator:
         self.args = args
         self.agent = Md2WikiAgent(args)
         self.wiki_dir = Path(self.args.wiki_dir)
+        self.wiki_dir.mkdir(parents=True, exist_ok=True)
+        self.src_dir = self.wiki_dir / "sources"
+        self.src_dir.mkdir(parents=True, exist_ok=True)
         self.pages_dir = self.wiki_dir / "pages"
+        self.pages_dir.mkdir(parents=True, exist_ok=True)
         self.max_chars = args.max_chars
         self.limit = args.limit
 
     # ── 步骤 0：发现待编译源 ────────────────────────────────
 
     def _discover_pending(self) -> List[Path]:
+        input_dir = self.args.input_dir
+        if input_dir:
+            fnames = (
+                [input_dir] 
+                if path.isfile(input_dir) else
+                [path.join(input_dir, f) for f in os.listdir(input_dir)]
+            )
+            fnames = [f for f in fnames if f.endswith('.md')]
+            for f in fnames:
+                shutil.copy(f, str(self.src_dir))
+
         files = []
         for p in sorted((self.wiki_dir / "sources").rglob("*.md")):
             meta, _ = _parse_front(p.read_text(encoding='utf8'))
@@ -417,9 +435,6 @@ class Md2WikiOrchestrator:
 
     def run(self) -> int:
         logger.info(self.args)
-        if not (self.wiki_dir / "sources").is_dir():
-            logger.fatal(f'目录 {self.wiki_dir} 缺少 sources/ 目录')
-            return 0
 
         pending = self._discover_pending()
         if self.limit:
@@ -459,7 +474,7 @@ def reg_subparser(subparsers):
     parser = subparsers.add_parser(
         "md2wiki", help="将归档 Markdown 源码编译为交叉链接的知识百科"
     )
-    parser.add_argument("wiki_dir", help="wiki 目录（含 sources/pages/index）")
+    parser.add_argument("wiki_dir", help="wiki 目录（含 sources/pages/index），若不存在则新建")
     parser.add_argument(
         "-c", "--max-chars", type=int, default=35_000,
         help="单次提示中原文长度上限",
@@ -472,5 +487,6 @@ def reg_subparser(subparsers):
         "-f", "--fix", action='store_true',
         help="在摄取完毕后执行坏链修复",
     )
+    parser.add_argument("-i", "--input-dir", help="要添加的 MD 文件或者目录")
     parser.add_argument("-D", "--debug", action='store_true', help="调试模式")
     parser.set_defaults(func=md2wiki)
