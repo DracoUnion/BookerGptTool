@@ -164,6 +164,26 @@ def _find_value(obj: Any, keys: Tuple[str, ...]) -> Optional[str]:
     return None
 
 
+def _parse_tool_result(res: Any) -> Any:
+    """把 MCP CallToolResult 规整为逻辑值。
+
+    服务器返回形如 {"content":[{"type":"text","text":"..."}],"isError":false}。
+    这里拼接所有 text 块并尝试按 JSON 解析，返回解析后的对象或原始字符串。
+    """
+    if isinstance(res, dict) and isinstance(res.get('content'), list):
+        texts = [
+            it.get('text', '') for it in res['content']
+            if isinstance(it, dict) and it.get('type') == 'text'
+        ]
+        joined = '\n'.join(t for t in texts if t)
+        if joined:
+            try:
+                return json.loads(joined)
+            except json.JSONDecodeError:
+                return joined
+    return res
+
+
 def _to_png_bytes(b64: str) -> Tuple[bytes, Tuple[int, int]]:
     """把 base64 图片（可能带 data URL 前缀、可能是任意格式）规整为 PNG 字节。"""
     from PIL import Image
@@ -191,6 +211,24 @@ class ChromeMcpClient:
         self._req_id = 0
 
     # -- 底层 JSON-RPC ---------------------------------------------------
+
+    def _notify(self, method: str, params: Optional[dict] = None) -> None:
+        """发送 JSON-RPC 通知（不带 id，服务器不回 result）。"""
+        body = {'jsonrpc': '2.0', 'method': method, 'params': params or {}}
+        headers = {
+            'Accept': 'application/json, text/event-stream',
+            'Content-Type': 'application/json',
+        }
+        if self.session_id:
+            headers['Mcp-Session-Id'] = self.session_id
+        with httpx.Client(timeout=self.timeout) as c:
+            resp = c.request('POST', self.endpoint, json=body, headers=headers)
+            sid = resp.headers.get('mcp-session-id')
+            if sid:
+                self.session_id = sid
+            if resp.status_code >= 400:
+                logger.debug('MCP 通知 %s HTTP %s：%s',
+                             method, resp.status_code, resp.text[:300])
 
     def _post(self, method: str, params: Optional[dict] = None) -> Optional[dict]:
         self._req_id += 1
@@ -246,7 +284,7 @@ class ChromeMcpClient:
                 'mcp-chrome-bridge 同一时刻只允许一个客户端会话，'
                 '请先断开其他占用该服务器的客户端。'
             ) from ex
-        self._post('notifications/initialized', {})
+        self._notify('notifications/initialized')
         logger.info('已连接 Chrome MCP：%s',
                     (result or {}).get('serverInfo', {}))
 
@@ -282,12 +320,13 @@ class ChromeMcpClient:
     # -- 页面相关高层操作 ------------------------------------------------
 
     def list_tabs(self) -> List[dict]:
-        res = self.call_tool('get_windows_and_tabs') or {}
+        res = _parse_tool_result(self.call_tool('get_windows_and_tabs'))
         tabs: List[dict] = []
         for win in res.get('windows', []) or []:
             for t in win.get('tabs', []) or []:
                 tabs.append({
-                    'tabId': t.get('id'),
+                    'tabId': t.get('tabId'),
+                    'windowId': t.get('windowId') or win.get('windowId'),
                     'url': t.get('url'),
                     'title': t.get('title'),
                 })
@@ -306,21 +345,25 @@ class ChromeMcpClient:
         """
         b64 = None
         try:
-            res = self.call_tool('chrome_computer', {'action': 'screenshot'})
+            res = _parse_tool_result(
+                self.call_tool('chrome_computer', {'action': 'screenshot'})
+            )
             b64 = _find_value(res, (
-                'base64', 'data', 'image', 'screenshot',
-                'imageData', 'png', 'b64',
+                'base64', 'base64data', 'data', 'image', 'screenshot',
+                'screenshotdata', 'imageData', 'png', 'b64',
             ))
         except Exception as ex:
             logger.debug('chrome_computer 截图失败：%s', ex)
         if not b64:
             try:
-                res = self.call_tool('chrome_screenshot', {
-                    'storeBase64': True, 'savePng': False,
-                })
+                res = _parse_tool_result(
+                    self.call_tool('chrome_screenshot', {
+                        'storeBase64': True, 'savePng': False,
+                    })
+                )
                 b64 = _find_value(res, (
-                    'base64', 'data', 'image', 'screenshot',
-                    'imageData', 'png', 'b64',
+                    'base64', 'base64data', 'data', 'image', 'screenshot',
+                    'screenshotdata', 'imageData', 'png', 'b64',
                 ))
             except Exception as ex:
                 logger.debug('chrome_screenshot 截图失败：%s', ex)
