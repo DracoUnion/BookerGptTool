@@ -326,7 +326,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
             cmt2 = self.agent.check_consistency(bodies[i-1], bodies[i])
             if cmt2.strip():
                 logger.info(f'[6] 跨章一致性提示（第{i+1}章）：\n{cmt2}')
-                cards_ch = self._cards_ch_detail(detail[i], concept_cards)
+                cards_ch = self._cards_ch_detail(details[i], concept_cards)
                 bodies[i] = self.agent.fix_body(details[i], bodies[i], cmt2, cards_ch)
                 write_text(path.join(self.pj_dir, f'chapter_{i+1:03d}.md'), bodies[i])
         return bodies
