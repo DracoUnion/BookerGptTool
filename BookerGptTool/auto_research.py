@@ -153,4 +153,8 @@ def reg_subparser(subparsers):
         '-ms', '--max-steps', type=int, default=60,
         help='本轮循环步数上限（提示模型收敛，默认 60）',
     )
+    p.add_argument(
+        '-y', '--yes', action='store_true',
+        help='自动批准所有审批（跳过人工确认，审计记录标记为自动批准）',
+    )
     p.set_defaults(func=auto_research_handle)

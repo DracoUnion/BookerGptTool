@@ -400,7 +400,13 @@ class AutoResearchTools(ToolsMixin):
 
     def tool_request_user_approval(self, stage: str,
                                    payload: str = '') -> ApprovalResult:
-        """向人类请求阶段门禁/关键决策审批（交互读控制台）。"""
+        """向人类请求阶段门禁/关键决策审批；启用 -y 时自动批准不阻塞。"""
+        if getattr(self.args, 'yes', False):
+            logger.info('[-y] 自动批准阶段门禁：%s', stage)
+            return ApprovalResult(
+                stage=stage, approved=True,
+                comment='-y 自动批准（未经人工确认）',
+                record=f'{stage}_auto_approved')
         print('\n=== 需要人类审批 ===')
         print(f'阶段：{stage}')
         if payload:
