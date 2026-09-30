@@ -6,7 +6,7 @@ from . import (
     trans, fin_report, md2kg, code2doc, code2book, shengcai, call,
     infer, erchuang, note, paper2code, pdf_ocr, gts_fiction,
     md2skill, trans_epub, fmt_chunk, clean_heading, forward,
-    novel_anls, xhs_img, play_game, play_android_game, play_game_chrome, paper2textbook, article_img, ppt, xhs_art, jike_art, podcast, gzh_art, zhanshimian, md2wiki,
+    novel_anls, xhs_img, play_game, play_android_game, play_game_chrome, paper2textbook, article_img, ppt, xhs_art, jike_art, podcast, gzh_art, zhanshimian, md2wiki, auto_research,
 )
 
 def main():
@@ -73,6 +73,7 @@ def main():
     gzh_art.reg_subparser(subparsers)
     zhanshimian.reg_subparser(subparsers)
     md2wiki.reg_subparser(subparsers)
+    auto_research.reg_subparser(subparsers)
 
     args = parser.parse_args()
     args.func(args)
