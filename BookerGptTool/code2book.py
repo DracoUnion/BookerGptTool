@@ -187,6 +187,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
         self.args = args
         self.agent = Code2BookAgent( args)
         self.pj_dir = args.dir
+        self.asset_dir = path.join(self.pj_dir, 'asset')
         self.pool = ThreadPoolExecutor(args.threads)
         self.hdls: List[Future] = []
 
@@ -222,8 +223,8 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
     ):
         logger.info('[2] 校验细纲')
         detail_fnames = [
-            path.join(self.pj_dir, f)
-            for f in os.listdir(self.pj_dir)
+            path.join(self.asset_dir, f)
+            for f in os.listdir(self.asset_dir)
             if re.search(r'^detail_\d+\.yaml$', f)
         ]
         for f in tqdm(detail_fnames):
@@ -278,7 +279,7 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
         ]
         for f in tqdm(body_fnames):
             idx_str = re.search(r'article_(\d+)\.md$', f).group(1)
-            detail_fname = path.join(self.pj_dir, f'detail_{idx_str}.yaml')
+            detail_fname = path.join(self.asset_dir, f'detail_{idx_str}.yaml')
             detail = read_yaml_model(detail_fname, Detail)
             if detail is None:
                 logger.warn(f'[3] {detail_fname} 不存在')
@@ -296,15 +297,15 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
         pass
 
     def run(self):
-        outline_fname = path.join(self.pj_dir, 'outline.yaml')
+        outline_fname = path.join(self.asset_dir, 'outline.yaml')
         outline = read_yaml_model(outline_fname, List[OutlinePartResult])
         if outline is None:
             logger.fatal(f'[1] 大纲加载失败')
             return
         outline_chs = sum([pt.chapters for pt in outline], [])
         code_desc_fnames = [
-            path.join(self.pj_dir, f) 
-            for f in os.listdir(self.pj_dir)
+            path.join(self.asset_dir, f) 
+            for f in os.listdir(self.asset_dir)
             if re.search(r'_desc\.yaml$', f)
         ]
         code_desc = [
@@ -337,6 +338,7 @@ class Code2BookOrchestrator(Code2BookMixin):
         self.args = args
         self.agent = Code2BookAgent( args)
         self.pj_dir = path.abspath(args.dir) + '_code2book'
+        self.asset_dir = path.join(self.pj_dir, 'asset')
         self.pool = ThreadPoolExecutor(args.threads)
         self.hdls: List[Future] = []
 
@@ -373,7 +375,7 @@ class Code2BookOrchestrator(Code2BookMixin):
     def _tr_gen_code_desc(self, fname: str, idx: int) -> Tuple[int, CodeDescItemResult]:
         logger.info(f'[2] 生成描述 {fname}')
         desc_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             fname.replace('/', '----') + '_desc.yaml'
         )
         desc = read_yaml_model(desc_fname, CodeDescItemResult)
@@ -407,7 +409,7 @@ class Code2BookOrchestrator(Code2BookMixin):
         self, fnames: List[str]
     ):
         logger.info('[3] 划分部分')
-        part_clus_fname = path.join(self.pj_dir, 'parts.yaml')
+        part_clus_fname = path.join(self.asset_dir, 'parts.yaml')
         parts = read_yaml_model(part_clus_fname, List[PartClusResult])
         if parts is not None:
             return parts
@@ -467,7 +469,7 @@ class Code2BookOrchestrator(Code2BookMixin):
         code_desc: List[CodeDescItemResult],
     ) -> List[OutlinePartResult]:
         logger.info('[3] 生成大纲')
-        outline_fname = path.join(self.pj_dir, 'outline.yaml')
+        outline_fname = path.join(self.asset_dir, 'outline.yaml')
         outline = read_yaml_model(outline_fname, List[OutlinePartResult])
         if outline is None:
             outline = [
@@ -515,7 +517,7 @@ class Code2BookOrchestrator(Code2BookMixin):
 
         l = len(str(len(outline_chs)))
         detail_fname = f'detail_{str(idx+1).zfill(l)}.yaml'
-        detail_fname = path.join(self.pj_dir, detail_fname)
+        detail_fname = path.join(self.asset_dir, detail_fname)
         detail = read_yaml_model(detail_fname, Detail)
         if detail is not None:
             return idx, detail
@@ -634,6 +636,7 @@ class Code2BookOrchestrator(Code2BookMixin):
             logger.fatal('该项目没有 README.md 文件')
             return
         os.makedirs(self.pj_dir, exist_ok=True)
+        os.makedirs(self.asset_dir, exist_ok=True)
 
         # 1. 探索项目结构
         logger.info('[1] 探索项目结构')
