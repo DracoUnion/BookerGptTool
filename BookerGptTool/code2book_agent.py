@@ -57,6 +57,8 @@ class Code2BookAgent:
     def __init__(self, args):
         self.model = args.model
         self.args = args
+        self.pj_dir = path.abspath(args.dir) + '_code2book'
+        self.asset_dir = path.join(self.pj_dir, 'asset')
         set_openai_props(self.args)
 
     def fix_parts(

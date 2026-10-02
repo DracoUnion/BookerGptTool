@@ -337,8 +337,8 @@ class Code2BookOrchestrator(Code2BookMixin):
     def __init__(self, args):
         self.args = args
         self.agent = Code2BookAgent( args)
-        self.pj_dir = path.abspath(args.dir) + '_code2book'
-        self.asset_dir = path.join(self.pj_dir, 'asset')
+        self.pj_dir = self.agent.pj_dir
+        self.asset_dir = self.agent.asset_dir
         self.pool = ThreadPoolExecutor(args.threads)
         self.hdls: List[Future] = []
 
