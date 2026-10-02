@@ -29,6 +29,11 @@ from .util import (
     ext_code_block,
     ext_cont_block,
     render_prompt,
+    gen_objs_md5,
+    read_yaml_model,
+    write_yaml_model,
+    read_text,
+    write_text,
 )
 
 from .openai import logger as oai_logger
@@ -62,9 +67,15 @@ class Code2BookAgent:
         set_openai_props(self.args)
 
     def fix_parts(
-        self, files: List[str], 
+        self, files: List[str],
         parts: List[PartClusResult], problem: str
     ) -> List[PartClusResult]:
+        cache_fname = path.join(
+            self.asset_dir,
+            'part_fix_' + gen_objs_md5(parts, files, problem) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[PartClusResult])
+        if r: return r
         ques = render_prompt(
             PT_FIX_PMT,
             files='\n'.join(files),
@@ -81,9 +92,16 @@ class Code2BookAgent:
         )
         for pt in parts:
             pt.files = expand_stars(pt.files, files)
+        write_yaml_model(cache_fname, parts)
         return parts
 
     def cluster_parts(self, files: List[str]) -> List[PartClusResult]:
+        cache_fname = path.join(
+            self.asset_dir,
+            'part_' + gen_objs_md5(files) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[PartClusResult])
+        if r: return r
         ques = render_prompt(PT_CLUS_PMT, files='\n'.join(files))
         parse_output = lambda s: parse_obj_as(
             List[PartClusResult],
@@ -95,6 +113,7 @@ class Code2BookAgent:
         )
         for pt in parts:
             pt.files = expand_stars(pt.files, files)
+        write_yaml_model(cache_fname, parts)
         return parts
 
     def gen_code_desc(self, fname: str, code: str) -> ClsFuncExtResult:
@@ -107,15 +126,22 @@ class Code2BookAgent:
         start_line = 1
         for i in range(0, len(code), step):
             chunk = code[i: i + self.args.code_limit]
-            ques = render_prompt(
-                CLS_FUNC_EXT_PMT, 
-                fname=fname, code=chunk,
-                start=str(start_line)
+            cache_fname = path.join(
+                self.asset_dir,
+                'code_desc_' + gen_objs_md5(fname, chunk) + '.yaml'
             )
-            chunk_res: ClsFuncExtResult =  ask_chatgpt_retry(
-                ques, self.model, self.args,
-                parse_output=parse_output,
-            )
+            chunk_res = read_yaml_model(cache_fname, ClsFuncExtResult)
+            if not chunk_res:
+                ques = render_prompt(
+                    CLS_FUNC_EXT_PMT,
+                    fname=fname, code=chunk,
+                    start=str(start_line)
+                )
+                chunk_res: ClsFuncExtResult =  ask_chatgpt_retry(
+                    ques, self.model, self.args,
+                    parse_output=parse_output,
+                )
+                write_yaml_model(cache_fname, chunk_res)
             res.desc += chunk_res.desc
             res.classes += chunk_res.classes
             res.funcs += chunk_res.funcs
@@ -127,6 +153,12 @@ class Code2BookAgent:
     ) -> List[OutlineChapterResult]:
         """根据项目结构和源码描述生成书籍大纲。"""
         fnames_li = '\n'.join(fnames)
+        cache_fname = path.join(
+            self.asset_dir,
+            'outline_' + gen_objs_md5(fnames, code_desc, readme) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[OutlineChapterResult])
+        if r: return r
         ques = render_prompt(
             OUTLINE_PMT,
             struct=fnames_li,
@@ -144,6 +176,7 @@ class Code2BookAgent:
         for o in res:
             for n in o.nodes:
                 n.src = expand_stars(n.src, fnames)
+        write_yaml_model(cache_fname, res)
         return res
 
     def fix_outline(
@@ -152,6 +185,12 @@ class Code2BookAgent:
     ) -> List[OutlineChapterResult]:
         """校验大纲未覆盖所有文件时，补充缺少的源码文件重写大纲。"""
         fnames_li = '\n'.join(fnames)
+        cache_fname = path.join(
+            self.asset_dir,
+            'outline_fix_' + gen_objs_md5(outline, fnames, code_desc, readme, problem) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[OutlineChapterResult])
+        if r: return r
         ques = render_prompt(
             OUTLINE_FIX_PMT,
             struct=fnames_li,
@@ -171,6 +210,7 @@ class Code2BookAgent:
         for o in res:
             for n in o.nodes:
                 n.src = expand_stars(n.src, fnames)
+        write_yaml_model(cache_fname, res)
         return res
 
     def gen_src_anls_detail(
@@ -179,6 +219,12 @@ class Code2BookAgent:
         code_desc: List[CodeDescItemResult],
     ) -> SrcAnlsDetailResult:
         """生成第 idx 章细纲的源码解析部分。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'detail_src_' + gen_objs_md5(idx, outline_chs, code_desc) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, SrcAnlsDetailResult)
+        if r: return r
         ques = render_prompt(
             SRC_ANLS_DETAIL_PMT,
             i=str(idx + 1),
@@ -192,6 +238,7 @@ class Code2BookAgent:
             ques, self.model, self.args,
             parse_output=parse_output,
         )
+        write_yaml_model(cache_fname, res)
         return res
 
     def gen_rest_detail(
@@ -201,6 +248,12 @@ class Code2BookAgent:
         code_desc: List[CodeDescItemResult],
     ) -> RestDetailResult:
         """生成第 idx 章细纲的剩余部分（学习目标、类比、练习等）。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'detail_rest_' + gen_objs_md5(idx, detail, outline_chs, code_desc) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, RestDetailResult)
+        if r: return r
         ques = render_prompt(
             REST_DETAIL_PMT,
             detail=detail.json(),
@@ -211,10 +264,12 @@ class Code2BookAgent:
         parse_output = lambda s: RestDetailResult(
             **json_repair.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(
+        res = ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
+        write_yaml_model(cache_fname, res)
+        return res
 
     def fix_detail(
         self, idx: int, detail: Detail, 
@@ -223,6 +278,12 @@ class Code2BookAgent:
         problem: str,
     ) -> Detail:
         """校验细纲未覆盖所有函数时，补充缺少的函数重写细纲。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'detail_fix_' + gen_objs_md5(idx, detail, outline_chs, code_desc, problem) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, Detail)
+        if r: return r
         ques = render_prompt(
             DETAIL_FIX_PMT,
             i=str(idx + 1),
@@ -234,10 +295,12 @@ class Code2BookAgent:
         parse_output = lambda s: Detail(
             **json_repair.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(
+        res = ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
+        write_yaml_model(cache_fname, res)
+        return res
 
     def gen_body(
         self, idx: int, 
@@ -246,6 +309,12 @@ class Code2BookAgent:
         code_desc: List[CodeDescItemResult],
     ) -> str:
         """根据大纲和细纲生成第 idx 章正文。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'body_' + gen_objs_md5(idx, detail, outline_chs, code_desc) + '.md'
+        )
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
         ques = render_prompt(
             BODY_PMT,
             detail=self._json_dump(detail),
@@ -253,28 +322,44 @@ class Code2BookAgent:
             code_desc=self._json_dump(code_desc),
             i=str(idx + 1),
         )
-        return ask_chatgpt_retry(
+        res = ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         )
+        write_text(cache_fname, res)
+        return res
 
     def check_body(self, body: str, detail: Detail) -> str:
         """校验正文是否符合格式规范，返回修改意见或 [PERFECT/]。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'body_check_' + gen_objs_md5(body, detail) + '.md'
+        )
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
         detail_str = detail.json()
         ques = render_prompt(BODY_CHK_PMT, body=body, detail=detail_str)
-        return ask_chatgpt_retry(
+        res = ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         )
+        write_text(cache_fname, res)
+        return res
 
     def fix_body(
-        self, 
-        detail: Detail, 
-        body: str, 
-        comment: str, 
+        self,
+        detail: Detail,
+        body: str,
+        comment: str,
         code_desc: List[CodeDescItemResult],
     ) -> str:
         """根据修改意见和对应源码修改正文。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'body_fix_' + gen_objs_md5(detail, body, comment, code_desc) + '.md'
+        )
+        if path.isfile(cache_fname) and path.getsize(cache_fname):
+            return read_text(cache_fname)
         detail_str = detail.json()
         ques = render_prompt(
             BODY_FIX_PMT,
@@ -283,10 +368,12 @@ class Code2BookAgent:
             comment=comment,
             code_desc=self._json_dump(code_desc),
         )
-        return ask_chatgpt_retry(
+        res = ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         )
+        write_text(cache_fname, res)
+        return res
 
     @staticmethod
     def _json_dump(obj) -> str:
