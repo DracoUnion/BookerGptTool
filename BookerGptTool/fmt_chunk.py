@@ -6,7 +6,7 @@ import os
 import logging
 from os import path
 from .md2skill_chunker import chunk_markdown
-from .util import group_chunks, split_md_lines, ext_cont_block, render_prompt
+from .util import group_chunks, split_md_lines, ext_cont_block, render_prompt, gen_objs_md5, read_text, write_text
 from .openai import logger as oai_logger
 from .openai import set_openai_props, ask_chatgpt_retry
 
@@ -176,8 +176,14 @@ def tr_fmt_group_multi(text, res, idx, args):
         res[idx] = text
 
 def tr_fmt_group(text, res, idx, args):
-    ques = render_prompt(FMT_PMT, text=text)
-    ans = ask_chatgpt_retry(ques, args.model, args, ext_cont_block)
+    cache_fname = path.join(
+        args.cache_dir, 'fmt_' + gen_objs_md5(text) + '.md')
+    if path.isfile(cache_fname) and path.getsize(cache_fname):
+        ans = read_text(cache_fname)
+    else:
+        ques = render_prompt(FMT_PMT, text=text)
+        ans = ask_chatgpt_retry(ques, args.model, args, ext_cont_block)
+        write_text(cache_fname, ans)
     res[idx] = ans
 
 def fmt_chunk_handle(args):
