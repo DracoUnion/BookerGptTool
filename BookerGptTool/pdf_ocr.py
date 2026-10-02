@@ -100,39 +100,7 @@ class PDFOcrOrchestrator:
             ThreadPoolExecutor(self.args.page_threads)
         self._hdls: List[Future] = []
 
-    @staticmethod
-    def _resolve_paths(args: argparse.Namespace) -> dict:
-        """根据 args 计算所有输出路径，返回字典。"""
-        name = path.basename(args.fname)[:-4]
-        slug = to_kebab(name)
-        d = path.dirname(args.fname)
-        pj_dir = path.join(d, slug) if args.mkdir else d
-        img_dir = (
-            path.join(pj_dir, 'img')
-            if args.mkdir else args.fname[:-4] + '_imgs'
-        )
-        meta_dir = (
-            path.join(pj_dir, 'asset')
-            if args.mkdir else args.fname[:-4] + '_asset'
-        )
-        md_fname = (
-            path.join(pj_dir, f'{slug}.md')
-            if args.mkdir else args.fname[:-4] + '.md'
-        )
-        page_fname = path.join(meta_dir, 'pages.yaml')
-        group_fname = path.join(meta_dir, 'groups.yaml')
-        toc_fname = path.join(meta_dir, 'toc.yaml')
-        return {
-            'name': name,
-            'slug': slug,
-            'pj_dir': pj_dir,
-            'meta_dir': meta_dir,
-            'img_dir': img_dir,
-            'md_fname': md_fname,
-            'page_fname': page_fname,
-            'group_fname': group_fname,
-            'toc_fname': toc_fname,
-        }
+
 
     # ── 线程池工具 ────────────────────────────────
 
@@ -423,7 +391,7 @@ class PDFOcrOrchestrator:
             logger.fatal('请提供PDF文件')
             return
 
-        paths = self._resolve_paths(self.args)
+        paths = self.agent.resolve_paths(self.args)
         name = paths['name']
         slug = paths['slug']
         pj_dir = paths['pj_dir']
