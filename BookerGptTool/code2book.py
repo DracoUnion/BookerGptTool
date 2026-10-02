@@ -34,7 +34,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-from .code2book_agent import Code2BookAgent, expand_stars
+from .code2book_agent import Code2BookAgent, Code2BookCheckAgent, expand_stars
 
 class Code2BookMixin:
 
@@ -185,9 +185,9 @@ class Code2BookCheckOrchestrator(Code2BookMixin):
 
     def __init__(self, args):
         self.args = args
-        self.agent = Code2BookAgent( args)
-        self.pj_dir = args.dir
-        self.asset_dir = path.join(self.pj_dir, 'asset')
+        self.agent = Code2BookCheckAgent( args)
+        self.pj_dir = self.agent.pj_dir
+        self.asset_dir = self.agent.asset_dir
         self.pool = ThreadPoolExecutor(args.threads)
         self.hdls: List[Future] = []
 

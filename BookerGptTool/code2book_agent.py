@@ -298,3 +298,11 @@ class Code2BookAgent:
                 for it in obj
             ]
         return json.dumps(obj, ensure_ascii=False, indent=2)
+
+
+class Code2BookCheckAgent(Code2BookAgent):
+
+    def __init__(self, args):
+        super().__init__(args)
+        self.pj_dir = args.dir
+        self.asset_dir = path.join(self.pj_dir, 'asset')
