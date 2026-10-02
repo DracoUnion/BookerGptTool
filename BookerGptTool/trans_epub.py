@@ -61,27 +61,6 @@ class TransEpubDispatcher:
         self.pool = ThreadPoolExecutor(self.args.page_threads)
         self.hdls = []
 
-    def _resolve_paths(self, args):
-        name = path.basename(args.fname)[:-5]
-        slug = to_kebab(name)
-        proj_dir = path.join(path.dirname(args.fname), slug)
-        meta_dir = path.join(proj_dir, 'asset')
-        img_dir = path.join(proj_dir, 'img')
-        return dict(
-            name=name,
-            slug=slug,
-            proj_dir=proj_dir,
-            meta_dir=meta_dir,
-            img_dir=img_dir,
-            meta_fname=path.join(meta_dir, 'meta.yaml'),
-            html_fname=path.join(meta_dir, 'all.html'),
-            md_fname=path.join(meta_dir, 'all.md'),
-            chunk_fname=path.join(meta_dir, 'chunks.yaml'),
-            chs_fname=path.join(meta_dir, 'chs.yaml'),
-            readme_fname=path.join(proj_dir, 'README.md'),
-            summary_fname=path.join(proj_dir, 'SUMMARY.md'),
-        )
-
     def run(self):
         args = self.args
         logger.info(args)
@@ -89,7 +68,7 @@ class TransEpubDispatcher:
             logger.fatal('请提供EPUB文件')
             return
 
-        p = self._resolve_paths(args)
+        p = self.agent.resolve_paths(args)
         os.makedirs(p['proj_dir'], exist_ok=True)
         md_fnames = [
             f for f in os.listdir(p['proj_dir'])

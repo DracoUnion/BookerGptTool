@@ -53,8 +53,34 @@ from .trans_epub_models import *
 
 
 class EpubTranslatorAgent:
+
+    @staticmethod
+    def resolve_paths(args):
+        name = path.basename(args.fname)[:-5]
+        slug = to_kebab(name)
+        proj_dir = path.join(path.dirname(args.fname), slug)
+        meta_dir = path.join(proj_dir, 'asset')
+        img_dir = path.join(proj_dir, 'img')
+        return dict(
+            name=name,
+            slug=slug,
+            proj_dir=proj_dir,
+            meta_dir=meta_dir,
+            img_dir=img_dir,
+            meta_fname=path.join(meta_dir, 'meta.yaml'),
+            html_fname=path.join(meta_dir, 'all.html'),
+            md_fname=path.join(meta_dir, 'all.md'),
+            chunk_fname=path.join(meta_dir, 'chunks.yaml'),
+            chs_fname=path.join(meta_dir, 'chs.yaml'),
+            readme_fname=path.join(proj_dir, 'README.md'),
+            summary_fname=path.join(proj_dir, 'SUMMARY.md'),
+        )
+
     def __init__(self, args):
         self.args = args
+        paths = self.resolve_paths(args)
+        self.pj_dir = paths['pj_dir']
+        self.asset_dir = paths['meta_dir']
         set_openai_props(args)
 
     def translate_title(self, text: str) -> str:
