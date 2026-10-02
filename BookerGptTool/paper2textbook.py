@@ -117,6 +117,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         self.args = args
         self.agent = Paper2TextbookAgent(args)
         self.pj_dir = self.agent.pj_dir
+        self.asset_dir = self.agent.asset_dir
         self.pool = ThreadPoolExecutor(getattr(args, 'threads', 8))
         self.check = getattr(args, 'check', 3)
         self.hdls: List[Future] = []
@@ -126,7 +127,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
 
     def step_discover_papers(self) -> Dict[str, str]:
         logger.info('[1] 读取论文列表与全文')
-        cache_fname = path.join(self.pj_dir, 'paper_brief.yaml')
+        cache_fname = path.join(self.asset_dir, 'paper_brief.yaml')
         paper_briefs = read_yaml_model(cache_fname, None)
         if paper_briefs: return paper_briefs
         paper_fnames = self.agent.list_papers()
@@ -156,7 +157,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
     def _tr_ext_concepts(self, i: int, fname: str) -> Tuple[int, PaperConcepts]:
         logger.info(f'[2] 抽取论文 {fname} 的概念卡片')
         text = self.agent.read_paper(fname)
-        cache_fname = path.join(self.pj_dir, 
+        cache_fname = path.join(self.asset_dir, 
             'ccpt_' + fname.replace('/', '----') +  '.yaml')
         r = read_yaml_model(cache_fname, PaperConcepts)
         if r is None:
@@ -168,7 +169,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
 
     def step_cluster_papers(self, paper_briefs: Dict[str, str]) -> List[PartClus]:
         logger.info('[3] 论文聚类')
-        cache_fname = path.join(self.pj_dir, 'parts.yaml')
+        cache_fname = path.join(self.asset_dir, 'parts.yaml')
         parts = read_yaml_model(cache_fname, List[PartClus])
         if parts:
             return parts
@@ -213,7 +214,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         concept_cards: List[PaperConcepts]
     ) -> List[OutlineParts]:
         logger.info('[4] 生成全书大纲')
-        cache_fname = path.join(self.pj_dir, 'outline.yaml')
+        cache_fname = path.join(self.asset_dir, 'outline.yaml')
         outline = read_yaml_model(cache_fname, List[OutlineParts])
         if not outline:
             outline = [
@@ -258,7 +259,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
                 self._collect_hdls(res_callback)
         self._collect_hdls(res_callback)
 
-        write_yaml_model(path.join(self.pj_dir, 'details.yaml'), details)
+        write_yaml_model(path.join(self.asset_dir, 'details.yaml'), details)
         return details
 
     @staticmethod
@@ -281,7 +282,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
 
     def _tr_gen_detail(self, i: int, outline: List[OutlineChapter], concept_cards: List[PaperConcepts]) -> Tuple[int, ChapterDetail]:
         logger.info(f'[5] 编写第{i+1}章细纲')
-        cache_fname = path.join(self.pj_dir, f'detail_{i+1:03d}.yaml')
+        cache_fname = path.join(self.asset_dir, f'detail_{i+1:03d}.yaml')
         d = read_yaml_model(cache_fname, ChapterDetail)
         if d:
             return i, d
@@ -388,7 +389,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         outline_chs = sum([o.chapters for o in outline], [])
         details = self.step_gen_details(outline_chs, concept_cards)
         bodies = self.step_gen_bodies(outline_chs, details, concept_cards)
-        self.step_write_book(outline_chs, details, bodies)
+        # self.step_write_book(outline_chs, details, bodies)
 
         logger.info(f'[*] 已完成，目标文件已写入 {self.pj_dir}')
 
