@@ -183,6 +183,8 @@ def tr_fmt_group(text, res, idx, args):
 def fmt_chunk_handle(args):
     if path.isfile(args.fname):
         fnames = [args.fname]
+        args.cache_dir = path.join(
+            path.dirname(args.fname), 'asset')
     else:
         fnames = [
             path.join(rt, f)
@@ -192,6 +194,7 @@ def fmt_chunk_handle(args):
             path.join(args.fname, f)
             for f in os.listdir(args.fname)
         ]
+        args.cache_dir = path.join(args.fname, 'asset')
     fnames = [
         f for f in fnames
         if f.endswith('md') and 
