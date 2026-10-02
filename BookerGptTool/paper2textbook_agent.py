@@ -36,7 +36,9 @@ class Paper2TextbookAgent(ToolsMixin):
             if path.isfile(args.dir) else
             path.abspath(args.dir) + '_paper2textbook'
         )
+        self.asset_dir = path.join(self.pj_dir, 'asset')
         os.makedirs(self.pj_dir, exist_ok=True)
+        os.makedirs(self.asset_dir, exist_ok=True)
 
     # ── 工具 ──────────────────────────────────────────────
     # ── IO ──────────────────────────────────────────────
@@ -116,7 +118,7 @@ class Paper2TextbookAgent(ToolsMixin):
     def ext_concepts(self, paper_name: str, paper: str) -> PaperConcepts:
         """从单篇论文中抽取核心概念/方法/定理/发现，形成概念卡片。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'ccpt_' + gen_objs_md5(paper) + '.yaml'
         )
         r = read_yaml_model(cache_fname, PaperConcepts)
@@ -140,7 +142,7 @@ class Paper2TextbookAgent(ToolsMixin):
     def cluster_papers(self, paper_briefs: Dict[str, str]) -> List[PartClus]:
         """根据论文简报将论文聚类为若干分部（PartClus）。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'part_' + gen_objs_md5(paper_briefs) + '.yaml'
         )
         r = read_yaml_model(cache_fname, List[PartClus])
@@ -163,7 +165,7 @@ class Paper2TextbookAgent(ToolsMixin):
     ) -> List[PartClus]:
         """根据问题描述（problem）修正已生成的论文聚类结果。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'part_fix_' + gen_objs_md5(parts, paper_briefs, problem) + '.yaml'
         )
         r = read_yaml_model(cache_fname, List[PartClus])
@@ -187,7 +189,7 @@ class Paper2TextbookAgent(ToolsMixin):
     ) -> List[OutlineChapter]:
         """根据书籍结构（struct）与概念卡片生成全书章级大纲。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'outline_' + gen_objs_md5(concept_cards) + '.yaml',
         )
         r = read_yaml_model(cache_fname, List[OutlineChapter])
@@ -213,7 +215,7 @@ class Paper2TextbookAgent(ToolsMixin):
     ) -> List[OutlineChapter]:
         """根据问题描述（problem）修正已生成的全书大纲。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'outline_fix_' + gen_objs_md5(outline, concept_cards, problem) + '.yaml',
         )
         r = read_yaml_model(cache_fname, List[OutlineChapter])
@@ -244,7 +246,7 @@ class Paper2TextbookAgent(ToolsMixin):
     ) -> ConceptAnlsResult:
         """针对第 i 章做概念分析，产出知识单元（ConceptUnit）列表。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'detail_ccpt_' + gen_objs_md5(outline, paper_desc, i) + '.yaml',
         )
         r = read_yaml_model(cache_fname, ConceptAnlsResult)
@@ -268,7 +270,7 @@ class Paper2TextbookAgent(ToolsMixin):
     ) -> RestDetailResult:
         """基于概念分析结果生成第 i 章其余内容（目标/概念图/类比/小结/习题）。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'detail_rest_' + gen_objs_md5(outline, detail, paper_desc, i) + '.yaml',
         )
         r = read_yaml_model(cache_fname, RestDetailResult)
@@ -294,7 +296,7 @@ class Paper2TextbookAgent(ToolsMixin):
     ) -> ChapterDetail:
         """根据问题描述（problem）修正第 i 章的章节细纲。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'detail_fix_' + gen_objs_md5(detail, outline, paper_desc, problem) + '.yaml',
         )
         r = read_yaml_model(cache_fname, ChapterDetail)
@@ -323,7 +325,7 @@ class Paper2TextbookAgent(ToolsMixin):
     ) -> str:
         """基于章节细纲生成第 i 章的章节正文。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'body_' + gen_objs_md5(outline, detail, paper_desc, i) + '.md',
         )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
@@ -343,7 +345,7 @@ class Paper2TextbookAgent(ToolsMixin):
     def check_body(self, body: str, detail: ChapterDetail) -> str:
         """检查章节正文是否与细纲一致，并返回问题反馈。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'body_check_' + gen_objs_md5(body, detail) + '.md',
         )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
@@ -357,7 +359,7 @@ class Paper2TextbookAgent(ToolsMixin):
     def fix_body(self, detail: ChapterDetail, body: str, comment: str, paper_desc: List[PaperConcepts]) -> str:
         """根据检查反馈（comment）修正章节正文。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'body_fix_' + gen_objs_md5(detail, body, comment, paper_desc) + '.md',
         )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
@@ -381,7 +383,7 @@ class Paper2TextbookAgent(ToolsMixin):
     def gen_glossary(self, paper: str) -> List[GlossaryEntry]:
         """根据论文内容生成术语对照表（术语/别名/首次出现位置）。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'glossary_' + gen_objs_md5(paper) + '.yaml',
         )
         r = read_yaml_model(cache_fname, List[GlossaryEntry])
@@ -394,7 +396,7 @@ class Paper2TextbookAgent(ToolsMixin):
     def check_consistency(self, previous_chapter: str, current_chapter: str) -> str:
         """检查当前章与上一章之间的术语/口径一致性，并返回问题反馈。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'consist_check_' + gen_objs_md5(previous_chapter, current_chapter) + '.md',
         )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
@@ -411,7 +413,7 @@ class Paper2TextbookAgent(ToolsMixin):
     def audit_citations(self, chapter: str, paper: str) -> CitationAudit:
         """审计章节中的引用情况，返回引用统计、无支撑观点与缺失概念。"""
         cache_fname = path.join(
-            self.pj_dir,
+            self.asset_dir,
             'audit_' + gen_objs_md5(chapter, paper) + '.yaml',
         )
         r = read_yaml_model(cache_fname, CitationAudit)
