@@ -255,7 +255,7 @@ def json_dump_model(obj) -> str:
             it.dict() if isinstance(it, BaseModel) else it
             for it in obj
         ]
-    return json.dumps(obj, ensure_ascii=False, indent=2)
+    return json.dumps(obj, ensure_ascii=False)
 
 def json_load_model(text: str, model: Type[BaseModel]):
     """将 JSON 文本解析为指定 pydantic 模型。"""
