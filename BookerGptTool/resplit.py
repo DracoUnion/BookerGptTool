@@ -66,13 +66,20 @@ def ch_split_llm(md, args, limit=500):
     all_res: List[ChapterSplitResult] = []
     for i in range(0, len(lines), limit):
         part = lines[i: i+limit]
-        part_str = json.dumps({"lines": part}, ensure_ascii=False)
-        ques = render_prompt(CH_SPLIT_PMT, text=part_str, current=str(current))
-        parse_output = lambda s: parse_obj_as(
-            List[ChapterSplitResult], 
-            json_repair.loads(ext_code_block(s))
+        cache_fname = path.join(
+            args.dir, 'asset', 
+            'chspl_' + gen_objs_md5(part) + '.yaml'
         )
-        res: List[ChapterSplitResult] = ask_chatgpt_retry(ques, args.model, args, parse_output)
+        res = read_yaml_model(cache_fname, List[ChapterSplitResult])
+        if not res:
+            part_str = json.dumps({"lines": part}, ensure_ascii=False)
+            ques = render_prompt(CH_SPLIT_PMT, text=part_str, current=str(current))
+            parse_output = lambda s: parse_obj_as(
+                List[ChapterSplitResult], 
+                json_repair.loads(ext_code_block(s))
+            )
+            res: List[ChapterSplitResult] = ask_chatgpt_retry(ques, args.model, args, parse_output)
+            write_yaml_model(cache_fname, res)
         all_res += res
         current = res[-1].chapter
     return all_res
