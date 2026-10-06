@@ -1,12 +1,16 @@
 import shutil
+import logging
 from .resplit_models import *
 from .resplit_pmt import *
 from .util import *
 from .openai import *
+from .openai import logger as oai_logger
 
 def resplit_hdl(args):
     print(args)
     set_openai_props(args)
+    if args.debug:
+        oai_logger.setLevel(logging.DEBUG)
     dir = args.dir
     name = path.basename(path.abspath(dir))
     md_fnames = [
@@ -78,4 +82,5 @@ def reg_subparser(subparsers):
     clean_parser = subparsers.add_parser("resplit", help="分章节")
     clean_parser.add_argument("dir", help="Markdown 文件所在目录")
     clean_parser.add_argument("-l", "--limit", type=int, default=500, help="行数")
+    clean_parser.add_argument("-D", "--debug", action='store_true', help="调试模式")
     clean_parser.set_defaults(func=resplit_hdl)
