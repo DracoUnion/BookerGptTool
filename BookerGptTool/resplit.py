@@ -53,6 +53,24 @@ def resplit_hdl(args):
             'md-tool', 'summary', '.'
         ], shell=True, cwd=dir)
 
+def tr_ch_split_llm(lines, args):
+    cache_fname = path.join(
+        args.dir, 'asset', 
+        'chspl_' + gen_objs_md5(lines) + '.yaml'
+    )
+    res = read_yaml_model(cache_fname, List[ChapterSplitResult])
+    if  res:
+        return res
+    part_str = json.dumps({"lines": lines}, ensure_ascii=False)
+    ques = render_prompt(CH_SPLIT_PMT, text=part_str)
+    parse_output = lambda s: parse_obj_as(
+        List[ChapterSplitResult], 
+        json_repair.loads(ext_code_block(s))
+    )
+    res: List[ChapterSplitResult] = ask_chatgpt_retry(ques, args.model, args, parse_output)
+    write_yaml_model(cache_fname, res)
+    return res
+
 def ch_split_llm(md, args, limit=500):
     lines = md.split('\n')
     lines = [
@@ -62,26 +80,24 @@ def ch_split_llm(md, args, limit=500):
         }
         for i, l in enumerate(lines)
     ]
-    current = 0
     all_res: List[ChapterSplitResult] = []
+    pool = ThreadPoolExecutor(args.threads)
+    hdls = []
     for i in range(0, len(lines), limit):
         part = lines[i: i+limit]
-        cache_fname = path.join(
-            args.dir, 'asset', 
-            'chspl_' + gen_objs_md5(part) + '.yaml'
+        h = pool.submit(
+            tr_ch_split_llm,
+            part, args
         )
-        res = read_yaml_model(cache_fname, List[ChapterSplitResult])
-        if not res:
-            part_str = json.dumps({"lines": part}, ensure_ascii=False)
-            ques = render_prompt(CH_SPLIT_PMT, text=part_str, current=str(current))
-            parse_output = lambda s: parse_obj_as(
-                List[ChapterSplitResult], 
-                json_repair.loads(ext_code_block(s))
-            )
-            res: List[ChapterSplitResult] = ask_chatgpt_retry(ques, args.model, args, parse_output)
-            write_yaml_model(cache_fname, res)
-        all_res += res
-        current = res[-1].chapter
+        hdls.append(h)
+        if len(hdls) > args.threads:
+            for h in hdls:
+                all_res += h.result()
+            hdls = []
+
+    for h in hdls:
+        all_res += h.result()
+    all_res.sort(key=lambda x: x.no)
     return all_res
 
 
