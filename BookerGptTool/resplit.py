@@ -37,10 +37,11 @@ def resplit_hdl(args):
         os.remove(path.join(dir, f))
 
     chapters = [[]]
-    for r in res:
-        if r.split:
+    split_lines = {r.no for r in res if r.split}
+    for i, l in enumerate(lines):
+        if i in split_lines:
             chapters.append([])
-        chapters[-1].append(lines[r.no])
+        chapters[-1].append(l)
     chapters = ['\n'.join(ch) for ch in chapters]
 
     l = len(str(len(chapters)))
