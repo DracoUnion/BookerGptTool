@@ -35,18 +35,20 @@ def resplit_hdl(args):
     for md in md_fnames:
         os.remove(path.join(dir, md))
 
-    chapter_lines_map = {}
-    for l in res:
-        chapter_lines_map.setdefault(l.chapter, [])
-        line = md[l.no]
-        chapter_lines_map[l.chapter].append(line)
+    chapters = [[]]
+    lines = md.split('\n')
+    for r in res:
+        if r.split:
+            chapters.append([])
+        chapters[-1].append(lines[r.no])
+    chapters = ['\n'.join(ch) for ch in chapters]
 
-    for ch in sorted(chapter_lines_map.keys()):
-        text = '\n'.join(chapter_lines_map[ch])
-        fname = name + '_' + str(ch).zfill(3) + '.md'
+    l = len(str(len(chapters)))
+    for i, ch in enumerate(chapters):
+        fname = name + '_' + str(i).zfill(l) + '.md'
         print(fname)
         fname = path.join(dir, fname)
-        open(fname, 'w', encoding='utf8').write(text)
+        open(fname, 'w', encoding='utf8').write(ch)
 
     if shutil.which('md-tool'):
         subp.run([
