@@ -30,13 +30,13 @@ def resplit_hdl(args):
         open(path.join(dir, f), encoding='utf8').read()
         for f in md_fnames
     )
+    lines = md.split('\n')
     res = ch_split_llm(md, args, args.limit)
 
     for md in md_fnames:
         os.remove(path.join(dir, md))
 
     chapters = [[]]
-    lines = md.split('\n')
     for r in res:
         if r.split:
             chapters.append([])
