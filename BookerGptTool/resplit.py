@@ -107,7 +107,7 @@ def ch_split_llm(md, args, limit=500):
 def reg_subparser(subparsers):
     clean_parser = subparsers.add_parser("resplit", help="分章节")
     clean_parser.add_argument("dir", help="Markdown 文件所在目录")
-    clean_parser.add_argument("-l", "--limit", type=int, default=500, help="行数")
+    clean_parser.add_argument("-l", "--limit", type=int, default=3000, help="行数")
     clean_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
     clean_parser.add_argument("-D", "--debug", action='store_true', help="调试模式")
     clean_parser.set_defaults(func=resplit_hdl)
