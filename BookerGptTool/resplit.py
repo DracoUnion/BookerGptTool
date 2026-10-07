@@ -2,6 +2,7 @@ import shutil
 import logging
 from .resplit_models import *
 from .resplit_pmt import *
+from .resplit_agent import *
 from .util import *
 from .openai import *
 from .openai import logger as oai_logger
@@ -57,22 +58,8 @@ def resplit_hdl(args):
         ], shell=True, cwd=dir)
 
 def tr_ch_split_llm(lines, args):
-    cache_fname = path.join(
-        args.dir, 'asset', 
-        'chspl_' + gen_objs_md5(lines) + '.yaml'
-    )
-    res = read_yaml_model(cache_fname, List[ChapterSplitResult])
-    if  res:
-        return res
-    part_str = json.dumps({"lines": lines}, ensure_ascii=False)
-    ques = render_prompt(CH_SPLIT_PMT, text=part_str)
-    parse_output = lambda s: parse_obj_as(
-        List[ChapterSplitResult], 
-        json_repair.loads(ext_code_block(s))
-    )
-    res: List[ChapterSplitResult] = ask_chatgpt_retry(ques, args.model, args, parse_output)
-    write_yaml_model(cache_fname, res)
-    return res
+    agent = ResplitAgent(args)
+    return agent.split(lines)
 
 def ch_split_llm(md, args, limit=500):
     lines = md.split('\n')

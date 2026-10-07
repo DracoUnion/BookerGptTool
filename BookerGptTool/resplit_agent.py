@@ -1,0 +1,29 @@
+import shutil
+import logging
+from .resplit_models import *
+from .resplit_pmt import *
+from .util import *
+from .openai import *
+
+class ResplitAgent():
+
+    def __init__(self, args):
+        self.args = args
+        self.asset_dir = path.join(self.args.dir, 'asset')
+
+    def split(self, lines):
+        cache_fname = path.join(
+            self.asset_dir,
+            'chspl_' + gen_objs_md5(lines) + '.yaml'
+        )
+        res = read_yaml_model(cache_fname, List[ChapterSplitResult])
+        if  res:
+            return res
+        ques = render_prompt(CH_SPLIT_PMT, text=json_dump_model(lines))
+        parse_output = lambda s: parse_obj_as(
+            List[ChapterSplitResult], 
+            json_repair.loads(ext_code_block(s))
+        )
+        res: List[ChapterSplitResult] = ask_chatgpt_retry(ques, args.model, args, parse_output)
+        write_yaml_model(cache_fname, res)
+        return res
