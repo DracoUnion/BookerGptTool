@@ -58,14 +58,15 @@ class ResplitAgent():
         if  res:
             return res
         ques = render_prompt(
-            CH_CHK_PMT, 
+            CH_JUDGE_PMT, 
             text=json_dump_model(lines),
             starts=json_dump_model(starts),
+            checks=json_dump_model(checks)
         )
         parse_output = lambda s: parse_obj_as(
-            CheckSplitResult, 
+            JudgeSplitResult, 
             json_repair.loads(ext_code_block(s))
         )
-        res: CheckSplitResult = ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
+        res: JudgeSplitResult = ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
         write_yaml_model(cache_fname, res)
         return res
