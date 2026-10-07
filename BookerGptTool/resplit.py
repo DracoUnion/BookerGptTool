@@ -59,7 +59,10 @@ def resplit_hdl(args):
 
 def tr_ch_split_llm(lines, args):
     agent = ResplitAgent(args)
-    return agent.split(lines)
+    starts = agent.split(lines)
+    checks = agent.check_split(lines, starts)
+    judges = agent.judge_split(lines, starts, checks)
+    return judges
 
 def ch_split_llm(md, args, limit=500):
     lines = md.split('\n')
@@ -70,7 +73,7 @@ def ch_split_llm(md, args, limit=500):
         }
         for i, l in enumerate(lines)
     ]
-    all_res: List[ChapterSplitLineResult] = []
+    all_res: List[JudgeSplitAccResult] = []
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
     for i in range(0, len(lines), limit):
