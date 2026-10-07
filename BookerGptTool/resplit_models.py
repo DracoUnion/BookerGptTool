@@ -6,7 +6,6 @@ class ChapterSplitCheckResult(BaseModel):
     overturn_probability: float
     alternative: str
     counter_evidence: List[str]
-    context_conflict: str
     keep_split: bool
 
 class ChapterSplitResult(BaseModel):
