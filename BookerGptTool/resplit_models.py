@@ -7,10 +7,11 @@ class ChapterSplitCheckResult(BaseModel):
     alternative: str
     counter_evidence: List[str]
     keep_split: bool
-
-class ChapterSplitResult(BaseModel):
+    
+class ChapterSplitLineResult(BaseModel):
     no: int
-    split: bool
     confidence: float
     reason: str
-    key_evidence: List[str]
+
+class ChapterSplitResult(BaseModel):
+    chapter_starts: List[ChapterSplitLineResult]

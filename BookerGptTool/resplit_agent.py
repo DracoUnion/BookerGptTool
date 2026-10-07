@@ -21,10 +21,10 @@ class ResplitAgent():
             return res
         ques = render_prompt(CH_SPLIT_PMT, text=json_dump_model(lines))
         parse_output = lambda s: parse_obj_as(
-            List[ChapterSplitResult], 
+            ChapterSplitResult, 
             json_repair.loads(ext_code_block(s))
         )
-        res: List[ChapterSplitResult] = ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
+        res: ChapterSplitResult = ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
         write_yaml_model(cache_fname, res)
         return res
 
