@@ -38,7 +38,7 @@ def resplit_hdl(args):
         os.remove(path.join(dir, f))
 
     chapters = [[]]
-    split_lines = {r.no for r in res if r.split}
+    split_lines = {r.no for r in res}
     for i, l in enumerate(lines):
         if i in split_lines:
             chapters.append([])
@@ -70,7 +70,7 @@ def ch_split_llm(md, args, limit=500):
         }
         for i, l in enumerate(lines)
     ]
-    all_res: List[ChapterSplitResult] = []
+    all_res: List[ChapterSplitLineResult] = []
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
     for i in range(0, len(lines), limit):
@@ -82,11 +82,11 @@ def ch_split_llm(md, args, limit=500):
         hdls.append(h)
         if len(hdls) > args.threads:
             for h in hdls:
-                all_res += h.result()
+                all_res += h.result().chapter_starts
             hdls = []
 
     for h in hdls:
-        all_res += h.result()
+        all_res += h.result().chapter_starts
     all_res.sort(key=lambda x: x.no)
     return all_res
 
