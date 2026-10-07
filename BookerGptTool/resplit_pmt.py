@@ -68,11 +68,15 @@ CH_CHK_PMT = '''
 
 ```
 {
-	"no": 1,
-	"overturn_probability": 0.0~1.0,
-	"alternative": "若不分章，这行最可能是什么",
-	"counter_evidence": ["反方证据1", "反方证据2"],
-	"keep_split": true|false
+	"reviews": [
+		{
+			"no": 1,
+			"overturn_probability": 0.0~1.0,
+			"alternative": "若不分章，这行最可能是什么",
+			"counter_evidence": ["反方证据1", "反方证据2"],
+			"keep_split": true|false
+		}
+	]
 }
 ```
 

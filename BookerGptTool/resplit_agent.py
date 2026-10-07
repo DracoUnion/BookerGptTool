@@ -16,7 +16,7 @@ class ResplitAgent():
             self.asset_dir,
             'chspl_' + gen_objs_md5(lines) + '.yaml'
         )
-        res = read_yaml_model(cache_fname, List[ChapterSplitResult])
+        res = read_yaml_model(cache_fname, ChapterSplitResult)
         if  res:
             return res
         ques = render_prompt(CH_SPLIT_PMT, text=json_dump_model(lines))
@@ -33,14 +33,14 @@ class ResplitAgent():
             self.asset_dir,
             'chk_spl_' + gen_objs_md5(lines) + '.yaml'
         )
-        res = read_yaml_model(cache_fname, List[ChapterSplitResult])
+        res = read_yaml_model(cache_fname, CheckSplitResult)
         if  res:
             return res
         ques = render_prompt(CH_CHK_PMT, text=json_dump_model(lines))
         parse_output = lambda s: parse_obj_as(
-            List[ChapterSplitCheckResult], 
+            CheckSplitResult, 
             json_repair.loads(ext_code_block(s))
         )
-        res: List[ChapterSplitCheckResult] = ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
+        res: CheckSplitResult = ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
         write_yaml_model(cache_fname, res)
         return res
