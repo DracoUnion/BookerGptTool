@@ -32,7 +32,7 @@ def resplit_hdl(args):
         for f in md_fnames
     )
     lines = md.split('\n')
-    res = ch_split_llm(md, args, args.limit)
+    res = ch_split_llm(md, args)
 
     for f in md_fnames:
         os.remove(path.join(dir, f))
@@ -64,7 +64,7 @@ def tr_ch_split_llm(lines, args):
     judges = agent.judge_split(lines, starts, checks)
     return judges
 
-def ch_split_llm(md, args, limit=500):
+def ch_split_llm(md, args):
     lines = md.split('\n')
     lines = [
         {
@@ -76,8 +76,8 @@ def ch_split_llm(md, args, limit=500):
     all_res: List[JudgeSplitAccResult] = []
     pool = ThreadPoolExecutor(args.threads)
     hdls = []
-    for i in range(0, len(lines), limit):
-        part = lines[i: i+limit]
+    for i in range(0, len(lines), args.limit - args.overlap):
+        part = lines[i: i+args.limit]
         h = pool.submit(
             tr_ch_split_llm,
             part, args
@@ -98,6 +98,7 @@ def reg_subparser(subparsers):
     clean_parser = subparsers.add_parser("resplit", help="分章节")
     clean_parser.add_argument("dir", help="Markdown 文件所在目录")
     clean_parser.add_argument("-l", "--limit", type=int, default=3000, help="行数")
+    clean_parser.add_argument("-ol", "--overlap", type=int, default=50, help="重叠行数")
     clean_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
     clean_parser.add_argument("-D", "--debug", action='store_true', help="调试模式")
     clean_parser.set_defaults(func=resplit_hdl)
