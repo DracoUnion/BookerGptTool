@@ -27,3 +27,20 @@ class ResplitAgent():
         res: List[ChapterSplitResult] = ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
         write_yaml_model(cache_fname, res)
         return res
+
+    def check_split(self, lines):
+        cache_fname = path.join(
+            self.asset_dir,
+            'chk_spl_' + gen_objs_md5(lines) + '.yaml'
+        )
+        res = read_yaml_model(cache_fname, List[ChapterSplitResult])
+        if  res:
+            return res
+        ques = render_prompt(CH_CHK_PMT, text=json_dump_model(lines))
+        parse_output = lambda s: parse_obj_as(
+            List[ChapterSplitCheckResult], 
+            json_repair.loads(ext_code_block(s))
+        )
+        res: List[ChapterSplitCheckResult] = ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
+        write_yaml_model(cache_fname, res)
+        return res
