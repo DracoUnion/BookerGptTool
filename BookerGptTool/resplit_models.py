@@ -19,7 +19,7 @@ class ChapterSplitLineResult(BaseModel):
 class ChapterSplitResult(BaseModel):
     chapter_starts: List[ChapterSplitLineResult]
 
-class ChapterJudgeAccResult(BaseModel):
+class JudgeSplitAccResult(BaseModel):
     no: int
     confidence: float
     final_reason: str
@@ -27,11 +27,11 @@ class ChapterJudgeAccResult(BaseModel):
     rejected_evidence: List[str]
     need_human_review: bool
 
-class ChapterJudgeRejResult(BaseModel):
+class JudgeSplitRejResult(BaseModel):
     no: int
     reason: str
     need_human_review: bool
 
-class ChapterJudgeResult(BaseModel):
-    chapter_starts: List[ChapterJudgeAccResult]
-    rejected_lines: List[ChapterJudgeRejResult]
+class JudgeSplitResult(BaseModel):
+    chapter_starts: List[JudgeSplitAccResult]
+    rejected_lines: List[JudgeSplitRejResult]
