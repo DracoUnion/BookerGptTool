@@ -28,7 +28,7 @@ class ResplitAgent():
         write_yaml_model(cache_fname, res)
         return res
 
-    def check_split(self, lines):
+    def check_split(self, lines, starts):
         cache_fname = path.join(
             self.asset_dir,
             'chk_spl_' + gen_objs_md5(lines) + '.yaml'
@@ -36,7 +36,11 @@ class ResplitAgent():
         res = read_yaml_model(cache_fname, CheckSplitResult)
         if  res:
             return res
-        ques = render_prompt(CH_CHK_PMT, text=json_dump_model(lines))
+        ques = render_prompt(
+            CH_CHK_PMT, 
+            text=json_dump_model(lines),
+            starts=json_dump_model(starts),
+        )
         parse_output = lambda s: parse_obj_as(
             CheckSplitResult, 
             json_repair.loads(ext_code_block(s))
