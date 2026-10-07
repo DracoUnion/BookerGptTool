@@ -24,6 +24,6 @@ class ResplitAgent():
             List[ChapterSplitResult], 
             json_repair.loads(ext_code_block(s))
         )
-        res: List[ChapterSplitResult] = ask_chatgpt_retry(ques, args.model, args, parse_output)
+        res: List[ChapterSplitResult] = ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
         write_yaml_model(cache_fname, res)
         return res
