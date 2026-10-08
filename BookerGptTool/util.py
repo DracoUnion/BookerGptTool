@@ -23,6 +23,10 @@ import uuid
 import hashlib
 from typing import *
 from pydantic import BaseModel, parse_obj_as, ValidationError
+from PIL import Image, ImageFile
+
+Image.MAX_IMAGE_PIXELS = None
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 def d(name):
     DIR = path.dirname(path.abspath(__file__))
