@@ -126,6 +126,6 @@ def reg_subparser(subparsers):
     trans_chunk_parser.add_argument("-l", "--limit", type=int, default=8000, help="分块大小上限")
     trans_chunk_parser.add_argument("-rc", "--recur", action='store_true', help="是否递归")
     trans_chunk_parser.add_argument("-x", "--excluding-re", default='', help="排除文件的正则")
-    trans_chunk_parser.add_argument("-r", "--round", type=int, default=3, help="修复轮次")
+    trans_chunk_parser.add_argument("-r", "--round", type=int, default=1, help="修复轮次")
     trans_chunk_parser.add_argument("-D", "--debug", action='store_true', help="调试模式")
     trans_chunk_parser.set_defaults(func=trans_chunk_handle)
