@@ -26,7 +26,7 @@ OCR_PMT = '''
 	"direction": "horizontal|vertical",
 	"contents": [
 		{
-			"type": "paragraph|title|list|table|quote|image|code",
+			"type": "paragraph|title|list|table|quote|image|code|header|footer",
 			"markdown": "in markdown format",
 			"bbox": [0.xmin, 0.ymin, 0.xmax, 0.ymax]
 		},

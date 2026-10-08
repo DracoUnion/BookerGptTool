@@ -156,6 +156,8 @@ class PdfOcrAgent:
                 md = '```\n' + seg.markdown + '\n```'
             elif seg.type == 'quote':
                 md = '> ' + seg.markdown
+            elif seg.type in ['header', 'footer']:
+                md = ''
             else:
                 md = seg.markdown
             mds.append(md)

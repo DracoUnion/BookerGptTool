@@ -2,7 +2,11 @@ from pydantic import BaseModel, field_validator
 from typing import *
 
 class OCRContentResult(BaseModel):
-    type: Literal['paragraph', 'title', 'list', 'table', 'quote', 'image', 'code']
+    type: Literal[
+        'paragraph', 'title', 'list', 
+        'table', 'quote', 'image', 
+        'code', "header", "footer",
+    ]
     markdown: str
     bbox: List[float]
 
