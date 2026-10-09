@@ -440,7 +440,7 @@ class PDFOcrOrchestrator:
 
     def _split_chapters(self, md):
         logger.info('[6] 分章节')
-        chs_fname = self.paths['chs_fname'] 
+        chs_fname = self.paths['chs_fname']
         chs = read_yaml_model(chs_fname, None)
         if chs: return chs
         if not self.args.split: return [md]

@@ -110,7 +110,7 @@ class PdfOcrAgent:
         page_fname = path.join(meta_dir, 'pages.yaml')
         group_fname = path.join(meta_dir, 'groups.yaml')
         toc_fname = path.join(meta_dir, 'toc.yaml')
-        chs_fname = path.join(meta_dir, 'chs.yaml'),
+        chs_fname = path.join(meta_dir, 'chs.yaml')
         summary_fname = path.join(
             pj_dir, 'SUMMARY.md'
         )
