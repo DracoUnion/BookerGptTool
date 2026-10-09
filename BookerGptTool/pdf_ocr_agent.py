@@ -151,11 +151,11 @@ class PdfOcrAgent:
             elif seg.type == 'title':
                 md = '# ' + seg.markdown
             elif seg.type == 'list':
-                md = '+   ' + seg.markdown
+                md = re.sub('^', '+   ', seg.markdown, flags=re.M)
             elif seg.type == 'code':
                 md = '```\n' + seg.markdown + '\n```'
             elif seg.type == 'quote':
-                md = '> ' + seg.markdown
+                md = re.sub('^', '> ', seg.markdown, flags=re.M)
             elif seg.type in ['header', 'footer']:
                 md = ''
             else:
