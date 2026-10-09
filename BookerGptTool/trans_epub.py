@@ -265,7 +265,7 @@ class TransEpubDispatcher:
         l = len(str(len(chs)))
         for i, c in enumerate(chs):
             ch_fname = path.join(proj_dir, slug + '_' + str(i).zfill(l) + '.md')
-            logger.debug(f'[5] {ch_fname}')
+            logger.debug(f'[6] {ch_fname}')
             open(ch_fname, 'w', encoding='utf8').write(c)
 
     def _gen_readme(self, meta):

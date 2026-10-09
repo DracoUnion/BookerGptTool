@@ -36,6 +36,7 @@ from .util import (
     malloc_trim_linux,
     read_yaml_model,
     write_yaml_model,
+    get_md_title,
 )
 from .openai import (
     call_vlm_retry,
@@ -362,17 +363,57 @@ class PDFOcrOrchestrator:
                 pass
         return full_text
 
+    def write_output_split(
+        self, chs: List[str], name_cn: str,
+    ):
+        assert self.args.split
+        name = self.paths['name']
+        slug = self.paths['slug']
+        pj_dir = self.paths['pj_dir']
+        summary_fname = self.paths['summary_fname']
+        readme_fname = self.paths['readme_fname']
+
+        for i, c in enumerate(chs):
+            ch_fname = path.join(pj_dir, slug + '_' + str(i).zfill(l) + '.md')
+            logger.debug(f'[8] {ch_fname}')
+            open(ch_fname, 'w', encoding='utf8').write(c)
+
+        if self.args.mkdir:
+            if not name_cn:
+                name_cn = self.agent.trans_title(title=name)
+            logger.info('[8] 写入 README.md')
+            readme = render_prompt(README_TMPL, name=name, name_cn=name_cn)
+            open(readme_fname, 'w', encoding='utf8') \
+                .write(readme)
+
+            logger.info('[8] 写入 SUMMARY.md')
+            toc = [f'+   [{name_cn}](README.md)']
+            l = len(str(len(chs)))
+            for i, ch in enumerate(chs):
+                title, _ = get_md_title(ch)
+                if not title: continue
+                ch_fname = slug + '_' + str(i).zfill(l) + '.md'
+                toc.append(f'+   [{title}]({ch_fname})')
+            summary = '\n'.join(toc)
+            open(summary_fname, 'w', encoding='utf8') \
+                .write(summary)
+
+
     def write_output(
-        self, full_text: str, name_cn: str,
+        self, chs: List[str], name_cn: str,
     ) -> None:
         """[8] 写入 md / README / SUMMARY。"""
+        assert not self.args.split
         logger.info(f'[8] 写入 {md_fname}')
         name = self.paths['name']
         slug = self.paths['slug']
         pj_dir = self.paths['pj_dir']
         md_fname = self.paths['md_fname']
+        summary_fname = self.paths['summary_fname']
+        readme_fname = self.paths['readme_fname']
+        
         open(md_fname, 'w', encoding='utf8') \
-            .write(full_text)
+            .write(chs[0])
 
         if self.args.mkdir:
             if not name_cn:
@@ -479,8 +520,9 @@ class PDFOcrOrchestrator:
         full_text, name_cn = self.build_full_text(groups)
         # 8. 修正目录
         full_text = self.fix_toc(full_text)
+        chs = self._split_chapters(md=full_text)
         # 9. 写入文件
-        self.write_output(full_text, name_cn)
+        self.write_output(chs, name_cn)
         del doc, pdf_data, pages, groups
         gc.collect()
         malloc_trim_linux()
