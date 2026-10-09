@@ -127,7 +127,7 @@ class TransEpubDispatcher:
         return html
 
     def _convert_md(self, html):
-        md_fname = self.paths['md_fname'], 
+        md_fname = self.paths['md_fname'] 
         if path.isfile(md_fname) and \
            path.getsize(md_fname) != 0:
             return open(md_fname, encoding='utf8').read()
