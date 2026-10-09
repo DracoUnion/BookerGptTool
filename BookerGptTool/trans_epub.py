@@ -241,7 +241,7 @@ class TransEpubDispatcher:
                 part, self.args
             )
             self.hdls.append(h)
-            if len(self.hdls) > self.args.threads:
+            if len(self.hdls) > self.args.page_threads:
                 self._collect_hdls(res_callback)
 
         

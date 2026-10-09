@@ -463,7 +463,7 @@ class PDFOcrOrchestrator:
                 part, self.args
             )
             self._hdls.append(h)
-            if len(self._hdls) > self.args.threads:
+            if len(self._hdls) > self.args.page_threads:
                 self._collect_hdls(res_callback)
 
         
