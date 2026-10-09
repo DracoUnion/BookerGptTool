@@ -454,8 +454,8 @@ class PDFOcrOrchestrator:
             for i, l in enumerate(lines)
         ]
         res: List[JudgeSplitAccResult] = []
-        def res_callback(res):
-            res += h.result().chapter_starts
+        def res_callback(r):
+            res += r.chapter_starts
         for i in range(0, len(lines), self.args.split_limit - self.args.split_overlap):
             part = lines[i: i+self.args.split_limit]
             h = self.pool.submit(
