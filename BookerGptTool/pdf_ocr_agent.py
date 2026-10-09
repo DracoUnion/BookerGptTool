@@ -52,6 +52,7 @@ from .pdf_ocr_pmt import *
 
 from .pdf_ocr_models import *
 
+from .resplit_agent import ResplitAgent
 from .tomd import tomd
 
 from .util import (
@@ -76,6 +77,12 @@ from .openai import (
 
 from .openai import logger as oai_logger
 
+class PdfOcrSplitAgent(ResplitAgent):
+
+    def __init__(self, args):
+        super().__init__(args)
+        self.asset_dir = \
+            PdfOcrAgent.resolve_paths(args)['meta_dir']
 
 
 class PdfOcrAgent:

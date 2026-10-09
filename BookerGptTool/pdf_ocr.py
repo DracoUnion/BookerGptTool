@@ -75,6 +75,7 @@ def _corp_img(img: bytes, bbox: List[float]) -> bytes:
 
 
 from .pdf_ocr_agent import PdfOcrAgent
+from .pdf_ocr_agent import PdfOcrSplitAgent
 
 
 
@@ -94,6 +95,7 @@ class PDFOcrOrchestrator:
 
         # ── Agent ──
         self.agent: PdfOcrAgent = PdfOcrAgent(args)
+        self.split_agent: PdfOcrSplitAgent = PdfOcrSplitAgent(args)
 
         # ── 线程池基础设施 ──
         self.pool: Optional[ThreadPoolExecutor] = \
@@ -525,6 +527,7 @@ def reg_subparser(subparsers):
     pdf_ocr_parser.add_argument("--dpi", type=int, default=150, help="DPI")
     pdf_ocr_parser.add_argument("--trans", action='store_true', help="是否翻译")
     pdf_ocr_parser.add_argument("--clean", action='store_true', help="是否清理标题")
+    pdf_ocr_parser.add_argument("--split", action='store_true', help="是否划分章节")
     pdf_ocr_parser.add_argument("-md", "--mkdir", action='store_true', help="是否生成单个目录")
     pdf_ocr_parser.add_argument("-ft", "--file-threads", type=int, default=1, help="文件线程数")
     pdf_ocr_parser.add_argument("-pt", "--page-threads", type=int, default=8, help="页面线程数")

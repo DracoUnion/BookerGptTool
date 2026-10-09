@@ -9,7 +9,9 @@ class ResplitAgent():
 
     def __init__(self, args):
         self.args = args
-        self.asset_dir = path.join(self.args.dir, 'asset')
+        self.asset_dir = path.join(
+            getattr(self.args, 'dir', '.'), 'asset'
+        )
 
     def split(self, lines):
         cache_fname = path.join(
