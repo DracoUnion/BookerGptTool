@@ -103,7 +103,7 @@ class TransEpubDispatcher:
     def _init_meta(self):
         logger.info('[1] 初始化元数据')
         name=self.paths['name']
-        slug=self.paths['slug'],
+        slug=self.paths['slug']
         meta_dir=self.paths['meta_dir']
         meta_fname=self.paths['meta_fname']
         os.makedirs(meta_dir, exist_ok=True)
