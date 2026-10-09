@@ -224,7 +224,7 @@ class TransEpubDispatcher:
         if not self.args.split: return [md]
         
         lines = md.split('\n')
-        lines = [
+        lines_obj = [
             {
                 'no': i,
                 'line': l[:50] + '...' if len(l) > 50 else l,
@@ -235,8 +235,8 @@ class TransEpubDispatcher:
         def res_callback(r):
             nonlocal res
             res += r.chapter_starts
-        for i in range(0, len(lines), self.args.split_limit - self.args.split_overlap):
-            part = lines[i: i+self.args.split_limit]
+        for i in range(0, len(lines_obj), self.args.split_limit - self.args.split_overlap):
+            part = lines_obj[i: i+self.args.split_limit]
             h = self.pool.submit(
                 self._tr_ch_split_llm,
                 part, self.args
