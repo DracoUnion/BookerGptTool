@@ -110,6 +110,7 @@ class PdfOcrAgent:
         page_fname = path.join(meta_dir, 'pages.yaml')
         group_fname = path.join(meta_dir, 'groups.yaml')
         toc_fname = path.join(meta_dir, 'toc.yaml')
+        chs_fname = path.join(meta_dir, 'chs.yaml'),
         return {
             'name': name,
             'slug': slug,
@@ -120,6 +121,7 @@ class PdfOcrAgent:
             'page_fname': page_fname,
             'group_fname': group_fname,
             'toc_fname': toc_fname,
+            'chs_fname': chs_fname,
         }
 
     def __init__(self, args: argparse.Namespace) -> None:

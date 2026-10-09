@@ -25,6 +25,7 @@ from pydantic import BaseModel, parse_obj_as
 from .clean_heading import clean_md_llm
 from .pdf_ocr_pmt import *
 from .pdf_ocr_models import *
+from .resplit_models import *
 from .tomd import tomd
 from .util import (
     extname,
@@ -396,6 +397,55 @@ class PDFOcrOrchestrator:
             open(summary_fname, 'w', encoding='utf8') \
                 .write('\n'.join(toc))
 
+    def _tr_ch_split_llm(self, lines, args):
+        starts = self.split_agent.split(lines)
+        checks = self.split_agent.check_split(lines, starts)
+        judges = self.split_agent.judge_split(lines, starts, checks)
+        return judges
+
+    def _split_chapters(self, md):
+        logger.info('[6] 分章节')
+        chs_fname = self.paths['chs_fname'] 
+        chs = read_yaml_model(chs_fname, None)
+        if chs: return chs
+        if not self.args.split: return [md]
+        
+        lines = md.split('\n')
+        lines = [
+            {
+                'no': i,
+                'line': l[:50] + '...' if len(l) > 50 else l,
+            }
+            for i, l in enumerate(lines)
+        ]
+        res: List[JudgeSplitAccResult] = []
+        def res_callback(res):
+            res += h.result().chapter_starts
+        for i in range(0, len(lines), self.args.split_limit - self.args.split_overlap):
+            part = lines[i: i+self.args.split_limit]
+            h = self.pool.submit(
+                self._tr_ch_split_llm,
+                part, self.args
+            )
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                self._collect_hdls(res_callback)
+
+        
+        self._collect_hdls(res_callback)
+        res.sort(key=lambda x: x.no)
+
+        chs = [[]]
+        split_lines = {r.no for r in res}
+        for i, l in enumerate(lines):
+            if i in split_lines:
+                chs.append([])
+            chs[-1].append(l)
+        chs = ['\n'.join(ch) for ch in chs]
+
+        write_yaml_model(chs_fname, chs)
+        return chs
+
     # ── 主流程 ─────────────────────────────────────
 
     def run(self) -> None:
@@ -531,6 +581,8 @@ def reg_subparser(subparsers):
     pdf_ocr_parser.add_argument("--trans", action='store_true', help="是否翻译")
     pdf_ocr_parser.add_argument("--clean", action='store_true', help="是否清理标题")
     pdf_ocr_parser.add_argument("--split", action='store_true', help="是否划分章节")
+    pdf_ocr_parser.add_argument("-sl", "--split-limit", type=int, default=3000, help="划分章节的分块大小上限")
+    pdf_ocr_parser.add_argument("-so", "--split-overlap", type=int, default=50, help="划分章节的分块重叠大小")
     pdf_ocr_parser.add_argument("-md", "--mkdir", action='store_true', help="是否生成单个目录")
     pdf_ocr_parser.add_argument("-ft", "--file-threads", type=int, default=1, help="文件线程数")
     pdf_ocr_parser.add_argument("-pt", "--page-threads", type=int, default=8, help="页面线程数")
