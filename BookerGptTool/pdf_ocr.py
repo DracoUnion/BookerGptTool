@@ -101,6 +101,7 @@ class PDFOcrOrchestrator:
         self.pool: Optional[ThreadPoolExecutor] = \
             ThreadPoolExecutor(self.args.page_threads)
         self._hdls: List[Future] = []
+        self.paths = self.agent.resolve_paths(self.args)
 
 
 
@@ -224,9 +225,10 @@ class PDFOcrOrchestrator:
         doc = pymu.open('pdf', BytesIO(pdf))
         return doc, pdf, pdf_hash
 
-    def init_page(self, doc: pymu.Document, page_fname: str) -> List[Page]:
+    def init_page(self, doc: pymu.Document) -> List[Page]:
         """[2] 加载或初始化 meta.yaml。返回 Meta。"""
         logger.info(f'[2] 初始化 {page_fname}')
+        page_fname = self.paths['page_fname']
         pages = read_yaml_model(page_fname, List[Page])
         if pages: return pages
         pages = [Page(pgno=i) for i in range(len(doc))]
@@ -235,10 +237,11 @@ class PDFOcrOrchestrator:
 
     def ocr_pages(
         self, doc: pymu.Document, pdf_data: bytes,
-        pages: List[Page], page_fname: str
+        pages: List[Page], 
     ) -> None:
         """[3] VLM 识别每页图像。原地填充 pages.md。"""
         logger.info('[3] 识别图像')
+        page_fname = self.paths['page_fname']
         # doc = pymu.open('pdf', BytesIO(pdf_data))
         save_step = max(min(len(pages) // 5, 100), 1)
         for i, pg in enumerate(tqdm.tqdm(pages)):
@@ -257,10 +260,11 @@ class PDFOcrOrchestrator:
     def process_images(
         self, doc: pymu.Document, pages: List[Page], 
         pdf_hash: str,
-        img_dir: str, page_fname: str,
     ) -> None:
         """[4] 裁切并保存页面中的插图。原地填充 pages.md/img_proc。"""
         logger.info('[4] 处理图片')
+        page_fname = self.paths['page_fname']
+        img_dir = self.paths['img_dir']
         os.makedirs(img_dir, exist_ok=True)
         save_step = max(min(len(pages) // 5, 100), 1)
         for i, pg in enumerate(tqdm.tqdm(pages)):
@@ -278,9 +282,10 @@ class PDFOcrOrchestrator:
         self._collect_hdls()
         write_yaml_model(page_fname, pages)
 
-    def group_pages(self, pages: List[Page], group_fname: str) -> List[Group]:
+    def group_pages(self, pages: List[Page]) -> List[Group]:
         """[5] 按长度分组，后处理 + 翻译。填充 res.groups。"""
         logger.info('[5] 处理页间合并')
+        group_fname = self.paths['group_fname']
         groups = read_yaml_model(group_fname, List[Group])
         if not groups:
             groups = mkgroups(pages, self.args)
@@ -300,9 +305,10 @@ class PDFOcrOrchestrator:
         write_yaml_model(group_fname, groups)
         return groups
 
-    def merge_groups(self, groups: List[Group], group_fname: str) -> None:
+    def merge_groups(self, groups: List[Group]) -> None:
         """[6] 判断组间是否需要合并。过滤并原地填充 groups.merge。"""
         logger.info('[6] 处理组间合并')
+        group_fname = self.paths['group_fname']
         save_step = max(min(len(groups) // 5, 100), 1)
         for i, g in enumerate(tqdm.tqdm(groups)):
             if not (i == 0 or g.merge != -1):
@@ -316,8 +322,9 @@ class PDFOcrOrchestrator:
         self._collect_hdls()
         write_yaml_model(group_fname, groups)
 
-    def build_full_text(self, groups: List[Group], name: str) -> Tuple[str, str]:
+    def build_full_text(self, groups: List[Group]) -> Tuple[str, str]:
         """[6+] 拼接全文，可选清理与标题翻译。返回 (full_text, name_cn)。"""
+        name = self.paths['name']
         full_text = ''
         for i, g in enumerate(groups):
             logger.debug(f'[6] 生成全文 {i}')
@@ -333,9 +340,10 @@ class PDFOcrOrchestrator:
 
         return full_text, name_cn
 
-    def fix_toc(self, full_text: str, toc_fname: str) -> str:
+    def fix_toc(self, full_text: str) -> str:
         """[7] 修正目录层级。返回修正后的 full_text。"""
         logger.info('[7] 修正目录')
+        toc_fname = self.paths['toc_fname']
         toc = read_yaml_model(toc_fname, None)
         if not toc:
             toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
@@ -355,11 +363,13 @@ class PDFOcrOrchestrator:
 
     def write_output(
         self, full_text: str, name_cn: str,
-        md_fname: str, pj_dir: str, slug: str,
-        name: str,
     ) -> None:
         """[8] 写入 md / README / SUMMARY。"""
         logger.info(f'[8] 写入 {md_fname}')
+        name = self.paths['name']
+        slug = self.paths['slug']
+        pj_dir = self.paths['pj_dir']
+        md_fname = self.paths['md_fname']
         open(md_fname, 'w', encoding='utf8') \
             .write(full_text)
 
@@ -393,16 +403,9 @@ class PDFOcrOrchestrator:
             logger.fatal('请提供PDF文件')
             return
 
-        paths = self.agent.resolve_paths(self.args)
-        name = paths['name']
-        slug = paths['slug']
-        pj_dir = paths['pj_dir']
-        md_fname = paths['md_fname']
-        page_fname = paths['page_fname']
-        group_fname = paths['group_fname']
-        toc_fname = paths['toc_fname']
-        img_dir = paths['img_dir']
-        meta_dir = paths['meta_dir']
+        pj_dir = self.paths['pj_dir']
+        md_fname = self.paths['md_fname']
+        meta_dir = self.paths['meta_dir']
 
         os.makedirs(pj_dir, exist_ok=True)
         os.makedirs(meta_dir, exist_ok=True)
@@ -413,21 +416,21 @@ class PDFOcrOrchestrator:
         # 1. 加载 PDF
         doc, pdf_data, pdf_hash = self.load_pdf()
         # 2. 初始化 meta
-        pages = self.init_page(doc, page_fname)
+        pages = self.init_page(doc)
         # 3. OCR 识别
-        self.ocr_pages(doc, pdf_data, pages, page_fname)
+        self.ocr_pages(doc, pdf_data, pages)
         # 4. 处理图片
-        self.process_images(doc, pages, pdf_hash, img_dir, page_fname)
+        self.process_images(doc, pages, pdf_hash)
         # 5. 分组 + 后处理 + 翻译
-        groups = self.group_pages(pages, group_fname)
+        groups = self.group_pages(pages)
         # 6. 组间合并
-        self.merge_groups(groups, group_fname)
+        self.merge_groups(groups)
         # 7. 拼接全文
-        full_text, name_cn = self.build_full_text(groups, name)
+        full_text, name_cn = self.build_full_text(groups)
         # 8. 修正目录
-        full_text = self.fix_toc(full_text, toc_fname)
+        full_text = self.fix_toc(full_text)
         # 9. 写入文件
-        self.write_output(full_text, name_cn, md_fname, pj_dir, slug, name)
+        self.write_output(full_text, name_cn)
         del doc, pdf_data, pages, groups
         gc.collect()
         malloc_trim_linux()
