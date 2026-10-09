@@ -373,6 +373,7 @@ class PDFOcrOrchestrator:
         summary_fname = self.paths['summary_fname']
         readme_fname = self.paths['readme_fname']
 
+        l = len(str(len(chs)))
         for i, c in enumerate(chs):
             ch_fname = path.join(pj_dir, slug + '_' + str(i).zfill(l) + '.md')
             logger.debug(f'[8] {ch_fname}')
@@ -388,7 +389,6 @@ class PDFOcrOrchestrator:
 
             logger.info('[8] 写入 SUMMARY.md')
             toc = [f'+   [{name_cn}](README.md)']
-            l = len(str(len(chs)))
             for i, ch in enumerate(chs):
                 title, _ = get_md_title(ch)
                 if not title: continue
