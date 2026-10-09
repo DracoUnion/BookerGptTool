@@ -32,7 +32,7 @@ from .openai import set_openai_props, ask_chatgpt_retry
 from .fmt import fmt_zh, fmt_publisher
 from .clean_heading import clean_md_llm
 from .trans_epub_models import *
-from resplit_models import *
+from .resplit_models import *
 
 logging.basicConfig(
     level=logging.INFO, 
