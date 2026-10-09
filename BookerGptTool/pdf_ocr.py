@@ -516,7 +516,9 @@ class PDFOcrOrchestrator:
         full_text = self.fix_toc(full_text)
         chs = self._split_chapters(md=full_text)
         # 9. 写入文件
-        self.write_output_split(chs, name_cn)
+        self.write_output_split(chs, name_cn) \
+            if self.args.split else \
+            self.write_output(chs, name_cn)
         del doc, pdf_data, pages, groups
         gc.collect()
         malloc_trim_linux()
