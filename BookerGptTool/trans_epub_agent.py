@@ -52,10 +52,16 @@ from .openai import set_openai_props, ask_chatgpt_retry
 from .fmt import fmt_zh, fmt_publisher
 
 from .clean_heading import clean_md_llm
-
+from .resplit_agent import ResplitAgent
 from .trans_epub_models import *
 
 
+class EpubTranslatorSplitAgent(ResplitAgent):
+
+    def __init__(self, args):
+        super().__init__(args)
+        self.asset_dir = \
+            EpubTranslatorAgent.resolve_paths(args)['meta_dir']
 
 class EpubTranslatorAgent:
 

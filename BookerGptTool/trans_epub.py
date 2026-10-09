@@ -32,6 +32,7 @@ from .openai import set_openai_props, ask_chatgpt_retry
 from .fmt import fmt_zh, fmt_publisher
 from .clean_heading import clean_md_llm
 from .trans_epub_models import *
+from resplit_models import *
 
 logging.basicConfig(
     level=logging.INFO, 
@@ -50,6 +51,7 @@ def trunc_text(text, limit=50):
 
 
 from .trans_epub_agent import EpubTranslatorAgent
+from .trans_epub_agent import EpubTranslatorSplitAgent
 
 
 
@@ -57,6 +59,7 @@ class TransEpubDispatcher:
     def __init__(self, args):
         self.args = args
         self.agent = EpubTranslatorAgent(args)
+        self.split_agent = EpubTranslatorSplitAgent(args)
 
         self.pool = ThreadPoolExecutor(self.args.page_threads)
         self.hdls = []
@@ -202,34 +205,45 @@ class TransEpubDispatcher:
                 pass
         return md
 
-    def _split_chs(self, md):
-        lines = md.split('\n')
-        titles = []
-        in_code = False
-        for i, l in enumerate(lines):
-            if '```' in l:
-                in_code = not in_code
-            elif not in_code and re.search(r'^#+ ', l):
-                titles.append({
-                    'no': i,
-                    'title': re.sub(r'^#+ ', '', l),
-                    'before': [],
-                    'after': [],
-                })
-        for it in titles:
-            st = max(0, it['no'] - 10)
-            ed = min(len(lines) - 1, it['no'] + 10)
-            for i in range(st, it['no']):
-                it['before'].append(trunc_text(lines[i]))
-            for i in range(it['no'] + 1, ed + 1):
-                it['after'].append(trunc_text(lines[i]))
+    def _tr_ch_split_llm(self, lines, args):
+        starts = self.split_agent.split(lines)
+        checks = self.split_agent.check_split(lines, starts)
+        judges = self.split_agent.judge_split(lines, starts, checks)
+        return judges
 
-        res: List[TocExtResult] = self.agent.extract_chapter_toc(titles)
-        title_nos = set(it.no for it in res if it.no != 0 and it.chapter_title)
+    def _split_chs(self, md: str):
+        lines = md.split('\n')
+        lines = [
+            {
+                'no': i,
+                'line': l[:50] + '...' if len(l) > 50 else l,
+            }
+            for i, l in enumerate(lines)
+        ]
+        res: List[JudgeSplitAccResult] = []
+        def res_callback(res):
+            res += h.result().chapter_starts
+        for i in range(0, len(lines), self.args.limit - self.args.overlap):
+            part = lines[i: i+self.args.limit]
+            h = self.pool.submit(
+                self._tr_ch_split_llm,
+                part, self.args
+            )
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                self._collect_hdls(res_callback)
+
+        
+        self._collect_hdls(res_callback)
+        res.sort(key=lambda x: x.no)
+
+        chapters = [[]]
+        split_lines = {r.no for r in res}
         for i, l in enumerate(lines):
-            if i in title_nos:
-                lines[i] = '[split/]' + l
-        return '\n'.join(lines).split('[split/]')
+            if i in split_lines:
+                chapters.append([])
+            chapters[-1].append(l)
+        chapters = ['\n'.join(ch) for ch in chapters]
 
     def _split_chapters(self, chs_fname, md):
         logger.info('[6] 分章节')
@@ -310,4 +324,5 @@ def reg_subparser(subparsers):
     trans_epub_parser.add_argument("-D", "--debug", action='store_true', help="调试模式")
     trans_epub_parser.add_argument("--split", action='store_true', help="是否拆分中文")
     trans_epub_parser.add_argument("--clean", action='store_true', help="是否清理标题")
+    trans_epub_parser.add_argument("--split-limit", type=int, default=3000, help="是否清理标题")
     trans_epub_parser.set_defaults(func=trans_epub)
