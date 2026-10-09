@@ -63,6 +63,7 @@ class TransEpubDispatcher:
 
         self.pool = ThreadPoolExecutor(self.args.page_threads)
         self.hdls = []
+        self.paths = self.agent.resolve_paths(args)
 
     def run(self):
         args = self.args
@@ -71,10 +72,9 @@ class TransEpubDispatcher:
             logger.fatal('请提供EPUB文件')
             return
 
-        p = self.agent.resolve_paths(args)
-        os.makedirs(p['proj_dir'], exist_ok=True)
+        os.makedirs(self.paths['proj_dir'], exist_ok=True)
         md_fnames = [
-            f for f in os.listdir(p['proj_dir'])
+            f for f in os.listdir(self.paths['proj_dir'])
             if f.endswith('.md') and
                f != 'README.md' and
                f != 'SUMMRY.md'
@@ -83,29 +83,29 @@ class TransEpubDispatcher:
             logger.warn('已处理')
             return
 
-        meta = self._init_meta(
-            name=p['name'], slug=p['slug'],
-            meta_dir=p['meta_dir'], meta_fname=p['meta_fname'],
-        )
+        meta = self._init_meta()
         if meta is None:
             return
-        html = self._convert_html(html_fname=p['html_fname'])
-        md = self._convert_md(md_fname=p['md_fname'], html=html)
-        self._export_images(img_dir=p['img_dir'])
-        chunks = self._format_translate(chunk_fname=p['chunk_fname'], md=md)
-        md = self._fix_toc(chunks, meta, meta_fname=p['meta_fname'])
-        chs = self._split_chapters(chs_fname=p['chs_fname'], md=md)
-        self._write_chapters(proj_dir=p['proj_dir'], slug=p['slug'], chs=chs)
-        self._gen_readme(name=p['name'], readme_fname=p['readme_fname'], meta=meta)
-        self._gen_summary(slug=p['slug'], summary_fname=p['summary_fname'], chs=chs, meta=meta)
+        html = self._convert_html()
+        md = self._convert_md(html=html)
+        self._export_images()
+        chunks = self._format_translate(md=md)
+        md = self._fix_toc(chunks, meta)
+        chs = self._split_chapters(md=md)
+        self._write_chapters(chs=chs)
+        self._gen_readme(meta=meta)
+        self._gen_summary(chs=chs, meta=meta)
         del html, md, chunks, chs
         gc.collect()
         malloc_trim_linux()
         logger.info('[*] 完成')
 
-    def _init_meta(self, name, slug, meta_dir, meta_fname):
-        args = self.args
+    def _init_meta(self):
         logger.info('[1] 初始化元数据')
+        name=self.paths['name']
+        slug=self.paths['slug'],
+        meta_dir=self.paths['meta_dir']
+        meta_fname=self.paths['meta_fname']
         os.makedirs(meta_dir, exist_ok=True)
         meta = read_yaml_model(meta_fname, Meta)
         if not meta:
@@ -114,8 +114,9 @@ class TransEpubDispatcher:
             open(meta_fname, 'w', encoding='utf8').write(yaml.safe_dump(meta.dict()))
         return meta
 
-    def _convert_html(self, html_fname):
+    def _convert_html(self):
         logger.info('[2] 转换 html 和 md')
+        html_fname = self.paths['html_fname']
         if path.isfile(html_fname) and \
            path.getsize(html_fname) != 0:
             return open(html_fname, encoding='utf8').read()
@@ -125,7 +126,8 @@ class TransEpubDispatcher:
         open(html_fname, 'w', encoding='utf8').write(html)
         return html
 
-    def _convert_md(self, md_fname, html):
+    def _convert_md(self, html):
+        md_fname = self.paths['md_fname'], 
         if path.isfile(md_fname) and \
            path.getsize(md_fname) != 0:
             return open(md_fname, encoding='utf8').read()
@@ -133,8 +135,9 @@ class TransEpubDispatcher:
         open(md_fname, 'w', encoding='utf8').write(md)
         return md
 
-    def _export_images(self, img_dir):
+    def _export_images(self):
         logger.info('[3] 导出图像')
+        img_dir = self.paths['img_dir']
         os.makedirs(img_dir, exist_ok=True)
         fdict = read_zip(self.args.fname)
         for iname, data in fdict.items():
@@ -161,8 +164,9 @@ class TransEpubDispatcher:
             if res_callback: res_callback(r)
         self.hdls = []
 
-    def _format_translate(self, chunk_fname, md):
+    def _format_translate(self, md):
         logger.info('[4] 排版和翻译')
+        chunk_fname = self.paths['chunk_fname']
         chunks = read_yaml_model(chunk_fname, List[Chunk])
         if not chunks:
             groups = group_chunks(split_md_lines(md))
@@ -182,8 +186,9 @@ class TransEpubDispatcher:
         write_yaml_model(chunk_fname, chunks)
         return chunks
 
-    def _fix_toc(self, chunks, meta, meta_fname):
+    def _fix_toc(self, chunks, meta):
         logger.info('[5] 修正目录')
+        meta_fname = self.paths['meta_fname']
         md = '\n\n'.join(c.trans for c in chunks)
         if self.args.clean:
             name_cn = meta.name_cn
@@ -211,7 +216,13 @@ class TransEpubDispatcher:
         judges = self.split_agent.judge_split(lines, starts, checks)
         return judges
 
-    def _split_chs(self, md: str):
+    def _split_chapters(self, md):
+        logger.info('[6] 分章节')
+        chs_fname = self.paths['chs_fname'] 
+        chs = read_yaml_model(chs_fname, None)
+        if chs: return chs
+        if not self.args.split: return [md]
+        
         lines = md.split('\n')
         lines = [
             {
@@ -223,8 +234,8 @@ class TransEpubDispatcher:
         res: List[JudgeSplitAccResult] = []
         def res_callback(res):
             res += h.result().chapter_starts
-        for i in range(0, len(lines), self.args.limit - self.args.overlap):
-            part = lines[i: i+self.args.limit]
+        for i in range(0, len(lines), self.args.split_limit - self.args.split_overlap):
+            part = lines[i: i+self.args.split_limit]
             h = self.pool.submit(
                 self._tr_ch_split_llm,
                 part, self.args
@@ -237,36 +248,37 @@ class TransEpubDispatcher:
         self._collect_hdls(res_callback)
         res.sort(key=lambda x: x.no)
 
-        chapters = [[]]
+        chs = [[]]
         split_lines = {r.no for r in res}
         for i, l in enumerate(lines):
             if i in split_lines:
-                chapters.append([])
-            chapters[-1].append(l)
-        chapters = ['\n'.join(ch) for ch in chapters]
+                chs.append([])
+            chs[-1].append(l)
+        chs = ['\n'.join(ch) for ch in chs]
 
-    def _split_chapters(self, chs_fname, md):
-        logger.info('[6] 分章节')
-        chs = read_yaml_model(chs_fname, None)
-        if not chs:
-            chs = self._split_chs(md) if self.args.split else [md]
-            write_yaml_model(chs_fname, chs)
+        write_yaml_model(chs_fname, chs)
         return chs
 
-    def _write_chapters(self, proj_dir, slug, chs):
+    def _write_chapters(self, chs):
+        proj_dir = self.paths['proj_dir']
+        slug = self.paths['slug']
         l = len(str(len(chs)))
         for i, c in enumerate(chs):
             ch_fname = path.join(proj_dir, slug + '_' + str(i).zfill(l) + '.md')
             logger.debug(f'[5] {ch_fname}')
             open(ch_fname, 'w', encoding='utf8').write(c)
 
-    def _gen_readme(self, name, readme_fname, meta):
+    def _gen_readme(self, meta):
         logger.info('[7] 生成 readme')
+        name = self.paths['name']
+        readme_fname = self.paths['readme_fname']
         readme = render_prompt(README_TMPL, name=name, name_cn=meta.name_cn)
         open(readme_fname, 'w', encoding='utf8').write(readme)
 
-    def _gen_summary(self, slug, summary_fname, chs, meta):
+    def _gen_summary(self, chs, meta):
         logger.info('[8] 生成 summary')
+        slug = self.paths['slug']
+        summary_fname = self.paths['summary_fname']
         l = len(str(len(chs)))
         toc = [f'+   [{meta.name_cn}](README.md)']
         for i, ch in enumerate(chs):
@@ -324,5 +336,6 @@ def reg_subparser(subparsers):
     trans_epub_parser.add_argument("-D", "--debug", action='store_true', help="调试模式")
     trans_epub_parser.add_argument("--split", action='store_true', help="是否拆分中文")
     trans_epub_parser.add_argument("--clean", action='store_true', help="是否清理标题")
-    trans_epub_parser.add_argument("--split-limit", type=int, default=3000, help="是否清理标题")
+    trans_epub_parser.add_argument("-sl", "--split-limit", type=int, default=3000, help="划分章节的分块大小上限")
+    trans_epub_parser.add_argument("-so", "--split-overlap", type=int, default=50, help="划分章节的分块重叠大小")
     trans_epub_parser.set_defaults(func=trans_epub)
