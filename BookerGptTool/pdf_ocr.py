@@ -229,8 +229,8 @@ class PDFOcrOrchestrator:
 
     def init_page(self, doc: pymu.Document) -> List[Page]:
         """[2] 加载或初始化 meta.yaml。返回 Meta。"""
-        logger.info(f'[2] 初始化 {page_fname}')
         page_fname = self.paths['page_fname']
+        logger.info(f'[2] 初始化 {page_fname}')
         pages = read_yaml_model(page_fname, List[Page])
         if pages: return pages
         pages = [Page(pgno=i) for i in range(len(doc))]
@@ -404,11 +404,11 @@ class PDFOcrOrchestrator:
     ) -> None:
         """[8] 写入 md / README / SUMMARY。"""
         assert not self.args.split
+        md_fname = self.paths['md_fname']
         logger.info(f'[8] 写入 {md_fname}')
         name = self.paths['name']
         slug = self.paths['slug']
         pj_dir = self.paths['pj_dir']
-        md_fname = self.paths['md_fname']
         summary_fname = self.paths['summary_fname']
         readme_fname = self.paths['readme_fname']
 
