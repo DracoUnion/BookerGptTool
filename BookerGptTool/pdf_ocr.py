@@ -455,6 +455,7 @@ class PDFOcrOrchestrator:
         ]
         res: List[JudgeSplitAccResult] = []
         def res_callback(r):
+            nonlocal res
             res += r.chapter_starts
         for i in range(0, len(lines), self.args.split_limit - self.args.split_overlap):
             part = lines[i: i+self.args.split_limit]
