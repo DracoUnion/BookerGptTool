@@ -411,7 +411,7 @@ class PDFOcrOrchestrator:
         md_fname = self.paths['md_fname']
         summary_fname = self.paths['summary_fname']
         readme_fname = self.paths['readme_fname']
-        
+
         open(md_fname, 'w', encoding='utf8') \
             .write(chs[0])
 
@@ -421,9 +421,6 @@ class PDFOcrOrchestrator:
 
             logger.info('[8] 写入 README.md')
             readme = render_prompt(README_TMPL, name=name, name_cn=name_cn)
-            readme_fname = path.join(
-                pj_dir, 'README.md'
-            )
             open(readme_fname, 'w', encoding='utf8') \
                 .write(readme)
 
@@ -432,9 +429,6 @@ class PDFOcrOrchestrator:
                 f'+   [{name_cn}](README.md)',
                 f'+   [{name_cn}]({slug}.md)',
             ]
-            summary_fname = path.join(
-                pj_dir, 'SUMMARY.md'
-            )
             open(summary_fname, 'w', encoding='utf8') \
                 .write('\n'.join(toc))
 
@@ -522,7 +516,7 @@ class PDFOcrOrchestrator:
         full_text = self.fix_toc(full_text)
         chs = self._split_chapters(md=full_text)
         # 9. 写入文件
-        self.write_output(chs, name_cn)
+        self.write_output_split(chs, name_cn)
         del doc, pdf_data, pages, groups
         gc.collect()
         malloc_trim_linux()
