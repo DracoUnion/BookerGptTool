@@ -14,10 +14,6 @@ from .novel_anls_models import (
     BookAnalysisReport, BookMeta, Chapter, ChapterSummary,
     MODULE_CLASS_MAP,
 )
-from .novel_anls_pmt import (
-    SCAN_SYSTEM_PROMPT, SCAN_PROMPT,
-    AGGREGATE_SYSTEM_PROMPT, AGGREGATE_PROMPT_MAP,
-)
 from .openai import call_llm_retry, set_openai_props
 
 logging.basicConfig(

@@ -1,22 +1,12 @@
-from os import path
-
 import json
+
+from os import path
 
 import logging
 
-import re
+from typing import List, Type
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-from typing import Any, Dict, List, Optional
-
-import json_repair as json_repair
-
-from ebooklib import epub
-
-from pyquery import PyQuery
-
-from tqdm import tqdm
+from pydantic import BaseModel, parse_obj_as
 
 from .novel_anls_models import (
     BookAnalysisReport, BookMeta, Chapter, ChapterSummary,
@@ -24,12 +14,12 @@ from .novel_anls_models import (
 )
 
 from .novel_anls_pmt import (
-    SCAN_SYSTEM_PROMPT, SCAN_PROMPT,
-    AGGREGATE_SYSTEM_PROMPT, AGGREGATE_PROMPT_MAP,
+    SCAN_PMT, AGGREGATE_PROMPT_MAP,
+    SCAN_SYSTEM, AGGREGATE_SYSTEM,
 )
 
 from .openai import call_llm_retry, set_openai_props
-
+from .util import render_prompt, json_dump_model, ext_code_block
 
 
 class NovelAnlsAgent:
@@ -42,22 +32,23 @@ class NovelAnlsAgent:
 
     def _call(
         self,
-        user_prompt: str,
-        response_model,
+        pmt: str,
+        response_model: Type[BaseModel],
         system_prompt: str,
+        **ctx,
     ):
-        """发起一次结构化 LLM 调用并解析 JSON 为 Pydantic 响应。"""
-        msgs = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
+        """渲染提示词，发起一次结构化 LLM 调用并解析为 Pydantic 响应。"""
+        user_prompt = render_prompt(pmt, **ctx)
 
         def parse(raw):
-            data = json_repair.loads(raw)
-            return response_model.model_validate(data)
+            return parse_obj_as(response_model, json.loads(ext_code_block(raw)))
 
         return call_llm_retry(
-            msgs, self.model,
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            self.model,
             retry=self.args.retry,
             temp=getattr(self.args, 'temp', 0.3),
             max_tokens=self.args.max_tokens,
@@ -71,15 +62,13 @@ class NovelAnlsAgent:
         chapter_text: str,
     ) -> ChapterSummary:
         """扫描单章，返回结构化摘要。"""
-        user_prompt = SCAN_PROMPT.format(
-            chapter_index=chapter_index,
-            chapter_title=json.dumps(chapter_title, ensure_ascii=False),
-            chapter_text=chapter_text,
-        )
         return self._call(
-            user_prompt,
+            SCAN_PMT,
             ChapterSummary,
-            SCAN_SYSTEM_PROMPT,
+            SCAN_SYSTEM,
+            chapter_index=str(chapter_index),
+            chapter_title=json_dump_model(chapter_title),
+            chapter_text=chapter_text,
         )
 
     def aggregate_module(
@@ -89,16 +78,10 @@ class NovelAnlsAgent:
         book_meta: BookMeta,
     ):
         """聚合指定模块，返回对应的 Pydantic 模型。"""
-        prompt_template = AGGREGATE_PROMPT_MAP[module_name]
-        user_prompt = prompt_template.format(
-            all_chapter_summaries=json.dumps(
-                [summary.model_dump() for summary in summaries],
-                ensure_ascii=False,
-            ),
-            book_meta=json.dumps(book_meta.model_dump(), ensure_ascii=False),
-        )
         return self._call(
-            user_prompt,
+            AGGREGATE_PROMPT_MAP[module_name],
             MODULE_CLASS_MAP[module_name],
-            AGGREGATE_SYSTEM_PROMPT,
+            AGGREGATE_SYSTEM,
+            all_chapter_summaries=json_dump_model(summaries),
+            book_meta=json_dump_model(book_meta),
         )
