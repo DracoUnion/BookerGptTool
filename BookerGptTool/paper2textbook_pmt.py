@@ -278,7 +278,7 @@ PAPER_CH_CLUSTER_FIX_PMT = '''
 ## 现有章
 
 ```
-{parts}
+{chs}
 ```
 
 ## 素材列表及摘要

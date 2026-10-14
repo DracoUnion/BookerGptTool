@@ -64,6 +64,7 @@ class PartClus(_Base):
     desc: str = Field(..., description='聚类描述')
     papers: List[str] = Field(..., description='归属于该聚类的论文标识列表')
 
+class ChapterClus(PartClus): pass
 
 # ============================================================
 # 三、全书大纲（章 - 知识点）

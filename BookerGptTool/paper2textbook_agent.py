@@ -178,6 +178,45 @@ class Paper2TextbookAgent(ToolsMixin):
         )
         return self._json(List[PartClus], prompt, self.model, self.args)
 
+    def cluster_papers_chs(self, paper_briefs: Dict[str, str]) -> List[ChapterClus]:
+        """根据论文简报将论文聚类为若干章（ChapterClus）。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'ch_' + gen_objs_md5(paper_briefs) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[ChapterClus])
+        if r: return r
+        prompt = render_prompt(
+            PAPER_CH_CLUSTER_PMT,
+            paper_briefs=json_dump_model(paper_briefs)
+        )
+        r = self._json(
+            List[ChapterClus], prompt, self.model, self.args
+        )
+        write_yaml_model(cache_fname, r)
+        return r
+
+    def fix_cluster_chs(
+        self,
+        paper_briefs: Dict[str, str],
+        parts: List[ChapterClus],
+        problem: str
+    ) -> List[ChapterClus]:
+        """根据问题描述（problem）修正已生成的论文聚类结果。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'ch_fix_' + gen_objs_md5(parts, paper_briefs, problem) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[ChapterClus])
+        if r: return r
+        prompt = render_prompt(
+            PAPER_CH_CLUSTER_FIX_PMT,
+            paper_briefs=json_dump_model(paper_briefs),
+            parts=json_dump_model(parts),
+            problem=problem,
+        )
+        return self._json(List[ChapterClus], prompt, self.model, self.args)
+
     # ============================================================
     # 三、全书大纲
     # ============================================================
