@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 import json_repair
 
-from .openai import call_llm_with_toolcall_retry, set_openai_props
+from .openai import call_llm_with_toolcall_retry, set_openai_props, logger as oai_logger
 from .util import render_prompt, write_text, json_dump_model
 from .auto_research_models import *
 from .auto_research_pmt import (
@@ -135,6 +135,9 @@ class AutoResearchOrchestrator:
 
 def auto_research_handle(args) -> FinalReport:
     """入口函数：创建编排器并运行完整流程。"""
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        oai_logger.setLevel(logging.DEBUG)
     return AutoResearchOrchestrator(args).run()
 
 
@@ -156,5 +159,9 @@ def reg_subparser(subparsers):
     p.add_argument(
         '-y', '--yes', action='store_true',
         help='自动批准所有审批（跳过人工确认，审计记录标记为自动批准）',
+    )
+    p.add_argument(
+        '-D', '--debug', action='store_true',
+        help='调试模式',
     )
     p.set_defaults(func=auto_research_handle)
