@@ -66,6 +66,19 @@ class Paper2TextbookMixin:
         return prob
 
     @staticmethod
+    def _chs_check_problem(chs: List[ChapterClus], paper_fnames_chs: List[str]) -> str:
+        paper_ids = set(paper_fnames_chs)
+        clustered = {p for ch in chs for p in ch.papers}
+        missing = sorted(paper_ids - clustered)
+        unknown = sorted(clustered - paper_ids)
+        prob = ''
+        if missing:
+            prob += '以下论文未出现在任何章中：\n' + '\n'.join(missing) + '\n'
+        if unknown:
+            prob += '以下论文不存在：\n' + '\n'.join(unknown) + '\n'
+        return prob
+
+    @staticmethod
     def _outline_check_problem(outline: List[OutlineChapter], concept_cards: List[PaperConcepts]) -> str:
         used_papers = {
             src.paper for ch in outline for n in ch.nodes for src in n.src
@@ -184,6 +197,25 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
             parts = self.agent.fix_cluster(paper_briefs, parts, prob)
         write_yaml_model(cache_fname, parts)
         return parts
+
+    def _tr_cluster_papers_chs(self, no: int, paper_briefs_chs: Dict[str, str]) -> Tuple[int, List[ChapterClus]]:
+        logger.info('[3] 论文聚类')
+        cache_fname = path.join(self.asset_dir, f'chs_{no}.yaml')
+        chs = read_yaml_model(cache_fname, List[ChapterClus])
+        if chs:
+            return chs
+        chs = self.agent.cluster_papers_chs(paper_briefs_chs)
+        paper_fnames_chs = list(paper_briefs_chs.keys())
+        for _ in range(self.check):
+            prob = self._chs_check_problem(chs, paper_fnames_chs)
+            if not prob:
+                logger.info('[3] 章校验通过')
+                break
+            logger.warn(f'[3] 章校验失败：\n{prob}')
+            chs = self.agent.fix_cluster_chs(paper_briefs_chs, chs, prob)
+        write_yaml_model(cache_fname, chs)
+        return no, chs
+
 
     # ── 4. 全书大纲 ──────────────────────────────────────────
 
