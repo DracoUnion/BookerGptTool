@@ -199,20 +199,20 @@ class Paper2TextbookAgent(ToolsMixin):
     def fix_cluster_chs(
         self,
         paper_briefs: Dict[str, str],
-        parts: List[ChapterClus],
+        chs: List[ChapterClus],
         problem: str
     ) -> List[ChapterClus]:
         """根据问题描述（problem）修正已生成的论文聚类结果。"""
         cache_fname = path.join(
             self.asset_dir,
-            'ch_fix_' + gen_objs_md5(parts, paper_briefs, problem) + '.yaml'
+            'ch_fix_' + gen_objs_md5(chs, paper_briefs, problem) + '.yaml'
         )
         r = read_yaml_model(cache_fname, List[ChapterClus])
         if r: return r
         prompt = render_prompt(
             PAPER_CH_CLUSTER_FIX_PMT,
             paper_briefs=json_dump_model(paper_briefs),
-            parts=json_dump_model(parts),
+            parts=json_dump_model(chs),
             problem=problem,
         )
         return self._json(List[ChapterClus], prompt, self.model, self.args)

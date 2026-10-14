@@ -66,8 +66,8 @@ class Paper2TextbookMixin:
         return prob
 
     @staticmethod
-    def _chs_check_problem(chs: List[ChapterClus], paper_fnames_chs: List[str]) -> str:
-        paper_ids = set(paper_fnames_chs)
+    def _chs_check_problem(chs: List[ChapterClus], paper_fnames_pt: List[str]) -> str:
+        paper_ids = set(paper_fnames_pt)
         clustered = {p for ch in chs for p in ch.papers}
         missing = sorted(paper_ids - clustered)
         unknown = sorted(clustered - paper_ids)
@@ -198,21 +198,47 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         write_yaml_model(cache_fname, parts)
         return parts
 
-    def _tr_cluster_papers_chs(self, no: int, paper_briefs_chs: Dict[str, str]) -> Tuple[int, List[ChapterClus]]:
-        logger.info('[3] 论文聚类')
+    def step_cluster_papers_chs(self, parts: List[PartClus], paper_briefs: Dict[str, str]) -> List[ChapterClus]:
+        logger.info('[3] 论文章节聚类')
+        chs = [[] for _ in range(len(parts))]
+        def res_callback(res):
+            no, chs_pt = res
+            chs[no] = chs_pt
+        for i, pt in enumerate(parts):
+            paper_fnames_pt = {p for p in pt.papers}
+            paper_briefs_pt = {
+                k:v for k, v in paper_briefs.items() 
+                if k in paper_fnames_pt
+            }
+            h = self.pool.submit(
+                self._tr_cluster_papers_chs,
+                i, paper_briefs_pt
+            )
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                self._collect_hdls(res_callback)
+        
+        self._collect_hdls(res_callback)
+        chs: List[ChapterClus] = sum(chs, [])
+        for i, ch in enumerate(chs):
+            ch.no = i + 1
+        return chs
+
+    def _tr_cluster_papers_chs(self, no: int, paper_briefs_pt: Dict[str, str]) -> Tuple[int, List[ChapterClus]]:
+        logger.info(f'[3] 论文章节聚类 {no + 1}')
         cache_fname = path.join(self.asset_dir, f'chs_{no}.yaml')
         chs = read_yaml_model(cache_fname, List[ChapterClus])
         if chs:
-            return chs
-        chs = self.agent.cluster_papers_chs(paper_briefs_chs)
-        paper_fnames_chs = list(paper_briefs_chs.keys())
+            return no, chs
+        chs = self.agent.cluster_papers_chs(paper_briefs_pt)
+        paper_fnames_pt = list(paper_briefs_pt.keys())
         for _ in range(self.check):
-            prob = self._chs_check_problem(chs, paper_fnames_chs)
+            prob = self._chs_check_problem(chs, paper_fnames_pt)
             if not prob:
                 logger.info('[3] 章校验通过')
                 break
             logger.warn(f'[3] 章校验失败：\n{prob}')
-            chs = self.agent.fix_cluster_chs(paper_briefs_chs, chs, prob)
+            chs = self.agent.fix_cluster_chs(paper_briefs_pt, chs, prob)
         write_yaml_model(cache_fname, chs)
         return no, chs
 
@@ -417,6 +443,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         paper_briefs = self.step_discover_papers()
         concept_cards = self.step_ext_concepts(paper_briefs)
         parts = self.step_cluster_papers(paper_briefs)
+        chs = self.step_cluster_papers_chs(parts, paper_briefs)
         outline = self.step_gen_outline(parts, concept_cards)
         outline_chs = sum([o.chapters for o in outline], [])
         details = self.step_gen_details(outline_chs, concept_cards)
