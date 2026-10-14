@@ -250,6 +250,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         ch: ChapterClus, 
         concept_cards: List[PaperConcepts]
     ) -> Tuple[int, OutlineChapter]:
+        logger.info(f'[4] 生成全书大纲 {idx + 1}')
         cache_fname = path.join(self.asset_dir, f'outline_{idx}.yaml')
         outline = read_yaml_model(cache_fname, OutlineChapter)
         if outline:
