@@ -221,17 +221,17 @@ class Paper2TextbookAgent(ToolsMixin):
     # 三、全书大纲
     # ============================================================
 
-    def gen_outline(
+    def gen_ch_outline(
         self,
         struct: List[str],
         concept_cards: List[PaperConcepts],
-    ) -> List[OutlineChapter]:
+    ) -> OutlineChapter:
         """根据书籍结构（struct）与概念卡片生成全书章级大纲。"""
         cache_fname = path.join(
             self.asset_dir,
             'outline_' + gen_objs_md5(concept_cards) + '.yaml',
         )
-        r = read_yaml_model(cache_fname, List[OutlineChapter])
+        r = read_yaml_model(cache_fname, OutlineChapter)
         if r: return r
         prompt = render_prompt(
             OUTLINE_PMT,
@@ -239,25 +239,25 @@ class Paper2TextbookAgent(ToolsMixin):
             concept_cards=json_dump_model(concept_cards),
         )
         r = self._json(
-            List[OutlineChapter],
+            OutlineChapter,
             prompt, self.model, self.args
         )
         write_yaml_model(cache_fname, r)
         return r
 
-    def fix_outline(
+    def fix_ch_outline(
         self,
-        outline: List[OutlineChapter],
+        outline: OutlineChapter,
         struct: List[str],
         concept_cards: List[PaperConcepts],
         problem: str,
-    ) -> List[OutlineChapter]:
+    ) -> OutlineChapter:
         """根据问题描述（problem）修正已生成的全书大纲。"""
         cache_fname = path.join(
             self.asset_dir,
             'outline_fix_' + gen_objs_md5(outline, concept_cards, problem) + '.yaml',
         )
-        r = read_yaml_model(cache_fname, List[OutlineChapter])
+        r = read_yaml_model(cache_fname, OutlineChapter)
         if r: return r
         prompt = render_prompt(
             OUTLINE_FIX_PMT,
@@ -267,7 +267,7 @@ class Paper2TextbookAgent(ToolsMixin):
             problem=problem,
         )
         r =  self._json(
-            List[OutlineChapter],
+            OutlineChapter,
             prompt, self.model, self.args
         )
         write_yaml_model(cache_fname, r)

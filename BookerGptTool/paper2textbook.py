@@ -79,9 +79,9 @@ class Paper2TextbookMixin:
         return prob
 
     @staticmethod
-    def _outline_check_problem(outline: List[OutlineChapter], concept_cards: List[PaperConcepts]) -> str:
+    def _outline_check_problem(outline: OutlineChapter, concept_cards: List[PaperConcepts]) -> str:
         used_papers = {
-            src.paper for ch in outline for n in ch.nodes for src in n.src
+            src.paper for n in outline.nodes for src in n.src
         }
         all_papers = {c.paper for c in concept_cards}
         missing = sorted(all_papers - used_papers)
@@ -247,28 +247,28 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
 
     def _tr_gen_outline(
         self, idx: int,
-        part: PartClus, 
+        ch: ChapterClus, 
         concept_cards: List[PaperConcepts]
     ) -> Tuple[int, List[OutlineChapter]]:
-        part_fnames = part.papers
-        part_fnames_set = set(part_fnames)
-        part_cards = [
+        ch_fnames = ch.papers
+        ch_fnames_set = set(ch_fnames)
+        ch_cards = [
             c for c in concept_cards 
-            if c.paper in part_fnames_set
+            if c.paper in ch_fnames_set
         ]
-        outline = self.agent.gen_outline(part_fnames, part_cards)
+        outline = self.agent.gen_ch_outline(ch_fnames, ch_cards)
         for _ in range(self.check):
-            prob = self._outline_check_problem(outline, part_cards)
+            prob = self._outline_check_problem(outline, ch_cards)
             if not prob:
                 logger.info('[4] 大纲校验通过')
                 break
             logger.warn(f'[4] 大纲校验失败：\n{prob}')
-            outline = self.agent.fix_outline(outline, part_fnames, part_cards, prob)
+            outline = self.agent.fix_ch_outline(outline, ch_fnames, ch_cards, prob)
         return idx, outline
 
     def step_gen_outline(
         self, 
-        parts: List[PartClus], 
+        chs: List[ChapterClus], 
         concept_cards: List[PaperConcepts]
     ) -> List[OutlineParts]:
         logger.info('[4] 生成全书大纲')
@@ -444,7 +444,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         concept_cards = self.step_ext_concepts(paper_briefs)
         parts = self.step_cluster_papers(paper_briefs)
         chs = self.step_cluster_papers_chs(parts, paper_briefs)
-        outline = self.step_gen_outline(parts, concept_cards)
+        outline = self.step_gen_outline(chs, concept_cards)
         outline_chs = sum([o.chapters for o in outline], [])
         details = self.step_gen_details(outline_chs, concept_cards)
         bodies = self.step_gen_bodies(outline_chs, details, concept_cards)
