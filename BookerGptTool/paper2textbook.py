@@ -249,7 +249,11 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         self, idx: int,
         ch: ChapterClus, 
         concept_cards: List[PaperConcepts]
-    ) -> Tuple[int, List[OutlineChapter]]:
+    ) -> Tuple[int, OutlineChapter]:
+        cache_fname = path.join(self.asset_dir, f'outline_{idx}.yaml')
+        outline = read_yaml_model(cache_fname, OutlineChapter)
+        if outline:
+            return idx, outline
         ch_fnames = ch.papers
         ch_fnames_set = set(ch_fnames)
         ch_cards = [
@@ -264,40 +268,31 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
                 break
             logger.warn(f'[4] 大纲校验失败：\n{prob}')
             outline = self.agent.fix_ch_outline(outline, ch_fnames, ch_cards, prob)
+        write_yaml_model(cache_fname, outline)
         return idx, outline
 
     def step_gen_outline(
         self, 
         chs: List[ChapterClus], 
         concept_cards: List[PaperConcepts]
-    ) -> List[OutlineParts]:
+    ) -> List[OutlineChapter]:
         logger.info('[4] 生成全书大纲')
-        cache_fname = path.join(self.asset_dir, 'outline.yaml')
-        outline = read_yaml_model(cache_fname, List[OutlineParts])
-        if not outline:
-            outline = [
-                OutlineParts(no=i, chapters=[]) 
-                for i, pt in enumerate(parts)
-            ]
-            write_yaml_model(cache_fname, outline)
-        save_step = max(min(len(parts) // 5, 100), 1)
+        outline: List[OutlineChapter] = [
+            None for _ in range(len(chs))
+        ]
         def res_callback(tpl):
-            idx, pt_outline = tpl
-            outline[idx].chapters = pt_outline
-        for i, pt in enumerate(parts):
-            if not outline[i].chapters:
-                h = self.pool.submit(
-                    self._tr_gen_outline,
-                    i, pt, concept_cards,
-                )
-                self.hdls.append(h)
-                if len(self.hdls) > self.args.threads:
-                    self._collect_hdls(res_callback)
-            if i % save_step == 0:
-                write_yaml_model(cache_fname, outline)
+            idx, ch_outline = tpl
+            outline[idx] = ch_outline
+        for i, ch in enumerate(chs):
+            h = self.pool.submit(
+                self._tr_gen_outline,
+                i, ch, concept_cards,
+            )
+            self.hdls.append(h)
+            if len(self.hdls) > self.args.threads:
+                self._collect_hdls(res_callback)
         
         self._collect_hdls(res_callback)
-        write_yaml_model(cache_fname, outline)
         return outline
 
     # ── 5. 逐章细纲（并行）───────────────────────────────────
@@ -444,8 +439,7 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
         concept_cards = self.step_ext_concepts(paper_briefs)
         parts = self.step_cluster_papers(paper_briefs)
         chs = self.step_cluster_papers_chs(parts, paper_briefs)
-        outline = self.step_gen_outline(chs, concept_cards)
-        outline_chs = sum([o.chapters for o in outline], [])
+        outline_chs = self.step_gen_outline(chs, concept_cards)
         details = self.step_gen_details(outline_chs, concept_cards)
         bodies = self.step_gen_bodies(outline_chs, details, concept_cards)
         # self.step_write_book(outline_chs, details, bodies)
