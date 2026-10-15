@@ -13,6 +13,8 @@ from .util import (
     get_ngram_set,
     ngram_jaccard,
     ngram_coverage,
+    repl_code_block,
+    rec_code_block,
 )
 from .openai import ask_chatgpt_retry, set_openai_props
 from .derep_pmt import *
@@ -43,11 +45,13 @@ class DerepAgent:
         )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
             return read_text(cache_fname)
+        source, blocks = repl_code_block(source)
         ques = render_prompt(GEN_PMT, source=source)
         res = ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         ).strip()
+        res = rec_code_block(res, blocks)
         write_text(cache_fname, res)
         return res
 
@@ -59,6 +63,8 @@ class DerepAgent:
         )
         if path.isfile(cache_fname) and path.getsize(cache_fname):
             return read_text(cache_fname)
+        source, source_blocks = repl_code_block(source)
+        copy, copy_blocks = repl_code_block(copy)
         ques = render_prompt(
             FIX_PMT,
             source=source,
@@ -70,6 +76,7 @@ class DerepAgent:
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         ).strip()
+        res = rec_code_block(res, copy_blocks)
         write_text(cache_fname, res)
         return res
 
