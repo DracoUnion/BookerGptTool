@@ -304,3 +304,13 @@ def read_yaml_model(fname: str, model: Optional[Type[BaseModel]]):
         return None
     except ValidationError:
         return None
+
+def repl_code_block(md):
+    blocks = []
+    def repl_func(g):
+        s = g.group()
+        tk = f'[PRE{len(blocks)}]'
+        blocks.append(s)
+        return tk
+    md = re.sub(r'```[\s\S]+?```', repl_func, md)
+    return md, blocks
