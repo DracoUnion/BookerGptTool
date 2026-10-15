@@ -314,3 +314,8 @@ def repl_code_block(md: str) -> Tuple[str, List[str]]:
         return tk
     md = re.sub(r'```[\s\S]+?```', repl_func, md)
     return md, blocks
+
+def rec_code_block(md: str, blocks: List[str]) -> str:
+    for i, b in enumerate(blocks):
+        md = md.replace(f'[PRE{i}]', b)
+    return md
