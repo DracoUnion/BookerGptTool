@@ -305,7 +305,7 @@ def read_yaml_model(fname: str, model: Optional[Type[BaseModel]]):
     except ValidationError:
         return None
 
-def repl_code_block(md):
+def repl_code_block(md: str) -> Tuple[str, List[str]]:
     blocks = []
     def repl_func(g):
         s = g.group()
