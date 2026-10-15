@@ -9,7 +9,7 @@ class DupMetrics(BaseModel):
     repeated_ngrams: List[str] = Field(default_factory=list, description='生成文案与素材共有的 n-gram 片段列表，即需要规避的重复部分')
     is_duplicated: bool = Field(..., description='是否重复度过高（达到阈值）')
 
-class CodeBlocksCheckResult(BaseModel):
+class CodeBlockCheckResult(BaseModel):
     missing: List[str]
     unknown: List[str]
     success: bool

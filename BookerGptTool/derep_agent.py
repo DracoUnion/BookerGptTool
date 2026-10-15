@@ -59,7 +59,7 @@ class DerepAgent:
         self, 
         source: str, copy: str, 
         metrics: DupMetrics,
-        blocks_check: CodeBlocksCheckResult,
+        block_check: CodeBlockCheckResult,
     ) -> str:
         """根据重复度指标与重复片段，重写文案以降低重复。"""
         cache_fname = path.join(
@@ -71,12 +71,12 @@ class DerepAgent:
         # source, source_blocks = repl_code_block(source)
         # copy, copy_blocks = repl_code_block(copy)
         prob = ''
-        if blocks_check.missing:
+        if block_check.missing:
             prob += '以下代码块未出现在当前文案中：\n' + \
-                ', '.join(blocks_check.missing) + '\n'
-        if blocks_check.unknown:
+                ', '.join(block_check.missing) + '\n'
+        if block_check.unknown:
             prob += '以下代码块在素材中不存在：\n' + \
-                ', '.join(blocks_check.unknown) + '\n'
+                ', '.join(block_check.unknown) + '\n'
         ques = render_prompt(
             FIX_PMT,
             source=source,
@@ -94,7 +94,7 @@ class DerepAgent:
         return res
 
     @staticmethod
-    def check_code_blocks(source: str, copy: str) -> CodeBlocksCheckResult:
+    def check_code_blocks(source: str, copy: str) -> CodeBlockCheckResult:
         missing = [
             tk for tk in re.findall(r'[PRE\d+]', source)
             if tk not in copy
@@ -103,7 +103,7 @@ class DerepAgent:
             tk for tk in re.findall(r'[PRE\d+]', copy)
             if tk not in source
         ]
-        return CodeBlocksCheckResult(
+        return CodeBlockCheckResult(
             missing=missing,
             unknown=unknown,
             success=len(missing) == 0 and len(unknown) == 0,
