@@ -8,3 +8,8 @@ class DupMetrics(BaseModel):
     ngram_coverage: float = Field(..., description='生成文案中被素材 n-gram 覆盖的比例，0-1，越大表示重复越严重')
     repeated_ngrams: List[str] = Field(default_factory=list, description='生成文案与素材共有的 n-gram 片段列表，即需要规避的重复部分')
     is_duplicated: bool = Field(..., description='是否重复度过高（达到阈值）')
+
+class CodeBlocksCheckResult(BaseModel):
+    missing: List[str]
+    unknown: List[str]
+    success: bool

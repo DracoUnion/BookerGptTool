@@ -81,6 +81,22 @@ class DerepAgent:
         return res
 
     @staticmethod
+    def check_code_blocks(source: str, copy: str) -> CodeBlocksCheckResult:
+        missing = [
+            tk for tk in re.findall(r'[PRE\d+]', source)
+            if tk not in copy
+        ]
+        unknown = [
+            tk for tk in re.findall(r'[PRE\d+]', copy)
+            if tk not in source
+        ]
+        return CodeBlocksCheckResult(
+            missing=missing,
+            unknown=unknown,
+            success=len(missing) == 0 and len(unknown) == 0,
+        )
+
+    @staticmethod
     def calc_metrics(source: str, copy: str, n: int = 3, threshold: float = 0.4) -> DupMetrics:
         """计算生成文案相对素材的 n-gram 重复度指标（确定性计算）。"""
         source = re.sub(r'[PRE\d+]', '', source)
