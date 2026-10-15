@@ -34,18 +34,19 @@ class DerepOrchestrator:
             metrics = self.agent.calc_metrics(
                 source, copy, self.args.ngram, self.args.threshold
             )
-            if not metrics.is_duplicated:
+            blocks_check = self.agent.check_code_blocks(source, copy)
+            if not metrics.is_duplicated and blocks_check.success:
                 logger.info(
                     f'[?] 第 {i + 1} 轮检查通过，'
                     f'相似度 {metrics.ngram_similarity:.2f}'
                 )
                 break
             logger.warn(
-                f'[?] 第 {i + 1} 轮重复度过高'
+                f'[?] 第 {i + 1} 轮重复度过高或缺失代码块'
                 f'（相似度 {metrics.ngram_similarity:.2f}，'
                 f'覆盖率 {metrics.ngram_coverage:.2f}），开始修复'
             )
-            copy = self.agent.fix_copy(source, copy, metrics)
+            copy = self.agent.fix_copy(source, copy, metrics, blocks_check)
         copy = rec_code_block(copy, blocks)
         return copy
 

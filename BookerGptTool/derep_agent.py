@@ -55,7 +55,12 @@ class DerepAgent:
         write_text(cache_fname, res)
         return res
 
-    def fix_copy(self, source: str, copy: str, metrics: DupMetrics) -> str:
+    def fix_copy(
+        self, 
+        source: str, copy: str, 
+        metrics: DupMetrics,
+        blocks_check: CodeBlocksCheckResult,
+    ) -> str:
         """根据重复度指标与重复片段，重写文案以降低重复。"""
         cache_fname = path.join(
             self.asset_dir,
@@ -65,12 +70,20 @@ class DerepAgent:
             return read_text(cache_fname)
         # source, source_blocks = repl_code_block(source)
         # copy, copy_blocks = repl_code_block(copy)
+        prob = ''
+        if blocks_check.missing:
+            prob += '以下代码块未出现在当前文案中：\n' + \
+                ', '.join(blocks_check.missing) + '\n'
+        if blocks_check.unknown:
+            prob += '以下代码块在素材中不存在：\n' + \
+                ', '.join(blocks_check.unknown) + '\n'
         ques = render_prompt(
             FIX_PMT,
             source=source,
             copy=copy,
             metrics=json_dump_model(metrics),
-            repeated_ngrams='\n'.join(metrics.repeated_ngrams),
+            repeated_ngrams='\n'.join(metrics.repeated_ngrams) or '（无）',
+            block_prob=prob or '（无）',
         )
         res = ask_chatgpt_retry(
             ques, self.model, self.args,
