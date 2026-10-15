@@ -4,7 +4,7 @@ import logging
 from os import path
 from concurrent.futures import ThreadPoolExecutor
 
-from .util import extname, read_text, write_text, group_chunks, split_md_lines
+from .util import extname, read_text, write_text, group_chunks, split_md_lines, repl_code_block, rec_code_block
 from .openai import logger as oai_logger
 from .derep_agent import DerepAgent
 
@@ -28,6 +28,7 @@ class DerepOrchestrator:
 
     def step_derep_chunk(self, source: str) -> str:
         """对单个素材块：生成文案，检测重复度，不达标则交给 LLM 修复。"""
+        source, blocks = repl_code_block(source)
         copy = self.agent.gen_copy(source)
         for i in range(self.args.round):
             metrics = self.agent.calc_metrics(
@@ -45,6 +46,7 @@ class DerepOrchestrator:
                 f'覆盖率 {metrics.ngram_coverage:.2f}），开始修复'
             )
             copy = self.agent.fix_copy(source, copy, metrics)
+        copy = rec_code_block(copy, blocks)
         return copy
 
     def step_derep_file(self, fname: str):
