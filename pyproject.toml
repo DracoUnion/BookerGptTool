@@ -44,7 +44,6 @@ dependencies = [
     "opencv-python",
     "numpy",
     "pillow",
-    "sentence-transformers",
     "flask",
     "ebooklib",
     "waitress",

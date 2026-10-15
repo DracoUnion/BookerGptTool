@@ -26,8 +26,6 @@ from threading import Lock
 
 import functools
 
-from sentence_transformers import SentenceTransformer
-
 from typing import Any, Dict, Optional, List, Callable
 
 from .util import ngram_jaccard, ext_code_block, ext_cont_block, render_prompt
