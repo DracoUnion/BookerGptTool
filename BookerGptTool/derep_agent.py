@@ -83,8 +83,8 @@ class DerepAgent:
     @staticmethod
     def calc_metrics(source: str, copy: str, n: int = 3, threshold: float = 0.4) -> DupMetrics:
         """计算生成文案相对素材的 n-gram 重复度指标（确定性计算）。"""
-        source = re.sub(r'```[\s\S]+?```', '', source)
-        copy = re.sub(r'```[\s\S]+?```', '', copy)
+        source = re.sub(r'[PRE\d+]', '', source)
+        copy = re.sub(r'[PRE\d+]', '', copy)
         src_toks = tok_en_zh(source.lower())
         gen_toks = tok_en_zh(copy.lower())
         src_set = get_ngram_set(src_toks, n)
