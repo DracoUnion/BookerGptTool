@@ -282,6 +282,7 @@ def read_text(fname: str) -> str:
         return None
     text = open(fname, encoding='utf8').read()
     chs = set(text)
+    # 避免读取损坏的数据
     if len(chs) == 1 and '\x00' in chs:
         text = ""
     return text

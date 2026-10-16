@@ -178,9 +178,8 @@ def tr_fmt_group_multi(text, res, idx, args):
 def tr_fmt_group(text, res, idx, args):
     cache_fname = path.join(
         args.cache_dir, 'fmt_' + gen_objs_md5(text) + '.md')
-    if path.isfile(cache_fname) and path.getsize(cache_fname):
-        ans = read_text(cache_fname)
-    else:
+    ans = read_text(cache_fname)
+    if not ans:
         ques = render_prompt(FMT_PMT, text=text)
         ans = ask_chatgpt_retry(ques, args.model, args, ext_cont_block)
         write_text(cache_fname, ans)
