@@ -25,7 +25,8 @@ from .util import (
     render_prompt,
     malloc_trim_linux,
     read_yaml_model,
-    write_yaml_model
+    write_yaml_model,
+    read_text,
 )
 from .openai import logger as oai_logger
 from .openai import set_openai_props, ask_chatgpt_retry
@@ -117,9 +118,8 @@ class TransEpubDispatcher:
     def _convert_html(self):
         logger.info('[2] 转换 html 和 md')
         html_fname = self.paths['html_fname']
-        if path.isfile(html_fname) and \
-           path.getsize(html_fname) != 0:
-            return open(html_fname, encoding='utf8').read()
+        html = read_text(html_fname)
+        if html: return html
         epub = open(self.args.fname, 'rb').read()
         html = epub2html_pandoc(epub)
         html = fmt_publisher(html, self.args.fmt_mode)
@@ -128,9 +128,8 @@ class TransEpubDispatcher:
 
     def _convert_md(self, html):
         md_fname = self.paths['md_fname'] 
-        if path.isfile(md_fname) and \
-           path.getsize(md_fname) != 0:
-            return open(md_fname, encoding='utf8').read()
+        md = read_text(md_fname)
+        if md: return md
         md = tomd(html)
         open(md_fname, 'w', encoding='utf8').write(md)
         return md

@@ -186,8 +186,8 @@ class PdfOcrAgent:
             self.asset_dir,
             'merge_' + gen_objs_md5(prev_line, next_line) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return int('[TRUE]' in read_text(cache_fname))
+        r = read_text(cache_fname)
+        if r: return int('[TRUE]' in r)
         ques = render_prompt(MERGE_PMT, prev=prev_line, next=next_line)
         ans = ask_chatgpt_retry(ques, self.args.model, self.args)
         write_text(cache_fname, ans)

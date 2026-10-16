@@ -190,9 +190,7 @@ class WriteNovelOrchestrator:
 
     def _read_chapter(self, idx: int) -> Optional[str]:
         fname = self._chapter_fname(idx)
-        if path.isfile(fname) and path.getsize(fname):
-            return read_text(fname)
-        return None
+        return read_text(fname)
 
     def _write_chapter(self, idx: int, text: str) -> None:
         write_text(self._chapter_fname(idx), text)
