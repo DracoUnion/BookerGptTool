@@ -278,7 +278,13 @@ def write_text(fname: str, text: str, append: bool = False) -> None:
 
 def read_text(fname: str) -> str:
     """以 UTF-8 读取 fname 的文本内容。"""
-    return open(fname, encoding='utf8').read()
+    if not path.isfile(fname) or not path.getsize(fname):
+        return None
+    text = open(fname, encoding='utf8').read()
+    chs = set(text)
+    if len(chs) == 1 and '\x00' in chs:
+        text = ""
+    return text
 
 def write_yaml_model(fname: str, obj: Any) -> None:
     """将对象（含 pydantic 模型/列表）以 YAML 形式写入 fname。"""
