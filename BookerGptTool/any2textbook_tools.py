@@ -249,8 +249,8 @@ class Any2TextbookTools(ToolsMixin):
     def tool_gen_body(self, i: int, outline, detail, paper_desc) -> str:
         """基于章节细纲生成第 i 章正文（Markdown 文本）。"""
         cache_fname = path.join(self.pj_dir, f'chapter_{i+1:03d}.md')
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        body = read_text(cache_fname)
+        if body: return body
         prompt = render_prompt(
             BODY_PMT,
             i=str(i),
@@ -279,8 +279,8 @@ class Any2TextbookTools(ToolsMixin):
         cache_fname = path.join(
             self.pj_dir,
             'body_fix_' + gen_objs_md5(detail, body, comment, paper_desc) + '.md')
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         prompt = render_prompt(
             BODY_FIX_PMT,
             detail=json_dump_model(detail),
@@ -297,8 +297,8 @@ class Any2TextbookTools(ToolsMixin):
         cache_fname = path.join(
             self.pj_dir,
             'consist_check_' + gen_objs_md5(previous_chapter, current_chapter) + '.md')
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         prompt = render_prompt(
             CONSISTENCY_CHK_PMT,
             previous_chapters=previous_chapter,
@@ -672,8 +672,8 @@ class Any2TextbookTools(ToolsMixin):
     def tool_write_planning_opinion_md(self, opinion: PlanningOpinion) -> str:
         """把 PlanningOpinion 渲染为 `书稿策划意见.md` 的 Markdown 文本。"""
         cache_fname = path.join(self.pj_dir, '书稿策划意见.md')
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        md = read_text(cache_fname)
+        if md: return md
         md = _render_planning_opinion_md(opinion)
         write_text(cache_fname, md)
         return md
@@ -808,8 +808,8 @@ class Any2TextbookTools(ToolsMixin):
         cache_fname = path.join(
             self.pj_dir, 'lect_body_' + gen_objs_md5(text) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        body = read_text(cache_fname)
+        if body: return body
         prompt = render_prompt(
             LECTURE_GEN_PMT,
             ledger_json=json_dump_model(ledger),
@@ -853,8 +853,10 @@ class Any2TextbookTools(ToolsMixin):
             self.pj_dir,
             'lect_patch_' + gen_objs_md5(lecture, missing_detail) + '.md'
         )
+        body = read_text(cache_fname)
+        if body: return body
         if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+            return 
         prompt = render_prompt(
             LECTURE_PATCH_PMT,
             missing_detail=missing_detail,
@@ -958,8 +960,8 @@ class Any2TextbookTools(ToolsMixin):
             self.pj_dir,
             'teach_package_' + gen_objs_md5(audience, results, outline, questions, exercises) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        md = read_text(cache_fname)
+        if md: return md
         md = _render_teaching_package(
             audience, results, outline, questions, exercises,
         )

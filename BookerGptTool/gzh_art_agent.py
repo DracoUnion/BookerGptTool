@@ -69,6 +69,4 @@ class GzhArtAgent:
         from .util import read_text
         fname = path.join(path.dirname(path.abspath(__file__)),
                           'gzh_art_assets', 'references', 'writing-style.md')
-        if path.isfile(fname):
-            return read_text(fname)
-        return ''
+        return read_text(fname) or ''
