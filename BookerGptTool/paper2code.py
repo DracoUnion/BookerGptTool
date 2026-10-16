@@ -11,7 +11,7 @@ import requests
 
 from .paper2code_models import *
 from .paper2code_pmt import *
-from .util import ext_code_block, extname, render_prompt
+from .util import ext_code_block, extname, render_prompt, read_text
 from .openai import ask_chatgpt_retry, set_openai_props
 
 logging.basicConfig(
@@ -73,8 +73,8 @@ class Paper2CodeOrchestrator:
 
     def _load_paper(self) -> str:
         paper_fname = path.join(self.out, 'paper')
-        if path.isfile(paper_fname):
-            return open(paper_fname, encoding='utf8').read()
+        r = read_text(paper_fname)
+        if r: return r
         if re.search(r'arxiv:\d+\.\d+', self.args.fname):
             paper = arxiv_id2text(self.args.fname[6:])
             open(paper_fname, 'w', encoding='utf8').write(paper)
@@ -88,16 +88,16 @@ class Paper2CodeOrchestrator:
 
     def _gen_plan(self, paper: str) -> str:
         plan_fname = path.join(self.out, 'plan.md')
-        if path.isfile(plan_fname):
-            return open(plan_fname, encoding='utf8').read()
+        r = read_text(plan_fname)
+        if r: return r
         plan = self.agent.gen_plan(paper)
         open(plan_fname, 'w', encoding='utf8').write(plan)
         return plan
 
     def _gen_file_list(self, paper: str, plan: str) -> str:
         flist_fname = path.join(self.out, 'file_list.json')
-        if path.isfile(flist_fname):
-            return open(flist_fname, encoding='utf8').read()
+        r = read_text(flist_fname)
+        if r: return r
         flist = self.agent.gen_file_list(paper, plan)
         flist_str = flist.json()
         open(flist_fname, 'w', encoding='utf8').write(flist_str)
@@ -105,8 +105,8 @@ class Paper2CodeOrchestrator:
 
     def _gen_tasks(self, paper: str, plan: str, flist_str: str) -> str:
         tasks_fname = path.join(self.out, 'tasks.json')
-        if path.isfile(tasks_fname):
-            return open(tasks_fname, encoding='utf8').read()
+        r = read_text(tasks_fname)
+        if r: return r
         tasks = self.agent.gen_tasks(paper, plan, flist_str)
         tasks_str = tasks.json()
         open(tasks_fname, 'w', encoding='utf8').write(tasks_str)
@@ -120,8 +120,8 @@ class Paper2CodeOrchestrator:
         tasks_str: str,
     ) -> str:
         cfg_fname = path.join(self.out, 'config.yaml')
-        if path.isfile(cfg_fname):
-            return open(cfg_fname, encoding='utf8').read()
+        r = read_text(cfg_fname)
+        if r: return r
         cfg_str = self.agent.gen_config(
             paper, plan, flist_str, tasks_str,
         )

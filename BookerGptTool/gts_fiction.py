@@ -2,7 +2,7 @@ import os
 import uuid
 from os import path
 
-from .util import render_prompt
+from .util import render_prompt, read_text
 from .openai import ask_chatgpt_retry, set_openai_props
 from .gts_fiction_pmt import (
     SETTING_PMT, ROLE_PMT, OUTLINE_PMT,
@@ -25,8 +25,8 @@ class GtsFictionOrchestrator:
 
     def _load_or_generate(self, fname, generator_fn):
         """缓存模式：文件存在则直接读取，否则生成并保存。"""
-        if path.isfile(fname):
-            return open(fname, encoding='utf8').read()
+        r = read_text(fname)
+        if r: return r
         result = generator_fn()
         open(fname, 'w', encoding='utf8').write(result)
         return result
