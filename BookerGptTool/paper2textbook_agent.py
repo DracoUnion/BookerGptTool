@@ -367,9 +367,8 @@ class Paper2TextbookAgent(ToolsMixin):
             self.asset_dir,
             'body_' + gen_objs_md5(outline, detail, paper_desc, i) + '.md',
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            r = read_text(cache_fname)
-            return r
+        r = read_text(cache_fname)
+        if r: return r
         prompt = render_prompt(
             BODY_PMT,
             i=str(i + 1),
@@ -387,9 +386,8 @@ class Paper2TextbookAgent(ToolsMixin):
             self.asset_dir,
             'body_check_' + gen_objs_md5(body, detail) + '.md',
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            r = read_text(cache_fname)
-            return r
+        r = read_text(cache_fname)
+        if r: return r
         prompt = render_prompt(BODY_CHK_PMT, body=body, detail=json_dump_model(detail))
         r = self._text(prompt, self.model, self.args)
         write_text(cache_fname, r)
@@ -401,9 +399,8 @@ class Paper2TextbookAgent(ToolsMixin):
             self.asset_dir,
             'body_fix_' + gen_objs_md5(detail, body, comment, paper_desc) + '.md',
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            r = read_text(cache_fname)
-            return r
+        r = read_text(cache_fname)
+        if r: return r
         prompt = render_prompt(
             BODY_FIX_PMT,
             detail=json_dump_model(detail),
@@ -438,9 +435,8 @@ class Paper2TextbookAgent(ToolsMixin):
             self.asset_dir,
             'consist_check_' + gen_objs_md5(previous_chapter, current_chapter) + '.md',
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            r = read_text(cache_fname)
-            return r
+        r = read_text(cache_fname)
+        if r: return r
         prompt = render_prompt(
             CONSISTENCY_CHK_PMT,
             previous_chapters=previous_chapter, current_chapter=current_chapter,

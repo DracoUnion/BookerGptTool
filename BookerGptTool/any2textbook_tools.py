@@ -855,8 +855,6 @@ class Any2TextbookTools(ToolsMixin):
         )
         body = read_text(cache_fname)
         if body: return body
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return 
         prompt = render_prompt(
             LECTURE_PATCH_PMT,
             missing_detail=missing_detail,

@@ -21,6 +21,7 @@ from .util import (
     render_prompt,
     read_yaml_model,
     write_yaml_model,
+    read_text,
 )
 from .openai import logger as oai_logger
 from .openai import ask_chatgpt_retry, set_openai_props
@@ -577,10 +578,8 @@ class Code2BookOrchestrator(Code2BookMixin):
         l = len(str(len(outline_chs)))
         body_fname = f'article_{str(idx+1).zfill(l)}.md'
         body_fname = path.join(self.pj_dir, body_fname)
-        if path.isfile(body_fname) and \
-           path.getsize(body_fname):
-            body = open(body_fname, encoding='utf8').read()
-            return idx, body
+        body = read_text(body_fname)
+        if body: return idx, body
         
         code_desc_ch = self._code_desc_ch_detail(detail, code_desc)
         body = self.agent.gen_body(idx, detail, outline_chs, code_desc_ch)

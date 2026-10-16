@@ -389,8 +389,8 @@ class Paper2TextbookOrchestrator(Paper2TextbookMixin):
     def _tr_gen_body(self, i: int, outline: List[OutlineChapter], detail: ChapterDetail, concept_cards: List[PaperConcepts]) -> Tuple[int, str]:
         logger.info(f'[6] 编写第{i+1}章正文')
         cache_fname = path.join(self.pj_dir, f'chapter_{i+1:03d}.md')
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return i, read_text(cache_fname)
+        body = read_text(cache_fname)
+        if body: return i, body
 
         cards_ch = self._cards_ch_detail(detail, concept_cards)
         body = self.agent.gen_body(i, outline, detail, cards_ch)
