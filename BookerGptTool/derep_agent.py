@@ -43,8 +43,8 @@ class DerepAgent:
             self.asset_dir,
             'gen_' + gen_objs_md5(source) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         # source, blocks = repl_code_block(source)
         ques = render_prompt(GEN_PMT, source=source)
         res = ask_chatgpt_retry(
@@ -66,8 +66,8 @@ class DerepAgent:
             self.asset_dir,
             'fix_' + gen_objs_md5(source, copy, metrics) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         # source, source_blocks = repl_code_block(source)
         # copy, copy_blocks = repl_code_block(copy)
         prob = ''

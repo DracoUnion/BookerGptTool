@@ -266,8 +266,8 @@ class Any2TextbookTools(ToolsMixin):
         """检查章节正文是否与细纲一致，返回问题反馈。"""
         cache_fname = path.join(
             self.pj_dir, 'body_check_' + gen_objs_md5(body, detail) + '.md')
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         prompt = render_prompt(
             BODY_CHK_PMT, body=body, detail=json_dump_model(detail))
         cmt = self._text(prompt, self.model, self.args)

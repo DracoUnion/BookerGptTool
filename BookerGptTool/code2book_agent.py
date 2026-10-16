@@ -313,8 +313,8 @@ class Code2BookAgent:
             self.asset_dir,
             'body_' + gen_objs_md5(idx, detail, outline_chs, code_desc) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         ques = render_prompt(
             BODY_PMT,
             detail=self._json_dump(detail),
@@ -335,8 +335,8 @@ class Code2BookAgent:
             self.asset_dir,
             'body_check_' + gen_objs_md5(body, detail) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         detail_str = detail.json()
         ques = render_prompt(BODY_CHK_PMT, body=body, detail=detail_str)
         res = ask_chatgpt_retry(
@@ -358,8 +358,8 @@ class Code2BookAgent:
             self.asset_dir,
             'body_fix_' + gen_objs_md5(detail, body, comment, code_desc) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         detail_str = detail.json()
         ques = render_prompt(
             BODY_FIX_PMT,

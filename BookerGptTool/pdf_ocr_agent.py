@@ -144,8 +144,8 @@ class PdfOcrAgent:
             self.asset_dir,
             'ocr_' + hashlib.md5(img).hexdigest() + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         parse_output = lambda ans: OCRResult(
             **json_repair.loads(ext_code_block(ans))
         )
@@ -198,8 +198,8 @@ class PdfOcrAgent:
             self.asset_dir,
             'post_' + gen_objs_md5(text) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         ques = render_prompt(POSTPROC_PMT, text=text)
         res = ask_chatgpt_retry(
             ques, self.args.model, self.args,
@@ -213,8 +213,8 @@ class PdfOcrAgent:
             self.asset_dir,
             'trans_' + gen_objs_md5(text) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         ques = render_prompt(TRANS_BODY_PMT, text=text)
         res = ask_chatgpt_retry(
             ques, self.args.model, self.args,
@@ -242,8 +242,8 @@ class PdfOcrAgent:
             self.asset_dir,
             'ttl_' + gen_objs_md5(title) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         ques = render_prompt(TRANS_TITLE_PMT, text=title)
         res = ask_chatgpt_retry(ques, self.args.model, self.args)
         write_text(cache_fname, res)

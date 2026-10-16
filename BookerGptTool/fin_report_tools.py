@@ -126,8 +126,8 @@ class FinReportTools(ToolsMixin):
             self.pj_dir,
             'bull_init_' + gen_objs_md5(analysis.json()) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         user_prompt = render_prompt(BULL_INITIAL_USER, analysis=analysis.json())
         r = self._call(
             BULL_SYSTEM_PROMPT, user_prompt,
@@ -143,8 +143,8 @@ class FinReportTools(ToolsMixin):
             self.pj_dir,
             'bull_rebut_' + gen_objs_md5(analysis.json(), opponent_argument) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         user_prompt = render_prompt(
             BULL_REBUT_USER,
             analysis=analysis.json(),
@@ -164,8 +164,8 @@ class FinReportTools(ToolsMixin):
             self.pj_dir,
             'bear_init_' + gen_objs_md5(analysis.json()) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         user_prompt = render_prompt(BEAR_INITIAL_USER, analysis=analysis.json())
         r = self._call(
             BEAR_SYSTEM_PROMPT, user_prompt,
@@ -181,8 +181,8 @@ class FinReportTools(ToolsMixin):
             self.pj_dir,
             'bear_rebut_' + gen_objs_md5(analysis.json(), opponent_argument) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         user_prompt = render_prompt(
             BEAR_REBUT_USER,
             analysis=analysis.json(),

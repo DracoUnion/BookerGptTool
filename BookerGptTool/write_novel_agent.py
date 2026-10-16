@@ -66,8 +66,8 @@ class WriteNovelAgent:
         """渲染提示词，发起文本 LLM 调用（[content]...[/content] 输出），带文本文件缓存。"""
         ctx = self._str_ctx(ctx)
         cache_fname = path.join(self.asset_dir, key + '_' + gen_objs_md5(ctx) + '.md')
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         ques = render_prompt(pmt, **ctx)
         res = ask_chatgpt_retry(
             ques, self.model, self.args,

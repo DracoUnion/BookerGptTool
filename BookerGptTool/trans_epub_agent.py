@@ -99,8 +99,8 @@ class EpubTranslatorAgent:
             self.asset_dir,
             'ttl_' + gen_objs_md5(text) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         ques = render_prompt(TRANS_TITLE_PMT, text=text)
         res = ask_chatgpt_retry(ques, self.args.model, self.args)
         write_text(cache_fname, res)
@@ -111,8 +111,8 @@ class EpubTranslatorAgent:
             self.asset_dir,
             'fmt_' + gen_objs_md5(text) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         ques = render_prompt(FMT_PMT, text=text)
         res = ask_chatgpt_retry(
             ques, self.args.model, self.args,
@@ -126,8 +126,8 @@ class EpubTranslatorAgent:
             self.asset_dir,
             'trans_' + gen_objs_md5(text) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         ques = render_prompt(TRANS_BODY_PMT, text=text)
         res = ask_chatgpt_retry(
             ques, self.args.model, self.args,
@@ -141,8 +141,8 @@ class EpubTranslatorAgent:
             self.asset_dir,
             'toc_' + gen_objs_md5(text) + '.md'
         )
-        if path.isfile(cache_fname) and path.getsize(cache_fname):
-            return read_text(cache_fname)
+        r = read_text(cache_fname)
+        if r: return r
         ques = render_prompt(TOC_PMT, text=text)
         res = ask_chatgpt_retry(ques, self.args.model, self.args)
         write_text(cache_fname, res)
