@@ -278,7 +278,7 @@ def write_text(fname: str, text: str, append: bool = False) -> None:
 
 def read_text(fname: str) -> str:
     """以 UTF-8 读取 fname 的文本内容。"""
-    if not path.isfile(fname) or not path.getsize(fname):
+    if not path.isfile(fname):
         return None
     text = open(fname, encoding='utf8').read()
     chs = set(text)
