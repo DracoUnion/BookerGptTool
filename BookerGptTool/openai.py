@@ -161,21 +161,19 @@ def _chat_cmpl_create_retry(
             )
             if openai.stream:
                 res: Iterable[ChatCompletionChunk]
-                toolcalls, ans = collect_stream_toolcalls(res)
+                toolcalls, ans, rc = collect_stream_toolcalls(res)
+                ans = ans or rc
                 res_msg = None
             else:
                 res: ChatCompletion
                 res_msg = res.choices[0].message
                 toolcalls, ans = res_msg.tool_calls, res_msg.content
-            if not ans:
+                ans = ans or getattr(res.choices[0].message, 'reasoning_content', '')
+            if not ans and not toolcalls:
                 # 模型（如带思考的 glm/qwen 系）可能只返回 reasoning_content 而
                 # content 为空（无论是否调用工具）。把 reasoning_content 兜底为
                 # 助手文本，若仍为空则视为“未调用工具”，交由上层引导继续。
-                rc = getattr(res_msg, 'reasoning_content', None) if res_msg is not None else None
-                if rc and getattr(rc, 'strip', None):
-                    ans = rc
-                elif not toolcalls:
-                    logger.debug(f'OpenAI 空回复（无 tool_calls 且无 content），将继续引导模型')
+                logger.debug(f'OpenAI 空回复（无 tool_calls 且无 content），将继续引导模型')
             return res, toolcalls or [], ans or ''
         except KeyboardInterrupt:
             raise
@@ -394,6 +392,7 @@ def set_openai_props(args):
 def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
     tool_calls: Dict[int, ChatCompletionMessageToolCall] = {}
     content: List[str] = []
+    rc: List[str] = []
 
     for ch in resp:  # resp 是 stream=True 的响应
         if not ch.choices:
@@ -404,6 +403,11 @@ def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
         if delta.content:
             logger.debug(f"stream: %s", json_dump_model(delta.content))
             content.append(delta.content)
+
+        delta_rc = getattr(delta, 'reasoning_content', "")
+        if delta_rc:
+            logger.debug(f"stream: %s", json_dump_model(delta_rc))
+            rc.append(delta_rc)
         
         # 2. 累积工具调用片段
         if delta.tool_calls:
@@ -423,7 +427,7 @@ def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
                 if delta_tc.function.arguments:
                     tc.function.arguments += delta_tc.function.arguments
                 logger.debug(f'toolcall_stream: %s', tc.json())
-    return list(tool_calls.values()), ''.join(content)
+    return list(tool_calls.values()), ''.join(content), ''.join(rc)
 
 def collect_stream_content(resp: Iterable[ChatCompletionChunk]):
     content = []
