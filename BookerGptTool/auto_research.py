@@ -121,6 +121,30 @@ class AutoResearchOrchestrator:
             extra_body=self.args.extra_body,
             parse_output=parse_final,
         )
+        # 推理模型常把最终 JSON 放在 reasoning_content，content 为空导致
+        # parse_final 得到“无法解析”。此时用已持久化的流水线状态重建一份可读报告，
+        # 避免输出 UNKNOWN 空摘要。
+        if (getattr(final, 'status', '') == 'needs_approval'
+                and getattr(final, 'stage', '') == 'UNKNOWN'):
+            state = self.tools._load_state()
+            gates_ok = all(v is True for k, v in state.gates.items())
+            raw_summary = getattr(final, 'decision_summary', '') or ''
+            # 解析失败时的默认文案没有增量信息，改用基于状态的重建摘要。
+            if raw_summary.startswith('无法解析模型最终输出'):
+                raw_summary = ''
+            final = FinalReport(
+                status='done' if gates_ok else 'blocked',
+                stage=state.stage or 'PROJECT_INIT',
+                decision_summary=(
+                    raw_summary
+                    or f'流水线运行至阶段 {state.stage}；'
+                       f'门禁通过 {sum(1 for v in state.gates.values() if v)}/{len(state.gates)}。'
+                ),
+                artifacts=list(state.artifacts),
+                blockers=([] if gates_ok else
+                          [f'未通过门禁：{", ".join(k for k, v in state.gates.items() if v is not True) or "未知"}']),
+                next_action=state.next_action or '人工检查',
+            )
 
         report_path = path.join(self.pj_dir, 'final_report.md')
         write_text(report_path, json_dump_model(final))

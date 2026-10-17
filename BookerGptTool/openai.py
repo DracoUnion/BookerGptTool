@@ -162,13 +162,21 @@ def _chat_cmpl_create_retry(
             if openai.stream:
                 res: Iterable[ChatCompletionChunk]
                 toolcalls, ans = collect_stream_toolcalls(res)
+                res_msg = None
             else:
                 res: ChatCompletion
                 res_msg = res.choices[0].message
                 toolcalls, ans = res_msg.tool_calls, res_msg.content
-            if not toolcalls and not ans:
-                raise ValueError(f'回复为空：{res}')
-            return res, toolcalls, ans
+            if not ans:
+                # 模型（如带思考的 glm/qwen 系）可能只返回 reasoning_content 而
+                # content 为空（无论是否调用工具）。把 reasoning_content 兜底为
+                # 助手文本，若仍为空则视为“未调用工具”，交由上层引导继续。
+                rc = getattr(res_msg, 'reasoning_content', None) if res_msg is not None else None
+                if rc and getattr(rc, 'strip', None):
+                    ans = rc
+                elif not toolcalls:
+                    logger.debug(f'OpenAI 空回复（无 tool_calls 且无 content），将继续引导模型')
+            return res, toolcalls or [], ans or ''
         except KeyboardInterrupt:
             raise
         except Exception as ex:
@@ -206,6 +214,7 @@ def call_llm_with_toolcall_retry(
         default_headers={'User-Agent': openai.user_agent},
         timeout=openai.timeout,
     )
+    nudge_cnt = 0
     while True:
         msgs = compact(msgs, max_tokens=100_000).messages
         if history_fname:
@@ -213,7 +222,7 @@ def call_llm_with_toolcall_retry(
         logger.debug(f'ques: %s', json_dump_model(get_msgs_text(msgs)))
         res, toolcalls, ans = _chat_cmpl_create_retry(
             client, msgs, model_name,
-            tool_defs, 
+            tool_defs,
             retry=retry,
             temp=temp,
             top_p=top_p,
@@ -224,15 +233,31 @@ def call_llm_with_toolcall_retry(
         )
         msgs.append({
             'role': 'assistant',
-            'content': ans,
+            'content': ans or '',
             "tool_calls": [tc.dict() for tc in toolcalls],
         })
         if not toolcalls:
             if not tool_finish_name: break
-            errmsg = \
-                f"未找到任何工具调用，如果你想结束整个流程，调用`{tool_finish_name}`。"
-            msgs.append({"role": "user", "content": errmsg})
+            if not ans:
+                # 模型未给出任何内容也未调用工具：直接提示其调用 tool_finish 结束。
+                errmsg = \
+                    f"未找到任何工具调用，如果你想结束整个流程，调用`{tool_finish_name}`。"
+                msgs.append({"role": "user", "content": errmsg})
+            else:
+                # 模型以纯文本作答（可能已输出最终 JSON）但未调用 tool_finish。
+                # 视为本轮已给出回复，提示其调用 tool_finish 以结束流程。
+                msgs.append({"role": "user", "content":
+                    f"你已给出回复，但尚未调用`{tool_finish_name}`。若已全部完成，"
+                    f"请调用`{tool_finish_name}`结束流程。"})
+            # 防死循环：连续多轮无工具调用则按当前回复结束，交由 parse_output 兜底
+            # （若解析失败会走 needs_approval 人工介入，而不是无限弹窗）。
+            nudge_cnt += 1
+            if nudge_cnt >= 5:
+                logger.warning('连续 %d 轮未调用工具，按当前回复结束循环', nudge_cnt)
+                break
             continue
+        # 有工具调用，重置无工具计数
+        nudge_cnt = 0
         logger.info(f'toolcall: %s', json_dump_model(toolcalls))
         logger.debug(f'ans: %s', json_dump_model(ans))
         finish = False
@@ -241,8 +266,8 @@ def call_llm_with_toolcall_retry(
                 finish = True
                 break
             tc_res, errmsg = dispatch_tools(
-                tool_dict, 
-                tc.function.name, 
+                tool_dict,
+                tc.function.name,
                 json_repair.loads(tc.function.arguments),
             )
             msgs.append({
@@ -340,7 +365,14 @@ def call_llm(
         res: ChatCompletion
         ans = res.choices[0].message.content.strip()
         check_model_repetition(ans)
-    if not ans: raise ValueError(f'回复为空：{res}')
+    if not ans:
+        # 模型（如带思考的 glm/qwen 系）可能只返回 reasoning_content 而 content 为空，
+        # 兜底使用 reasoning_content，仍为空才报“回复为空”。
+        rc = getattr(res.choices[0].message, 'reasoning_content', None) if not openai.stream else None
+        if rc and getattr(rc, 'strip', None):
+            ans = rc.strip()
+        else:
+            raise ValueError(f'回复为空：{res}')
 
     # 还原指令格式
     ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
