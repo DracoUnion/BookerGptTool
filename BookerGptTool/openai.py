@@ -360,19 +360,16 @@ def call_llm(
     )
     if openai.stream:
         res: Iterable[ChatCompletionChunk]
-        ans = collect_stream_content(res)
+        ans, rc = collect_stream_content(res)
+        ans = ans or rc
     else:
         res: ChatCompletion
         ans = res.choices[0].message.content.strip()
+        rc = getattr(res.choices[0].message, 'reasoning_content', "").strip()
+        ans = ans or rc
         check_model_repetition(ans)
     if not ans:
-        # 模型（如带思考的 glm/qwen 系）可能只返回 reasoning_content 而 content 为空，
-        # 兜底使用 reasoning_content，仍为空才报“回复为空”。
-        rc = getattr(res.choices[0].message, 'reasoning_content', None) if not openai.stream else None
-        if rc and getattr(rc, 'strip', None):
-            ans = rc.strip()
-        else:
-            raise ValueError(f'回复为空：{res}')
+        raise ValueError(f'回复为空：{res}')
 
     # 还原指令格式
     ans = re.sub(r'</([\w\-\.]+)/>', r'<|\1|>', ans)
@@ -430,16 +427,21 @@ def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
 
 def collect_stream_content(resp: Iterable[ChatCompletionChunk]):
     content = []
+    rc = []
     for chunk in resp:
         if not chunk.choices:
             continue
         delta_content = chunk.choices[0].delta.content
-        if not delta_content:
-            continue
-        content.append(delta_content)
-        check_model_repetition(''.join(content))
-        logger.debug(f'stream: %s', json_dump_model(delta_content))
-    return ''.join(content)
+        delta_rc = getattr(chunk.choices[0].delta, 'reasoning_content', "")
+        if delta_content:
+            content.append(delta_content)
+            check_model_repetition(''.join(content))
+            logger.debug(f'stream: %s', json_dump_model(delta_content))
+        if delta_rc:
+            rc.append(delta_rc)
+            check_model_repetition(''.join(rc))
+            logger.debug(f'stream: %s', json_dump_model(delta_rc))   
+    return ''.join(content), ''.join(rc)
 
 def check_model_repetition(text):
     if openai.rpre and re.search(openai.rpre, text):
