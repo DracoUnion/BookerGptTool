@@ -162,19 +162,19 @@ def _chat_cmpl_create_retry(
             if openai.stream:
                 res: Iterable[ChatCompletionChunk]
                 toolcalls, ans, rc = collect_stream_toolcalls(res)
-                ans = ans or rc
+                # ans = ans or rc
                 res_msg = None
             else:
                 res: ChatCompletion
                 res_msg = res.choices[0].message
                 toolcalls, ans = res_msg.tool_calls, res_msg.content
-                ans = ans or getattr(res.choices[0].message, 'reasoning_content', '')
+                rc = getattr(res.choices[0].message, 'reasoning_content', '')
             if not ans and not toolcalls:
                 # 模型（如带思考的 glm/qwen 系）可能只返回 reasoning_content 而
                 # content 为空（无论是否调用工具）。把 reasoning_content 兜底为
                 # 助手文本，若仍为空则视为“未调用工具”，交由上层引导继续。
                 logger.debug(f'OpenAI 空回复（无 tool_calls 且无 content），将继续引导模型')
-            return res, toolcalls or [], ans or ''
+            return res, toolcalls or [], ans or '', rc or ''
         except KeyboardInterrupt:
             raise
         except Exception as ex:
@@ -218,7 +218,7 @@ def call_llm_with_toolcall_retry(
         if history_fname:
             write_yaml_model(history_fname, msgs)
         logger.debug(f'ques: %s', json_dump_model(get_msgs_text(msgs)))
-        res, toolcalls, ans = _chat_cmpl_create_retry(
+        res, toolcalls, ans, rc = _chat_cmpl_create_retry(
             client, msgs, model_name,
             tool_defs,
             retry=retry,
@@ -232,6 +232,7 @@ def call_llm_with_toolcall_retry(
         msgs.append({
             'role': 'assistant',
             'content': ans or '',
+            'reasoning_content': rc or '',
             "tool_calls": [tc.dict() for tc in toolcalls],
         })
         if not toolcalls:
@@ -359,12 +360,12 @@ def call_llm(
     if openai.stream:
         res: Iterable[ChatCompletionChunk]
         ans, rc = collect_stream_content(res)
-        ans = ans or rc
+        # ans = ans or rc
     else:
         res: ChatCompletion
         ans = res.choices[0].message.content.strip()
         rc = getattr(res.choices[0].message, 'reasoning_content', "").strip()
-        ans = ans or rc
+        # ans = ans or rc
         check_model_repetition(ans)
     if not ans:
         raise ValueError(f'回复为空：{res}')
@@ -406,7 +407,7 @@ def collect_stream_toolcalls(resp: Iterable[ChatCompletionChunk]):
 
         delta_rc = getattr(delta, 'reasoning_content', "")
         if delta_rc:
-            logger.debug(f"stream: %s", json_dump_model(delta_rc))
+            logger.debug(f"reasoning stream: %s", json_dump_model(delta_rc))
             rc.append(delta_rc)
         
         # 2. 累积工具调用片段
@@ -435,8 +436,9 @@ def collect_stream_content(resp: Iterable[ChatCompletionChunk]):
     for chunk in resp:
         if not chunk.choices:
             continue
-        delta_content = chunk.choices[0].delta.content
-        delta_rc = getattr(chunk.choices[0].delta, 'reasoning_content', "")
+        delta = chunk.choices[0].delta
+        delta_content = delta.content
+        delta_rc = getattr(delta, 'reasoning_content', "")
         if delta_content:
             content.append(delta_content)
             check_model_repetition(''.join(content))
@@ -444,7 +446,7 @@ def collect_stream_content(resp: Iterable[ChatCompletionChunk]):
         if delta_rc:
             rc.append(delta_rc)
             check_model_repetition(''.join(rc))
-            logger.debug(f'stream: %s', json_dump_model(delta_rc))   
+            logger.debug(f'reasoning stream: %s', json_dump_model(delta_rc))   
     return ''.join(content), ''.join(rc)
 
 def check_model_repetition(text):
