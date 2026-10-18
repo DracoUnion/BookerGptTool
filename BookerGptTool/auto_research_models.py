@@ -96,6 +96,37 @@ class LogResult(BaseModel):
     saved: bool = Field(True, description="是否保存成功")
 
 
+# ── 实验代码编写与验证 ────────────────────────
+
+
+class ExperimentCode(BaseModel):
+    """生成的实验代码"""
+    filename: str = Field('experiment.py', description="实验代码文件名")
+    code: str = Field(..., description="实验代码 Python 源码")
+    run_command: str = Field('', description="运行命令，如 python experiment.py")
+    data_source: str = Field('', description="使用的数据来源说明（留空=代码内合成）")
+    saved_path: str = Field('', description="代码在沙箱中的保存路径")
+    ai_generated: bool = Field(True, description="是否 AI 生成")
+
+
+class ExperimentCodeVerification(BaseModel):
+    """实验代码验证结果"""
+    valid: bool = Field(False, description="是否通过语法/冒烟验证")
+    issues: List[str] = Field(default_factory=list, description="问题列表")
+    compile_log: str = Field('', description="py_compile 输出")
+    smoke_log: str = Field('', description="冒烟运行输出（前 2000 字符）")
+    ai_generated: bool = Field(False, description="是否 AI 生成")
+
+
+class ResultConsistencyReport(BaseModel):
+    """实验结果真实性核查报告"""
+    consistent: bool = Field(False, description="声称指标是否与运行日志一致")
+    evidence: List[str] = Field(default_factory=list, description="支持/矛盾的日志摘录")
+    discrepancies: List[str] = Field(default_factory=list, description="不一致项")
+    conclusion: str = Field('', description="判定结论")
+    ai_generated: bool = Field(True, description="是否 AI 生成")
+
+
 # ── 引用校验 / LaTeX 模型 ─────────────────────
 
 

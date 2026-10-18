@@ -26,13 +26,13 @@
 
 【流水线状态机】
 stage 顺序：
-PROJECT_INIT -> LITERATURE -> GAP -> HYPOTHESIS -> EXPERIMENT_PLAN -> APPROVAL -> RUN_EXPERIMENT -> RESULT_CONFIRM -> WRITING -> INTERNAL_REVIEW -> SUBMISSION_PACKAGE
+PROJECT_INIT -> LITERATURE -> GAP -> HYPOTHESIS -> EXPERIMENT_PLAN -> APPROVAL -> EXPERIMENT_CODE -> CODE_VERIFY -> RUN_EXPERIMENT -> RESULT_CONFIRM -> WRITING -> INTERNAL_REVIEW -> SUBMISSION_PACKAGE
 
 各阶段门禁：
 G1 文献门禁：引用可验证、无捏造、来源可追溯。
 G2 假设门禁：研究问题可检验、基线明确、指标合理、风险已知。
 G3 实验门禁：实验计划预注册、算力预算审批、数据合规。
-G4 结果门禁：原始日志、脚本、commit、配置、种子齐全。
+G4 结果门禁：原始日志、脚本、commit、配置、种子齐全；声称指标与真实运行日志一致。
 G5 写作门禁：每句话绑定 citation_id 或 result_id；AI 使用已披露。
 G6 投稿门禁：作者确认、利益冲突、复现包、AI 声明、伦理合规齐全。
 
@@ -142,7 +142,11 @@ update_pipeline_state(project_id, stage, gate_status, artifacts, citations, resu
 **实验阶段：**
 
 ```text
-当前阶段 RUN_EXPERIMENT。所有执行必须通过 run_in_sandbox。每次运行必须调用 log_mlflow 记录参数、指标、日志，并调用 git_commit 记录代码版本。禁止伪造运行结果。完成运行后调用 request_user_approval 请求结果确认。
+当前阶段 EXPERIMENT_CODE / CODE_VERIFY。先调用 generate_experiment_code 依据实验计划与假设编写实验代码，
+再调用 verify_experiment_code 做语法/冒烟验证，确认可运行。所有执行必须通过 run_in_sandbox。
+每次运行必须调用 log_mlflow 记录参数、指标、日志，并调用 git_commit 记录代码版本。
+声称指标必须先经 verify_result_consistency 与真实运行日志核对一致，才可标记为已确认结果。
+禁止伪造运行结果。完成运行后调用 request_user_approval 请求结果确认。
 ```
 
 **写作阶段：**

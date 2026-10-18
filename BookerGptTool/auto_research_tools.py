@@ -4,6 +4,7 @@ import os
 import io
 import csv
 import re
+import sys
 import subprocess
 import hashlib
 import shutil
@@ -28,6 +29,7 @@ from .auto_research_pmt import (
     DETECT_FRAUD_PROMPT_PMT, BUILD_OUTLINE_PROMPT_PMT, WRITE_CHAPTER_PROMPT_PMT,
     PLAN_DEFENSE_PROMPT_PMT, ANALYZE_MODELING_PROMPT_PMT, FORMULATE_MODEL_PROMPT_PMT,
     GENERATE_MODEL_CODE_PROMPT_PMT, AI_FIGURE_PROMPT_PMT, FORMAT_TEX_VENUE_PROMPT_PMT,
+    GENERATE_EXPERIMENT_CODE_PROMPT_PMT, VERIFY_RESULT_CONSISTENCY_PROMPT_PMT,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,8 +37,8 @@ logger = logging.getLogger(__name__)
 _ARXIV_NS = {'a': 'http://www.w3.org/2005/Atom'}
 STAGE_ORDER = [
     'PROJECT_INIT', 'LITERATURE', 'GAP', 'HYPOTHESIS', 'EXPERIMENT_PLAN',
-    'APPROVAL', 'RUN_EXPERIMENT', 'RESULT_CONFIRM', 'WRITING',
-    'INTERNAL_REVIEW', 'SUBMISSION_PACKAGE',
+    'APPROVAL', 'EXPERIMENT_CODE', 'CODE_VERIFY', 'RUN_EXPERIMENT',
+    'RESULT_CONFIRM', 'WRITING', 'INTERNAL_REVIEW', 'SUBMISSION_PACKAGE',
 ]
 
 
@@ -325,39 +327,46 @@ class AutoResearchTools(ToolsMixin):
 
     # ── 4. 沙箱执行 ─────────────────────────────────────────────
 
+    def _run_log_fname(self, run_id: str) -> str:
+        """一次沙箱运行的原始日志保存路径。"""
+        return path.join(self.pj_dir, 'logs', f'{run_id}.log')
+
     def tool_run_in_sandbox(self, command: str, timeout_sec: int = 120,
                             env: Optional[Dict[str, str]] = None) -> ExperimentRun:
-        """在隔离沙箱目录执行命令，返回日志与退出码。所有实验结果须经此工具。"""
+        """在隔离沙箱目录执行命令，返回日志与退出码，并持久化原始日志。所有实验结果须经此工具。"""
         sandbox = path.join(self.pj_dir, 'sandbox')
         os.makedirs(sandbox, exist_ok=True)
         run_env = os.environ.copy()
         if env:
             run_env.update(env)
         run_id = 'run_' + hashlib.md5(command.encode('utf8')).hexdigest()[:8]
+        logs = ''
         try:
             r = subprocess.run(
                 command, shell=True, cwd=sandbox, env=run_env,
                 capture_output=True, text=True,
                 timeout=max(1, int(timeout_sec or 120)),
             )
-            return ExperimentRun(
-                run_id=run_id, command=command,
-                logs=(r.stdout or '') + (r.stderr or ''),
-                returncode=r.returncode,
-                status='ok' if r.returncode == 0 else 'error',
-            )
+            logs = (r.stdout or '') + (r.stderr or '')
+            status = 'ok' if r.returncode == 0 else 'error'
+            returncode = r.returncode
         except subprocess.TimeoutExpired as ex:
-            return ExperimentRun(
-                run_id=run_id, command=command,
-                logs=(getattr(ex, 'stdout', b'') or b'').decode('utf8', 'replace')
-                     + f'\n[超时 {timeout_sec}s]',
-                returncode=-1, status='timeout',
-            )
+            logs = (getattr(ex, 'stdout', b'') or b'').decode('utf8', 'replace') \
+                   + (getattr(ex, 'stderr', b'') or b'').decode('utf8', 'replace') \
+                   + f'\n[超时 {timeout_sec}s]'
+            status = 'timeout'
+            returncode = -1
         except Exception as ex:
-            return ExperimentRun(
-                run_id=run_id, command=command,
-                logs=f'执行异常：{ex}', returncode=-1, status='error',
-            )
+            logs = f'执行异常：{ex}'
+            status = 'error'
+            returncode = -1
+        # 持久化原始日志，供结果真实性核查与审计。
+        write_text(self._run_log_fname(run_id), logs)
+        return ExperimentRun(
+            run_id=run_id, command=command,
+            logs=logs, returncode=returncode,
+            status=status,
+        )
 
     # ── 5. git 与实验记录 ───────────────────────────────────────
 
@@ -380,12 +389,18 @@ class AutoResearchTools(ToolsMixin):
                         params: Optional[Dict[str, Any]] = None,
                         metrics: Optional[Dict[str, Any]] = None,
                         artifacts: Optional[List[str]] = None) -> ExperimentRun:
-        """记录一次实验运行的参数、指标与产物到 runs.yaml。"""
+        """记录一次实验运行。反伪造：仅当该 run_id 存在沙箱持久化原始日志时才记录指标，
+        否则标记为 unverified，不进入可引用结果。"""
         run_id = run_id or 'run_' + hashlib.md5(
             json_dump_model((params, metrics)).encode('utf8')).hexdigest()[:8]
+        log_fname = self._run_log_fname(run_id)
+        has_real_log = path.isfile(log_fname) and path.getsize(log_fname) > 0
         entry = ExperimentRun(
-            run_id=run_id, params=params or {}, metrics=metrics or {},
-            artifacts=artifacts or [], status='logged',
+            run_id=run_id, params=params or {},
+            metrics=(metrics or {}) if has_real_log else {},
+            artifacts=artifacts or [],
+            logs=read_text(log_fname) if has_real_log else '',
+            status='logged' if has_real_log else 'unverified',
         )
         runs_fname = path.join(self.pj_dir, 'runs.yaml')
         runs = read_yaml_model(runs_fname, None) or []
@@ -393,6 +408,137 @@ class AutoResearchTools(ToolsMixin):
         runs.append(entry.model_dump())
         write_yaml_model(runs_fname, runs)
         return entry
+
+    # ── 5.5 实验代码编写与验证 ────────────────────────────────
+
+    def _verifications_fname(self) -> str:
+        return path.join(self.pj_dir, 'verifications.yaml')
+
+    def _find_verification(self, run_id: str) -> Optional[Dict[str, Any]]:
+        """按 run_id 查找最近一次一致性验证记录（用于结果门禁）。"""
+        recs = read_yaml_model(self._verifications_fname(), None) or []
+        for r in recs:
+            if isinstance(r, dict) and r.get('run_id') == run_id:
+                return r
+        return None
+
+    def _record_verification(self, rec: Dict[str, Any]) -> None:
+        """把一次结果一致性验证记录持久化，供结果门禁与审计引用。"""
+        recs = read_yaml_model(self._verifications_fname(), None) or []
+        recs = [r for r in recs
+                if not (isinstance(r, dict) and r.get('run_id') == rec.get('run_id'))]
+        recs.append(rec)
+        write_yaml_model(self._verifications_fname(), recs)
+
+    def _read_run_log(self, run_id: str) -> str:
+        """读取某次沙箱运行的持久化原始日志。"""
+        lf = self._run_log_fname(run_id)
+        if path.isfile(lf):
+            return read_text(lf) or ''
+        return ''
+
+    def tool_generate_experiment_code(
+        self, experiment_plan: str, hypothesis: str = '',
+        data_source: str = '', filename: str = 'experiment.py',
+    ) -> ExperimentCode:
+        """依据实验计划与假设生成实验代码并写入沙箱（后续需用 tool_run_in_sandbox 实跑）。"""
+        code = self._call_llm(GENERATE_EXPERIMENT_CODE_PROMPT_PMT, ExperimentCode,
+                              experiment_plan=experiment_plan, hypothesis=hypothesis,
+                              data_source=data_source)
+        sandbox = path.join(self.pj_dir, 'sandbox')
+        os.makedirs(sandbox, exist_ok=True)
+        fname = (filename or 'experiment.py').strip() or 'experiment.py'
+        if not fname.endswith('.py'):
+            fname += '.py'
+        fpath = path.join(sandbox, path.basename(fname))
+        write_text(fpath, code.code)
+        code.filename = path.basename(fname)
+        code.saved_path = fpath
+        return code
+
+    def tool_verify_experiment_code(self, filename: str = 'experiment.py',
+                                    smoke: bool = True,
+                                    timeout_sec: int = 60) -> ExperimentCodeVerification:
+        """对沙箱内实验代码做语法校验与冒烟运行，确认可运行、可输出指标。"""
+        sandbox = path.join(self.pj_dir, 'sandbox')
+        fpath = path.join(sandbox, path.basename(filename or 'experiment.py'))
+        issues: List[str] = []
+        if not path.isfile(fpath):
+            return ExperimentCodeVerification(
+                valid=False, issues=[f'沙箱中找不到代码文件：{fpath}'])
+        compile_log = ''
+        try:
+            r = subprocess.run(
+                [sys.executable, '-m', 'py_compile', fpath],
+                cwd=sandbox, capture_output=True, text=True, timeout=30,
+            )
+            compile_log = ((r.stdout or '') + (r.stderr or '')).strip()
+        except Exception as ex:
+            compile_log = f'编译检查异常：{ex}'
+        compile_ok = ('Error' not in compile_log and 'Traceback' not in compile_log)
+        if not compile_ok:
+            return ExperimentCodeVerification(
+                valid=False, issues=[f'语法编译未通过：{compile_log[:500]}'],
+                compile_log=compile_log)
+        smoke_log = ''
+        if smoke:
+            try:
+                r2 = subprocess.run(
+                    [sys.executable, path.basename(fpath)], cwd=sandbox,
+                    capture_output=True, text=True,
+                    timeout=max(5, int(timeout_sec or 60)),
+                )
+                smoke_log = ((r2.stdout or '') + (r2.stderr or ''))[:2000]
+                if r2.returncode != 0:
+                    issues.append(
+                        f'冒烟运行失败（退出码 {r2.returncode}）：{smoke_log[:500]}')
+            except subprocess.TimeoutExpired:
+                smoke_log = f'冒烟运行超时（{timeout_sec}s）'
+                issues.append(smoke_log)
+            except Exception as ex:
+                smoke_log = f'冒烟运行异常：{ex}'
+                issues.append(smoke_log)
+        return ExperimentCodeVerification(
+            valid=not issues, issues=issues,
+            compile_log=compile_log, smoke_log=smoke_log)
+
+    def tool_verify_result_consistency(self, claimed_metrics: str,
+                                       run_id: str = '',
+                                       log: str = '') -> ResultConsistencyReport:
+        """核对声称的实验指标与真实运行日志是否一致，防止数据伪造。"""
+        real_log = log or (self._read_run_log(run_id) if run_id else '')
+        if not real_log:
+            rep = ResultConsistencyReport(
+                consistent=False,
+                discrepancies=[
+                    '未找到真实运行日志；请先用 tool_run_in_sandbox 执行实验并传入 run_id'],
+                conclusion='缺少原始日志，无法核对，数据真实性存疑',
+            )
+            if run_id:
+                self._record_verification({
+                    'run_id': run_id, 'consistent': False,
+                    'conclusion': rep.conclusion,
+                    'discrepancies': list(rep.discrepancies),
+                    'evidence': [],
+                })
+            return rep
+        rep = self._call_llm(VERIFY_RESULT_CONSISTENCY_PROMPT_PMT,
+                             ResultConsistencyReport,
+                             claimed_metrics=claimed_metrics, run_log=real_log)
+        if run_id:
+            self._record_verification({
+                'run_id': run_id,
+                'consistent': bool(rep.consistent),
+                'conclusion': rep.conclusion,
+                'discrepancies': list(rep.discrepancies),
+                'evidence': list(rep.evidence),
+            })
+        return rep
+
+    def _result_verified(self, run_id: str) -> bool:
+        """结果门禁辅助：某 run_id 是否已有一次通过的一致性验证记录。"""
+        rec = self._find_verification(run_id)
+        return bool(rec and rec.get('consistent') is True)
 
     # ── 6. 引用校验 / LaTeX ─────────────────────────────────────
 
@@ -488,7 +634,9 @@ class AutoResearchTools(ToolsMixin):
         approvals: Optional[List[str]] = None,
         next_action: str = '',
     ) -> PipelineState:
-        """更新流水线状态机，返回完整新状态。每轮收到工具结果后务必调用。"""
+        """更新流水线状态机，返回完整新状态。每轮收到工具结果后务必调用。
+        反伪造：传入 results 的 run_id 必须已有通过的 tool_verify_result_consistency
+        验证记录，否则拒绝列入已确认结果。"""
         state = self._load_state()
         if stage:
             state.stage = stage
@@ -499,6 +647,18 @@ class AutoResearchTools(ToolsMixin):
         if citations:
             state.citations = list(dict.fromkeys(state.citations + citations))
         if results:
+            rejected = [rid for rid in results if not self._result_verified(rid)]
+            if rejected:
+                state.next_action = (
+                    f'拒绝确认未经验证的结果：{", ".join(rejected)}。'
+                    '必须先 tool_run_in_sandbox 实跑，再调用 tool_verify_result_consistency'
+                    ' 并通过一致性验证，才能将 run_id 加入 results。')
+                results = [rid for rid in results if rid not in rejected]
+            # 反伪造：即使之前已被加入（如旧状态遗留），只要没有通过验证，也从中剔除。
+            state.results = [
+                rid for rid in state.results
+                if self._result_verified(rid)
+            ]
             state.results = list(dict.fromkeys(state.results + results))
         if approvals:
             state.approvals = list(dict.fromkeys(state.approvals + approvals))
@@ -901,6 +1061,25 @@ class AutoResearchTools(ToolsMixin):
             params=base_schema('object', '实验参数'),
             metrics=base_schema('object', '实验指标'),
             artifacts=str_list_schema('产物文件路径'),
+        ),
+        # 实验代码编写与验证
+        "tool_generate_experiment_code": params_schema(
+            required=['experiment_plan'],
+            experiment_plan=base_schema('string', '实验计划（方法、指标、基线）'),
+            hypothesis=base_schema('string', '待验证假设'),
+            data_source=base_schema('string', '数据来源（本地路径或合成说明）'),
+            filename=base_schema('string', '代码文件名，缺省 experiment.py'),
+        ),
+        "tool_verify_experiment_code": params_schema(
+            filename=base_schema('string', '沙箱内代码文件名，缺省 experiment.py'),
+            smoke=base_schema('boolean', '是否冒烟运行，默认 true'),
+            timeout_sec=base_schema('integer', '冒烟运行超时秒数，默认 60'),
+        ),
+        "tool_verify_result_consistency": params_schema(
+            required=['claimed_metrics'],
+            claimed_metrics=base_schema('string', '声称的实验指标（如 JSON 或文本）'),
+            run_id=base_schema('string', '沙箱运行 run_id，据此读取原始日志'),
+            log=base_schema('string', '真实运行日志文本（未提供 run_id 时使用）'),
         ),
         # 引用校验 / LaTeX
         "tool_validate_citations": params_schema(
