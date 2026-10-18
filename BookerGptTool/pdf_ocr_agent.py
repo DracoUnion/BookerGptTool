@@ -246,5 +246,6 @@ class PdfOcrAgent:
         if r: return r
         ques = render_prompt(TRANS_TITLE_PMT, text=title)
         res = ask_chatgpt_retry(ques, self.args.model, self.args)
+        res = res.strip()
         write_text(cache_fname, res)
         return res

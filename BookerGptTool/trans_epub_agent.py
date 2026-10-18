@@ -103,6 +103,7 @@ class EpubTranslatorAgent:
         if r: return r
         ques = render_prompt(TRANS_TITLE_PMT, text=text)
         res = ask_chatgpt_retry(ques, self.args.model, self.args)
+        res = res.strip()
         write_text(cache_fname, res)
         return res
 
