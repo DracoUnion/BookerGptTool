@@ -171,6 +171,11 @@ gpt-tool ppt article.md -a "行业内部" -t 30
 
 # 启动 OpenAI API 转发服务
 gpt-tool forward keys.yaml
+
+# 搜索 B站 AI 应用并精选 20 个精品应用（默认搜索前五页，时间倒序）
+gpt-tool bili-ai-proj
+# 可选：调整输出目录、每词页数、精选数量
+gpt-tool bili-ai-proj -o out_dir -P 5 -n 20
 ```
 
 ### 游戏与桌面自动化
