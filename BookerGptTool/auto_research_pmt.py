@@ -128,6 +128,10 @@ PROJECT_INIT -> LITERATURE -> GAP -> HYPOTHESIS -> EXPERIMENT_PLAN -> APPROVAL
 【防死循环与审计】
 - 如果连续 2 次调用同一工具且参数相同，必须停止并 tool_request_user_approval。
 - 如果当前 stage 门禁未通过，不得进入下一 stage。
+- 写作阶段有确定性守卫：即使你未显式调用 tool_write_paper_full，一旦尝试把 stage
+  前进到 INTERNAL_REVIEW/SUBMISSION_PACKAGE，或提交 G5=True，而工作区尚无内容充实的
+  paper.md，系统会自动补写完整论文全文。因此请在写作阶段主动调用 tool_write_paper_full
+  并按需编辑，而不是依赖自动补写。
 - 所有工具调用、结果、审批、AI 文本采纳记录必须写入工作区（工具结果会自动
   进入历史，最终产物由你写盘）。
 - 每一步开始先调用 tool_update_pipeline_state 确认当前状态，再行动。

@@ -561,6 +561,68 @@ class AutoResearchTools(ToolsMixin):
 
     _MIN_PAPER_CHARS = 8000
 
+    _POST_WRITING_STAGES = ('INTERNAL_REVIEW', 'SUBMISSION_PACKAGE')
+
+    def _state_evidence_text(self, ids: List[str], kind: str) -> str:
+        """把已确认的 citations/results 转成可读文本，供自动补写论文使用。"""
+        lines = []
+        if kind == 'citations':
+            pool = read_yaml_model(path.join(self.pj_dir, 'literature_pool.yaml'), None)
+            by_id = {}
+            if isinstance(pool, dict):
+                for p in (pool.get('papers') or []):
+                    if isinstance(p, dict) and p.get('source_id'):
+                        by_id[p['source_id']] = p
+            for cid in ids:
+                meta = by_id.get(cid)
+                lines.append(f'[citation_id={cid}] ' + (
+                    json_dump_model(meta) if meta else '（仅 source_id，无元数据）'))
+        elif kind == 'results':
+            runs = read_yaml_model(path.join(self.pj_dir, 'runs.yaml'), None)
+            by_id = {}
+            if isinstance(runs, list):
+                for r in runs:
+                    if isinstance(r, dict) and r.get('run_id'):
+                        by_id[r['run_id']] = r
+            for rid in ids:
+                meta = by_id.get(rid)
+                lines.append(f'[result_id={rid}] ' + (
+                    json_dump_model(meta) if meta else '（仅 run_id，无指标）'))
+        return '；'.join(lines) or f'（无可读{kind}，请补充已验证{kind}）'
+
+    def _ensure_paper(self) -> bool:
+        """确定性写作守卫：若工作区无内容充实的 paper.md，自动调用 tool_write_paper_full
+        补写全文，不依赖模型自觉调用。返回是否已成稿。
+
+        大纲优先取 paper_plan.yaml（tool_plan_paper 落盘）；citations/results 取
+        systematic state 中已确认的 id，并补充相应元数据。
+        """
+        if self._writing_gate_ok():
+            return True
+        logger.info('未发现合格 paper.md，自动补写论文全文…')
+        state = self._load_state()
+        plan = read_yaml_model(path.join(self.pj_dir, 'paper_plan.yaml'), None)
+        outline = ''
+        title = ''
+        if isinstance(plan, dict):
+            outline = json_dump_model(plan.get('outline') or {})
+            title = plan.get('problem_lock') or plan.get('title') or ''
+        try:
+            self.tool_write_paper_full(
+                outline=outline,
+                citations=self._state_evidence_text(state.citations, 'citations'),
+                results=self._state_evidence_text(state.results, 'results'),
+                evidence=json_dump_model(state.artifacts),
+                title=title,
+            )
+        except Exception as ex:
+            logger.warning('自动补写论文失败：%s', ex)
+            return False
+        ok = self._writing_gate_ok()
+        if ok:
+            logger.info('已自动生成 paper.md（字数达标）')
+        return ok
+
     # ── 6. 引用校验 / LaTeX ─────────────────────────────────────
 
     def tool_validate_citations(self, latex: str, bibtex: str) -> CitationValidation:
@@ -657,17 +719,32 @@ class AutoResearchTools(ToolsMixin):
     ) -> PipelineState:
         """更新流水线状态机，返回完整新状态。每轮收到工具结果后务必调用。
         反伪造：传入 results 的 run_id 必须已有通过的 tool_verify_result_consistency
-        验证记录，否则拒绝列入已确认结果。"""
+        验证记录，否则拒绝列入已确认结果。
+        确定性成稿：若模型将 stage 前进到 WRITING 之后，或提交 G5=True，但工作区
+        尚无内容充实的 paper.md，则自动调用 tool_write_paper_full 补写全文。"""
         state = self._load_state()
+        # ── 确定性成稿守卫（先于 stage/gates 更新执行）────────
+        need_paper = False
+        if stage and stage in self._POST_WRITING_STAGES:
+            need_paper = True
+        if gates and gates.get('G5') is True:
+            need_paper = True
+        if need_paper:
+            self._ensure_paper()
+            if not self._writing_gate_ok():
+                # 未成稿：不允许前进到写作之后的阶段，也不允许标记 G5 通过。
+                state.next_action = (
+                    '写作阶段未完成：未发现内容充实的 paper.md。'
+                    '当前无法进入后续阶段或标记 G5 通过。'
+                    '请先调用 tool_write_paper_full 生成完整论文全文'
+                    '（每章≥1500 字、全文≥8000 字），再重试。')
+                if stage and stage in self._POST_WRITING_STAGES:
+                    stage = None  # 留在当前阶段
         if stage:
             state.stage = stage
         if gates:
             # G5 写作门禁守卫：要求已生成“完整论文全文” paper.md。
             if gates.get('G5') is True and not self._writing_gate_ok():
-                state.next_action = (
-                    'G5 写作门禁未通过：未发现内容充实的 paper.md。'
-                    '必须先调用 tool_write_paper_full 生成完整论文全文'
-                    '（每章≥1500 字、全文≥8000 字），再重试提交 G5。')
                 if 'G5' in gates:
                     gates = {**gates, 'G5': False}
             state.gates.update(gates)
@@ -751,9 +828,15 @@ class AutoResearchTools(ToolsMixin):
 
     def tool_plan_paper(self, question: str, claims: str = '',
                         experiments: str = '') -> PaperPlan:
-        """论文规划：Claims-Evidence 矩阵、Problem Lock、逐节/图表/引用计划。"""
-        return self._call_llm(PLAN_PAPER_PROMPT_PMT, PaperPlan,
+        """论文规划：Claims-Evidence 矩阵、Problem Lock、逐节/图表/引用计划。
+
+        同时把规划结果落盘到 paper_plan.yaml，供写作阶段 tool_write_paper_full
+        自动补写时读取大纲。
+        """
+        plan = self._call_llm(PLAN_PAPER_PROMPT_PMT, PaperPlan,
                               question=question, claims=claims, experiments=experiments)
+        write_yaml_model(path.join(self.pj_dir, 'paper_plan.yaml'), plan)
+        return plan
 
     def tool_write_section(self, section_plan: str, evidence: str = '') -> SectionDraft:
         """按节计划写论文正文（逐句绑定引用/结果，标记 ai_generated）。"""
