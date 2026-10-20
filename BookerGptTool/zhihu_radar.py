@@ -10,7 +10,7 @@ from .util import write_text, write_yaml_model, json_dump_model
 from .openai import logger as oai_logger
 from .zhihu_radar_agent import ZhihuRadarAgent
 from .zhihu_radar_models import *
-from zhihu_radar_pmt import POINTS
+from .zhihu_radar_pmt import POINTS
 
 logging.basicConfig(
     level=logging.INFO,
