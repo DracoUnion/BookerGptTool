@@ -10,6 +10,7 @@ from .util import write_text, write_yaml_model, json_dump_model
 from .openai import logger as oai_logger
 from .zhihu_radar_agent import ZhihuRadarAgent
 from .zhihu_radar_models import *
+from zhihu_radar_pmt import POINTS
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,23 +37,7 @@ class ZhihuRadarOrchestrator:
         self.args = args
         self.agent = ZhihuRadarAgent(args)
         self.pj_dir = self.agent.pj_dir
-        self.points = self._load_points()
-
-    def _load_points(self) -> str:
-        """读取核心观点文件（doc/zhihu_points.md）。"""
-        fname = getattr(self.args, 'points', '')
-        if not fname:
-            # 默认取仓库 doc 目录
-            fname = path.join(
-                path.dirname(path.dirname(path.abspath(__file__))),
-                'doc', 'zhihu_points.md',
-            )
-        if not path.isfile(fname):
-            logger.critical('核心观点文件不存在：%s', fname)
-            return ''
-        text = open(fname, encoding='utf8').read()
-        logger.info('[0] 核心观点已加载：%s（%d 字符）', fname, len(text))
-        return text
+    
 
     # ── 步骤 1：抓取推荐流 ────────────────────────────────────
 
@@ -66,7 +51,7 @@ class ZhihuRadarOrchestrator:
 
     def step_judge(self, items: List[ZhihuQAItem]) -> List[RadarResult]:
         logger.info('[2] 大模型判断问题回答是否违背核心观点')
-        verdicts = self.agent.judge_items(items, self.points)
+        verdicts = self.agent.judge_items(items, POINTS)
         vmap = {v.index: v for v in verdicts}
         results: List[RadarResult] = []
         for i, it in enumerate(items):
@@ -110,7 +95,7 @@ class ZhihuRadarOrchestrator:
                 violated_point_ids=r.violated_point_ids,
                 reason=r.reason,
             )
-            outline = self.agent.gen_outline(item, self.points, verdict)
+            outline = self.agent.gen_outline(item, POINTS, verdict)
             r.outline_title = outline.title
             r.outline = outline.outline
         return results
@@ -181,7 +166,7 @@ class ZhihuRadarOrchestrator:
 
     def run(self):
         logger.info(self.args)
-        if not self.points:
+        if not POINTS:
             logger.critical('核心观点加载失败，中止')
             return None
         items = self.step_fetch()

@@ -9,6 +9,7 @@ from os import path
 from typing import List, Optional
 
 import json_repair
+import browser_cookie3 as bc
 import requests
 from pydantic import parse_obj_as
 
@@ -90,11 +91,7 @@ class ZhihuRadarAgent:
     def _get_cookie_jar(self):
         """从浏览器读取 zhihu.com 域名的 cookie 并返回 CookieJar。"""
         if self._cookie_jar is not None:
-            return self._cookie_jar
-        try:
-            import browser_cookies3 as bc
-        except ImportError:
-            import browser_cookie3 as bc
+            return self._cookie_jar            
         domain = '.zhihu.com'
         browsers = getattr(self.args, 'browser', '') or 'firefox,chrome,edge'
         browsers = [b.strip() for b in browsers.split(',') if b.strip()]
@@ -156,14 +153,6 @@ class ZhihuRadarAgent:
 
     def fetch_feed(self, pages: int, count: int = 20) -> List[ZhihuQAItem]:
         """抓取指定页数的推荐流并解析为问题回答列表，带文件缓存。"""
-        cache_fname = path.join(
-            self.asset_dir,
-            'feed_' + gen_objs_md5(pages, count) + '.yaml',
-        )
-        r = read_yaml_model(cache_fname, List[ZhihuQAItem])
-        if r is not None:
-            return r
-
         items: List[ZhihuQAItem] = []
         seen = set()
         after_id = ''
@@ -198,7 +187,6 @@ class ZhihuRadarAgent:
             if page < pages:
                 time.sleep(1.0)
 
-        write_yaml_model(cache_fname, items)
         return items
 
     def _parse_feed_item(self, it: dict, page: int) -> Optional[ZhihuQAItem]:
