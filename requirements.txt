@@ -1,6 +1,7 @@
 openai
 httpx
 requests
+browser-cookie3
 pyyaml
 pydantic
 json_repair

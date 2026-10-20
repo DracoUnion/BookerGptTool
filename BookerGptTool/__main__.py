@@ -8,6 +8,7 @@ from . import (
     md2skill, trans_epub, fmt_chunk, clean_heading, forward,
     novel_anls, xhs_img, play_game, play_android_game, play_game_chrome, paper2textbook, article_img, ppt, xhs_art, jike_art, podcast, gzh_art, zhanshimian, md2wiki, auto_research,
     resplit, trans_chunk, write_novel, derep, bili_ai_proj,
+    zhihu_radar,
 )
 
 def main():
@@ -81,6 +82,8 @@ def main():
     write_novel.reg_subparser(subparsers)
 
     bili_ai_proj.reg_subparser(subparsers)
+
+    zhihu_radar.reg_subparser(subparsers)
 
     args = parser.parse_args()
     args.func(args)
