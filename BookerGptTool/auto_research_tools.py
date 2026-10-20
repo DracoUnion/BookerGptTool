@@ -24,6 +24,7 @@ from .auto_research_pmt import (
     DEAI_PROMPT_PMT, LOGIC_CHECK_PROMPT_PMT, STYLE_DNA_PROMPT_PMT,
     WRITE_ABSTRACT_PROMPT_PMT, WRITE_INTRO_PROMPT_PMT, WRITE_LITREVIEW_PROMPT_PMT,
     PLAN_PAPER_PROMPT_PMT, WRITE_SECTION_PROMPT_PMT, REVERSE_OUTLINE_PROMPT_PMT,
+    WRITE_PAPER_CHAPTER_PROMPT_PMT,
     REVIEW_PAPER_PROMPT_PMT, CLASSIFY_ISSUES_PROMPT_PMT, RATE_MATURITY_PROMPT_PMT,
     WRITE_REBUTTAL_PROMPT_PMT, DETECT_AIGC_PROMPT_PMT, AUDIT_CITATIONS_PROMPT_PMT,
     DETECT_FRAUD_PROMPT_PMT, BUILD_OUTLINE_PROMPT_PMT, WRITE_CHAPTER_PROMPT_PMT,
@@ -79,18 +80,24 @@ class AutoResearchTools(ToolsMixin):
             return model.model_validate_json(t)
         return f
 
-    def _call_llm(self, pmt: str, out_model: Type[BaseModel], **kw) -> BaseModel:
-        """调用 LLM 生成结构化结果，带文件缓存与 AI 标记。"""
+    def _call_llm(self, pmt: str, out_model: Type[BaseModel], *,
+                  max_tokens: Optional[int] = None, **kw) -> BaseModel:
+        """调用 LLM 生成结构化结果，带文件缓存与 AI 标记。
+
+        max_tokens：输出 token 上限覆盖；缺省用 self.max_tokens（可能为 None，
+        由模型默认决定）。
+        """
         user = self._render(pmt, **kw)
         cache_fname = path.join(
             self.pj_dir, f't_{out_model.__name__.lower()}_{gen_objs_md5(user)}.yaml')
         r = read_yaml_model(cache_fname, out_model)
         if r:
             return r
+        mt = max_tokens if max_tokens is not None else self.max_tokens
         res = call_llm_retry(
             user, self.model,
             retry=self.retry, temp=self.temperature,
-            max_tokens=self.max_tokens,
+            max_tokens=mt,
             parse_output=self._parse_to(out_model))
         write_yaml_model(cache_fname, res)
         return res
@@ -540,6 +547,20 @@ class AutoResearchTools(ToolsMixin):
         rec = self._find_verification(run_id)
         return bool(rec and rec.get('consistent') is True)
 
+    def _writing_gate_ok(self) -> bool:
+        """写作门禁辅助：工作区中是否有内容充实的 paper.md。
+
+        判定：paper.md 存在，去除空白后字数 ≥ MIN_PAPER_CHARS（默认 8000）。
+        用于 tool_update_pipeline_state 的 G5 门禁守卫，防止模型未成稿就标记写作通过。
+        """
+        fname = path.join(self.pj_dir, 'paper.md')
+        if not path.isfile(fname):
+            return False
+        text = read_text(fname) or ''
+        return len(re.sub(r'\s', '', text)) >= getattr(self, '_MIN_PAPER_CHARS', 8000)
+
+    _MIN_PAPER_CHARS = 8000
+
     # ── 6. 引用校验 / LaTeX ─────────────────────────────────────
 
     def tool_validate_citations(self, latex: str, bibtex: str) -> CitationValidation:
@@ -641,6 +662,14 @@ class AutoResearchTools(ToolsMixin):
         if stage:
             state.stage = stage
         if gates:
+            # G5 写作门禁守卫：要求已生成“完整论文全文” paper.md。
+            if gates.get('G5') is True and not self._writing_gate_ok():
+                state.next_action = (
+                    'G5 写作门禁未通过：未发现内容充实的 paper.md。'
+                    '必须先调用 tool_write_paper_full 生成完整论文全文'
+                    '（每章≥1500 字、全文≥8000 字），再重试提交 G5。')
+                if 'G5' in gates:
+                    gates = {**gates, 'G5': False}
             state.gates.update(gates)
         if artifacts:
             state.artifacts = list(dict.fromkeys(state.artifacts + artifacts))
@@ -730,6 +759,101 @@ class AutoResearchTools(ToolsMixin):
         """按节计划写论文正文（逐句绑定引用/结果，标记 ai_generated）。"""
         return self._call_llm(WRITE_SECTION_PROMPT_PMT, SectionDraft,
                               section_plan=section_plan, evidence=evidence)
+
+    def tool_write_paper_full(
+        self, outline: str = '', citations: str = '', results: str = '',
+        evidence: str = '', title: str = '', language: str = '中文',
+        min_chars: int = 1500,
+    ) -> FullPaper:
+        """按大纲逐章生成**完整论文全文**：先写摘要，再逐章写正文（每章满足最低字数），
+        组装为 Markdown 全文，保存为 paper.md 并返回全文模型。
+
+        - outline：章节大纲（可传 PaperPlan JSON，或章节标题 JSON 数组，或每行一章节）。
+        - citations/results/evidence：已验证事实（每句绑定 id，禁止编造）。
+        - title：论文标题（可空，自动取大纲/默认标题）。
+        - language：输出语言，默认中文。
+        - min_chars：每章最低字数，默认 1500。
+        """
+        # 1. 解析大纲 → 章节标题列表
+        chapters = self._parse_outline_titles(outline)
+        if not chapters:
+            chapters = ['引言', '相关工作', '方法', '实验与结果', '讨论', '结论与展望']
+        title = (title or '').strip() or '未命名研究论文'
+        # 2. 摘要
+        abs_ctx = render_prompt(
+            '{title}：{first}。研究动机与相关文献见大纲；核心结果见结果列表。',
+            title=title,
+            first=chapters[0] if chapters else '',
+        )
+        abstract = self._call_llm(WRITE_ABSTRACT_PROMPT_PMT, Abstract,
+                                  max_tokens=4096,
+                                  problem=abs_ctx, approach=outline,
+                                  results=results, contribution=outline)
+        # 3. 逐章写正文（每章独立 LLM 调用，带缓存；大 token 上限防截断）
+        draft_chapters: List[SectionDraft] = []
+        for i, ch in enumerate(chapters, 1):
+            draft = self._call_llm(
+                WRITE_PAPER_CHAPTER_PROMPT_PMT, SectionDraft,
+                max_tokens=8192,
+                chapter=f'第 {i} 章 {ch}',
+                outline=outline or '\n'.join(f'{j}. {c}' for j, c in enumerate(chapters, 1)),
+                citations=citations or '（暂无）',
+                results=results or '（暂无）',
+                evidence=evidence or '（暂无）',
+                min_chars=max(500, int(min_chars or 1500)),
+                language=language or '中文',
+            )
+            draft_chapters.append(SectionDraft(
+                section_title=ch, content=draft.content, ai_generated=True))
+        # 4. 组装全文
+        lines = [f'# {title}', '', '## 摘要', '', abstract.abstract or '', '']
+        for d in draft_chapters:
+            lines += ['## ' + d.section_title, '', d.content, '']
+        full_md = '\n'.join(lines).strip() + '\n'
+        # 5. 保存到项目工作区
+        saved_path = 'paper.md'
+        write_text(path.join(self.pj_dir, saved_path), full_md)
+        wc = len(re.sub(r'\s', '', full_md))
+        return FullPaper(
+            title=title, abstract=abstract.abstract or '',
+            chapters=draft_chapters, full_md=full_md,
+            saved_path=saved_path, word_count=wc, ai_generated=True,
+        )
+
+    def _parse_outline_titles(self, outline: str) -> List[str]:
+        """从大纲字符串解析章节标题列表（兼容 PaperPlan JSON / JSON 数组 / 文本行）。"""
+        if not outline or not outline.strip():
+            return []
+        text = outline.strip()
+        try:
+            obj = json.loads(text)
+        except Exception:
+            obj = None
+        titles: List[str] = []
+        if isinstance(obj, dict):
+            for s in (obj.get('outline') or []):
+                if isinstance(s, dict) and s.get('title'):
+                    titles.append(str(s['title']))
+                elif isinstance(s, str) and s.strip():
+                    titles.append(s.strip())
+        elif isinstance(obj, list):
+            for s in obj:
+                if isinstance(s, dict) and s.get('title'):
+                    titles.append(str(s['title']))
+                elif isinstance(s, str) and s.strip():
+                    titles.append(s.strip())
+        if titles:
+            return titles
+        # 文本行：每行 "## 标题 职责" 或 "- 标题"
+        for line in text.splitlines():
+            line = line.strip().lstrip('#-* \t')
+            if not line:
+                continue
+            # 去掉“：职责”等后缀，取标题
+            head = re.split(r'[：:]\s*', line, maxsplit=1)[0].strip()
+            if head:
+                titles.append(head)
+        return titles
 
     def tool_reverse_outline(self, markdown: str) -> ReverseOutline:
         """反向大纲测试：抽每段首句验证叙事连贯性。"""
@@ -1167,6 +1291,15 @@ class AutoResearchTools(ToolsMixin):
             required=['section_plan'],
             section_plan=base_schema('string', '节计划'),
             evidence=base_schema('string', '可用证据'),
+        ),
+        "tool_write_paper_full": params_schema(
+            outline=base_schema('string', '章节大纲（PaperPlan JSON / 数组 / 文本行）'),
+            citations=base_schema('string', '已验证引用（source_id 列表或其元数据）'),
+            results=base_schema('string', '已验证实验结果（run_id 与指标）'),
+            evidence=base_schema('string', '其他证据'),
+            title=base_schema('string', '论文标题（可空）'),
+            language=base_schema('string', '输出语言，默认中文'),
+            min_chars=base_schema('integer', '每章最低字数，默认 1500'),
         ),
         "tool_reverse_outline": params_schema(
             required=['markdown'],

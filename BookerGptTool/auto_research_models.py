@@ -311,6 +311,17 @@ class SectionDraft(BaseModel):
     ai_generated: bool = Field(True, description="是否 AI 生成")
 
 
+class FullPaper(BaseModel):
+    """完整论文全文（按大纲逐章生成并组装）"""
+    title: str = Field('', description="论文标题")
+    abstract: str = Field('', description="论文摘要")
+    chapters: List[SectionDraft] = Field(default_factory=list, description="各章节完整正文")
+    full_md: str = Field('', description="组装后的论文全文 Markdown")
+    saved_path: str = Field('', description="保存到项目工作区的相对路径")
+    word_count: int = Field(0, description="全文字数（不含空白）")
+    ai_generated: bool = Field(True, description="是否 AI 生成")
+
+
 class ReverseOutline(BaseModel):
     """反向大纲测试（抽每段首句验证连贯性）"""
     sentences: List[str] = Field(default_factory=list, description="每节/每段首句")
