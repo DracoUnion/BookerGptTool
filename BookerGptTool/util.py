@@ -319,7 +319,17 @@ def repl_code_block(md: str) -> Tuple[str, List[str]]:
         tk = f'[PRE{len(blocks)}]'
         blocks.append(s)
         return tk
-    md = re.sub(r'```[\s\S]+?```', repl_func, md)
+    CODE_BLOCK_RE = r'''
+        # 代码块
+        ```[\s\S]+?```
+        |
+        # 图片
+        !\[.*?\]\(.+?\)
+        |
+        # 公式块
+        \$\$[\s\S]+?\$\$
+    '''
+    md = re.sub(CODE_BLOCK_RE, repl_func, md, flags=re.VERBOSE)
     return md, blocks
 
 def rec_code_block(md: str, blocks: List[str]) -> str:
