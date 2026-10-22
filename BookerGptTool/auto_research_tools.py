@@ -625,6 +625,18 @@ class AutoResearchTools(ToolsMixin):
 
     # ── 6. 引用校验 / LaTeX ─────────────────────────────────────
 
+    def tool_find_citation(self, sentence: str) -> dict:
+        resp = requests.get(
+            "https://api.openalex.org/works",
+            params={
+                "search.semantic": sentence,
+                "select": "id,title,relevance_score,publication_year,doi",
+                "per-page": 10
+            }
+        )
+        resp.raise_for_status()
+        return resp.json()["results"]
+
     def tool_validate_citations(self, latex: str, bibtex: str) -> CitationValidation:
         """校验 LaTeX 中每个 \\\\cite 是否有对应 bibtex 条目。"""
         cite_keys = set()
@@ -1289,6 +1301,10 @@ class AutoResearchTools(ToolsMixin):
             log=base_schema('string', '真实运行日志文本（未提供 run_id 时使用）'),
         ),
         # 引用校验 / LaTeX
+        "tool_find_citation": params_schema(
+            required=['sentence'],
+            sentence=base_schema('string', '要检索引用文献的句子'),
+        ),
         "tool_validate_citations": params_schema(
             required=['latex', 'bibtex'],
             latex=base_schema('string', 'LaTeX 正文'),
