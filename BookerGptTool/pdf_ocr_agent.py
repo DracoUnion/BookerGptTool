@@ -232,7 +232,7 @@ class PdfOcrAgent:
         r = read_yaml_model(cache_fname, List[List[str]])
         if r is not None:
             return r
-        ques = render_prompt(TOC_PMT, text=json_dump_model(toc))
+        ques = render_prompt(TOC_PMT, toc=json_dump_model(toc))
         parse_output = lambda ans: TocChanges(
             **json_repair.loads(ext_code_block(ans))
         )

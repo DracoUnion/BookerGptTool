@@ -13,7 +13,7 @@ import json
 import logging
 
 from os import path
-
+import json_repair
 import re
 
 import yaml
@@ -43,6 +43,7 @@ from .util import (
     write_yaml_model,
     read_text,
     write_text,
+    json_dump_model,
 )
 
 from .openai import logger as oai_logger
@@ -137,16 +138,23 @@ class EpubTranslatorAgent:
         write_text(cache_fname, res)
         return res
 
-    def fix_toc(self, text: str) -> str:
+    def fix_toc(self, toc: List[Dict[str, Any]]) -> TocChanges:
         cache_fname = path.join(
             self.asset_dir,
-            'toc_' + gen_objs_md5(text) + '.md'
+            'toc_' + gen_objs_md5(toc) + '.yaml'
         )
-        r = read_text(cache_fname)
-        if r: return r
-        ques = render_prompt(TOC_PMT, text=text)
-        res = ask_chatgpt_retry(ques, self.args.model, self.args)
-        write_text(cache_fname, res)
+        r = read_yaml_model(cache_fname, List[List[str]])
+        if r is not None:
+            return r
+        ques = render_prompt(TOC_PMT, toc=json_dump_model(toc))
+        parse_output = lambda ans: TocChanges(
+            **json_repair.loads(ext_code_block(ans))
+        )
+        res = ask_chatgpt_retry(
+            ques, self.args.model, self.args,
+            parse_output,
+        )
+        write_yaml_model(cache_fname, res)
         return res
 
     def extract_chapter_toc(self, titles: list) -> List[TocExtResult]:

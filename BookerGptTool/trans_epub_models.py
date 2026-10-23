@@ -17,3 +17,17 @@ class TocExtResult(BaseModel):
     no: int
     chapter_title: bool
     reason: str
+
+class TocLevelChange(BaseModel):
+    line: int
+    before: int
+    after: int
+
+class TocTextChange(BaseModel):
+    line: int
+    before: str
+    after: str
+
+class TocChanges(BaseModel): 
+    level_changes: List[TocLevelChange]
+    text_changes: List[TocTextChange]
