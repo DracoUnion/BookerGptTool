@@ -5,7 +5,6 @@ class Meta(BaseModel):
     name: str
     slug: str
     name_cn: str
-    toc: List[List[str]] = []
 
 class Chunk(BaseModel):
     raw: str

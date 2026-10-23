@@ -86,6 +86,7 @@ class EpubTranslatorAgent:
             chs_fname=path.join(meta_dir, 'chs.yaml'),
             readme_fname=path.join(proj_dir, 'README.md'),
             summary_fname=path.join(proj_dir, 'SUMMARY.md'),
+            toc_fname=path.join(meta_dir, 'toc.yaml'),
         )
 
     def __init__(self, args):

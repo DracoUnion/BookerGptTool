@@ -185,29 +185,35 @@ class TransEpubDispatcher:
         write_yaml_model(chunk_fname, chunks)
         return chunks
 
-    def _fix_toc(self, chunks, meta):
+    def _fix_toc(self, chunks: List[Chunk], meta: Meta):
         logger.info('[5] 修正目录')
-        meta_fname = self.paths['meta_fname']
-        md = '\n\n'.join(c.trans for c in chunks)
+        full_text = '\n\n'.join(c.trans for c in chunks)
         if self.args.clean:
             name_cn = meta.name_cn
-            md = clean_md_llm(md, self.args)
-            md = f'# {name_cn}\n\n{md}'
-        if meta.toc:
-            toc = meta.toc
-        else:
-            toc = re.findall(r'^#+\x20+.+?$', md, re.M)
-            ans = self.agent.fix_toc('\n'.join(toc))
-            toc = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
-            meta.toc = toc
-            write_yaml_model(meta_fname, meta)
-        for lvl, title in toc:
-            logger.debug(f'[7] {lvl} {title}')
-            try:
-                md = re.sub(r'^#+\x20+' + re.escape(title) + '$', f'{lvl} {title}', md, flags=re.M)
-            except re.error:
-                pass
-        return md
+            full_text = clean_md_llm(full_text, self.args)
+            full_text = f'# {name_cn}\n\n{full_text}'
+        toc_fname = self.paths['toc_fname']
+        toc_chgs: TocChanges = read_yaml_model(toc_fname, TocChanges)
+        lines = full_text.split('\n')
+        if not toc_chgs:
+            toc = []
+            for i, l in enumerate(lines):
+                m = re.search(r'^(#+)\x20+(.+?)$', l)
+                if not m: continue
+                level = len(m.group(1))
+                text = m.group(2)
+                toc.append({'line': i, 'level': level, 'text': text})
+            toc_chgs = self.agent.fix_toc(toc=toc)
+            write_yaml_model(toc_fname, toc_chgs)
+        for it in toc_chgs.level_changes:
+            before = '#' * it.before
+            after = '#' * it.after
+            logger.debug(f'[7] {it.line}：{before} => {after}')
+            lines[it.line] = lines[it.line].replace(before, after)
+        for it in toc_chgs.text_changes:
+            logger.debug(f'[7] {it.line}：{it.before} => {it.after}')
+            lines[it.line] = lines[it.line].replace(it.before, it.after)
+        return '\n'.join(lines)
 
     def _tr_ch_split_llm(self, lines, args):
         starts = self.split_agent.split(lines)
