@@ -72,7 +72,7 @@ def clean_md_llm(md, args, nlines=1000):
     torm = set()
     for it in res:
         if it.role in ["info", "copyright", "toc"]:
-            torm += set(range(it.start_no, it.end_no + 1))
+            torm |= set(range(it.start_no, it.end_no + 1))
     
     lines = [l for i, l in enumerate(lines) if i not in torm]
     md = '\n'.join(lines)
