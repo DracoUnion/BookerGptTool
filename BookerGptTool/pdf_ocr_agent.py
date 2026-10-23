@@ -67,6 +67,7 @@ from .util import (
     write_yaml_model,
     read_text,
     write_text,
+    json_dump_model,
 )
 
 from .openai import (
@@ -223,7 +224,7 @@ class PdfOcrAgent:
         write_text(cache_fname, res)
         return res
 
-    def fix_toc(self, toc: str) -> List[List[str]]:
+    def fix_toc(self, toc: List[Dict[str, Any]]) -> TocChanges:
         cache_fname = path.join(
             self.asset_dir,
             'toc_' + gen_objs_md5(toc) + '.yaml'
@@ -231,9 +232,14 @@ class PdfOcrAgent:
         r = read_yaml_model(cache_fname, List[List[str]])
         if r is not None:
             return r
-        ques = render_prompt(TOC_PMT, text=toc)
-        ans = ask_chatgpt_retry(ques, self.args.model, self.args)
-        res = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
+        ques = render_prompt(TOC_PMT, text=json_dump_model(toc))
+        parse_output = lambda ans: TocChanges(
+            **json_repair.loads(ext_code_block(ans))
+        )
+        res = ask_chatgpt_retry(
+            ques, self.args.model, self.args,
+            parse_output,
+        )
         write_yaml_model(cache_fname, res)
         return res
 

@@ -348,6 +348,7 @@ class PDFOcrOrchestrator:
         toc_fname = self.paths['toc_fname']
         toc = read_yaml_model(toc_fname, None)
         if not toc:
+            toc = 
             toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
             toc = self.agent.fix_toc(toc='\n'.join(toc))
             write_yaml_model(toc_fname, toc)
