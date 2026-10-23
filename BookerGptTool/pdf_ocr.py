@@ -346,23 +346,27 @@ class PDFOcrOrchestrator:
         """[7] 修正目录层级。返回修正后的 full_text。"""
         logger.info('[7] 修正目录')
         toc_fname = self.paths['toc_fname']
-        toc = read_yaml_model(toc_fname, None)
-        if not toc:
-            toc = 
-            toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
-            toc = self.agent.fix_toc(toc='\n'.join(toc))
-            write_yaml_model(toc_fname, toc)
-        for lvl, title in toc:
-            logger.debug(f'[7] {lvl} {title}')
-            try:
-                full_text = re.sub(
-                    r'^#+\x20+' + re.escape(title) + '$',
-                    f'{lvl} {title}',
-                    full_text, flags=re.M,
-                )
-            except re.error:
-                pass
-        return full_text
+        toc_chgs: TocChanges = read_yaml_model(toc_fname, TocChanges)
+        lines = full_text.split('\n')
+        if not toc_chgs:
+            toc = []
+            for i, l in enumerate(lines):
+                m = re.search(r'^(#+)\x20+(.+?)$', l)
+                if not m: continue
+                level = len(m.group(1))
+                text = m.group(2)
+                toc.append({'line': i, 'level': level, 'text': text})
+            toc_chgs = self.agent.fix_toc(toc=toc)
+            write_yaml_model(toc_fname, toc_chgs)
+        for it in toc_chgs.level_changes:
+            before = '#' * it.before
+            after = '#' * it.after
+            logger.debug(f'[7] {it.line}：{before} => {after}')
+            lines[it.line] = lines[it.line].replace(before, after)
+        for it in toc_chgs.text_changes:
+            logger.debug(f'[7] {it.line}：{it.before} => {it.after}')
+            lines[it.line] = lines[it.line].replace(it.before, it.after)
+        return '\n'.join(lines)
 
     def write_output_split(
         self, chs: List[str], name_cn: str,
