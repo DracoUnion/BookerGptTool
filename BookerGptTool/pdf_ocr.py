@@ -349,7 +349,7 @@ class PDFOcrOrchestrator:
         toc = read_yaml_model(toc_fname, None)
         if not toc:
             toc = re.findall(r'^#+\x20+.+?$', full_text, re.M)
-            toc = self.agent.fix_toc(toc_text='\n'.join(toc))
+            toc = self.agent.fix_toc(toc='\n'.join(toc))
             write_yaml_model(toc_fname, toc)
         for lvl, title in toc:
             logger.debug(f'[7] {lvl} {title}')

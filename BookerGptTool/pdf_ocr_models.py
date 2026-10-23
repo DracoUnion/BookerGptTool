@@ -42,3 +42,17 @@ class Meta(BaseModel):
     pages: List[Page]
     groups: List[Group] = []
     toc: List[List[str]] = []
+
+class TocLevelChange(BaseModel):
+    line: int
+    before: int
+    after: int
+
+class TocTextChange(BaseModel):
+    line: int
+    before: str
+    after: str
+
+class TocChanges(BaseModel): 
+    level_changes: List[TocLevelChange]
+    text_changes: List[TocTextChange]

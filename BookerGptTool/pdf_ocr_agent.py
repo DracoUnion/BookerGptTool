@@ -223,15 +223,15 @@ class PdfOcrAgent:
         write_text(cache_fname, res)
         return res
 
-    def fix_toc(self, toc_text: str) -> List[List[str]]:
+    def fix_toc(self, toc: str) -> List[List[str]]:
         cache_fname = path.join(
             self.asset_dir,
-            'toc_' + gen_objs_md5(toc_text) + '.yaml'
+            'toc_' + gen_objs_md5(toc) + '.yaml'
         )
         r = read_yaml_model(cache_fname, List[List[str]])
         if r is not None:
             return r
-        ques = render_prompt(TOC_PMT, text=toc_text)
+        ques = render_prompt(TOC_PMT, text=toc)
         ans = ask_chatgpt_retry(ques, self.args.model, self.args)
         res = re.findall(r'^(#+)\x20+(.+?)$', ans, re.M)
         write_yaml_model(cache_fname, res)
