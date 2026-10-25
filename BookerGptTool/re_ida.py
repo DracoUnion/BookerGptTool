@@ -3,9 +3,13 @@
 """re 子命令的 IDA 封装层：通过 idalib 直接调用 IDA API（去除 MCP 桥接）。
 
 依赖：
-- idapro 包（官方 IDA Library Python module），通过配置文件定位 IDA 安装目录
-  （%APPDATA%\\Hex-Rays\\IDA Pro\\ida-config.json -> ida-install-dir）。
-- IDA 9.0+（含 idalib.dll）。已在 D:\\Program Files\\IDA94ProBable_CN 验证。
+- idapro 包（官方 IDA Library Python module）。
+- IDA 9.0+（含 idalib.dll）。
+
+IDA 安装目录解析优先级：
+  1. 构造 IdaClient 时传入的 ida_dir 参数（对应命令行 --ida-dir）。
+  2. 环境变量 IDADIR。
+  3. %APPDATA%\\Hex-Rays\\IDA Pro\\ida-config.json 的 ida-install-dir。
 
 注意：idalib 是进程内单数据库模型——open_database 一次加载一个二进制，
 此后 ida_* 模块可用；close_database 后需重新 open_database。
@@ -21,14 +25,33 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-try:
-    import idapro
-    _IDALIB_AVAIL = True
-    _IDALIB_ERR = ''
-except Exception as _ex:  # pragma: no cover
-    idapro = None
-    _IDALIB_AVAIL = False
-    _IDALIB_ERR = str(_ex)
+idapro = None
+_IDALIB_AVAIL = False
+_IDALIB_ERR = ''
+
+
+def _load_idapro(ida_dir: str = '') -> bool:
+    """按需加载 idapro。ida_dir 传给 IdaClient 时优先用作 IDADIR。
+
+    必须在本模块首次 import idapro 之前设置好 IDADIR，
+    因为 idapro 在 import 期间就加载 idalib.dll。
+    """
+    global idapro, _IDALIB_AVAIL, _IDALIB_ERR
+    if idapro is not None:
+        return True
+    if ida_dir:
+        os.environ['IDADIR'] = ida_dir
+    try:
+        import idapro
+        _IDALIB_AVAIL = True
+        _IDALIB_ERR = ''
+        return True
+    except Exception as _ex:
+        idapro = None
+        _IDALIB_AVAIL = False
+        _IDALIB_ERR = str(_ex)
+        logger.warning('idapro 加载失败：%s', _ex)
+        return False
 
 
 class IdaError(Exception):
@@ -38,15 +61,17 @@ class IdaError(Exception):
 class IdaClient:
     """对 IDA（idalib）的封装，全部方法返回可 JSON 序列化的对象。"""
 
-    def __init__(self, workdir: str = ''):
+    def __init__(self, workdir: str = '', ida_dir: str = ''):
         """
         Args:
             workdir: open_database 时使用的可写工作目录（数据库 .i64 存放处）。
+            ida_dir: IDA 安装目录（对应命令行 --ida-dir）；空则用环境变量/配置文件。
         """
-        if not _IDALIB_AVAIL:
+        if not _load_idapro(ida_dir):
             raise IdaError(f'idapro/idalib 不可用：{_IDALIB_ERR}')
         self.workdir = path.abspath(workdir or '.')
         os.makedirs(self.workdir, exist_ok=True)
+        self.ida_dir = ida_dir or os.environ.get('IDADIR') or ''
         self.db_open = False
         self.last_error = ''
         self.input_path = ''

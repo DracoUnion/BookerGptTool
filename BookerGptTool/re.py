@@ -159,27 +159,38 @@ def check_avail(args):
     print('IDA (idalib)')
     print('═' * 60)
     ida_ok = False
+    import os as _os
     try:
-        import idapro
-        ida_dir = idapro.get_ida_install_dir()
-        idalib = getattr(idapro, 'idalib_path', '')
-        print(f'  idapro 包    : OK ({idapro.__file__})')
-        print(f'  IDA 目录     : {ida_dir or "（未配置 ida-install-dir）"}')
-        if idalib:
-            print(f'  idalib.dll   : {idalib}')
-            print(f'    exists     : {path.isfile(idalib)}')
-            if path.isfile(idalib):
-                ida_ok = True
-        try:
-            ver = idapro.get_library_version()
-            print(f'  版本         : {ver}')
-        except Exception:
-            pass
-        if not ida_ok:
-            print('  [✗] IDA 不可用：idalib 缺失或未配置安装目录')
+        from . import re_ida as _re_ida
+        ida_dir = getattr(args, 'ida_dir', '') or _os.environ.get('IDADIR', '')
+        if ida_dir:
+            _os.environ['IDADIR'] = ida_dir
+        ok = _re_ida._load_idapro(ida_dir)
+        if not ok:
+            print(f'  [✗] idapro 导入失败：{_re_ida._IDALIB_ERR}')
+            print('      请安装 idapro（pip install idapro）')
+        else:
+            import idapro
+            print(f'  idapro 包    : OK ({idapro.__file__})')
+            ida_dir = idapro.get_ida_install_dir()
+            idalib = getattr(idapro, 'idalib_path', '')
+            print(f'  IDA 目录     : {ida_dir or "（未配置，可用 --ida-dir 指定）"}')
+            if idalib:
+                print(f'  idalib.dll   : {idalib}')
+                print(f'    exists     : {path.isfile(idalib)}')
+                if path.isfile(idalib):
+                    ida_ok = True
+            try:
+                ver = idapro.get_library_version()
+                print(f'  版本         : {ver}')
+            except Exception:
+                pass
+            if not ida_ok:
+                print('  [✗] IDA 不可用：idalib 缺失或未配置安装目录')
+        if not ida_dir:
+            print('  提示：用 --ida-dir 指定 IDA 安装目录，或设环境变量 IDADIR。')
     except Exception as ex:
-        print(f'  [✗] idapro 导入失败：{ex}')
-        print('      请安装 idapro（pip install idapro）并配置 %APPDATA%\\Hex-Rays\\IDA Pro\\ida-config.json')
+        print(f'  [✗] idapro 检查异常：{ex}')
 
     print()
     print('═' * 60)
@@ -193,9 +204,11 @@ def check_avail(args):
     except Exception as ex:
         print(f'  [✗] x64dbg_automate 导入失败：{ex}')
         print('      请安装 pip install x64dbg-automate')
-    for label, key in (('x64dbg', 'x64dbg_path'), ('x32dbg', 'x32dbg_path')):
-        p = getattr(args, key, '') or ''
-        print(f'  {label:<6}: {p or "（未指定路径）"}  exists={path.isfile(p) if p else False}')
+    for label, rootkey, exe in (('x64dbg', 'x64dbg_dir', r'release\x64\x64dbg.exe'),
+                                ('x32dbg', 'x32dbg_dir', r'release\x32\x32dbg.exe')):
+        root = getattr(args, rootkey, '') or ''
+        p = path.join(root, exe) if root else ''
+        print(f'  {label:<6}: {p or "（未指定根目录）"}  exists={path.isfile(p) if p else False}')
     # 会话发现（库本身）
     try:
         import x64dbg_automate as XA
@@ -242,12 +255,16 @@ def reg_subparser(subparsers):
         help='检查 idapro/idalib 与 x64dbg/x32dbg 是否可用，打印并退出',
     )
     p.add_argument(
-        '--x64dbg-path', default=r'D:\Program Files\x64dbg\release\x64\x64dbg.exe',
-        help='x64dbg 可执行文件路径（x64dbg_automate 启动会话用）',
+        '--ida-dir', default='',
+        help='IDA 安装目录（含 idalib.dll；缺省用环境变量 IDADIR 或 $env:APPDATA 配置）',
     )
     p.add_argument(
-        '--x32dbg-path', default=r'D:\Program Files\x64dbg\release\x32\x32dbg.exe',
-        help='x32dbg 可执行文件路径（x32dbg_automate 启动会话用）',
+        '--x64dbg-dir', default=r'D:\Program Files\x64dbg',
+        help='x64dbg 根目录（自动拼接 \\release\\x64\\x64dbg.exe）',
+    )
+    p.add_argument(
+        '--x32dbg-dir', default=r'D:\Program Files\x64dbg',
+        help='x32dbg 根目录（自动拼接 \\release\\x32\\x32dbg.exe）',
     )
     p.add_argument(
         '-no-ida', '--no-ida', action='store_true',

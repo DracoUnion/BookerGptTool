@@ -74,17 +74,22 @@ class ReTools(ToolsMixin):
             logger.info('已禁用 IDA（-no-ida）')
         else:
             try:
-                self.ida = re_ida_mod.IdaClient(workdir=self.pj_dir)
+                self.ida = re_ida_mod.IdaClient(
+                    workdir=self.pj_dir,
+                    ida_dir=getattr(args, 'ida_dir', '') or '')
             except Exception as ex:
                 logger.warning('IDA 封装初始化失败：%s', ex)
 
-        # x64dbg / x32dbg 直连客户端（x64dbg_automate）
+        # x64dbg / x32dbg 直连客户端（x64dbg_automate）。
+        # 命令行传根目录，这里拼接各架构的可执行文件相对路径。
         self.xauto: Dict[str, re_xauto_mod.XautoClient] = {}
         if getattr(args, 'no_xauto', False):
             logger.info('已禁用 x64dbg/x32dbg（-no-xauto）')
         else:
-            x64_path = getattr(args, 'x64dbg_path', '') or ''
-            x32_path = getattr(args, 'x32dbg_path', '') or ''
+            x64_root = getattr(args, 'x64dbg_dir', '') or ''
+            x32_root = getattr(args, 'x32dbg_dir', '') or ''
+            x64_path = path.join(x64_root, 'release', 'x64', 'x64dbg.exe') if x64_root else ''
+            x32_path = path.join(x32_root, 'release', 'x32', 'x32dbg.exe') if x32_root else ''
             for target, xpath in (('x64dbg', x64_path), ('x32dbg', x32_path)):
                 try:
                     self.xauto[target] = re_xauto_mod.XautoClient(target, x64dbg_path=xpath)
