@@ -2,7 +2,7 @@ from BookerEpubTool.util import *
 from os import path
 import yaml
 from .util import *
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 
 DFT_SHENGCAI_PROMPT = '''
 假设你是一个公司的技术总监、商业分析师和人工智能专家。市场部门的员工会定期向你发送商机，你需要将它们变成一个可盈利的项目。请参考示例分析商机并从中提取盈利点、操作流程和所需软件。
@@ -47,7 +47,7 @@ def get_content(html):
     return {'title': title, 'content': content}
 
 def parse_shengcai(args):
-    set_openai_props(args)
+    llm = OpenAIClient.from_args(args)
     print(args.fname)
     if not args.fname.endswith('.epub'):
         print('请提供 EPUB 文件')
@@ -81,7 +81,7 @@ def parse_shengcai(args):
             '{text}', 
             (it['title'] + ' ' + it['content'])[:args.limit]
         )
-        ans = ask_chatgpt_retry(ques, args.model, args)
+        ans = llm.ask_chatgpt_retry(ques, args.model, args)
         it['result'] = ans
         open(yaml_fname, 'w', encoding='utf8').write(
             yaml.safe_dump(todo, allow_unicode=True)

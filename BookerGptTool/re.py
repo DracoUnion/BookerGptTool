@@ -16,7 +16,7 @@ from typing import Dict, List, Any, Optional, Callable
 
 import json_repair
 
-from .openai import call_llm_with_toolcall_retry, set_openai_props, logger as oai_logger
+from .openai import logger as oai_logger
 from .util import render_prompt, write_text, json_dump_model
 from .re_models import *
 from .re_pmt import RE_SYSTEM_PROMPT, RE_ROUND_PROMPT
@@ -79,6 +79,7 @@ class ReOrchestrator:
         self.args = args
         self.tools = ReTools(args)
         self.pj_dir = self.tools.pj_dir
+        self.llm = self.tools.llm
         self.max_steps = getattr(args, 'max_steps', 60)
         logger.info('可用工具：%s', list(self.tools.get_tool_dict().keys()))
         logger.info('MCP 状态：%s', json_dump_model(self.tools.tool_mcp_status()))
@@ -103,7 +104,7 @@ class ReOrchestrator:
             '接近上限时应优先收敛并调用 tool_finish。）'
         )
 
-        final: ReFinalReport = call_llm_with_toolcall_retry(
+        final: ReFinalReport = self.llm.call_llm_with_toolcall_retry(
             msgs, self.args.model,
             self.tools.get_tool_defs(),
             self.tools.get_tool_dict(),

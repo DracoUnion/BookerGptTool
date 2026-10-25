@@ -1,4 +1,3 @@
-import openai
 import httpx
 import os
 import traceback
@@ -12,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import functools
 from .util import *
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 from .erchuang_pmt import *
 
 def erchuang_single(args):
@@ -20,12 +19,13 @@ def erchuang_single(args):
     if path.isfile(ofname):
         print(f'{args.fname} 已生成')
         return
+    llm = OpenAIClient.from_args(args)
     cont = open(args.fname, encoding='utf8').read()
     ques = render_prompt(
         PMT_MAP.get(args.style, HUMANIZE_PMT),
         text=cont,
     )
-    ans = ask_chatgpt_retry(ques, args.model, args)
+    ans = llm.ask_chatgpt_retry(ques, args.model, args)
     ans = ans.replace('[content]', '') \
         .replace('[/content]', '')
     open(ofname, 'w', encoding='utf8').write(ans)
@@ -41,7 +41,6 @@ def gen_xhs_single_safe(args):
 
 def erchuang_handle(args):
     print(args)
-    set_openai_props(args)
 
     if path.isfile(args.fname):
         fnames = [args.fname]

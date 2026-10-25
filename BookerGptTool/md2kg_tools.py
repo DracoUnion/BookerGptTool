@@ -26,7 +26,7 @@ class Md2KgTools(ToolsMixin):
     def __init__(self, args):
         """初始化工具集：保存参数、配置 OpenAI、并创建项目输出目录。"""
         super(ToolsMixin, self).__init__()
-        set_openai_props(args)
+        self.llm = OpenAIClient.from_args(args)
         self.args = args
         self.model = args.model
         self.temperature = getattr(args, 'temp', 0.0)
@@ -47,7 +47,7 @@ class Md2KgTools(ToolsMixin):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        return call_llm_retry(
+        return self.llm.call_llm_retry(
             messages, self.model,
             retry=self.retry,
             temp=self.temperature,

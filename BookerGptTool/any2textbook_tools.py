@@ -41,7 +41,7 @@ class Any2TextbookTools(ToolsMixin):
         super(ToolsMixin, self).__init__()
         self.args = args
         self.model = args.model
-        set_openai_props(args)
+        self.llm = OpenAIClient.from_args(args)
         self.pj_dir = (
             path.dirname(args.dir) + '_any2textbook'
             if path.isfile(args.dir) else
@@ -107,7 +107,7 @@ class Any2TextbookTools(ToolsMixin):
         args
     ) -> BaseModel:
         """调用 LLM 并把 ```json 代码块解析为 pydantic 对象。"""
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             prompt, model, args,
             parse_output=lambda s: parse_obj_as(schema, json.loads(ext_code_block(s))),
         )
@@ -115,7 +115,7 @@ class Any2TextbookTools(ToolsMixin):
     @staticmethod
     def _text(prompt, model, args):
         """调用 LLM 并提取 [content]...[/content] 中的正文。"""
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             prompt, model, args,
             parse_output=ext_cont_block,
         )

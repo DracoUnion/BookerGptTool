@@ -5,7 +5,7 @@ gzh_art_agent.py —— 公众号出稿的 LLM 智能体
 
 import json
 
-from .openai import call_llm_retry, set_openai_props
+from .openai import OpenAIClient
 from .gzh_art_pmt import GEN_ARTICLE_PMT
 from .util import render_prompt, ext_cont_block, read_text
 
@@ -16,7 +16,7 @@ class GzhArtAgent:
     def __init__(self, args):
         self.model = args.model
         self.args = args
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
 
     def generate_article(self, materials, *, owner='', model=None) -> str:
         """根据素材生成公众号文章 Markdown（第一行为 # 标题）。"""
@@ -39,7 +39,7 @@ class GzhArtAgent:
             material=material_text,
         )
         parse_output = lambda s: ext_cont_block(s)
-        return call_llm_retry(
+        return self.llm.call_llm_retry(
             ques, model or self.model,
             retry=self.args.retry, temp=self.args.temp,
             top_p=self.args.top_p,

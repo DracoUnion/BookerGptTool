@@ -8,7 +8,7 @@ import logging
 from os import path
 from typing import List, Optional
 
-from .openai import call_tti_retry, set_openai_props
+from .openai import OpenAIClient
 from .zhanshimian_models import FaceFusionInput, FaceFusionResult, FaceFusionOutput
 from .util import write_text
 
@@ -28,7 +28,7 @@ class ZhanshimianAgent:
         self.args = args
         self.model = args.model or 'gpt-image-1'
         self.size = getattr(args, 'size', '1024x1024')
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
 
     def fuse_one(self, face_b64: str, scene_path: str, out_path: str) -> FaceFusionResult:
         """融合单张场景照片。"""
@@ -42,7 +42,7 @@ class ZhanshimianAgent:
                 "匹配场景的光照方向、阴影、色调、透视角度；"
                 "融合后画面自然无痕迹，像真实拍摄一样。"
             )
-            img_bytes = call_tti_retry(
+            img_bytes = self.llm.call_tti_retry(
                 prompt, self.model,
                 size=self.size,
                 ref_img=base64.b64decode(face_b64),  # 参考人脸

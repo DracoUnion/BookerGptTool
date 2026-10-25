@@ -14,7 +14,7 @@ from threading import Lock
 import functools
 from typing import Any, Dict, Optional, List, Callable
 from .util import ngram_jaccard, ext_code_block, ext_cont_block, render_prompt
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 from .md2skill_pmt import *
 from .md2skill_gen import generate_claude_skills
 from .md2skill_chunker import chunk_markdown
@@ -449,7 +449,6 @@ class Md2SkillOrchestrator:
 
 def md2skill(args):
     print(args)
-    set_openai_props(args)
     orchestrator = Md2SkillOrchestrator(args)
     orchestrator.run()
 

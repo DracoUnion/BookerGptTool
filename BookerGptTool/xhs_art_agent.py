@@ -5,7 +5,7 @@ xhs_art_agent.py —— 小红书轮播图与发布文案的 LLM 智能体
 
 import json_repair
 
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 from .xhs_art_models import XhsCard, XhsCopy
 from .xhs_art_pmt import GEN_CARDS_PMT, GEN_COPY_PMT
 from .util import render_prompt, ext_code_block
@@ -17,7 +17,7 @@ class XhsArtAgent:
     def __init__(self, args):
         self.model = args.model
         self.args = args
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
 
     def gen_cards(self, article: str):
         """根据文章生成 8-10 张小红书轮播卡片。"""
@@ -25,7 +25,7 @@ class XhsArtAgent:
         parse_output = lambda s: [
             XhsCard(**c) for c in json_repair.loads(ext_code_block(s))
         ]
-        return ask_chatgpt_retry(ques, self.model, self.args,
+        return self.llm.ask_chatgpt_retry(ques, self.model, self.args,
                                  parse_output=parse_output)
 
     def gen_copy(self, article: str) -> XhsCopy:
@@ -33,5 +33,5 @@ class XhsArtAgent:
         ques = render_prompt(GEN_COPY_PMT, article=article)
         parse_output = lambda s: XhsCopy(
             **json_repair.loads(ext_code_block(s)))
-        return ask_chatgpt_retry(ques, self.model, self.args,
+        return self.llm.ask_chatgpt_retry(ques, self.model, self.args,
                                  parse_output=parse_output)

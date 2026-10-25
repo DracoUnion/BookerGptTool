@@ -3,7 +3,6 @@ import uuid
 from os import path
 
 from .util import render_prompt, read_text
-from .openai import ask_chatgpt_retry, set_openai_props
 from .gts_fiction_pmt import (
     SETTING_PMT, ROLE_PMT, OUTLINE_PMT,
     DETAIL_PMT, BODY_PMT, POLISH_PMT,

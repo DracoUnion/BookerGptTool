@@ -1,4 +1,3 @@
-import openai
 import httpx
 import os
 import traceback
@@ -15,13 +14,12 @@ import functools
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from .util import extname, ext_code_block, render_prompt
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 from .clean_heading_pmt import *
 from .clean_heading_models import *
 
 def clean_handle(args):
     print(args)
-    set_openai_props(args)
 
     if path.isfile(args.fname):
         fnames = [args.fname]
@@ -49,6 +47,7 @@ def clean_handle(args):
     for h in hdls: h.result()
 
 def clean_md_llm(md, args, nlines=1000):
+    llm = OpenAIClient.from_args(args)
     lines = md.split('\n')
     if nlines < 1:
         ed = int(nlines * len(lines))
@@ -64,7 +63,7 @@ def clean_md_llm(md, args, nlines=1000):
         List[CleanHeadingLineResult], 
         json_repair.loads(ext_code_block(s))
     )
-    res: List[CleanHeadingLineResult] = ask_chatgpt_retry(
+    res: List[CleanHeadingLineResult] = llm.ask_chatgpt_retry(
         ques, args.model, args, 
         parse_output=parse_output,
     )

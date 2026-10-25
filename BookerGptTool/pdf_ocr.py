@@ -38,11 +38,7 @@ from .util import (
     write_yaml_model,
     get_md_title,
 )
-from .openai import (
-    call_vlm_retry,
-    ask_chatgpt_retry,
-    set_openai_props,
-)
+from .pdf_ocr_agent import PdfOcrAgent
 from .openai import logger as oai_logger
 logging.basicConfig(
     level=logging.INFO, 

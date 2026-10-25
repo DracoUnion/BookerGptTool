@@ -29,7 +29,6 @@ from .util import (
     read_text,
 )
 from .openai import logger as oai_logger
-from .openai import set_openai_props, ask_chatgpt_retry
 from .fmt import fmt_zh, fmt_publisher
 from .clean_heading import clean_md_llm
 from .trans_epub_models import *

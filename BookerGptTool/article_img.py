@@ -23,7 +23,7 @@ from typing import List, Dict, Any
 import json_repair
 
 from .openai import logger as oai_logger
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 from .article_img_models import (
     ImagePlan, ImagePlanList, ImagePage,
     IMAGE_TYPE_TAGS, Colors,
@@ -50,7 +50,7 @@ class ArticleImgAgent:
     def __init__(self, args):
         self.model = args.model
         self.args = args
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
 
     def plan_article(self, article: str) -> ImagePlanList:
         """根据文章内容规划配图计划。"""
@@ -58,7 +58,7 @@ class ArticleImgAgent:
         parse_output = lambda s: ImagePlanList(
             **json_repair.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(ques, self.model, self.args,
+        return self.llm.ask_chatgpt_retry(ques, self.model, self.args,
                                  parse_output=parse_output)
 
     def build_image(self, plan: ImagePlan, total: int) -> ImagePage:
@@ -80,7 +80,7 @@ class ArticleImgAgent:
             is_dark=plan.is_dark,
             **json_repair.loads(ext_code_block(s)),
         )
-        return ask_chatgpt_retry(ques, self.model, self.args,
+        return self.llm.ask_chatgpt_retry(ques, self.model, self.args,
                                  parse_output=parse_output)
 
 

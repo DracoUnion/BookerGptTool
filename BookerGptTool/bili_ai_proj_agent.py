@@ -16,7 +16,7 @@ from .util import (
     read_yaml_model,
     write_yaml_model,
 )
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 from .bili_ai_proj_pmt import *
 from .bili_ai_proj_models import *
 
@@ -56,7 +56,7 @@ class BiliAiProjAgent:
         self.asset_dir = path.join(self.pj_dir, 'asset')
         os.makedirs(self.pj_dir, exist_ok=True)
         os.makedirs(self.asset_dir, exist_ok=True)
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
         self._session: Optional[requests.Session] = None
 
     # ── B站搜索 ─────────────────────────────────────────────
@@ -195,7 +195,7 @@ class BiliAiProjAgent:
         )
         logger.info('[2] 候选 %d 条，提示词约 %d 字符', len(candidates), len(ques))
         parse_output = lambda s: _parse_app_list(s)
-        apps = ask_chatgpt_retry(
+        apps = self.llm.ask_chatgpt_retry(
             [{'role': 'system', 'content': FILTER_SYSTEM_PROMPT},
              {'role': 'user', 'content': ques}],
             self.model, self.args,

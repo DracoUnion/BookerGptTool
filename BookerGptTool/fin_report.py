@@ -8,7 +8,6 @@ from pydantic import parse_obj_as
 from typing import List, Optional, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from .util import ext_code_block, ext_cont_block, to_kebab, render_prompt
-from .openai import *
 from .fin_report_models import *
 
 from .fin_report_pmt import *
@@ -54,6 +53,7 @@ class MultiReportOrchestrator:
 
         # 初始化 Agent
         self.tools = FinReportTools(args)
+        self.llm = self.tools.llm
 
     def run(self) -> Optional[OrchestratorResult]:
         """执行 PDF 读取、研报处理和最终报告输出。"""
@@ -64,7 +64,7 @@ class MultiReportOrchestrator:
             return None
         logger.info('可用工具：%s', list(self.tools.get_tool_dict().keys()))
 
-        call_llm_with_toolcall_retry(
+        self.llm.call_llm_with_toolcall_retry(
             OVERALL_PMT, self.args.model, 
             self.tools.get_tool_defs(),
             self.tools.get_tool_dict(),

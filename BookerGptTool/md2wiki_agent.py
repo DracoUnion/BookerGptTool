@@ -7,7 +7,7 @@ from typing import List
 from pydantic import parse_obj_as
 
 from .util import ext_code_block, ext_cont_block, render_prompt
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 from .md2wiki_pmt import *
 from .md2wiki_models import WikiPagePlan, WikiFixDecision
 
@@ -25,7 +25,7 @@ class Md2WikiAgent:
     def __init__(self, args):
         self.args = args
         self.model = args.model
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
 
     def plan_pages(
         self,
@@ -46,7 +46,7 @@ class Md2WikiAgent:
             List[WikiPagePlan],
             json_repair.loads(ext_code_block(s)),
         )
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             ques, self.model, self.args, parse_output=parse_output,
         )
 
@@ -66,7 +66,7 @@ class Md2WikiAgent:
             title=title, url=url, date=date,
             summary=summary, content=content,
         )
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             ques, self.model, self.args, parse_output=ext_cont_block,
         )
 
@@ -87,7 +87,7 @@ class Md2WikiAgent:
             List[WikiFixDecision],
             json_repair.loads(ext_code_block(s)),
         )
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             ques, self.model, self.args, parse_output=parse_output,
         )
 

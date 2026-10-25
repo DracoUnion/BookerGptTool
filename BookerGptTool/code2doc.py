@@ -12,7 +12,6 @@ from .util import (
     extname,
     render_prompt,
 )
-from .openai import ask_chatgpt_retry, set_openai_props
 from .code2doc_pmt import *
 from .code2doc_models import *
 

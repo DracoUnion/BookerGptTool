@@ -53,7 +53,7 @@ class ReTools(ToolsMixin):
     def __init__(self, args):
         """初始化：保存参数、配置 OpenAI、连接 IDA(idalib) 与 x64dbg/x32dbg。"""
         super(ToolsMixin, self).__init__()
-        set_openai_props(args)
+        self.llm = OpenAIClient.from_args(args)
         self.args = args
         self.model = getattr(args, 'model', '')
         self.retry = getattr(args, 'retry', 3)
@@ -202,7 +202,7 @@ class ReTools(ToolsMixin):
         if r:
             return r
         mt = max_tokens if max_tokens is not None else self.max_tokens
-        res = call_llm_retry(
+        res = self.llm.call_llm_retry(
             user, self.model,
             retry=self.retry, temp=self.temperature,
             max_tokens=mt,

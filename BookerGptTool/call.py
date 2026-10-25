@@ -1,21 +1,20 @@
 import yaml
-import openai
 from .util import *
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 
 def check_batch_handle(args):
     print(args)
-    set_openai_props(args)
+    llm = OpenAIClient.from_args(args)
     if not args.fname.endswith('.yaml'):
         print('请提供 YAML 文件')
         return
     keys = yaml.safe_load(open(args.fname, encoding='utf8').read())
     for k in keys:
         print(k)
-        openai.api_key = k['api_key']
-        openai.base_url = k['base_url']
+        llm.api_key = k['api_key']
+        llm.base_url = k['base_url']
         try:
-           ans = ask_chatgpt_retry(args.ques, k['model'], args)
+           ans = llm.ask_chatgpt_retry(args.ques, k['model'], args)
            print(ans)
         except:
             traceback.print_exc()
@@ -23,8 +22,8 @@ def check_batch_handle(args):
 
 def call_handle(args):
     print(args)
-    set_openai_props(args)
-    ans = ask_chatgpt_retry(args.ques, args.model, args)
+    llm = OpenAIClient.from_args(args)
+    ans = llm.ask_chatgpt_retry(args.ques, args.model, args)
     print(ans)
 
 

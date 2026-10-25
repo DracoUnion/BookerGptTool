@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Any, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .util import ext_code_block
-from .openai import call_llm_retry, set_openai_props
+from .openai import OpenAIClient
 from .md2kg_models import *
 from .md2kg_pmt import *
 
@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 # 1. 统一智能体
 # ============================================================================
 from .md2kg_tools import Md2KgTools
-from .openai import call_llm_with_toolcall_retry
 
 # ============================================================================
 # 3. 调度协调器（Orchestrator）
@@ -44,6 +43,7 @@ class KnowledgeGraphOrchestrator:
         os.makedirs(self.pj_dir, exist_ok=True)
         # 初始化智能体
         self.tools = Md2KgTools(args)
+        self.llm = self.tools.llm
 
     def run(self) -> Dict[str, Any]:
         """执行输入读取、知识图谱构建和结果输出的完整流程。"""
@@ -55,7 +55,7 @@ class KnowledgeGraphOrchestrator:
             print('请提供 MD 文件或目录')
             return None
         
-        call_llm_with_toolcall_retry(
+        self.llm.call_llm_with_toolcall_retry(
             OVERALL_PMT, self.args.model, 
             self.tools.get_tool_defs(),
             self.tools.get_tool_dict(),

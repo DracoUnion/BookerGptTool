@@ -9,7 +9,6 @@ from .openai import logger as oai_logger
 
 def resplit_hdl(args):
     print(args)
-    set_openai_props(args)
     if args.debug:
         oai_logger.setLevel(logging.DEBUG)
     dir = args.dir

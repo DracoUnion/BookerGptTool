@@ -1,5 +1,3 @@
-import openai
-
 import os
 
 from os import path
@@ -38,7 +36,7 @@ from .util import (
 
 from .openai import logger as oai_logger
 
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 
 from .code2book_pmt import *
 
@@ -64,7 +62,7 @@ class Code2BookAgent:
         self.args = args
         self.pj_dir = path.abspath(args.dir) + '_code2book'
         self.asset_dir = path.join(self.pj_dir, 'asset')
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
 
     def fix_parts(
         self, files: List[str],
@@ -86,7 +84,7 @@ class Code2BookAgent:
             List[PartClusResult],
             json_repair.loads(ext_code_block(s))
         )
-        parts =  ask_chatgpt_retry(
+        parts =  self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
@@ -107,7 +105,7 @@ class Code2BookAgent:
             List[PartClusResult],
             json_repair.loads(ext_code_block(s))
         )
-        parts =  ask_chatgpt_retry(
+        parts =  self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
@@ -137,7 +135,7 @@ class Code2BookAgent:
                     fname=fname, code=chunk,
                     start=str(start_line)
                 )
-                chunk_res: ClsFuncExtResult =  ask_chatgpt_retry(
+                chunk_res: ClsFuncExtResult =  self.llm.ask_chatgpt_retry(
                     ques, self.model, self.args,
                     parse_output=parse_output,
                 )
@@ -169,7 +167,7 @@ class Code2BookAgent:
             List[OutlineChapterResult],
             json_repair.loads(ext_code_block(s))
         )
-        res: List[OutlineChapterResult] = ask_chatgpt_retry(
+        res: List[OutlineChapterResult] = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
@@ -203,7 +201,7 @@ class Code2BookAgent:
             List[OutlineChapterResult],
             json_repair.loads(ext_code_block(s))
         )
-        res: List[OutlineChapterResult] = ask_chatgpt_retry(
+        res: List[OutlineChapterResult] = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
@@ -234,7 +232,7 @@ class Code2BookAgent:
         parse_output = lambda s: SrcAnlsDetailResult(
             **json_repair.loads(ext_code_block(s))
         )
-        res: SrcAnlsDetailResult = ask_chatgpt_retry(
+        res: SrcAnlsDetailResult = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
@@ -264,7 +262,7 @@ class Code2BookAgent:
         parse_output = lambda s: RestDetailResult(
             **json_repair.loads(ext_code_block(s))
         )
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
@@ -295,7 +293,7 @@ class Code2BookAgent:
         parse_output = lambda s: Detail(
             **json_repair.loads(ext_code_block(s))
         )
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
@@ -322,7 +320,7 @@ class Code2BookAgent:
             code_desc=self._json_dump(code_desc),
             i=str(idx + 1),
         )
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         )
@@ -339,7 +337,7 @@ class Code2BookAgent:
         if r: return r
         detail_str = detail.json()
         ques = render_prompt(BODY_CHK_PMT, body=body, detail=detail_str)
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         )
@@ -368,7 +366,7 @@ class Code2BookAgent:
             comment=comment,
             code_desc=self._json_dump(code_desc),
         )
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         )

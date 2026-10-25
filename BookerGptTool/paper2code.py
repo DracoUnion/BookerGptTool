@@ -12,7 +12,6 @@ import requests
 from .paper2code_models import *
 from .paper2code_pmt import *
 from .util import ext_code_block, extname, render_prompt, read_text
-from .openai import ask_chatgpt_retry, set_openai_props
 
 logging.basicConfig(
     level=logging.INFO, 

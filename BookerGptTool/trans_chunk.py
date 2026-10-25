@@ -8,7 +8,7 @@ from os import path
 from .md2skill_chunker import chunk_markdown
 from .util import group_chunks, split_md_lines, ext_cont_block, render_prompt, gen_objs_md5, read_text, write_text
 from .openai import logger as oai_logger
-from .openai import set_openai_props, ask_chatgpt_retry
+from .openai import OpenAIClient
 from .trans_chunk_pmt import *
 
 logging.basicConfig(
@@ -18,16 +18,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def tr_trans_group(text, res, idx, args):
+    llm = OpenAIClient.from_args(args)
     ques = render_prompt(TRANS_PMT, en=text)
-    trans = ask_chatgpt_retry(ques, args.model, args, ext_cont_block).strip()
+    trans = llm.ask_chatgpt_retry(ques, args.model, args, ext_cont_block).strip()
     for i in range(args.round):
         ques = render_prompt(TRANS_CHK_PMT, en=text, zh=trans)
-        chks = ask_chatgpt_retry(ques, args.model, args, ext_cont_block).strip()
+        chks = llm.ask_chatgpt_retry(ques, args.model, args, ext_cont_block).strip()
         if '[PERFECT/]' in chks:
             res[idx] = trans
             break
         ques = render_prompt(TRANS_FIX_PMT, en=text, zh=trans, checks=chks)
-        trans = ask_chatgpt_retry(ques, args.model, args, ext_cont_block).strip()
+        trans = llm.ask_chatgpt_retry(ques, args.model, args, ext_cont_block).strip()
         res[idx] = trans
 
 def trans_chunk_handle(args):
@@ -79,7 +80,6 @@ def trans_chunk_handle(args):
 
 def trans_chunk_file(args):
     logger.info(args)
-    set_openai_props(args)
     if args.debug:
         logger.setLevel(logging.DEBUG)
         oai_logger.setLevel(logging.DEBUG)

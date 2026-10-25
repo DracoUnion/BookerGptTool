@@ -18,7 +18,7 @@ from .novel_anls_pmt import (
     SCAN_SYSTEM, AGGREGATE_SYSTEM,
 )
 
-from .openai import call_llm_retry, set_openai_props
+from .openai import OpenAIClient
 from .util import render_prompt, json_dump_model, ext_code_block
 
 
@@ -28,7 +28,7 @@ class NovelAnlsAgent:
     def __init__(self, args):
         self.args = args
         self.model = args.model
-        set_openai_props(args)
+        self.llm = OpenAIClient.from_args(args)
 
     def _call(
         self,
@@ -43,7 +43,7 @@ class NovelAnlsAgent:
         def parse(raw):
             return parse_obj_as(response_model, json.loads(ext_code_block(raw)))
 
-        return call_llm_retry(
+        return self.llm.call_llm_retry(
             [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},

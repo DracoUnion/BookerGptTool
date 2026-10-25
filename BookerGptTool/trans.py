@@ -1,4 +1,3 @@
-import openai
 import httpx
 import os
 import traceback
@@ -11,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import functools
 from .util import *
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 
 DFT_TRANS_PROMPT = '''
 假设你是一个高级文档工程师和翻译员，请参考下面的注意事项了解 Markdown 文档的格式，然后参考示例，将给定英文文本翻译成中文。
@@ -47,9 +46,10 @@ def shuffle_group(g):
     g['ids'] = [g['ids'][i] for i in idcs]
     g['ens'] = [g['ens'][i] for i in idcs]
 
-def openai_trans(en, prompt, model_name, temp=0, retry=10, max_tokens=None):
+def openai_trans(en, prompt, model_name, args):
     ques = render_prompt(prompt, en=en)
-    ans = ask_chatgpt_retry(ques, model_name, temp, retry, max_tokens)
+    llm = OpenAIClient.from_args(args)
+    ans = llm.ask_chatgpt_retry(ques, model_name, args)
     ans = fix_lists(ans)
     return ans
     
@@ -159,7 +159,6 @@ def write_callback(fname, totrans):
 
 def trans_yaml_handle(args):
     print(args)
-    set_openai_props(args)
     fnames = [args.fname] if path.isfile(args.fname) \
              else [path.join(args.fname, f) for f in os.listdir(args.fname)]
     fnames = [f for f in fnames if extname(f) == 'yaml']
@@ -184,7 +183,6 @@ def trans_yaml_handle(args):
     
 def trans_handle(args):
     print(args)
-    set_openai_props(args)
     ans = openai_trans(args.en, args.prompt, args.model, args)
 
 
@@ -194,11 +192,15 @@ def reg_subparser(subparsers):
     trans_parser.add_argument("-p", "--prompt", default=DFT_TRANS_PROMPT, help="翻译提示词")
     trans_parser.add_argument("-l", "--limit", type=int, default=3000, help="token 上限")
     trans_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
+    trans_parser.add_argument("-tm", "--temp", type=float, default=0, help="温度")
+    trans_parser.add_argument("-r", "--retry", type=int, default=10, help="重试次数")
     trans_parser.set_defaults(func=trans_yaml_handle)
 
     test_parser = subparsers.add_parser("trans", help="翻译一句话")
     test_parser.add_argument("en", help="英文文本")
     test_parser.add_argument("-p", "--prompt", default=DFT_TRANS_PROMPT, help="翻译提示词")
     test_parser.add_argument("-l", "--limit", type=int, default=3000, help="token 上限")
+    test_parser.add_argument("-tm", "--temp", type=float, default=0, help="温度")
+    test_parser.add_argument("-r", "--retry", type=int, default=10, help="重试次数")
     test_parser.set_defaults(func=trans_handle)
     

@@ -6,7 +6,7 @@ from os import path
 
 from .util import render_prompt
 
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 
 from .gts_fiction_pmt import (
     SETTING_PMT, ROLE_PMT, OUTLINE_PMT,
@@ -22,10 +22,10 @@ class GtsFictionAgent:
     def __init__(self, model, args):
         self.model = model
         self.args = args
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
 
     def _call(self, prompt):
-        return ask_chatgpt_retry(prompt, self.model, self.args)
+        return self.llm.ask_chatgpt_retry(prompt, self.model, self.args)
 
     def generate_setting(self, idea, write_command):
         prompt = render_prompt(SETTING_PMT, idea=idea, command=write_command)

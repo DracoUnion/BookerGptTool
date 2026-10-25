@@ -12,6 +12,7 @@ class ResplitAgent():
         self.asset_dir = path.join(
             getattr(self.args, 'dir', '.'), 'asset'
         )
+        self.llm = OpenAIClient.from_args(self.args)
 
     def split(self, lines):
         cache_fname = path.join(
@@ -26,7 +27,7 @@ class ResplitAgent():
             ChapterSplitResult, 
             json_repair.loads(ext_code_block(s))
         )
-        res: ChapterSplitResult = ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
+        res: ChapterSplitResult = self.llm.ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
         write_yaml_model(cache_fname, res)
         return res
 
@@ -47,7 +48,7 @@ class ResplitAgent():
             CheckSplitResult, 
             json_repair.loads(ext_code_block(s))
         )
-        res: CheckSplitResult = ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
+        res: CheckSplitResult = self.llm.ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
         write_yaml_model(cache_fname, res)
         return res
 
@@ -69,6 +70,6 @@ class ResplitAgent():
             JudgeSplitResult, 
             json_repair.loads(ext_code_block(s))
         )
-        res: JudgeSplitResult = ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
+        res: JudgeSplitResult = self.llm.ask_chatgpt_retry(ques, self.args.model, self.args, parse_output)
         write_yaml_model(cache_fname, res)
         return res

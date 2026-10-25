@@ -21,7 +21,7 @@ from .util import (
     read_yaml_model,
     write_yaml_model,
 )
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 from .zhihu_radar_pmt import *
 from .zhihu_radar_models import *
 
@@ -83,7 +83,7 @@ class ZhihuRadarAgent:
         self.asset_dir = path.join(self.pj_dir, 'asset')
         os.makedirs(self.pj_dir, exist_ok=True)
         os.makedirs(self.asset_dir, exist_ok=True)
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
         self._cookie_jar = None
 
     # ── cookie（browser_cookies3 包）──────────────────────────
@@ -253,7 +253,7 @@ class ZhihuRadarAgent:
                 {'role': 'user', 'content': ques},
             ]
             parse_output = lambda s: _parse_verdicts(s)
-            res = ask_chatgpt_retry(
+            res = self.llm.ask_chatgpt_retry(
                 msgs, self.model, self.args,
                 parse_output=parse_output,
             )
@@ -291,7 +291,7 @@ class ZhihuRadarAgent:
             {'role': 'system', 'content': OUTLINE_SYSTEM_PMT},
             {'role': 'user', 'content': ques},
         ]
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             msgs, self.model, self.args,
             parse_output=lambda s: _parse_outline(s),
         )

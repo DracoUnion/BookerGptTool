@@ -18,7 +18,7 @@ from .util import (
     ext_cont_block,
     json_dump_model,
 )
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 from .write_novel_pmt import *
 from .write_novel_models import *
 
@@ -33,7 +33,7 @@ class WriteNovelAgent:
         self.model = args.model
         self.pj_dir = args.out
         self.asset_dir = path.join(self.pj_dir, 'asset')
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
 
     @staticmethod
     def _json_parse(raw: str, model: Type[BaseModel]):
@@ -55,7 +55,7 @@ class WriteNovelAgent:
         if r is not None:
             return r
         ques = render_prompt(pmt, **ctx)
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=lambda s: self._json_parse(s, model),
         )
@@ -69,7 +69,7 @@ class WriteNovelAgent:
         r = read_text(cache_fname)
         if r: return r
         ques = render_prompt(pmt, **ctx)
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         )

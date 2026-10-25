@@ -19,7 +19,7 @@ from .xhs_img_models import (
     STYLES, LAYOUTS, PALETTES, PRESETS, AUTO_SELECTION_TABLE,
 )
 from .util import ext_code_block
-from .openai import call_tti_retry, ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 
 logger = logging.getLogger(__name__)
 
@@ -355,6 +355,7 @@ ASPECT_3_4 = {"gpt-image-1": "1024x1536", "dall-e-3": "1024x1792"}
 
 def generate_series(prompts: dict[str, str], output_dir: Path,
                     args, size: str | None = None) -> list[bytes]:
+    llm = OpenAIClient.from_args(args)
     if size is None:
         size = ASPECT_3_4.get(args.model, "1024x1536")
 
@@ -366,8 +367,7 @@ def generate_series(prompts: dict[str, str], output_dir: Path,
         img_name = name[:-3] + ".png"
         out_path = output_dir / img_name
         logger.info(f"[{i + 1}/{len(prompts)}] {img_name}")
-        # img = ask_chatgpt_retry(prompt, args.model, args, ext_code_block)
-        img = call_tti_retry(prompt, args.tti_model, size, ref_img, args.retry)
+        img = llm.call_tti_retry(prompt, args.tti_model, size, ref_img, args.retry)
         logger.info(f"[OK] {img_name} ({len(img) / 1024:.0f} KB)")
         out_path.write_bytes(img, encoding='utf8')
         results.append(img)
@@ -408,7 +408,6 @@ def _outline_to_md(outline: Outline) -> str:
 
 def xhs_img_handle(args):
     """xhs-img 子命令入口。"""
-    set_openai_props(args)
     if args.input == "-":
         text = sys.stdin.read()
     else:

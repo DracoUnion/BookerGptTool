@@ -53,7 +53,7 @@ class AutoResearchTools(ToolsMixin):
     def __init__(self, args):
         """初始化工具集：保存参数、配置 OpenAI、创建项目工作区目录。"""
         super(ToolsMixin, self).__init__()
-        set_openai_props(args)
+        self.llm = OpenAIClient.from_args(args)
         self.args = args
         self.pj_dir = path.abspath(getattr(args, 'project', None) or 'auto_research')
         os.makedirs(self.pj_dir, exist_ok=True)
@@ -94,7 +94,7 @@ class AutoResearchTools(ToolsMixin):
         if r:
             return r
         mt = max_tokens if max_tokens is not None else self.max_tokens
-        res = call_llm_retry(
+        res = self.llm.call_llm_retry(
             user, self.model,
             retry=self.retry, temp=self.temperature,
             max_tokens=mt,

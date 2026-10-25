@@ -22,7 +22,7 @@ from .paper2code_pmt import *
 
 from .util import ext_code_block, extname, render_prompt
 
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 
 
 
@@ -32,12 +32,12 @@ class Paper2CodeAgent:
     def __init__(self, args):
         self.args = args
         self.model = args.model
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
 
     def gen_plan(self, paper: str) -> str:
         """根据论文生成复现计划。"""
         ques = render_prompt(PLAN_PMT, paper=paper)
-        return ask_chatgpt_retry(ques, self.model, self.args)
+        return self.llm.ask_chatgpt_retry(ques, self.model, self.args)
 
     def gen_file_list(self, paper: str, plan: str) -> FListResult:
         """根据论文和计划生成项目文件列表及接口设计。"""
@@ -45,7 +45,7 @@ class Paper2CodeAgent:
         parse_output = lambda s: FListResult(
             **json.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
@@ -61,7 +61,7 @@ class Paper2CodeAgent:
         parse_output = lambda s: TasksResult(
             **json.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
@@ -75,7 +75,7 @@ class Paper2CodeAgent:
             flist=flist,
             tasks=tasks,
         )
-        ans = ask_chatgpt_retry(ques, self.model, self.args)
+        ans = self.llm.ask_chatgpt_retry(ques, self.model, self.args)
         return re.search(r'```\w*([\s\S]+?)```', ans).group(1)
 
     def gen_logic_analysis(
@@ -99,7 +99,7 @@ class Paper2CodeAgent:
             fname=fname,
             fdesc=fdesc,
         )
-        return ask_chatgpt_retry(ques, self.model, self.args)
+        return self.llm.ask_chatgpt_retry(ques, self.model, self.args)
 
     def gen_code(
         self,
@@ -122,5 +122,5 @@ class Paper2CodeAgent:
             todo_file_name=todo_file_name,
             logic_analysis=logic_analysis,
         )
-        ans = ask_chatgpt_retry(ques, self.model, self.args)
+        ans = self.llm.ask_chatgpt_retry(ques, self.model, self.args)
         return re.search(r'```\w*([\s\S]+?)```', ans).group(1)

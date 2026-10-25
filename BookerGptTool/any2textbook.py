@@ -29,7 +29,6 @@ from .any2textbook_tools import Any2TextbookTools
 from .any2textbook_models import *
 from .any2textbook_pmt import *
 from .util import extname
-from .openai import call_llm_with_toolcall_retry
 from .any2textbook_pmt import OVERALL_PMT
 
 logging.basicConfig(
@@ -47,6 +46,7 @@ class Any2TextbookOrchestrator:
         self.args = args
         self.tools = Any2TextbookTools(args)
         self.pj_dir = self.tools.pj_dir
+        self.llm = self.tools.llm
         os.makedirs(self.pj_dir, exist_ok=True)
 
 
@@ -59,7 +59,7 @@ class Any2TextbookOrchestrator:
         logger.info(self.args)
         logger.info('可用工具：%s', list(self.tools.get_tool_dict().keys()))
         
-        call_llm_with_toolcall_retry(
+        self.llm.call_llm_with_toolcall_retry(
             OVERALL_PMT, self.args.model, 
             self.tools.get_tool_defs(),
             self.tools.get_tool_dict(),

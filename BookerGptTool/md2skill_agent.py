@@ -30,7 +30,7 @@ from typing import Any, Dict, Optional, List, Callable
 
 from .util import ngram_jaccard, ext_code_block, ext_cont_block, render_prompt
 
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 
 from .md2skill_pmt import *
 
@@ -124,13 +124,14 @@ class Md2SkillAgent:
     def __init__(self, model, args):
         self.model = model
         self.args = args
+        self.llm = OpenAIClient.from_args(self.args)
 
     def generate_schema(self, toc, preface) -> BookSchema:
         """Step 1: 从目录和前言推断知识结构 schema"""
         prompt = render_prompt(SCHEMA_PMT, toc=toc, preface=preface)
         parse_output = lambda s: BookSchema.model_validate(
             json.loads(ext_code_block(schema_raw)))
-        schema_raw = ask_chatgpt_retry(prompt, self.model, self.args, parse_output)
+        schema_raw = self.llm.ask_chatgpt_retry(prompt, self.model, self.args, parse_output)
         return schema_raw
 
     def generate_raw_skills(
@@ -143,7 +144,7 @@ class Md2SkillAgent:
             context=context,
         )
         parse_output = lambda s: ext_cont_block(s).split('[split/]')
-        raw_texts = ask_chatgpt_retry(prompt, self.model, self.args, parse_output)
+        raw_texts = self.llm.ask_chatgpt_retry(prompt, self.model, self.args, parse_output)
         return [rs for rs in (parse_raw_skill(rt) for rt in raw_texts) if rs]
 
     def merge_cluster(self, cluster: List[RawSkill]) -> Optional[RawSkill]:
@@ -154,5 +155,5 @@ class Md2SkillAgent:
             count=str(len(cluster)),
             skills=text,
         )
-        merged_text = ask_chatgpt_retry(prompt, self.model, self.args, ext_cont_block)
+        merged_text = self.llm.ask_chatgpt_retry(prompt, self.model, self.args, ext_cont_block)
         return parse_raw_skill(merged_text)

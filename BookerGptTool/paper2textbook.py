@@ -39,7 +39,6 @@ from .util import (
     write_text,
     gen_objs_md5,
 )
-from .openai import ask_chatgpt_retry, set_openai_props
 
 logging.basicConfig(
     level=logging.INFO,

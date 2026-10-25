@@ -1,4 +1,3 @@
-import openai
 import httpx
 import os
 import traceback
@@ -12,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 import functools
 from .util import *
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 
 DFT_PMT = '''
 把以下内容翻译成中文并整理成一篇教程，要注意（1）删除一切语气词（如啊/哦/嗯），（2）markdown格式输出。（3）保留原文**每一句**话含义。（4）标题配上合适的emoji（5）核心概念用**公式**或**代码**描述。（6）保证行文流畅，每一小节前后带有自然的过渡（例如，上一节我们介绍了xxx，本节中我们来看看yyy），特别是每个列表前要有简短的一句话介绍（例如，以下是xxx）（7）内容尽可能简单直白，让初学者能够看懂（8）开头要有概述（例如，在本节课中我们将要学习xxx），结尾要有总结（本节课中我们一起学习了yyy）（9）标题格式为“{课程名称}：{章节编号}：{章节名称}”。（10）标题，正文，列表，引用彼此之间隔两个换行符（\n\n）。（11）只需要输出教程，不需要什么其他东西（例如，根据您的要求...以下是为您生成的xxx）。
@@ -42,6 +41,7 @@ def mknote_file(args):
     if path.isfile(ofname):
         print('文件已总结')
         return
+    llm = OpenAIClient.from_args(args)
 
     text = open(args.fname, encoding='utf8').read()
     total = len(text)
@@ -51,7 +51,7 @@ def mknote_file(args):
         for m in ms
     ]
     ques = render_prompt(DFT_PMT, text=text)
-    ans = ask_chatgpt_retry(ques, args.model, args)
+    ans = llm.ask_chatgpt_retry(ques, args.model, args)
     lines = re.split(r'\n\n(?=\S)', ans)
     total = len(lines)
     for frac, link in links[::-1]:
@@ -63,7 +63,6 @@ def mknote_file(args):
 
 def mknote(args):
     print(args)
-    set_openai_props(args)
 
     if path.isfile(args.fname):
         fnames = [args.fname]

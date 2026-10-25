@@ -14,7 +14,6 @@ from .novel_anls_models import (
     BookAnalysisReport, BookMeta, Chapter, ChapterSummary,
     MODULE_CLASS_MAP,
 )
-from .openai import call_llm_retry, set_openai_props
 
 logging.basicConfig(
     level=logging.INFO, 

@@ -19,7 +19,7 @@ from .util import (
     render_prompt,
 )
 
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 
 from .code2doc_pmt import *
 
@@ -33,7 +33,7 @@ class Code2DocAgent:
     def __init__(self, args):
         self.args = args
         self.model = args.model
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
 
 
     def gen_overview(self, code: str) -> OverviewResult:
@@ -42,7 +42,7 @@ class Code2DocAgent:
         parse_output = lambda s: OverviewResult(
             **json.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
@@ -55,7 +55,7 @@ class Code2DocAgent:
         parse_output = lambda s: VarFieldExtResult(
             **json.loads(ext_code_block(s))
         )
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=parse_output,
         )
@@ -63,7 +63,7 @@ class Code2DocAgent:
     def gen_func_method(self, code: str, func_name: str) -> str:
         """分析单个全局函数或类方法。"""
         ques = render_prompt(FUNC_MTD_EXT_PMT, code=code, func=func_name)
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         )
@@ -71,7 +71,7 @@ class Code2DocAgent:
     def gen_key_components(self, code: str) -> str:
         """分析源码中的关键组件。"""
         ques = render_prompt(KEY_CMPN_PMT, code=code)
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         )
@@ -79,7 +79,7 @@ class Code2DocAgent:
     def gen_advice(self, code: str) -> str:
         """分析源码中的问题和优化建议。"""
         ques = render_prompt(ADVC_PMT, code=code)
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         )
@@ -87,7 +87,7 @@ class Code2DocAgent:
     def gen_others(self, code: str) -> str:
         """分析详细设计文档中的其它补充项目。"""
         ques = render_prompt(ETC_PMT, code=code)
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         )

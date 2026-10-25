@@ -3,7 +3,7 @@
 ppt_agent.py —— 网页 PPT 子命令（ppt）的智能体。
 
 参照 AGENTS.md 与 pdf_ocr_agent.py：本类封装整个子命令的全部能力——
-大模型调用（render_prompt + ask_chatgpt_retry + parse_output 回调）、
+大模型调用（render_prompt + self.llm.ask_chatgpt_retry + parse_output 回调）、
 素材/参考读取、模板组装、文件缓存与写盘。编排器（ppt.py）只负责按固定顺序
 调用本类的方法，不直接碰 IO。
 """
@@ -30,10 +30,7 @@ from .util import (
     write_yaml_model,
     d,
 )
-from .openai import (
-    ask_chatgpt_retry,
-    set_openai_props,
-)
+from .openai import OpenAIClient
 from .ppt_models import *
 from .ppt_pmt import *
 
@@ -43,14 +40,14 @@ class PptAgent:
 
     每个大模型的调用实现为一个方法，负责：
     1. 用 render_prompt 渲染提示词（参数由编排器传入）；
-    2. 调用 ask_chatgpt_retry（内部 call_llm_retry，带重试）；
+    2. 调用 self.llm.ask_chatgpt_retry（内部 call_llm_retry，带重试）；
     3. 通过 parse_output 回调解析输出（ext_code_block / ext_cont_block / parse_obj_as）。
     """
 
     def __init__(self, args) -> None:
         self.args = args
         self.model = args.model
-        set_openai_props(args)
+        self.llm = OpenAIClient.from_args(args)
         # 项目输出目录（素材/参考读取、缓存与写盘都在这里）
         self.assets_dir = d('ppt_assets')
         self.refs_dir = path.join(self.assets_dir, 'references')
@@ -76,7 +73,7 @@ class PptAgent:
     @staticmethod
     def _json(schema: Type[BaseModel], prompt: str, args) -> BaseModel:
         """调用 LLM 并把 ```json 代码块解析为 pydantic 对象。"""
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             prompt, args.model, args,
             parse_output=lambda s: parse_obj_as(
                 schema, json.loads(ext_code_block(s))
@@ -86,7 +83,7 @@ class PptAgent:
     @staticmethod
     def _text(prompt: str, args) -> str:
         """调用 LLM 并提取 [content]...[/content] 中的正文。"""
-        return ask_chatgpt_retry(
+        return self.llm.ask_chatgpt_retry(
             prompt, args.model, args,
             parse_output=ext_cont_block,
         )

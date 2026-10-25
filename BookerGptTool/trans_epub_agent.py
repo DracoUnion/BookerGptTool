@@ -48,7 +48,7 @@ from .util import (
 
 from .openai import logger as oai_logger
 
-from .openai import set_openai_props, ask_chatgpt_retry
+from .openai import OpenAIClient
 
 from .fmt import fmt_zh, fmt_publisher
 
@@ -94,7 +94,7 @@ class EpubTranslatorAgent:
         paths = self.resolve_paths(args)
         self.pj_dir = paths['proj_dir']
         self.asset_dir = paths['meta_dir']
-        set_openai_props(args)
+        self.llm = OpenAIClient.from_args(args)
 
     def translate_title(self, text: str) -> str:
         cache_fname = path.join(
@@ -104,7 +104,7 @@ class EpubTranslatorAgent:
         r = read_text(cache_fname)
         if r: return r
         ques = render_prompt(TRANS_TITLE_PMT, text=text)
-        res = ask_chatgpt_retry(ques, self.args.model, self.args)
+        res = self.llm.ask_chatgpt_retry(ques, self.args.model, self.args)
         res = res.strip()
         write_text(cache_fname, res)
         return res
@@ -117,7 +117,7 @@ class EpubTranslatorAgent:
         r = read_text(cache_fname)
         if r: return r
         ques = render_prompt(FMT_PMT, text=text)
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.args.model, self.args,
             parse_output=ext_cont_block,
         )
@@ -132,7 +132,7 @@ class EpubTranslatorAgent:
         r = read_text(cache_fname)
         if r: return r
         ques = render_prompt(TRANS_BODY_PMT, text=text)
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.args.model, self.args,
             parse_output=ext_cont_block,
         )
@@ -151,7 +151,7 @@ class EpubTranslatorAgent:
         parse_output = lambda ans: TocChanges(
             **json_repair.loads(ext_code_block(ans))
         )
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.args.model, self.args,
             parse_output,
         )
@@ -171,7 +171,7 @@ class EpubTranslatorAgent:
             List[TocExtResult],
             json.loads(ext_code_block(s)),
         )
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.args.model, self.args,
             parse_output=parse_output,
         )

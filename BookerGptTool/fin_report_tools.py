@@ -32,7 +32,7 @@ class FinReportTools(ToolsMixin):
     def __init__(self, args):
         """初始化工具集：保存参数、配置 OpenAI、并创建项目输出目录。"""
         super(ToolsMixin, self).__init__()
-        set_openai_props(args)
+        self.llm = OpenAIClient.from_args(args)
         self.args = args
         self.model = args.model
         self.max_tokens = getattr(args, 'max_tokens', None) or 2000
@@ -53,7 +53,7 @@ class FinReportTools(ToolsMixin):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        return call_llm_retry(
+        return self.llm.call_llm_retry(
             messages, self.model,
             retry=self.retry,
             temp=temperature,
@@ -72,7 +72,7 @@ class FinReportTools(ToolsMixin):
         ques = render_prompt(FUND_ANLS_PROMPT, report=report)
         parse_output = lambda s: \
             FundAnlsResult.model_validate_json(ext_code_block(s))
-        r = ask_chatgpt_retry(
+        r = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args, parse_output
         )
         write_yaml_model(cache_fname, r)
@@ -89,7 +89,7 @@ class FinReportTools(ToolsMixin):
         ques = render_prompt(VAL_ANLS_PROMPT, report=report)
         parse_output = lambda s: \
             ValueAnlsResult.model_validate_json(ext_code_block(s))
-        r = ask_chatgpt_retry(
+        r = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args, parse_output
         )
         write_yaml_model(cache_fname, r)
@@ -106,7 +106,7 @@ class FinReportTools(ToolsMixin):
         ques = render_prompt(SENTI_ANLS_PROMPT, report=report)
         parse_output = lambda s: \
             SentiAnlsResult.model_validate_json(ext_code_block(s))
-        r = ask_chatgpt_retry(
+        r = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args, parse_output
         )
         write_yaml_model(cache_fname, r)

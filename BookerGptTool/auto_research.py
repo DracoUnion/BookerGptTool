@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 import json_repair
 
-from .openai import call_llm_with_toolcall_retry, set_openai_props, logger as oai_logger
+from .openai import logger as oai_logger
 from .util import render_prompt, write_text, json_dump_model
 from .auto_research_models import *
 from .auto_research_pmt import (
@@ -83,6 +83,7 @@ class AutoResearchOrchestrator:
         self.args = args
         self.tools = AutoResearchTools(args)
         self.pj_dir = self.tools.pj_dir
+        self.llm = self.tools.llm
         self.max_steps = getattr(args, 'max_steps', 60)
 
     def run(self) -> FinalReport:
@@ -106,7 +107,7 @@ class AutoResearchOrchestrator:
             '接近上限时应优先收敛并调用 tool_finish。）'
         )
 
-        final: FinalReport = call_llm_with_toolcall_retry(
+        final: FinalReport = self.llm.call_llm_with_toolcall_retry(
             msgs, self.args.model,
             self.tools.get_tool_defs(),
             self.tools.get_tool_dict(),

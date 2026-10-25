@@ -22,10 +22,7 @@ from typing import List, Optional, Tuple
 import json_repair
 from pydantic import BaseModel
 
-from .openai import (
-    call_vlm_retry,
-    set_openai_props,
-)
+from .openai import OpenAIClient
 from .openai import logger as oai_logger
 from .util import render_prompt, ext_code_block
 
@@ -356,7 +353,7 @@ def play_game(args) -> None:
     for _stream in (sys.stdout, sys.stderr):
         if hasattr(_stream, 'reconfigure'):
             _stream.reconfigure(errors='replace')
-    set_openai_props(args)
+    llm = OpenAIClient.from_args(args)
     if args.debug:
         logger.setLevel(logging.DEBUG)
         oai_logger.setLevel(logging.DEBUG)
@@ -412,7 +409,7 @@ def play_game(args) -> None:
             window=title, goal=args.goal,
             w=str(w), h=str(h), keys=SPECIAL_KEYS, last=last,
         )
-        resp: PlayGameResp = call_vlm_retry(
+        resp: PlayGameResp = llm.call_vlm_retry(
             png, prompt, model, vg_args,
             parse_output=parse_res,
         )

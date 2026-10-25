@@ -1,6 +1,5 @@
 import re
 import copy
-import openai
 import os
 from os import path
 import yaml
@@ -24,7 +23,6 @@ from .util import (
     read_text,
 )
 from .openai import logger as oai_logger
-from .openai import ask_chatgpt_retry, set_openai_props
 from .code2book_pmt import *
 from .code2book_models import *
 

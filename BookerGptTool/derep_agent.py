@@ -16,7 +16,7 @@ from .util import (
     repl_code_block,
     rec_code_block,
 )
-from .openai import ask_chatgpt_retry, set_openai_props
+from .openai import OpenAIClient
 from .derep_pmt import *
 from .derep_models import *
 
@@ -35,7 +35,7 @@ class DerepAgent:
         self.asset_dir = path.join(self.pj_dir, 'asset')
         os.makedirs(self.pj_dir, exist_ok=True)
         os.makedirs(self.asset_dir, exist_ok=True)
-        set_openai_props(self.args)
+        self.llm = OpenAIClient.from_args(self.args)
 
     def gen_copy(self, source: str) -> str:
         """根据素材生成一篇全新文案（表述不同、核心观点一致）。"""
@@ -47,7 +47,7 @@ class DerepAgent:
         if r: return r
         # source, blocks = repl_code_block(source)
         ques = render_prompt(GEN_PMT, source=source)
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         ).strip()
@@ -85,7 +85,7 @@ class DerepAgent:
             repeated_ngrams='\n'.join(metrics.repeated_ngrams) or '（无）',
             block_prob=prob or '（无）',
         )
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.model, self.args,
             parse_output=ext_cont_block,
         ).strip()

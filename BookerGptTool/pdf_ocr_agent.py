@@ -70,11 +70,7 @@ from .util import (
     json_dump_model,
 )
 
-from .openai import (
-    call_vlm_retry,
-    ask_chatgpt_retry,
-    set_openai_props,
-)
+from .openai import OpenAIClient
 
 from .openai import logger as oai_logger
 
@@ -138,7 +134,7 @@ class PdfOcrAgent:
         paths = self.resolve_paths(args)
         self.pj_dir = paths['pj_dir']
         self.asset_dir = paths['meta_dir']
-        set_openai_props(args)
+        self.llm = OpenAIClient.from_args(args)
 
     def ocr(self, img: bytes) -> str:
         cache_fname = path.join(
@@ -150,7 +146,7 @@ class PdfOcrAgent:
         parse_output = lambda ans: OCRResult(
             **json_repair.loads(ext_code_block(ans))
         )
-        res: OCRResult = call_vlm_retry(
+        res: OCRResult = self.llm.call_vlm_retry(
             img, OCR_PMT,
             model_name=self.args.vmodel,
             args=self.args,
@@ -190,7 +186,7 @@ class PdfOcrAgent:
         r = read_text(cache_fname)
         if r: return int('[TRUE]' in r)
         ques = render_prompt(MERGE_PMT, prev=prev_line, next=next_line)
-        ans = ask_chatgpt_retry(ques, self.args.model, self.args)
+        ans = self.llm.ask_chatgpt_retry(ques, self.args.model, self.args)
         write_text(cache_fname, ans)
         return int('[TRUE]' in ans)
 
@@ -202,7 +198,7 @@ class PdfOcrAgent:
         r = read_text(cache_fname)
         if r: return r
         ques = render_prompt(POSTPROC_PMT, text=text)
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.args.model, self.args,
             parse_output=ext_cont_block,
         )
@@ -217,7 +213,7 @@ class PdfOcrAgent:
         r = read_text(cache_fname)
         if r: return r
         ques = render_prompt(TRANS_BODY_PMT, text=text)
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.args.model, self.args,
             parse_output=ext_cont_block,
         )
@@ -236,7 +232,7 @@ class PdfOcrAgent:
         parse_output = lambda ans: TocChanges(
             **json_repair.loads(ext_code_block(ans))
         )
-        res = ask_chatgpt_retry(
+        res = self.llm.ask_chatgpt_retry(
             ques, self.args.model, self.args,
             parse_output,
         )
@@ -251,7 +247,7 @@ class PdfOcrAgent:
         r = read_text(cache_fname)
         if r: return r
         ques = render_prompt(TRANS_TITLE_PMT, text=title)
-        res = ask_chatgpt_retry(ques, self.args.model, self.args)
+        res = self.llm.ask_chatgpt_retry(ques, self.args.model, self.args)
         res = res.strip()
         write_text(cache_fname, res)
         return res
