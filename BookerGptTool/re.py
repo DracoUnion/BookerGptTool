@@ -242,11 +242,11 @@ def reg_subparser(subparsers):
         help='检查 idapro/idalib 与 x64dbg/x32dbg 是否可用，打印并退出',
     )
     p.add_argument(
-        '--x64dbg-path', default=r'D:\tools\x64dbg_latest\release\x64\x64dbg.exe',
+        '--x64dbg-path', default=r'D:\Program Files\x64dbg\release\x64\x64dbg.exe',
         help='x64dbg 可执行文件路径（x64dbg_automate 启动会话用）',
     )
     p.add_argument(
-        '--x32dbg-path', default=r'D:\tools\x64dbg_latest\release\x32\x32dbg.exe',
+        '--x32dbg-path', default=r'D:\Program Files\x64dbg\release\x32\x32dbg.exe',
         help='x32dbg 可执行文件路径（x32dbg_automate 启动会话用）',
     )
     p.add_argument(
