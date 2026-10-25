@@ -96,11 +96,11 @@ class DerepAgent:
     @staticmethod
     def check_code_blocks(source: str, copy: str) -> CodeBlockCheckResult:
         missing = [
-            tk for tk in re.findall(r'[PRE\d+]', source)
+            tk for tk in re.findall(r'\[PRE\d+\]', source)
             if tk not in copy
         ]
         unknown = [
-            tk for tk in re.findall(r'[PRE\d+]', copy)
+            tk for tk in re.findall(r'\[PRE\d+\]', copy)
             if tk not in source
         ]
         return CodeBlockCheckResult(
