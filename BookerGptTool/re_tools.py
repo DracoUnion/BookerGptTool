@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-"""re 子命令工具集：基础工具 + IDA MCP 桥接 + x64dbg/x32dbg 直连工具。
+"""re 子命令工具集：基础工具 + IDA(idalib) 直连 + x64dbg/x32dbg 直连工具。
 
 - 基础工具与工作区工具继承自 ToolsMixin。
-- IDA：通过 MCP（stdio）桥接，动态注册 tool_mcp_ida_*。
+- IDA：通过 idalib 直接调用 IDA API（无 MCP 桥接）。
+  注册一组 tool_ida_* 静态工具（对应 IdaClient 方法）。
 - x64dbg / x32dbg：直接使用 x64dbg_automate 库（ZeroMQ），不经过 MCP。
   为两个目标各生成一组 tool_x64_* / tool_x32_* 静态工具（工厂方法 + 静态 Schema）。
 """
@@ -25,14 +26,14 @@ from .util import (
 from .openai import *
 from .re_models import *
 from .re_pmt import *
-from . import re_mcp as re_mcp_mod
+from . import re_ida as re_ida_mod
 from . import re_xauto as re_xauto_mod
 
 logger = logging.getLogger(__name__)
 
 
 def _norm_safe(name: str) -> str:
-    """把 MCP 工具名转为合法下划线标识符片段（保留字母数字下划线）。"""
+    """把名称转为合法下划线标识符片段（保留字母数字下划线）。"""
     s = re.sub(r'[^\w]', '_', name)
     s = re.sub(r'_+', '_', s).strip('_')
     return s or 'tool'
@@ -42,14 +43,15 @@ class ReTools(ToolsMixin):
     """逆向工程智能体工具集。
 
     基础工具与工作区工具继承自 ToolsMixin；
-    IDA 用 MCP 桥接（动态注册）；x64dbg/x32dbg 用 x64dbg_automate 直连（静态工具）。
+    IDA 用 idalib 直连（静态工具）；x64dbg/x32dbg 用 x64dbg_automate 直连（静态工具）。
+    不再使用 MCP 桥接。
     """
 
     # 默认项目工作目录
     pj_dir = '.'
 
     def __init__(self, args):
-        """初始化：保存参数、配置 OpenAI、连接 IDA MCP 与 x64dbg/x32dbg。"""
+        """初始化：保存参数、配置 OpenAI、连接 IDA(idalib) 与 x64dbg/x32dbg。"""
         super(ToolsMixin, self).__init__()
         set_openai_props(args)
         self.args = args
@@ -62,11 +64,19 @@ class ReTools(ToolsMixin):
         self.pj_dir = path.abspath(self.project_id)
         os.makedirs(self.pj_dir, exist_ok=True)
 
-        # IDA MCP 客户端
-        self.mcp_clients: Dict[str, re_mcp_mod.McpClient] = {}
-        self._dyn_tool_names: List[str] = []
-        # 已注册的 xauto 工具名（实例属性，避免类属性共享）
+        # 已注册的静态工具名（实例属性，避免类属性共享）
+        self._ida_tool_names: List[str] = []
         self._xauto_tool_names: List[str] = []
+
+        # IDA（idalib 直连，无 MCP）
+        self.ida: Optional[re_ida_mod.IdaClient] = None
+        if getattr(args, 'no_ida', False):
+            logger.info('已禁用 IDA（-no-ida）')
+        else:
+            try:
+                self.ida = re_ida_mod.IdaClient(workdir=self.pj_dir)
+            except Exception as ex:
+                logger.warning('IDA 封装初始化失败：%s', ex)
 
         # x64dbg / x32dbg 直连客户端（x64dbg_automate）
         self.xauto: Dict[str, re_xauto_mod.XautoClient] = {}
@@ -81,72 +91,37 @@ class ReTools(ToolsMixin):
                 except Exception as ex:
                     logger.warning('%s 封装初始化失败：%s', target, ex)
 
-        self._connect_mcp(args)
+        self._register_ida_tools()
         self._register_xauto_tools()
 
     # ══════════════════════════════════════════════════════════
-    # IDA MCP 连接（动态工具）
+    # IDA 静态工具（idalib 直连，无 MCP）
     # ══════════════════════════════════════════════════════════
 
-    def _connect_mcp(self, args) -> None:
-        """按配置连接 IDA MCP 服务器并发现工具。"""
-        servers = re_mcp_mod.load_mcp_servers(args)
-        for key, spec in servers.items():
-            if key != 'ida':
-                continue  # 只保留 IDA；x64dbg/x32dbg 走 xauto
-            client = re_mcp_mod.McpClient(key, spec)
-            try:
-                client.connect()
-                self.mcp_clients[key] = client
-            except Exception as ex:
-                logger.warning('MCP[%s] 连接失败：%s', key, ex)
+    def _register_ida_tools(self) -> None:
+        """为 IDA 生成 tool_ida_* 工具方法（映射到 IdaClient 方法）。"""
+        if self.ida is None:
+            return
+        for op, opname in _IDA_TOOL_OPS.items():
+            meth = f'tool_ida_{op}'
+            if hasattr(self, meth):
                 continue
-            try:
-                tools = client.list_tools()
-                logger.info('MCP[%s] 已连接，发现 %d 个工具', key, len(tools))
-            except Exception as ex:
-                logger.warning('MCP[%s] 已连接，但工具枚举失败：%s', key, ex)
-        self._register_dyn_tools()
+            setattr(self, meth, self._make_ida_wrapper(opname, meth))
+            self._ida_tool_names.append(meth)
 
-    def _register_dyn_tools(self) -> None:
-        """为每个 MCP 服务器的每个工具注册 tool_mcp_<server>_<name> 包装方法。"""
-        for key, client in self.mcp_clients.items():
-            prefix = _norm_safe(key)
-            for t in client.tools:
-                name = str(t.get('name') or '')
-                if not name:
-                    continue
-                safe = _norm_safe(name)
-                meth_name = f'tool_mcp_{prefix}_{safe}'
-                if hasattr(self, meth_name):
-                    continue
-                wrapper = self._make_wrapper(key, name, t)
-                wrapper.__re_schema__ = t
-                setattr(self, meth_name, wrapper)
-                self._dyn_tool_names.append(meth_name)
-
-    def _make_wrapper(self, server: str, tool_name: str, schema: Dict[str, Any]):
-        """构造动态工具方法：调用 MCP tools/call 并返回规范化结果。"""
-        description = str(schema.get('description') or f'调用 {server} 的 {tool_name}')
+    def _make_ida_wrapper(self, opname: str, meth_name: str):
+        """构造 IDA 工具方法：委托到 self.ida 的 opname 方法。"""
         def _wrap(**kwargs):
-            client = self.mcp_clients.get(server)
-            if client is None:
-                return MCPToolResult(
-                    ok=False, server=server, tool=tool_name,
-                    error=f'{server} 未连接',)
+            if self.ida is None:
+                return {'error': 'IDA 未初始化（idapro/idalib 不可用或已禁用 -no-ida）'}
             try:
-                res = client.call_tool(tool_name, kwargs or None)
-                return MCPToolResult(
-                    ok=res['ok'], server=server, tool=tool_name,
-                    output=res['output'], structured=res['structured'],
-                    error=res['error'],)
+                fn = getattr(self.ida, opname)
+                return fn(**kwargs)
             except Exception as ex:
-                return MCPToolResult(
-                    ok=False, server=server, tool=tool_name,
-                    error=f'{tool_name} 调用失败：{ex}',)
-        _wrap.__name__ = f'tool_mcp_{_norm_safe(server)}_{_norm_safe(tool_name)}'
-        _wrap.__doc__ = description
-        _wrap.__re_schema__ = schema
+                return {'error': f'ida.{opname} 异常：{ex}'}
+        _wrap.__name__ = meth_name
+        doc = _IDA_TOOL_DOCS.get(opname, f'对 IDA 执行 {opname}')
+        _wrap.__doc__ = doc
         return _wrap
 
     # ══════════════════════════════════════════════════════════
@@ -319,22 +294,24 @@ class ReTools(ToolsMixin):
         return sorted(files)
 
     # ══════════════════════════════════════════════════════════
-    # MCP 管理工具（IDA）
+    # 调试器状态管理工具
     # ══════════════════════════════════════════════════════════
 
     def tool_mcp_status(self) -> List[McpServerStatus]:
-        """查看各调试器连接状态：IDA(MCP)、x64dbg/x32dbg(直连)。"""
+        """查看各调试器连接状态：IDA(idalib)、x64dbg/x32dbg(xauto 直连)。"""
         statuses = []
-        client = self.mcp_clients.get('ida')
-        if client is None:
+        # IDA (idalib)
+        if self.ida is None:
             statuses.append(McpServerStatus(name='ida', connected=False,
                                             tool_count=0,
-                                            error='未连接（IDA MCP 不可用）'))
+                                            error='idapro/idalib 不可用'))
         else:
-            st = client.status()
+            st = self.ida.status()
             statuses.append(McpServerStatus(
-                name='ida', connected=st['connected'],
-                tool_count=st['tool_count'], error=st['error']))
+                name='ida', connected=st.get('connected', False),
+                tool_count=len(_IDA_TOOL_OPS),
+                error=st.get('error', '')))
+        # x64dbg / x32dbg (xauto)
         for target in ('x64dbg', 'x32dbg'):
             xc = self.xauto.get(target)
             if xc is None:
@@ -353,13 +330,13 @@ class ReTools(ToolsMixin):
         """列出某调试器的工具。server: ida/x64dbg/x32dbg；空=全部。"""
         result = []
         if not server or server == 'ida':
-            for key, client in self.mcp_clients.items():
-                for t in client.tools:
+            if self.ida is not None:
+                for op, opname in _IDA_TOOL_OPS.items():
                     result.append({
-                        'server': key,
-                        'name': t.get('name'),
-                        'description': t.get('description'),
-                        'inputSchema': t.get('inputSchema'),
+                        'server': 'ida',
+                        'name': f'tool_ida_{op}',
+                        'description': _IDA_TOOL_DOCS.get(opname, ''),
+                        'inputSchema': {},
                     })
         if not server or server in ('x64dbg', 'x32dbg'):
             for prefix, target in self._XTOOL_DELEGATES.items():
@@ -375,33 +352,6 @@ class ReTools(ToolsMixin):
         if not result:
             return [{'error': f'服务器 {server or "全部"} 未连接或没有工具'}]
         return result
-
-    def tool_mcp_call(self, server: str, tool: str,
-                      arguments: Dict[str, Any] = None) -> MCPToolResult:
-        """按名称调用 IDA MCP 工具（兜底）。x64dbg/x32dbg 请直接用 tool_x64_*/tool_x32_*。"""
-        client = self.mcp_clients.get(server)
-        if client is None:
-            return MCPToolResult(ok=False, server=server, tool=tool,
-                                 error=f'{server} 未连接（仅支持 ida）')
-        try:
-            res = client.call_tool(tool, arguments or {})
-            return MCPToolResult(ok=res['ok'], server=server, tool=tool,
-                                 output=res['output'], structured=res['structured'],
-                                 error=res['error'])
-        except Exception as ex:
-            return MCPToolResult(ok=False, server=server, tool=tool,
-                                 error=f'{tool} 调用失败：{ex}')
-
-    # ══════════════════════════════════════════════════════════
-    # x64dbg/x32dbg 生命周期管理
-    # ══════════════════════════════════════════════════════════
-
-    def _xauto_call(self, target: str, opname: str, **kwargs) -> Any:
-        """内部工具：调 x64dbg/x32dbg 客户端方法（供各 tool_x64_* 复用）。"""
-        client = self.xauto.get(target)
-        if client is None:
-            return {'error': f'{target} 未初始化'}
-        return getattr(client, opname)(**kwargs)
 
     # ══════════════════════════════════════════════════════════
     # 分析辅助工具
@@ -465,12 +415,6 @@ class ReTools(ToolsMixin):
         "tool_mcp_list_tools": params_schema(
             server=base_schema('string', '服务器名 ida/x64dbg/x32dbg；空=全部'),
         ),
-        "tool_mcp_call": params_schema(
-            required=['server', 'tool'],
-            server=base_schema('string', '服务器名 ida'),
-            tool=base_schema('string', '工具名'),
-            arguments=base_schema('object', '工具参数字典'),
-        ),
 
         # ── 分析辅助 ──────────────────────────────────────────
         "tool_analyze_code": params_schema(
@@ -482,8 +426,21 @@ class ReTools(ToolsMixin):
     }
 
     def get_tool_defs(self) -> List:
-        """返回所有工具的 OpenAI 函数定义（含静态 xauto 工具与动态 IDA 工具）。"""
+        """返回所有工具的 OpenAI 函数定义（含静态 ida/xauto 工具）。"""
         defs = super().get_tool_defs()
+        # 静态 IDA 工具（tool_ida_*）
+        for name in self._ida_tool_names:
+            fn = getattr(self, name, None)
+            if fn is None:
+                continue
+            params = _IDA_TOOL_PARAMS.get(name, None)
+            if params is None:
+                continue
+            defs.append(func_schema(
+                name,
+                self._clean_doc(fn.__doc__),
+                params,
+            ))
         # 静态 xauto 工具（tool_x64_*/tool_x32_*）
         for name in self._xauto_tool_names:
             fn = getattr(self, name, None)
@@ -497,24 +454,163 @@ class ReTools(ToolsMixin):
                 self._clean_doc(fn.__doc__),
                 params,
             ))
-        # 动态 IDA 工具
-        dyn_defs = []
-        for name in self._dyn_tool_names:
-            fn = getattr(self, name)
-            schema = getattr(fn, '__re_schema__', None)
-            if not schema:
-                continue
-            input_schema = schema.get('inputSchema') or {}
-            dyn_defs.append(func_schema(
-                name,
-                self._clean_doc(fn.__doc__),
-                {
-                    'type': 'object',
-                    'properties': (input_schema.get('properties') or {}),
-                    'required': (input_schema.get('required') or []),
-                },
-            ))
-        return defs + dyn_defs
+        return defs
+
+
+# ── IDA(idalib) 静态工具定义 ───────────────────────────────────
+
+# op -> IdaClient 方法名
+_IDA_TOOL_OPS: Dict[str, str] = {
+    'status': 'status',
+    'open_database': 'open_database',
+    'close_database': 'close_database',
+    'list_functions': 'list_functions',
+    'get_function_by_name': 'get_function_by_name',
+    'get_function_by_address': 'get_function_by_address',
+    'decompile_function': 'decompile_function',
+    'disassemble_function': 'disassemble_function',
+    'disassemble_at': 'disassemble_at',
+    'get_xrefs_to': 'get_xrefs_to',
+    'get_callers': 'get_callers',
+    'get_callees': 'get_callees',
+    'list_strings': 'list_strings',
+    'list_imports': 'list_imports',
+    'get_segments': 'get_segments',
+    'get_name': 'get_name',
+    'set_name': 'set_name',
+    'get_comment': 'get_comment',
+    'set_comment': 'set_comment',
+    'read_bytes': 'read_bytes',
+    'read_dword': 'read_dword',
+    'read_qword': 'read_qword',
+}
+
+_IDA_TOOL_DOCS: Dict[str, str] = {
+    'status': '查看 IDA idalib 状态',
+    'open_database': '打开二进制文件并运行自动分析（file_name 为路径）',
+    'close_database': '关闭当前 IDA 数据库（save 是否保存 .i64）',
+    'list_functions': '列出函数（名称+起止地址）',
+    'get_function_by_name': '按名称查询函数',
+    'get_function_by_address': '按地址查询函数',
+    'decompile_function': '反编译函数（Hex-Rays），返回伪代码',
+    'disassemble_function': '反汇编整个函数（逐条指令）',
+    'disassemble_at': '从地址反汇编 count 条指令',
+    'get_xrefs_to': '查询对指定地址的交叉引用',
+    'get_callers': '查询调用指定地址的函数',
+    'get_callees': '查询函数调用的所有目标',
+    'list_strings': '列出字符串（可 filter 过滤）',
+    'list_imports': '列出导入函数',
+    'get_segments': '列出程序段',
+    'get_name': '读取地址处的名称',
+    'set_name': '重命名地址（设标签）',
+    'get_comment': '读取地址处注释',
+    'set_comment': '设置地址处注释',
+    'read_bytes': '读取内存字节并以 hex 输出',
+    'read_dword': '读取 4 字节 DWORD',
+    'read_qword': '读取 8 字节 QWORD',
+}
+
+# 生成 IDA 工具的静态 Schema（方法名 tool_ida_<op>）
+def _ida_schema(op: str, opname: str) -> Dict[str, Any]:
+    """构造单个 IDA op 的参数 Schema。"""
+    if op == 'open_database':
+        return params_schema(
+            required=['file_name'],
+            file_name=base_schema('string', '要分析的二进制文件路径'),
+            run_auto_analysis=base_schema('boolean', '是否运行自动分析，默认 true'),
+        )
+    if op == 'close_database':
+        return params_schema(
+            save=base_schema('boolean', '是否保存 .i64 数据库，默认 true'),
+        )
+    if op == 'list_functions':
+        return params_schema(
+            count=base_schema('integer', '最多返回数量，默认 100'),
+            offset=base_schema('integer', '跳过数量，默认 0'),
+        )
+    if op == 'decompile_function':
+        return params_schema(
+            required=['address_or_name'],
+            address_or_name=base_schema('string', '函数地址（0x 前缀）或名称'),
+        )
+    if op == 'disassemble_function':
+        return params_schema(
+            required=['address_or_name'],
+            address_or_name=base_schema('string', '函数地址（0x 前缀）或名称'),
+        )
+    if op == 'disassemble_at':
+        return params_schema(
+            required=['address'],
+            address=base_schema('string', '起始地址（0x 前缀）'),
+            count=base_schema('integer', '指令条数，默认 1'),
+        )
+    if op in ('get_xrefs_to', 'get_callers', 'get_callees'):
+        return params_schema(
+            required=['address_or_name'],
+            address_or_name=base_schema('string', '地址（0x 前缀）或名称'),
+        )
+    if op == 'list_strings':
+        return params_schema(
+            filter=base_schema('string', '过滤子串；空=全部'),
+            count=base_schema('integer', '最多返回数量，默认 200'),
+        )
+    if op == 'list_imports':
+        return params_schema(
+            count=base_schema('integer', '最多返回数量，默认 200'),
+        )
+    if op == 'get_name':
+        return params_schema(
+            required=['address'],
+            address=base_schema('string', '地址（0x 前缀）'),
+        )
+    if op == 'set_name':
+        return params_schema(
+            required=['address', 'name'],
+            address=base_schema('string', '地址（0x 前缀）'),
+            name=base_schema('string', '新名称'),
+        )
+    if op == 'get_comment':
+        return params_schema(
+            required=['address'],
+            address=base_schema('string', '地址（0x 前缀）'),
+        )
+    if op == 'set_comment':
+        return params_schema(
+            required=['address', 'comment'],
+            address=base_schema('string', '地址（0x 前缀）'),
+            comment=base_schema('string', '注释文本'),
+        )
+    if op == 'read_bytes':
+        return params_schema(
+            required=['address'],
+            address=base_schema('string', '地址（0x 前缀）'),
+            size=base_schema('integer', '字节数，默认 16'),
+        )
+    if op in ('read_dword', 'read_qword'):
+        return params_schema(
+            required=['address'],
+            address=base_schema('string', '地址（0x 前缀）'),
+        )
+    if op == 'get_segments':
+        return params_schema()
+    # get_function_by_name / get_function_by_address / status
+    if op == 'get_function_by_name':
+        return params_schema(
+            required=['name'],
+            name=base_schema('string', '函数名称（或地址串）'),
+        )
+    if op == 'get_function_by_address':
+        return params_schema(
+            required=['address'],
+            address=base_schema('string', '地址（0x 前缀）'),
+        )
+    return params_schema()
+
+
+# 静态 IDA 工具 Schema：tool_ida_<op>
+_IDA_TOOL_PARAMS: Dict[str, Dict[str, Any]] = {}
+for _op, _opname in _IDA_TOOL_OPS.items():
+    _IDA_TOOL_PARAMS[f'tool_ida_{_op}'] = _ida_schema(_op, _opname)
 
 
 # ── x64dbg/x32dbg 静态工具定义 ─────────────────────────────────

@@ -133,13 +133,12 @@ class ReOrchestrator:
         logger.info('流程结束：%s | 阶段：%s', final.status, final.stage)
         logger.info('最终报告已写入：%s', report_path)
         print(json_dump_model(final))
-        # 关闭 IDA MCP 连接
-        for client in self.tools.mcp_clients.values():
+        # 关闭 IDA 数据库（保存分析结果）
+        if self.tools.ida is not None and self.tools.ida.db_open:
             try:
-                client.close()
+                self.tools.ida.close_database(save=True)
             except Exception:
                 pass
-        self.tools.mcp_clients.clear()
         # 分离/关闭 x64dbg/x32dbg 会话（调试器保持运行，仅断连接）
         for target, xc in self.tools.xauto.items():
             try:
@@ -152,8 +151,72 @@ class ReOrchestrator:
 
 # ── 处理入口 ─────────────────────────────────
 
+def check_avail(args):
+    """检查 idapro/idalib 与 x64dbg/x32dbg 是否可用，打印结果并退出。"""
+    import os
+    from os import path
+    print('═' * 60)
+    print('IDA (idalib)')
+    print('═' * 60)
+    ida_ok = False
+    try:
+        import idapro
+        ida_dir = idapro.get_ida_install_dir()
+        idalib = getattr(idapro, 'idalib_path', '')
+        print(f'  idapro 包    : OK ({idapro.__file__})')
+        print(f'  IDA 目录     : {ida_dir or "（未配置 ida-install-dir）"}')
+        if idalib:
+            print(f'  idalib.dll   : {idalib}')
+            print(f'    exists     : {path.isfile(idalib)}')
+            if path.isfile(idalib):
+                ida_ok = True
+        try:
+            ver = idapro.get_library_version()
+            print(f'  版本         : {ver}')
+        except Exception:
+            pass
+        if not ida_ok:
+            print('  [✗] IDA 不可用：idalib 缺失或未配置安装目录')
+    except Exception as ex:
+        print(f'  [✗] idapro 导入失败：{ex}')
+        print('      请安装 idapro（pip install idapro）并配置 %APPDATA%\\Hex-Rays\\IDA Pro\\ida-config.json')
+
+    print()
+    print('═' * 60)
+    print('x64dbg / x32dbg (x64dbg_automate)')
+    print('═' * 60)
+    xauto_ok = False
+    try:
+        import x64dbg_automate as XA
+        print(f'  x64dbg_automate 包: OK ({XA.__file__})')
+        xauto_ok = True
+    except Exception as ex:
+        print(f'  [✗] x64dbg_automate 导入失败：{ex}')
+        print('      请安装 pip install x64dbg-automate')
+    for label, key in (('x64dbg', 'x64dbg_path'), ('x32dbg', 'x32dbg_path')):
+        p = getattr(args, key, '') or ''
+        print(f'  {label:<6}: {p or "（未指定路径）"}  exists={path.isfile(p) if p else False}')
+    # 会话发现（库本身）
+    try:
+        import x64dbg_automate as XA
+        sessions = XA.X64DbgClient.list_sessions()
+        print(f'  当前活动会话: {len(sessions)} 个')
+        for s in sessions:
+            print(f'    pid={s.pid}  title={s.window_title}  port={s.sess_req_rep_port}')
+    except Exception as ex:
+        print(f'  会话发现失败: {ex}')
+
+    print()
+    ok = ida_ok or xauto_ok
+    print(f'总结：IDA={ "可用" if ida_ok else "不可用" }, '
+          f'x64dbg/x32dbg={ "可用" if xauto_ok else "不可用" }')
+    raise SystemExit(0 if ok else 1)
+
+
 def re_handle(args):
     """入口函数：创建编排器并运行完整流程。"""
+    if getattr(args, 'check_avail', False):
+        check_avail(args)
     if getattr(args, 'debug', False):
         logger.setLevel(logging.DEBUG)
         oai_logger.setLevel(logging.DEBUG)
@@ -175,11 +238,9 @@ def reg_subparser(subparsers):
         help='本轮循环步数上限（提示模型收敛，默认 60）',
     )
     p.add_argument(
-        '-mc', '--mcp-config', default='',
-        help='MCP 服务器配置文件（含 mcpServers 的 JSON，缺省 ~/.claude.json）',
+        '-ca', '--check-avail', action='store_true',
+        help='检查 idapro/idalib 与 x64dbg/x32dbg 是否可用，打印并退出',
     )
-    p.add_argument('--idacmd', default='', help='覆盖 IDA MCP 服务器启动命令')
-    p.add_argument('--idaargs', default='', help='覆盖 IDA MCP 服务器启动参数（空格分隔）')
     p.add_argument(
         '--x64dbg-path', default=r'D:\tools\x64dbg_latest\release\x64\x64dbg.exe',
         help='x64dbg 可执行文件路径（x64dbg_automate 启动会话用）',
@@ -190,11 +251,11 @@ def reg_subparser(subparsers):
     )
     p.add_argument(
         '-no-ida', '--no-ida', action='store_true',
-        help='禁用 IDA MCP 连接（仅用 x64dbg/x32dbg + 基础工具）',
+        help='禁用 IDA (idalib) 连接（仅用 x64dbg/x32dbg + 基础工具）',
     )
     p.add_argument(
         '-no-xauto', '--no-xauto', action='store_true',
-        help='禁用 x64dbg/x32dbg 直连（仅用 IDA MCP + 基础工具）',
+        help='禁用 x64dbg/x32dbg 直连（仅用 IDA + 基础工具）',
     )
     p.add_argument('-D', '--debug', action='store_true', help='调试模式')
     p.set_defaults(func=re_handle)

@@ -16,3 +16,5 @@ waitress
 pyturndown
 pywin32; sys_platform == 'win32'
 ctx-compact
+idapro
+x64dbg-automate
