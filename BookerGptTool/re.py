@@ -133,12 +133,20 @@ class ReOrchestrator:
         logger.info('流程结束：%s | 阶段：%s', final.status, final.stage)
         logger.info('最终报告已写入：%s', report_path)
         print(json_dump_model(final))
+        # 关闭 IDA MCP 连接
         for client in self.tools.mcp_clients.values():
             try:
                 client.close()
             except Exception:
                 pass
         self.tools.mcp_clients.clear()
+        # 分离/关闭 x64dbg/x32dbg 会话（调试器保持运行，仅断连接）
+        for target, xc in self.tools.xauto.items():
+            try:
+                if xc.connected:
+                    xc.detach()
+            except Exception:
+                pass
         return final
 
 
@@ -172,9 +180,21 @@ def reg_subparser(subparsers):
     )
     p.add_argument('--idacmd', default='', help='覆盖 IDA MCP 服务器启动命令')
     p.add_argument('--idaargs', default='', help='覆盖 IDA MCP 服务器启动参数（空格分隔）')
-    p.add_argument('--x64dbgurl', default='', help='覆盖 x64dbg MCP HTTP 地址')
-    p.add_argument('--x64dbgtoken', default='', help='覆盖 x64dbg MCP Bearer token')
-    p.add_argument('--x32dbgurl', default='', help='覆盖 x32dbg MCP HTTP 地址')
-    p.add_argument('--x32dbgtoken', default='', help='覆盖 x32dbg MCP Bearer token')
+    p.add_argument(
+        '--x64dbg-path', default=r'D:\tools\x64dbg_latest\release\x64\x64dbg.exe',
+        help='x64dbg 可执行文件路径（x64dbg_automate 启动会话用）',
+    )
+    p.add_argument(
+        '--x32dbg-path', default=r'D:\tools\x64dbg_latest\release\x32\x32dbg.exe',
+        help='x32dbg 可执行文件路径（x32dbg_automate 启动会话用）',
+    )
+    p.add_argument(
+        '-no-ida', '--no-ida', action='store_true',
+        help='禁用 IDA MCP 连接（仅用 x64dbg/x32dbg + 基础工具）',
+    )
+    p.add_argument(
+        '-no-xauto', '--no-xauto', action='store_true',
+        help='禁用 x64dbg/x32dbg 直连（仅用 IDA MCP + 基础工具）',
+    )
     p.add_argument('-D', '--debug', action='store_true', help='调试模式')
     p.set_defaults(func=re_handle)
