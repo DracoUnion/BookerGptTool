@@ -12,6 +12,9 @@ from . import (
 )
 
 def main():
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")                                                            
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")    
+
     openai_key = os.environ.get('OPENAI_API_KEY')
     openai_url = os.environ.get('OPENAI_BASE_URL')
     openai_model = os.environ.get('OPENAI_CHAT_MODEL', 'gpt-3.5-turbo')
