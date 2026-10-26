@@ -4,10 +4,10 @@ import os
 from . import __version__, any2textbook
 from . import (
     trans, fin_report, md2kg, code2doc, code2book, shengcai, call,
-    infer, erchuang, note, paper2code, pdf_ocr, gts_fiction,
+    infer, erchuang, note, paper2code, pdf_ocr,
     md2skill, trans_epub, fmt_chunk, clean_heading, forward,
-    novel_anls, xhs_img, play_game, play_android_game, play_game_chrome, paper2textbook, article_img, ppt, xhs_art, jike_art, podcast, gzh_art, zhanshimian, md2wiki, auto_research,
-    resplit, trans_chunk, write_novel, derep, bili_ai_proj,
+    xhs_img, play_game, play_android_game, play_game_chrome, paper2textbook, article_img, ppt, xhs_art, jike_art, podcast, gzh_art, zhanshimian, md2wiki, auto_research,
+    resplit, trans_chunk, derep, bili_ai_proj,
     zhihu_radar, re,
 )
 
@@ -53,14 +53,12 @@ def main():
     erchuang.reg_subparser(subparsers)
     note.reg_subparser(subparsers)
     pdf_ocr.reg_subparser(subparsers)
-    gts_fiction.reg_subparser(subparsers)
+    fin_report.reg_subparser(subparsers)
+    md2kg.reg_subparser(subparsers)
     md2skill.reg_subparser(subparsers)
     trans_epub.reg_subparser(subparsers)
     fmt_chunk.reg_subparser(subparsers)
     forward.reg_subparser(subparsers)
-    fin_report.reg_subparser(subparsers)
-    md2kg.reg_subparser(subparsers)
-    novel_anls.reg_subparser(subparsers)
     xhs_img.reg_subparser(subparsers)
     play_game.reg_subparser(subparsers)
     play_android_game.reg_subparser(subparsers)
@@ -79,7 +77,6 @@ def main():
     resplit.reg_subparser(subparsers)
     trans_chunk.reg_subparser(subparsers)
     derep.reg_subparser(subparsers)
-    write_novel.reg_subparser(subparsers)
 
     bili_ai_proj.reg_subparser(subparsers)
 
