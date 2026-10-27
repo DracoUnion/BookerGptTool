@@ -4,7 +4,7 @@ import os
 from . import __version__, any2textbook
 from . import (
     trans, fin_report, md2kg, code2doc, code2book, shengcai, call,
-    infer, erchuang, note, paper2code, pdf_ocr,
+    infer, erchuang, paper2code, pdf_ocr,
     md2skill, trans_epub, fmt_chunk, clean_heading, forward,
     xhs_img, play_game, play_android_game, play_game_chrome, paper2textbook, article_img, ppt, xhs_art, jike_art, podcast, gzh_art, zhanshimian, md2wiki, auto_research,
     resplit, trans_chunk, derep, bili_ai_proj,
@@ -54,7 +54,6 @@ def main():
     clean_heading.reg_subparser(subparsers)
     infer.reg_subparser(subparsers)
     erchuang.reg_subparser(subparsers)
-    note.reg_subparser(subparsers)
     pdf_ocr.reg_subparser(subparsers)
     fin_report.reg_subparser(subparsers)
     md2kg.reg_subparser(subparsers)
