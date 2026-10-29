@@ -1,14 +1,9 @@
 import argparse
 import sys
 import os
-from . import __version__, any2textbook
+from . import __version__
 from . import (
-    trans, fin_report, md2kg, code2doc, code2book, shengcai, call,
-    infer, erchuang, paper2code, pdf_ocr,
-    md2skill, trans_epub, fmt_chunk, clean_heading, forward,
-    xhs_img, play_game, play_android_game, play_game_chrome, paper2textbook, article_img, ppt, xhs_art, jike_art, podcast, gzh_art, zhanshimian, md2wiki, auto_research,
-    resplit, trans_chunk, derep, bili_ai_proj,
-    zhihu_radar, re, wx_summary, wx_auto_reply,
+    trans, shengcai, call, infer,
 )
 
 def main():
@@ -46,49 +41,9 @@ def main():
     subparsers = parser.add_subparsers()
 
     trans.reg_subparser(subparsers)
-    code2doc.reg_subparser(subparsers)
-    code2book.reg_subparser(subparsers)
     shengcai.reg_subparser(subparsers)
     call.reg_subparser(subparsers)
-    paper2code.reg_subparser(subparsers)
-    clean_heading.reg_subparser(subparsers)
     infer.reg_subparser(subparsers)
-    erchuang.reg_subparser(subparsers)
-    pdf_ocr.reg_subparser(subparsers)
-    fin_report.reg_subparser(subparsers)
-    md2kg.reg_subparser(subparsers)
-    md2skill.reg_subparser(subparsers)
-    trans_epub.reg_subparser(subparsers)
-    fmt_chunk.reg_subparser(subparsers)
-    forward.reg_subparser(subparsers)
-    xhs_img.reg_subparser(subparsers)
-    play_game.reg_subparser(subparsers)
-    play_android_game.reg_subparser(subparsers)
-    play_game_chrome.reg_subparser(subparsers)
-    paper2textbook.reg_subparser(subparsers)
-    any2textbook.reg_subparser(subparsers)
-    article_img.reg_subparser(subparsers)
-    ppt.reg_subparser(subparsers)
-    xhs_art.reg_subparser(subparsers)
-    jike_art.reg_subparser(subparsers)
-    podcast.reg_subparser(subparsers)
-    gzh_art.reg_subparser(subparsers)
-    zhanshimian.reg_subparser(subparsers)
-    md2wiki.reg_subparser(subparsers)
-    auto_research.reg_subparser(subparsers)
-    resplit.reg_subparser(subparsers)
-    trans_chunk.reg_subparser(subparsers)
-    derep.reg_subparser(subparsers)
-
-    bili_ai_proj.reg_subparser(subparsers)
-
-    zhihu_radar.reg_subparser(subparsers)
-
-    re.reg_subparser(subparsers)
-
-    wx_summary.reg_subparser(subparsers)
-
-    wx_auto_reply.reg_subparser(subparsers)
 
     args = parser.parse_args()
     args.func(args)

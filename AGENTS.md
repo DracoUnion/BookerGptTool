@@ -2,6 +2,8 @@
 
 （当用户要求添加子命令时使用。）
 
+> 注意：参考示例实现已迁移到兄弟项目，路径前缀 `D:\src\BookerCodeTool\BookerCodeTool\` 与 `D:\src\BookerMarkdownTool\BookerMarkdownTool\`。
+
 首先将用户提供的子命令名称`sub-cmd`，转换为下划线模式`sub_cmd`。
 
 提示词：
@@ -10,13 +12,13 @@
 - 所有提示词模板定义为全局多行字符串常量，名称`{XXX}_PMT`，带有`{...}`占位符，尽可能减少拼接。
 - 如果输出是 JSON，应强调使用三个反引号包裹，否则强调使用`[content]...[/content]`包裹。
 - 所有提示词应该是中文，如果不是将其翻译成中文。
-- 具体参见`code2book_pmt.py`。
+- 具体参见`D:\src\BookerCodeTool\BookerCodeTool\code2book_pmt.py`。
 
 Pydantic 模型：
 
 - 将模型保存到`<sub_cmd>_models.py`。
 - 所有模型应该具有字符描述`Field(..., desciption='...')`。
-- 具体参见`code2book_models.py`。
+- 具体参见`D:\src\BookerCodeTool\BookerCodeTool\code2book_models.py`。
 
 智能体：
 
@@ -27,14 +29,14 @@ Pydantic 模型：
 - 使用`openai.py`里面的`call_llm_retry`或者`ask_llm_retry`，调用大模型，传入`parse_output`回调函数来解析内容
 - `parse_output`回调函数可以调用`util.py`里面的`ext_cont_block`和`ext_code_block`来解析大模型输出，调用`parse_obj_as`来转换 Pydantic 模型。
 - 应当复用上述提示词和 Pydantic 模型。
-- 具体参见`code2book_agent.py`。
+- 具体参见`D:\src\BookerCodeTool\BookerCodeTool\code2book_agent.py`。
 
 编排器：
 
 - 保存到`<sub_cmd>.py`，编排器类命名为`{SubCmd}Orchestrator`,应包含智能体类.
 - 工作流的每个步骤定义为`step_xxx(...)`方法，调用智能体类的方法，`run`方法是主流程，调用这些步骤。
 - 子命令入口函数实例化编排器并调用`run()`方法
-- 具体参见`code2book.py`。
+- 具体参见`D:\src\BookerCodeTool\BookerCodeTool\code2book.py`。
 
 
 子命令解析器：
@@ -62,6 +64,6 @@ Pydantic 模型：
     3.  确保工具类方法具有文件缓存，调用`util.py`的`read_yaml_model`来加载文件缓存，判断非空，调用大模型后调用`write_yaml_model`来保存文件缓存。
     3.  工具类应继承`ToolsMixin`类
     3.  工具类应具有`_TOOL_PARAMS`类属性，描述所有`tool_*`方法的参数 Schema。
-    3.  具体参见`md2kg.py`。
+    3.  具体参见`D:\src\BookerMarkdownTool\BookerMarkdownTool\md2kg.py`。
 4.  将依赖的提示词写到`<sub_cmd>_pmt.py`，要求同【添加子命令】一节。
 5.  将依赖的 Pydantic 模型写到`<sub_cmd>_models.py`，要求同【添加子命令】一节。

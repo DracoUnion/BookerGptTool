@@ -1,6 +1,16 @@
 # BookerGptTool
 
-BookerGptTool 是一个基于 OpenAI 兼容 API 的命令行工具集，用于翻译、文档处理、代码分析、PDF/EPUB 处理、知识库构建以及内容生成等任务。
+BookerGptTool 是一个基于 OpenAI 兼容 API 的命令行工具集，当前保留翻译、文本调用、推理与生词处理等核心命令。
+
+> **迁移说明**：其他子命令已迁移到独立的兄弟项目：
+>
+> - 代码与文档：`code2doc`、`code2book`、`re` → `../BookerCodeTool`
+> - Markdown/知识库：`clean-heading`、`erchuang`、`md2kg`、`md2skill`、`fmt-chunk`、`md2wiki`、`resplit`、`trans-chunk`、`derep` → `../BookerMarkdownTool`
+> - 媒体内容：`xhs-img`、`article-img`、`ppt`、`xhs-art`、`jike-art`、`podcast`、`gzh-art`、`zhanshimian` → `../BookerMediaTool`
+> - 论文与科研：`paper2textbook`、`any2textbook`、`paper2code`、`auto-research` → `../BookerPaperTool`
+> - 游戏与微信自动化：`play-game`、`play-android-game`、`play-game-chrome`、`wx-auto-reply` → `../BookerAutoTool`
+> - 下载与采集：`bili-ai-proj`、`zhihu-radar`、`wx-summary` → `../BookerDownloadTool`
+> - 其他：`pdf-ocr` → `../BookerPdfTool`，`forward` → `../BookerProxyTool`，`trans-epub` → `../BookerEpubTool`，`fin-report` → `../BookerFinReportTool`
 
 ## 安装
 
@@ -97,173 +107,16 @@ gpt-tool infer questions.yaml
 
 `trans-yaml` 和 `infer` 支持 `--threads`、`--limit` 等参数；使用子命令帮助查看完整选项。
 
-### 代码与文档
+### 生词处理
 
 ```bash
-# 为代码文件或目录添加注释
-gpt-tool code2doc path/to/source.py
-
-# 将项目整理为书籍
-gpt-tool code2book path/to/project
-
-# 清理 Markdown 标题
-gpt-tool clean-heading document.md
-
-# 将 Markdown 转换为知识图谱数据
-gpt-tool md2kg document.md
-
-# 将 Markdown 转换为技能定义或 Wiki
-gpt-tool md2skill document.md
-gpt-tool md2wiki document.md
-```
-
-### PDF、EPUB 与论文
-
-```bash
-# PDF OCR，生成可处理的文本/Markdown
-gpt-tool pdf-ocr document.pdf
-
-# OCR 后翻译并清理标题
-gpt-tool pdf-ocr document.pdf --trans --clean
-
-# 翻译 EPUB
-gpt-tool trans-epub book.epub
-
-# 格式化或修复文本块
-gpt-tool fmt-chunk book.epub
-
-# 分析 EPUB 小说
-gpt-tool novel-anls book.epub --book-title "书名" --author "作者"
-
-# 总结 arXiv 论文（ID 示例）
-gpt-tool arxiv 2301.00001
-
-# 批量总结 arXiv 论文
-gpt-tool arxiv-batch arxiv_ids.txt
-
-# 从论文、Markdown、TEX 或 TXT 生成代码方案
-gpt-tool paper2code paper.pdf -o output
-
-# 生成财务报告
-gpt-tool fin-report report.pdf
-```
-
-### 内容创作与其他工具
-
-```bash
-# 生成小红书/公众号等风格的内容
-gpt-tool erchuang article.txt --style xhs
-
-# 生成笔记
-gpt-tool note article.md
-
-# 生成小说
-gpt-tool gts-fiction "一个关于时间旅行的悬疑故事"
-
 # 解析 EPUB 中的生词/词汇分享表
 gpt-tool shengcai book.epub
-
-# 网页 PPT：素材 → 单文件 HTML 横向翻页 PPT（电子杂志风 / 瑞士国际主义风）
-gpt-tool ppt article.md
-
-# 可选：指定受众与分享时长（用于控制页数与风格选择）
-gpt-tool ppt article.md -a "行业内部" -t 30
-
-# 启动 OpenAI API 转发服务
-gpt-tool forward keys.yaml
-
-# 搜索 B站 AI 应用并精选 20 个精品应用（默认搜索前五页，时间倒序）
-gpt-tool bili-ai-proj
-# 可选：调整输出目录、每词页数、精选数量
-gpt-tool bili-ai-proj -o out_dir -P 5 -n 20
-```
-
-### 游戏与桌面自动化
-
-```bash
-# 列出可见窗口（PID 和标题），用于确定目标
-gpt-tool play-game --list-windows
-
-# 以窗口标题（模糊匹配）或进程号指定窗口，让大模型游玩
-gpt-tool play-game "Minesweeper"
-gpt-tool play-game 12345 --goal "尽快通关并获得最高分"
-
-# 可选参数：--interval 每步间隔（秒）、--save-png 保存截图、--max-steps 最大步数
-```
-
-`play-game` 依赖 Windows 平台（通过 Win32 API 模拟鼠标点击与键盘按键），
-Visual 模型使用通用参数 `-vm` 指定，未设置时回退到 `-m`。
-
-### 内容管线（从 content-pipeline 迁移）
-
-以下子命令来自 `content-pipeline`，按 AGENTS.md 约定（Agent + Orchestrator + `_pmt` + `_models`）迁入本项目，统一使用 01fish 色板与写作风格。
-
-```bash
-# 出稿：素材目录 → 公众号文章 Markdown（01fish 写作风格）
-gpt-tool gzh-art drafts -o article.md
-
-# 文章 → 小红书轮播图 HTML + 发布文案
-gpt-tool xhs-art article.md -o out
-
-# 文章 → 即刻发布文案
-gpt-tool jike-art article.md -o out
-
-# 文章 → 播客脚本 + 音频 + 封面 + 小宇宙文案
-gpt-tool podcast article.md --no-tts
-
-# 人脸融合：人脸 + 多场景 → 融合图
-gpt-tool zhanshimian face.jpg scenes_dir -o output_dir
-```
-
-`gzh-art` 的输入是一个**素材目录**，会读取其中所有 `.md` 文件作为素材列表（按文件名排序）。
-每条素材的 `content` 取文件正文，`type` / `context` 取文件名（不含扩展名），`time` 取文件最后修改时间。
-输出默认写在输入目录下，文件名为目录名 + `.md`（如 `drafts/materials.md`）。
-
-`gzh-art` 的写作风格指南内置在 `gzh_art_assets/references/writing-style.md`；
-`podcast` 的音频生成依赖本地 IndexTTS2（`INDEXTTS_DIR` / `VOICE_REF` 环境变量），
-未配置时跳过音频，仅输出脚本与封面。
-
-`gzh-art` 内部将素材组装为如下清单结构传给 LLM（`topic` 由 LLM 自行提炼，`created` 为可选字段）：
-
-```json
-{
-  "topic": "如何用 AI 一天写出一篇 3000 字技术长文",
-  "materials": [
-    {
-      "time": "2026-01-30 14:30",
-      "content": "试了三种方案都不行，最后发现是环境变量没加载",
-      "type": "踩坑翻车",
-      "context": "python-dotenv 的坑",
-      "auto": true
-    },
-    {
-      "time": "2026-01-30 15:02",
-      "content": "居然用 json_repair 一行就修好了模型输出的坏 JSON",
-      "type": "意外发现",
-      "auto": true
-    }
-  ],
-  "created": "2026-01-30"
-}
-```
-
-小红书信息图卡片生成器：
-
-```bash
-gpt-tool xhs-img outline.md --preset <预设名称> --count 5 -o output
-```
-
-可用选项包括 `--style`、`--layout`、`--palette`、`--preset`、`--count`、`--output-dir` 和 `--strategy`。输入文件使用 `-` 时可从标准输入读取：
-
-```bash
-cat outline.md | gpt-tool xhs-img - --count 4
 ```
 
 ## 文件与输出说明
 
-- 需要文件路径的命令通常会在输入文件旁边生成结果，具体输出位置以命令帮助或运行日志为准。
-- `code2doc`、`code2book`、`pdf-ocr`、`trans-epub` 等命令可能递归处理目录或生成多个文件；处理大量文件时可通过 `--threads`、`--file-threads`、`--page-threads` 调整并发度。
-- 首次使用 Embedding 相关功能时，模型路径可能触发下载，请确保网络和磁盘空间可用。
+需要文件路径的命令通常会在输入文件旁边生成结果，具体输出位置以命令帮助或运行日志为准。
 
 ## 常见问题
 
@@ -280,9 +133,10 @@ gpt-tool -k "$OPENAI_API_KEY" -H "https://example.com/v1" call "你好"
 每个子命令都提供独立帮助：
 
 ```bash
-gpt-tool pdf-ocr -h
-gpt-tool trans-epub -h
-gpt-tool xhs-img -h
+gpt-tool trans -h
+gpt-tool shengcai -h
+gpt-tool call -h
+gpt-tool infer -h
 ```
 
 ## 开发
