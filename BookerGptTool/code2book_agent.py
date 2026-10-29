@@ -1,0 +1,393 @@
+import os
+
+from os import path
+
+import yaml
+
+import json_repair
+
+import json
+
+import logging
+
+import functools
+
+from concurrent.futures import ThreadPoolExecutor, as_completed, Future
+
+from threading import Lock
+
+from typing import List
+
+from pydantic import parse_obj_as
+
+from tqdm import tqdm
+
+from .util import (
+    extname,
+    ext_code_block,
+    ext_cont_block,
+    render_prompt,
+    gen_objs_md5,
+    read_yaml_model,
+    write_yaml_model,
+    read_text,
+    write_text,
+)
+
+from .openai import logger as oai_logger
+
+from .openai import OpenAIClient
+
+from .code2book_pmt import *
+
+from .code2book_models import *
+
+
+def expand_stars(ptns, files):
+    res = []
+    for p in ptns:
+        if p.endswith('**'):
+            res += [f for f in files if f.startswith(p[:-2])]
+        elif p.endswith('*'):
+            res += [f for f in files if f.startswith(p[:-1])]
+        else:
+            res.append(p)
+    return res
+
+class Code2BookAgent:
+    """封装所有 LLM 调用，每个方法对应一个独立的 prompt 调用。"""
+
+    def __init__(self, args):
+        self.model = args.model
+        self.args = args
+        self.pj_dir = path.abspath(args.dir) + '_code2book'
+        self.asset_dir = path.join(self.pj_dir, 'asset')
+        self.llm = OpenAIClient.from_args(self.args)
+
+    def fix_parts(
+        self, files: List[str],
+        parts: List[PartClusResult], problem: str
+    ) -> List[PartClusResult]:
+        cache_fname = path.join(
+            self.asset_dir,
+            'part_fix_' + gen_objs_md5(parts, files, problem) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[PartClusResult])
+        if r: return r
+        ques = render_prompt(
+            PT_FIX_PMT,
+            files='\n'.join(files),
+            problem=problem,
+            parts=self._json_dump(parts),
+        )
+        parse_output = lambda s: parse_obj_as(
+            List[PartClusResult],
+            json_repair.loads(ext_code_block(s))
+        )
+        parts =  self.llm.ask_chatgpt_retry(
+            ques, self.model, self.args,
+            parse_output=parse_output,
+        )
+        for pt in parts:
+            pt.files = expand_stars(pt.files, files)
+        write_yaml_model(cache_fname, parts)
+        return parts
+
+    def cluster_parts(self, files: List[str]) -> List[PartClusResult]:
+        cache_fname = path.join(
+            self.asset_dir,
+            'part_' + gen_objs_md5(files) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[PartClusResult])
+        if r: return r
+        ques = render_prompt(PT_CLUS_PMT, files='\n'.join(files))
+        parse_output = lambda s: parse_obj_as(
+            List[PartClusResult],
+            json_repair.loads(ext_code_block(s))
+        )
+        parts =  self.llm.ask_chatgpt_retry(
+            ques, self.model, self.args,
+            parse_output=parse_output,
+        )
+        for pt in parts:
+            pt.files = expand_stars(pt.files, files)
+        write_yaml_model(cache_fname, parts)
+        return parts
+
+    def gen_code_desc(self, fname: str, code: str) -> ClsFuncExtResult:
+        """根据源码提取类、方法和全局函数描述。"""
+        parse_output = lambda s: ClsFuncExtResult(
+            **json_repair.loads(ext_code_block(s))
+        )
+        res = ClsFuncExtResult(desc="", classes=[], funcs=[])
+        step = self.args.code_limit - self.args.code_overlap
+        start_line = 1
+        for i in range(0, len(code), step):
+            chunk = code[i: i + self.args.code_limit]
+            cache_fname = path.join(
+                self.asset_dir,
+                'code_desc_' + gen_objs_md5(fname, chunk) + '.yaml'
+            )
+            chunk_res = read_yaml_model(cache_fname, ClsFuncExtResult)
+            if not chunk_res:
+                ques = render_prompt(
+                    CLS_FUNC_EXT_PMT,
+                    fname=fname, code=chunk,
+                    start=str(start_line)
+                )
+                chunk_res: ClsFuncExtResult =  self.llm.ask_chatgpt_retry(
+                    ques, self.model, self.args,
+                    parse_output=parse_output,
+                )
+                write_yaml_model(cache_fname, chunk_res)
+            res.desc += chunk_res.desc
+            res.classes += chunk_res.classes
+            res.funcs += chunk_res.funcs
+            start_line += chunk.count('\n')
+        return res
+
+    def gen_outline(
+        self, fnames: List[str], code_desc: List[CodeDescItemResult], readme: str,
+    ) -> List[OutlineChapterResult]:
+        """根据项目结构和源码描述生成书籍大纲。"""
+        fnames_li = '\n'.join(fnames)
+        cache_fname = path.join(
+            self.asset_dir,
+            'outline_' + gen_objs_md5(fnames, code_desc, readme) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[OutlineChapterResult])
+        if r: return r
+        ques = render_prompt(
+            OUTLINE_PMT,
+            struct=fnames_li,
+            code_desc=self._json_dump(code_desc),
+            readme=readme,
+        )
+        parse_output = lambda s: parse_obj_as(
+            List[OutlineChapterResult],
+            json_repair.loads(ext_code_block(s))
+        )
+        res: List[OutlineChapterResult] = self.llm.ask_chatgpt_retry(
+            ques, self.model, self.args,
+            parse_output=parse_output,
+        )
+        for o in res:
+            for n in o.nodes:
+                n.src = expand_stars(n.src, fnames)
+        write_yaml_model(cache_fname, res)
+        return res
+
+    def fix_outline(
+        self, outline: List[OutlineChapterResult], fnames: List[str],
+        code_desc: List[CodeDescItemResult], readme: str, problem: str,
+    ) -> List[OutlineChapterResult]:
+        """校验大纲未覆盖所有文件时，补充缺少的源码文件重写大纲。"""
+        fnames_li = '\n'.join(fnames)
+        cache_fname = path.join(
+            self.asset_dir,
+            'outline_fix_' + gen_objs_md5(outline, fnames, code_desc, readme, problem) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, List[OutlineChapterResult])
+        if r: return r
+        ques = render_prompt(
+            OUTLINE_FIX_PMT,
+            struct=fnames_li,
+            code_desc=self._json_dump(code_desc),
+            readme=readme,
+            outline=self._json_dump(outline),
+            problem=problem,
+        )
+        parse_output = lambda s: parse_obj_as(
+            List[OutlineChapterResult],
+            json_repair.loads(ext_code_block(s))
+        )
+        res: List[OutlineChapterResult] = self.llm.ask_chatgpt_retry(
+            ques, self.model, self.args,
+            parse_output=parse_output,
+        )
+        for o in res:
+            for n in o.nodes:
+                n.src = expand_stars(n.src, fnames)
+        write_yaml_model(cache_fname, res)
+        return res
+
+    def gen_src_anls_detail(
+        self, idx: int, 
+        outline_chs: List[OutlineChapterResult], 
+        code_desc: List[CodeDescItemResult],
+    ) -> SrcAnlsDetailResult:
+        """生成第 idx 章细纲的源码解析部分。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'detail_src_' + gen_objs_md5(idx, outline_chs, code_desc) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, SrcAnlsDetailResult)
+        if r: return r
+        ques = render_prompt(
+            SRC_ANLS_DETAIL_PMT,
+            i=str(idx + 1),
+            outline=self._json_dump(outline_chs),
+            code_desc=self._json_dump(code_desc),
+        )
+        parse_output = lambda s: SrcAnlsDetailResult(
+            **json_repair.loads(ext_code_block(s))
+        )
+        res: SrcAnlsDetailResult = self.llm.ask_chatgpt_retry(
+            ques, self.model, self.args,
+            parse_output=parse_output,
+        )
+        write_yaml_model(cache_fname, res)
+        return res
+
+    def gen_rest_detail(
+        self, idx: int, 
+        detail: Detail, 
+        outline_chs: List[OutlineChapterResult], 
+        code_desc: List[CodeDescItemResult],
+    ) -> RestDetailResult:
+        """生成第 idx 章细纲的剩余部分（学习目标、类比、练习等）。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'detail_rest_' + gen_objs_md5(idx, detail, outline_chs, code_desc) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, RestDetailResult)
+        if r: return r
+        ques = render_prompt(
+            REST_DETAIL_PMT,
+            detail=detail.json(),
+            outline=self._json_dump(outline_chs),
+            i=str(idx + 1),
+            code_desc=self._json_dump(code_desc),
+        )
+        parse_output = lambda s: RestDetailResult(
+            **json_repair.loads(ext_code_block(s))
+        )
+        res = self.llm.ask_chatgpt_retry(
+            ques, self.model, self.args,
+            parse_output=parse_output,
+        )
+        write_yaml_model(cache_fname, res)
+        return res
+
+    def fix_detail(
+        self, idx: int, detail: Detail, 
+        outline_chs: List[OutlineChapterResult],
+        code_desc: List[CodeDescItemResult], 
+        problem: str,
+    ) -> Detail:
+        """校验细纲未覆盖所有函数时，补充缺少的函数重写细纲。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'detail_fix_' + gen_objs_md5(idx, detail, outline_chs, code_desc, problem) + '.yaml'
+        )
+        r = read_yaml_model(cache_fname, Detail)
+        if r: return r
+        ques = render_prompt(
+            DETAIL_FIX_PMT,
+            i=str(idx + 1),
+            outline=self._json_dump(outline_chs),
+            detail=detail.json(),
+            code_desc=self._json_dump(code_desc),
+            problem=problem,
+        )
+        parse_output = lambda s: Detail(
+            **json_repair.loads(ext_code_block(s))
+        )
+        res = self.llm.ask_chatgpt_retry(
+            ques, self.model, self.args,
+            parse_output=parse_output,
+        )
+        write_yaml_model(cache_fname, res)
+        return res
+
+    def gen_body(
+        self, idx: int, 
+        detail: Detail, 
+        outline_chs: List[OutlineChapterResult], 
+        code_desc: List[CodeDescItemResult],
+    ) -> str:
+        """根据大纲和细纲生成第 idx 章正文。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'body_' + gen_objs_md5(idx, detail, outline_chs, code_desc) + '.md'
+        )
+        r = read_text(cache_fname)
+        if r: return r
+        ques = render_prompt(
+            BODY_PMT,
+            detail=self._json_dump(detail),
+            outline=self._json_dump(outline_chs),
+            code_desc=self._json_dump(code_desc),
+            i=str(idx + 1),
+        )
+        res = self.llm.ask_chatgpt_retry(
+            ques, self.model, self.args,
+            parse_output=ext_cont_block,
+        )
+        write_text(cache_fname, res)
+        return res
+
+    def check_body(self, body: str, detail: Detail) -> str:
+        """校验正文是否符合格式规范，返回修改意见或 [PERFECT/]。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'body_check_' + gen_objs_md5(body, detail) + '.md'
+        )
+        r = read_text(cache_fname)
+        if r: return r
+        detail_str = detail.json()
+        ques = render_prompt(BODY_CHK_PMT, body=body, detail=detail_str)
+        res = self.llm.ask_chatgpt_retry(
+            ques, self.model, self.args,
+            parse_output=ext_cont_block,
+        )
+        write_text(cache_fname, res)
+        return res
+
+    def fix_body(
+        self,
+        detail: Detail,
+        body: str,
+        comment: str,
+        code_desc: List[CodeDescItemResult],
+    ) -> str:
+        """根据修改意见和对应源码修改正文。"""
+        cache_fname = path.join(
+            self.asset_dir,
+            'body_fix_' + gen_objs_md5(detail, body, comment, code_desc) + '.md'
+        )
+        r = read_text(cache_fname)
+        if r: return r
+        detail_str = detail.json()
+        ques = render_prompt(
+            BODY_FIX_PMT,
+            detail=detail_str,
+            body=body,
+            comment=comment,
+            code_desc=self._json_dump(code_desc),
+        )
+        res = self.llm.ask_chatgpt_retry(
+            ques, self.model, self.args,
+            parse_output=ext_cont_block,
+        )
+        write_text(cache_fname, res)
+        return res
+
+    @staticmethod
+    def _json_dump(obj) -> str:
+        if isinstance(obj, BaseModel):
+            obj = obj.model_dump()
+        elif isinstance(obj, list):
+            obj = [
+                it.dict() if isinstance(it, BaseModel) else it
+                for it in obj
+            ]
+        return json.dumps(obj, ensure_ascii=False, indent=2)
+
+
+class Code2BookCheckAgent(Code2BookAgent):
+
+    def __init__(self, args):
+        super().__init__(args)
+        self.pj_dir = args.dir
+        self.asset_dir = path.join(self.pj_dir, 'asset')

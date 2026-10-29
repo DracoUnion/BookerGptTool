@@ -1,0 +1,1519 @@
+import json
+import logging
+import os
+import io
+import csv
+import re
+import sys
+import subprocess
+import hashlib
+import shutil
+import xml.etree.ElementTree as ET
+from os import path
+from typing import List, Optional, Dict, Any, Callable, Type
+
+from .util import (
+    gen_objs_md5, read_yaml_model, write_yaml_model, read_text, write_text,
+    render_prompt, json_dump_model, ext_code_block,
+)
+from .openai import *
+from .auto_research_models import *
+from .auto_research_pmt import (
+    AUTO_RESEARCH_ROUND_PROMPT, _JSON_OUT,
+    OPTIMIZE_PROMPT_PMT, TRANSLATE_PROMPT_PMT, POLISH_PROMPT_PMT,
+    DEAI_PROMPT_PMT, LOGIC_CHECK_PROMPT_PMT, STYLE_DNA_PROMPT_PMT,
+    WRITE_ABSTRACT_PROMPT_PMT, WRITE_INTRO_PROMPT_PMT, WRITE_LITREVIEW_PROMPT_PMT,
+    PLAN_PAPER_PROMPT_PMT, WRITE_SECTION_PROMPT_PMT, REVERSE_OUTLINE_PROMPT_PMT,
+    WRITE_PAPER_CHAPTER_PROMPT_PMT,
+    REVIEW_PAPER_PROMPT_PMT, CLASSIFY_ISSUES_PROMPT_PMT, RATE_MATURITY_PROMPT_PMT,
+    WRITE_REBUTTAL_PROMPT_PMT, DETECT_AIGC_PROMPT_PMT, AUDIT_CITATIONS_PROMPT_PMT,
+    DETECT_FRAUD_PROMPT_PMT, BUILD_OUTLINE_PROMPT_PMT, WRITE_CHAPTER_PROMPT_PMT,
+    PLAN_DEFENSE_PROMPT_PMT, ANALYZE_MODELING_PROMPT_PMT, FORMULATE_MODEL_PROMPT_PMT,
+    GENERATE_MODEL_CODE_PROMPT_PMT, AI_FIGURE_PROMPT_PMT, FORMAT_TEX_VENUE_PROMPT_PMT,
+    GENERATE_EXPERIMENT_CODE_PROMPT_PMT, VERIFY_RESULT_CONSISTENCY_PROMPT_PMT,
+)
+
+logger = logging.getLogger(__name__)
+
+_ARXIV_NS = {'a': 'http://www.w3.org/2005/Atom'}
+STAGE_ORDER = [
+    'PROJECT_INIT', 'LITERATURE', 'GAP', 'HYPOTHESIS', 'EXPERIMENT_PLAN',
+    'APPROVAL', 'EXPERIMENT_CODE', 'CODE_VERIFY', 'RUN_EXPERIMENT',
+    'RESULT_CONFIRM', 'WRITING', 'INTERNAL_REVIEW', 'SUBMISSION_PACKAGE',
+]
+
+
+class AutoResearchTools(ToolsMixin):
+    """合规科研自动化流水线工具集。
+
+    所有工具方法默认返回可直接序列化为 JSON 的对象（dict 或 Pydantic 模型），
+    供 tool-call 循环回填给大模型。检索类工具带文件缓存；副作用类工具不缓存。
+    """
+
+    def __init__(self, args):
+        """初始化工具集：保存参数、配置 OpenAI、创建项目工作区目录。"""
+        super(ToolsMixin, self).__init__()
+        self.llm = OpenAIClient.from_args(args)
+        self.args = args
+        self.pj_dir = path.abspath(getattr(args, 'project', None) or 'auto_research')
+        os.makedirs(self.pj_dir, exist_ok=True)
+        self.project_id = path.basename(self.pj_dir) or self.pj_dir
+        self.model = getattr(args, 'model', '')
+        self.retry = getattr(args, 'retry', 3)
+        self.temperature = getattr(args, 'temp', 0.0)
+        self.max_tokens = getattr(args, 'max_tokens', 4000)
+
+    # ── 内部辅助（LLM 生成式工具共用） ──────────────────────────
+
+    def _render(self, pmt: str, **kw) -> str:
+        """渲染提示词；统一注入 _JSON_OUT 输出格式段。"""
+        kw.setdefault('_JSON_OUT', _JSON_OUT)
+        return pmt.format(**kw)
+
+    @staticmethod
+    def _parse_to(model: Type[BaseModel]) -> Callable:
+        """构造解析回调：去掉 ``` 围栏后按 pydantic 模型解析。"""
+        def f(s: str) -> BaseModel:
+            t = s.strip()
+            if t.startswith('```'):
+                t = ext_code_block(t)
+            return model.model_validate_json(t)
+        return f
+
+    def _call_llm(self, pmt: str, out_model: Type[BaseModel], *,
+                  max_tokens: Optional[int] = None, **kw) -> BaseModel:
+        """调用 LLM 生成结构化结果，带文件缓存与 AI 标记。
+
+        max_tokens：输出 token 上限覆盖；缺省用 self.max_tokens（可能为 None，
+        由模型默认决定）。
+        """
+        user = self._render(pmt, **kw)
+        cache_fname = path.join(
+            self.pj_dir, f't_{out_model.__name__.lower()}_{gen_objs_md5(user)}.yaml')
+        r = read_yaml_model(cache_fname, out_model)
+        if r:
+            return r
+        mt = max_tokens if max_tokens is not None else self.max_tokens
+        res = self.llm.call_llm_retry(
+            user, self.model,
+            retry=self.retry, temp=self.temperature,
+            max_tokens=mt,
+            parse_output=self._parse_to(out_model))
+        write_yaml_model(cache_fname, res)
+        return res
+
+    # ── 内部辅助 ────────────────────────────────────────────────
+
+    def _cache_fname(self, prefix: str, *objs) -> str:
+        return path.join(self.pj_dir, f'{prefix}_{gen_objs_md5(*objs)}.yaml')
+
+    def _load_state(self) -> PipelineState:
+        state = read_yaml_model(path.join(self.pj_dir, 'pipeline_state.yaml'),
+                                PipelineState)
+        if state:
+            return state
+        return PipelineState(project_id=self.project_id, stage='PROJECT_INIT')
+
+    def _save_state(self, state: PipelineState) -> None:
+        write_yaml_model(path.join(self.pj_dir, 'pipeline_state.yaml'), state)
+
+    def _list_workspace_text_files(self) -> List[str]:
+        return [
+            path.join(self.pj_dir, f)
+            for root, _, fnames in os.walk(self.pj_dir)
+            for f in fnames
+            if f.endswith(('.md', '.txt', '.json', '.yaml', '.bib', '.tex'))
+            and not f.startswith('history')
+        ]
+
+    # ── 1. 文献检索（真实 API，带缓存） ──────────────────────────
+
+    def tool_search_arxiv(self, query: str, max_results: int = 10,
+                          categories: Optional[List[str]] = None) -> PaperSearchResult:
+        """检索 arXiv（真实 API），返回论文元数据。不得编造引用。"""
+        cache_fname = self._cache_fname(
+            'arxiv', query, max_results, categories)
+        r = read_yaml_model(cache_fname, PaperSearchResult)
+        if r:
+            return r
+        max_results = max(1, min(int(max_results or 10), 50))
+        if categories:
+            cat_terms = ' OR ALL:'.join(
+                f'cat:{c}' for c in categories
+            )
+            search_query = f'(all:"{query}") AND ALL:{cat_terms}'
+        else:
+            search_query = f'all:"{query}"'
+        from urllib.parse import quote
+        url = ('http://export.arxiv.org/api/query?'
+               f'search_query={quote(search_query)}'
+               f'&max_results={max_results}&sortBy=relevance')
+        papers: List[Citation] = []
+        try:
+            resp = request_retry('GET', url, timeout=30)
+            root = ET.fromstring(resp.text)
+            for entry in root.findall('a:entry', _ARXIV_NS):
+                eid = entry.findtext('a:id', default='', namespaces=_ARXIV_NS)
+                aid = eid.split('/abs/')[-1]
+                title = ' '.join(
+                    entry.findtext('a:title', default='', namespaces=_ARXIV_NS)
+                        .split())
+                abstract = ' '.join(
+                    entry.findtext('a:summary', default='', namespaces=_ARXIV_NS)
+                        .split())
+                published = entry.findtext('a:published', default='',
+                                           namespaces=_ARXIV_NS)
+                year = int(published[:4]) if published and published[:4].isdigit() else None
+                authors = [
+                    a.findtext('a:name', default='', namespaces=_ARXIV_NS)
+                    for a in entry.findall('a:author', _ARXIV_NS)
+                ]
+                cats = [
+                    c.attrib.get('term', '')
+                    for c in entry.findall('a:category', _ARXIV_NS)
+                ]
+                papers.append(Citation(
+                    source_id=aid, title=title, authors=authors, year=year,
+                    venue='arXiv', url=f'https://arxiv.org/abs/{aid}',
+                    abstract=abstract, categories=cats, verified=True,
+                ))
+        except Exception as ex:
+            logger.warning('arXiv 检索失败：%s', ex)
+        result = PaperSearchResult(query=query, papers=papers)
+        write_yaml_model(cache_fname, result)
+        return result
+
+    def _s2_headers(self) -> Dict[str, str]:
+        """可选 Semantic Scholar API key（环境变量 S2_API_KEY），提高限流额度。"""
+        key = os.environ.get('S2_API_KEY', '').strip()
+        return {'x-api-key': key} if key else {}
+
+    def _s2_request(self, url: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        try:
+            resp = request_retry('GET', url, params=params,
+                                 headers=self._s2_headers(), timeout=30)
+            if resp.status_code == 429:
+                logger.warning('Semantic Scholar 限流(429)；可用环境变量 '
+                               'S2_API_KEY 提高额度。返回空结果。')
+                return None
+            return resp.json()
+        except Exception as ex:
+            logger.warning('Semantic Scholar 请求失败：%s', ex)
+            return None
+
+    def tool_search_semantic_scholar(self, query: str, limit: int = 10) -> PaperSearchResult:
+        """检索 Semantic Scholar（真实 API），返回论文元数据。"""
+        cache_fname = self._cache_fname('s2', query, limit)
+        r = read_yaml_model(cache_fname, PaperSearchResult)
+        if r:
+            return r
+        limit = max(1, min(int(limit or 10), 100))
+        papers: List[Citation] = []
+        data = self._s2_request(
+            'https://api.semanticscholar.org/graph/v1/paper/search',
+            {'query': query, 'limit': limit,
+             'fields': 'title,authors,year,venue,externalIds,abstract'})
+        if data:
+            for p in data.get('data', []) or []:
+                ext = p.get('externalIds') or {}
+                papers.append(Citation(
+                    source_id=p.get('paperId', ''),
+                    title=p.get('title', ''),
+                    authors=[a.get('name', '') for a in (p.get('authors') or [])],
+                    year=p.get('year'),
+                    venue=p.get('venue', ''),
+                    doi=ext.get('DOI', ''),
+                    url=ext.get('ArXiv', ''),
+                    abstract=p.get('abstract', ''),
+                    verified=True,
+                ))
+        result = PaperSearchResult(query=query, papers=papers)
+        write_yaml_model(cache_fname, result)
+        return result
+
+    def tool_get_citation_graph(self, paper_id: str, direction: str = 'citations',
+                                limit: int = 10) -> CitationGraphResult:
+        """查一篇论文的施引（citations）或被引（references，即该文引用的文献）。"""
+        normalized = direction.lower()
+        if normalized in ('in', 'backward', 'back', 'references', 'ref'):
+            normalized = 'references'
+        else:
+            normalized = 'citations'
+        cache_fname = self._cache_fname('cite', paper_id, normalized, limit)
+        r = read_yaml_model(cache_fname, CitationGraphResult)
+        if r:
+            return r
+        limit = max(1, min(int(limit or 10), 100))
+        papers: List[Citation] = []
+        data = self._s2_request(
+            f'https://api.semanticscholar.org/graph/v1/paper/{paper_id}/{normalized}',
+            {'limit': limit, 'fields': 'title,authors,year,venue,externalIds'})
+        if data:
+            for it in data.get('data', []) or []:
+                p = it.get('citingPaper') or it.get('citedPaper') or it
+                ext = p.get('externalIds') or {}
+                papers.append(Citation(
+                    source_id=p.get('paperId', ''),
+                    title=p.get('title', ''),
+                    authors=[a.get('name', '') for a in (p.get('authors') or [])],
+                    year=p.get('year'),
+                    venue=p.get('venue', ''),
+                    url=ext.get('ArXiv', ''),
+                    verified=True,
+                ))
+        result = CitationGraphResult(
+            paper_id=paper_id, direction=normalized, papers=papers)
+        write_yaml_model(cache_fname, result)
+        return result
+
+    # ── 2. 知识检索（本地朴素检索，带缓存） ──────────────────────
+
+    def tool_retrieve_knowledge(self, query: str, top_k: int = 5) -> KnowledgeResult:
+        """在工作区保存的文本中检索与 query 相关的片段（词袋相关度）。"""
+        cache_fname = self._cache_fname('know', query, top_k)
+        r = read_yaml_model(cache_fname, KnowledgeResult)
+        if r:
+            return r
+        top_k = max(1, int(top_k or 5))
+        tokens = set(re.findall(r'[\u4e00-\u9fff]|[a-zA-Z0-9]{2,}', query))
+        scored: List[KnowledgeHit] = []
+        for fname in self._list_workspace_text_files():
+            try:
+                content = read_text(fname)
+            except Exception:
+                continue
+            rel = path.relpath(fname, self.pj_dir)
+            for para in content.splitlines():
+                para = para.strip()
+                if not para or len(para) < 6:
+                    continue
+                ptoks = set(re.findall(r'[\u4e00-\u9fff]|[a-zA-Z0-9]{2,}', para))
+                inter = len(tokens & ptoks)
+                if inter > 0:
+                    score = inter / max(1, len(tokens))
+                    if score >= 0.33:
+                        scored.append(KnowledgeHit(
+                            source=rel, score=round(score, 3), snippet=para[:300]))
+        scored.sort(key=lambda h: h.score, reverse=True)
+        result = KnowledgeResult(query=query, hits=scored[:top_k])
+        write_yaml_model(cache_fname, result)
+        return result
+
+    # ── 3. 假设卡 ────────────────────────────────────────────────
+
+    def _next_hyp_id(self) -> str:
+        hyp_fname = path.join(self.pj_dir, 'hypotheses.yaml')
+        hyps = read_yaml_model(hyp_fname, None) or []
+        return f'hyp_{len(hyps) + 1:03d}'
+
+    def tool_create_hypothesis_card(
+        self, question: str, prediction: str,
+        baselines: Optional[List[str]] = None,
+        metrics: Optional[List[str]] = None,
+        risks: Optional[List[str]] = None,
+        contribution: str = '',
+        references: Optional[List[str]] = None,
+    ) -> HypothesisCard:
+        """生成并保存一条候选假设卡（研究问题需可检验、基线/指标/风险齐全）。"""
+        card = HypothesisCard(
+            id=self._next_hyp_id(),
+            question=question,
+            prediction=prediction,
+            baselines=baselines or [],
+            metrics=metrics or [],
+            risks=risks or [],
+            contribution=contribution,
+            references=references or [],
+        )
+        hyp_fname = path.join(self.pj_dir, 'hypotheses.yaml')
+        hyps = read_yaml_model(hyp_fname, None) or []
+        hyps = [h.dict() if hasattr(h, 'dict') else h for h in hyps]
+        hyps.append(card.model_dump())
+        write_yaml_model(hyp_fname, hyps)
+        return card
+
+    # ── 4. 沙箱执行 ─────────────────────────────────────────────
+
+    def _run_log_fname(self, run_id: str) -> str:
+        """一次沙箱运行的原始日志保存路径。"""
+        return path.join(self.pj_dir, 'logs', f'{run_id}.log')
+
+    def tool_run_in_sandbox(self, command: str, timeout_sec: int = 120,
+                            env: Optional[Dict[str, str]] = None) -> ExperimentRun:
+        """在隔离沙箱目录执行命令，返回日志与退出码，并持久化原始日志。所有实验结果须经此工具。"""
+        sandbox = path.join(self.pj_dir, 'sandbox')
+        os.makedirs(sandbox, exist_ok=True)
+        run_env = os.environ.copy()
+        if env:
+            run_env.update(env)
+        run_id = 'run_' + hashlib.md5(command.encode('utf8')).hexdigest()[:8]
+        logs = ''
+        try:
+            r = subprocess.run(
+                command, shell=True, cwd=sandbox, env=run_env,
+                capture_output=True, text=True,
+                timeout=max(1, int(timeout_sec or 120)),
+            )
+            logs = (r.stdout or '') + (r.stderr or '')
+            status = 'ok' if r.returncode == 0 else 'error'
+            returncode = r.returncode
+        except subprocess.TimeoutExpired as ex:
+            logs = (getattr(ex, 'stdout', b'') or b'').decode('utf8', 'replace') \
+                   + (getattr(ex, 'stderr', b'') or b'').decode('utf8', 'replace') \
+                   + f'\n[超时 {timeout_sec}s]'
+            status = 'timeout'
+            returncode = -1
+        except Exception as ex:
+            logs = f'执行异常：{ex}'
+            status = 'error'
+            returncode = -1
+        # 持久化原始日志，供结果真实性核查与审计。
+        write_text(self._run_log_fname(run_id), logs)
+        return ExperimentRun(
+            run_id=run_id, command=command,
+            logs=logs, returncode=returncode,
+            status=status,
+        )
+
+    # ── 5. git 与实验记录 ───────────────────────────────────────
+
+    def tool_git_commit(self, message: str,
+                        files: Optional[List[str]] = None) -> Dict[str, Any]:
+        """在工作区仓库提交代码版本（保留可复现实验的代码 commit）。"""
+        if not path.isdir(path.join(self.pj_dir, '.git')):
+            subprocess.run(['git', 'init'], cwd=self.pj_dir, capture_output=True)
+        add_cmd = ['git', 'add'] + (files if files else ['-A'])
+        subprocess.run(add_cmd, cwd=self.pj_dir, capture_output=True)
+        r = subprocess.run(['git', 'commit', '-m', message], cwd=self.pj_dir,
+                           capture_output=True, text=True)
+        return {
+            'message': message,
+            'returncode': r.returncode,
+            'output': (r.stdout or '') + (r.stderr or ''),
+        }
+
+    def tool_log_mlflow(self, run_id: str = '',
+                        params: Optional[Dict[str, Any]] = None,
+                        metrics: Optional[Dict[str, Any]] = None,
+                        artifacts: Optional[List[str]] = None) -> ExperimentRun:
+        """记录一次实验运行。反伪造：仅当该 run_id 存在沙箱持久化原始日志时才记录指标，
+        否则标记为 unverified，不进入可引用结果。"""
+        run_id = run_id or 'run_' + hashlib.md5(
+            json_dump_model((params, metrics)).encode('utf8')).hexdigest()[:8]
+        log_fname = self._run_log_fname(run_id)
+        has_real_log = path.isfile(log_fname) and path.getsize(log_fname) > 0
+        entry = ExperimentRun(
+            run_id=run_id, params=params or {},
+            metrics=(metrics or {}) if has_real_log else {},
+            artifacts=artifacts or [],
+            logs=read_text(log_fname) if has_real_log else '',
+            status='logged' if has_real_log else 'unverified',
+        )
+        runs_fname = path.join(self.pj_dir, 'runs.yaml')
+        runs = read_yaml_model(runs_fname, None) or []
+        runs = [r.dict() if hasattr(r, 'dict') else r for r in runs]
+        runs.append(entry.model_dump())
+        write_yaml_model(runs_fname, runs)
+        return entry
+
+    # ── 5.5 实验代码编写与验证 ────────────────────────────────
+
+    def _verifications_fname(self) -> str:
+        return path.join(self.pj_dir, 'verifications.yaml')
+
+    def _find_verification(self, run_id: str) -> Optional[Dict[str, Any]]:
+        """按 run_id 查找最近一次一致性验证记录（用于结果门禁）。"""
+        recs = read_yaml_model(self._verifications_fname(), None) or []
+        for r in recs:
+            if isinstance(r, dict) and r.get('run_id') == run_id:
+                return r
+        return None
+
+    def _record_verification(self, rec: Dict[str, Any]) -> None:
+        """把一次结果一致性验证记录持久化，供结果门禁与审计引用。"""
+        recs = read_yaml_model(self._verifications_fname(), None) or []
+        recs = [r for r in recs
+                if not (isinstance(r, dict) and r.get('run_id') == rec.get('run_id'))]
+        recs.append(rec)
+        write_yaml_model(self._verifications_fname(), recs)
+
+    def _read_run_log(self, run_id: str) -> str:
+        """读取某次沙箱运行的持久化原始日志。"""
+        lf = self._run_log_fname(run_id)
+        if path.isfile(lf):
+            return read_text(lf) or ''
+        return ''
+
+    def tool_generate_experiment_code(
+        self, experiment_plan: str, hypothesis: str = '',
+        data_source: str = '', filename: str = 'experiment.py',
+    ) -> ExperimentCode:
+        """依据实验计划与假设生成实验代码并写入沙箱（后续需用 tool_run_in_sandbox 实跑）。"""
+        code = self._call_llm(GENERATE_EXPERIMENT_CODE_PROMPT_PMT, ExperimentCode,
+                              experiment_plan=experiment_plan, hypothesis=hypothesis,
+                              data_source=data_source)
+        sandbox = path.join(self.pj_dir, 'sandbox')
+        os.makedirs(sandbox, exist_ok=True)
+        fname = (filename or 'experiment.py').strip() or 'experiment.py'
+        if not fname.endswith('.py'):
+            fname += '.py'
+        fpath = path.join(sandbox, path.basename(fname))
+        write_text(fpath, code.code)
+        code.filename = path.basename(fname)
+        code.saved_path = fpath
+        return code
+
+    def tool_verify_experiment_code(self, filename: str = 'experiment.py',
+                                    smoke: bool = True,
+                                    timeout_sec: int = 60) -> ExperimentCodeVerification:
+        """对沙箱内实验代码做语法校验与冒烟运行，确认可运行、可输出指标。"""
+        sandbox = path.join(self.pj_dir, 'sandbox')
+        fpath = path.join(sandbox, path.basename(filename or 'experiment.py'))
+        issues: List[str] = []
+        if not path.isfile(fpath):
+            return ExperimentCodeVerification(
+                valid=False, issues=[f'沙箱中找不到代码文件：{fpath}'])
+        compile_log = ''
+        try:
+            r = subprocess.run(
+                [sys.executable, '-m', 'py_compile', fpath],
+                cwd=sandbox, capture_output=True, text=True, timeout=30,
+            )
+            compile_log = ((r.stdout or '') + (r.stderr or '')).strip()
+        except Exception as ex:
+            compile_log = f'编译检查异常：{ex}'
+        compile_ok = ('Error' not in compile_log and 'Traceback' not in compile_log)
+        if not compile_ok:
+            return ExperimentCodeVerification(
+                valid=False, issues=[f'语法编译未通过：{compile_log[:500]}'],
+                compile_log=compile_log)
+        smoke_log = ''
+        if smoke:
+            try:
+                r2 = subprocess.run(
+                    [sys.executable, path.basename(fpath)], cwd=sandbox,
+                    capture_output=True, text=True,
+                    timeout=max(5, int(timeout_sec or 60)),
+                )
+                smoke_log = ((r2.stdout or '') + (r2.stderr or ''))[:2000]
+                if r2.returncode != 0:
+                    issues.append(
+                        f'冒烟运行失败（退出码 {r2.returncode}）：{smoke_log[:500]}')
+            except subprocess.TimeoutExpired:
+                smoke_log = f'冒烟运行超时（{timeout_sec}s）'
+                issues.append(smoke_log)
+            except Exception as ex:
+                smoke_log = f'冒烟运行异常：{ex}'
+                issues.append(smoke_log)
+        return ExperimentCodeVerification(
+            valid=not issues, issues=issues,
+            compile_log=compile_log, smoke_log=smoke_log)
+
+    def tool_verify_result_consistency(self, claimed_metrics: str,
+                                       run_id: str = '',
+                                       log: str = '') -> ResultConsistencyReport:
+        """核对声称的实验指标与真实运行日志是否一致，防止数据伪造。"""
+        real_log = log or (self._read_run_log(run_id) if run_id else '')
+        if not real_log:
+            rep = ResultConsistencyReport(
+                consistent=False,
+                discrepancies=[
+                    '未找到真实运行日志；请先用 tool_run_in_sandbox 执行实验并传入 run_id'],
+                conclusion='缺少原始日志，无法核对，数据真实性存疑',
+            )
+            if run_id:
+                self._record_verification({
+                    'run_id': run_id, 'consistent': False,
+                    'conclusion': rep.conclusion,
+                    'discrepancies': list(rep.discrepancies),
+                    'evidence': [],
+                })
+            return rep
+        rep = self._call_llm(VERIFY_RESULT_CONSISTENCY_PROMPT_PMT,
+                             ResultConsistencyReport,
+                             claimed_metrics=claimed_metrics, run_log=real_log)
+        if run_id:
+            self._record_verification({
+                'run_id': run_id,
+                'consistent': bool(rep.consistent),
+                'conclusion': rep.conclusion,
+                'discrepancies': list(rep.discrepancies),
+                'evidence': list(rep.evidence),
+            })
+        return rep
+
+    def _result_verified(self, run_id: str) -> bool:
+        """结果门禁辅助：某 run_id 是否已有一次通过的一致性验证记录。"""
+        rec = self._find_verification(run_id)
+        return bool(rec and rec.get('consistent') is True)
+
+    def _writing_gate_ok(self) -> bool:
+        """写作门禁辅助：工作区中是否有内容充实的 paper.md。
+
+        判定：paper.md 存在，去除空白后字数 ≥ MIN_PAPER_CHARS（默认 8000）。
+        用于 tool_update_pipeline_state 的 G5 门禁守卫，防止模型未成稿就标记写作通过。
+        """
+        fname = path.join(self.pj_dir, 'paper.md')
+        if not path.isfile(fname):
+            return False
+        text = read_text(fname) or ''
+        return len(re.sub(r'\s', '', text)) >= getattr(self, '_MIN_PAPER_CHARS', 8000)
+
+    _MIN_PAPER_CHARS = 8000
+
+    _POST_WRITING_STAGES = ('INTERNAL_REVIEW', 'SUBMISSION_PACKAGE')
+
+    def _state_evidence_text(self, ids: List[str], kind: str) -> str:
+        """把已确认的 citations/results 转成可读文本，供自动补写论文使用。"""
+        lines = []
+        if kind == 'citations':
+            pool = read_yaml_model(path.join(self.pj_dir, 'literature_pool.yaml'), None)
+            by_id = {}
+            if isinstance(pool, dict):
+                for p in (pool.get('papers') or []):
+                    if isinstance(p, dict) and p.get('source_id'):
+                        by_id[p['source_id']] = p
+            for cid in ids:
+                meta = by_id.get(cid)
+                lines.append(f'[citation_id={cid}] ' + (
+                    json_dump_model(meta) if meta else '（仅 source_id，无元数据）'))
+        elif kind == 'results':
+            runs = read_yaml_model(path.join(self.pj_dir, 'runs.yaml'), None)
+            by_id = {}
+            if isinstance(runs, list):
+                for r in runs:
+                    if isinstance(r, dict) and r.get('run_id'):
+                        by_id[r['run_id']] = r
+            for rid in ids:
+                meta = by_id.get(rid)
+                lines.append(f'[result_id={rid}] ' + (
+                    json_dump_model(meta) if meta else '（仅 run_id，无指标）'))
+        return '；'.join(lines) or f'（无可读{kind}，请补充已验证{kind}）'
+
+    def _ensure_paper(self) -> bool:
+        """确定性写作守卫：若工作区无内容充实的 paper.md，自动调用 tool_write_paper_full
+        补写全文，不依赖模型自觉调用。返回是否已成稿。
+
+        大纲优先取 paper_plan.yaml（tool_plan_paper 落盘）；citations/results 取
+        systematic state 中已确认的 id，并补充相应元数据。
+        """
+        if self._writing_gate_ok():
+            return True
+        logger.info('未发现合格 paper.md，自动补写论文全文…')
+        state = self._load_state()
+        plan = read_yaml_model(path.join(self.pj_dir, 'paper_plan.yaml'), None)
+        outline = ''
+        title = ''
+        if isinstance(plan, dict):
+            outline = json_dump_model(plan.get('outline') or {})
+            title = plan.get('problem_lock') or plan.get('title') or ''
+        try:
+            self.tool_write_paper_full(
+                outline=outline,
+                citations=self._state_evidence_text(state.citations, 'citations'),
+                results=self._state_evidence_text(state.results, 'results'),
+                evidence=json_dump_model(state.artifacts),
+                title=title,
+            )
+        except Exception as ex:
+            logger.warning('自动补写论文失败：%s', ex)
+            return False
+        ok = self._writing_gate_ok()
+        if ok:
+            logger.info('已自动生成 paper.md（字数达标）')
+        return ok
+
+    # ── 6. 引用校验 / LaTeX ─────────────────────────────────────
+
+    def tool_find_citation(self, sentence: str) -> dict:
+        resp = requests.get(
+            "https://api.openalex.org/works",
+            params={
+                "search.semantic": sentence,
+                "select": "id,title,relevance_score,publication_year,doi",
+                "per-page": 10
+            }
+        )
+        resp.raise_for_status()
+        return resp.json()["results"]
+
+    def tool_validate_citations(self, latex: str, bibtex: str) -> CitationValidation:
+        """校验 LaTeX 中每个 \\\\cite 是否有对应 bibtex 条目。"""
+        cite_keys = set()
+        for grp in re.findall(r'\\cite\{([^}]+)\}', latex or ''):
+            for k in grp.split(','):
+                k = k.strip()
+                if k:
+                    cite_keys.add(k)
+        bib_keys = set(
+            m.strip() for m in re.findall(r'@\w+\s*\{\s*([^,]+)\s*,', bibtex or '')
+        )
+        missing = sorted(cite_keys - bib_keys)
+        unused = sorted(bib_keys - cite_keys)
+        valid = not missing
+        issues = []
+        if missing:
+            issues.append(f'缺失引用：{", ".join(missing)}')
+        if len(cite_keys) == 0 and bibtex.strip():
+            issues.append('LaTeX 中未发现任何 \\\\cite')
+        return CitationValidation(
+            valid=valid, missing_citations=missing,
+            unused_citations=unused, issues=issues,
+        )
+
+    def tool_compile_latex(self, tex_source: str) -> LatexCompileResult:
+        """编译 LaTeX 为 PDF（需已安装 xelatex/pdflatex）。"""
+        latex = shutil.which('xelatex') or shutil.which('pdflatex')
+        if not latex:
+            return LatexCompileResult(
+                success=False, log='未安装 LaTeX（xelatex/pdflatex）')
+        sandbox = path.join(self.pj_dir, 'sandbox')
+        os.makedirs(sandbox, exist_ok=True)
+        write_text(path.join(sandbox, 'main.tex'), tex_source)
+        try:
+            r = subprocess.run(
+                [latex, '-interaction=nonstopmode', '-halt-on-error', 'main.tex'],
+                cwd=sandbox, capture_output=True, text=True, timeout=180,
+            )
+        except subprocess.TimeoutExpired as ex:
+            return LatexCompileResult(
+                success=False, log='LaTeX 编译超时：' +
+                                   ((ex.stdout or b'') + (ex.stderr or b'')).decode('utf8', 'replace'))
+        pdf_path = path.join(sandbox, 'main.pdf')
+        success = path.isfile(pdf_path)
+        return LatexCompileResult(
+            success=success,
+            pdf_path=pdf_path if success else '',
+            log=((r.stdout or '') + (r.stderr or ''))[:8000],
+        )
+
+    # ── 7. 审批 / 状态机 ────────────────────────────────────────
+
+    def tool_request_user_approval(self, stage: str,
+                                   payload: str = '') -> ApprovalResult:
+        """向人类请求阶段门禁/关键决策审批；启用 -y 时自动批准不阻塞。"""
+        if getattr(self.args, 'yes', False):
+            logger.info('[-y] 自动批准阶段门禁：%s', stage)
+            return ApprovalResult(
+                stage=stage, approved=True,
+                comment='-y 自动批准（未经人工确认）',
+                record=f'{stage}_auto_approved')
+        print('\n=== 需要人类审批 ===')
+        print(f'阶段：{stage}')
+        if payload:
+            print(f'说明：{payload}')
+        try:
+            ans = input('[y]批准 / n 拒绝 / 或输入备注文字（视为批准并记录）：> ').strip()
+        except (EOFError, KeyboardInterrupt):
+            return ApprovalResult(
+                stage=stage, approved=False,
+                comment='未收到输入（EOF），默认不批准',
+                record=f'{stage}_denied_eof')
+        low = ans.lower()
+        if low in ('', 'y', 'yes', '1', 'true'):
+            approved, comment = True, ''
+        elif low in ('n', 'no', '0', 'false'):
+            approved, comment = False, ''
+        else:
+            approved, comment = True, ans
+        record = f'{stage}_{"approved" if approved else "denied"}'
+        return ApprovalResult(
+            stage=stage, approved=approved, comment=comment, record=record)
+
+    def tool_update_pipeline_state(
+        self, stage: Optional[str] = None,
+        gates: Optional[Dict[str, bool]] = None,
+        artifacts: Optional[List[str]] = None,
+        citations: Optional[List[str]] = None,
+        results: Optional[List[str]] = None,
+        approvals: Optional[List[str]] = None,
+        next_action: str = '',
+    ) -> PipelineState:
+        """更新流水线状态机，返回完整新状态。每轮收到工具结果后务必调用。
+        反伪造：传入 results 的 run_id 必须已有通过的 tool_verify_result_consistency
+        验证记录，否则拒绝列入已确认结果。
+        确定性成稿：若模型将 stage 前进到 WRITING 之后，或提交 G5=True，但工作区
+        尚无内容充实的 paper.md，则自动调用 tool_write_paper_full 补写全文。"""
+        state = self._load_state()
+        # ── 确定性成稿守卫（先于 stage/gates 更新执行）────────
+        need_paper = False
+        if stage and stage in self._POST_WRITING_STAGES:
+            need_paper = True
+        if gates and gates.get('G5') is True:
+            need_paper = True
+        if need_paper:
+            self._ensure_paper()
+            if not self._writing_gate_ok():
+                # 未成稿：不允许前进到写作之后的阶段，也不允许标记 G5 通过。
+                state.next_action = (
+                    '写作阶段未完成：未发现内容充实的 paper.md。'
+                    '当前无法进入后续阶段或标记 G5 通过。'
+                    '请先调用 tool_write_paper_full 生成完整论文全文'
+                    '（每章≥1500 字、全文≥8000 字），再重试。')
+                if stage and stage in self._POST_WRITING_STAGES:
+                    stage = None  # 留在当前阶段
+        if stage:
+            state.stage = stage
+        if gates:
+            # G5 写作门禁守卫：要求已生成“完整论文全文” paper.md。
+            if gates.get('G5') is True and not self._writing_gate_ok():
+                if 'G5' in gates:
+                    gates = {**gates, 'G5': False}
+            state.gates.update(gates)
+        if artifacts:
+            state.artifacts = list(dict.fromkeys(state.artifacts + artifacts))
+        if citations:
+            state.citations = list(dict.fromkeys(state.citations + citations))
+        if results:
+            rejected = [rid for rid in results if not self._result_verified(rid)]
+            if rejected:
+                state.next_action = (
+                    f'拒绝确认未经验证的结果：{", ".join(rejected)}。'
+                    '必须先 tool_run_in_sandbox 实跑，再调用 tool_verify_result_consistency'
+                    ' 并通过一致性验证，才能将 run_id 加入 results。')
+                results = [rid for rid in results if rid not in rejected]
+            # 反伪造：即使之前已被加入（如旧状态遗留），只要没有通过验证，也从中剔除。
+            state.results = [
+                rid for rid in state.results
+                if self._result_verified(rid)
+            ]
+            state.results = list(dict.fromkeys(state.results + results))
+        if approvals:
+            state.approvals = list(dict.fromkeys(state.approvals + approvals))
+        if next_action:
+            state.next_action = next_action
+        self._save_state(state)
+        return state
+
+    # ══════════════════════════════════════════════════════════
+    # 精选固化工具集（四域）
+    # ══════════════════════════════════════════════════════════
+
+    # ── A. 写作/润色 ───────────────────────────────────────────
+
+    def tool_optimize_prompt(self, raw: str, purpose: str = 'review') -> OptimizedRequest:
+        """把用户模糊的原始需求改写成结构化审稿/写作请求。"""
+        return self._call_llm(OPTIMIZE_PROMPT_PMT, OptimizedRequest,
+                              raw=raw, purpose=purpose)
+
+    def tool_translate_paper(self, text: str, src: str = '中文',
+                             tgt: str = '英文', medium: str = 'latex') -> TranslationResult:
+        """中英互译论文（保留公式/术语/引用，转义 LaTeX 字符）。"""
+        return self._call_llm(TRANSLATE_PROMPT_PMT, TranslationResult,
+                              text=text, src=src, tgt=tgt, medium=medium)
+
+    def tool_polish_paper(self, text: str, mode: str = 'polish') -> PolishResult:
+        """论文润色/缩写/扩写（mode: polish|condense|expand）。"""
+        return self._call_llm(POLISH_PROMPT_PMT, PolishResult, text=text, mode=mode)
+
+    def tool_deai_text(self, text: str, lang: str = '中文') -> DeaiResult:
+        """去 AI 味/人味化（黑名单硬清除 + 句长节奏对齐，含 AI 味得分对比）。"""
+        return self._call_llm(DEAI_PROMPT_PMT, DeaiResult, text=text, lang=lang)
+
+    def tool_check_logic(self, text: str) -> LogicReport:
+        """论文逻辑一致性/校对（高容忍，只报实质问题）。"""
+        return self._call_llm(LOGIC_CHECK_PROMPT_PMT, LogicReport, text=text)
+
+    def tool_style_dna(self, samples: str) -> StyleDna:
+        """从样本文本提取个人写作风格 DNA。"""
+        return self._call_llm(STYLE_DNA_PROMPT_PMT, StyleDna, samples=samples)
+
+    def tool_write_abstract(self, problem: str, approach: str = '',
+                            results: str = '', contribution: str = '') -> Abstract:
+        """写 150~250 词自包含摘要（含一条量化结果）。"""
+        return self._call_llm(WRITE_ABSTRACT_PROMPT_PMT, Abstract,
+                              problem=problem, approach=approach,
+                              results=results, contribution=contribution)
+
+    def tool_write_introduction(self, question: str, gap: str = '',
+                                approach: str = '', contributions: str = '') -> Introduction:
+        """按发布会开场结构逐段写引言，逐句绑定引用/结果。"""
+        return self._call_llm(WRITE_INTRO_PROMPT_PMT, Introduction,
+                              question=question, gap=gap, approach=approach,
+                              contributions=contributions)
+
+    def tool_write_literature_review(self, papers: str,
+                                     question: str = '') -> LitReview:
+        """聚类式文献综述 + 研究空白陈述（只用给定论文，不编造）。"""
+        return self._call_llm(WRITE_LITREVIEW_PROMPT_PMT, LitReview,
+                              papers=papers, question=question)
+
+    def tool_plan_paper(self, question: str, claims: str = '',
+                        experiments: str = '') -> PaperPlan:
+        """论文规划：Claims-Evidence 矩阵、Problem Lock、逐节/图表/引用计划。
+
+        同时把规划结果落盘到 paper_plan.yaml，供写作阶段 tool_write_paper_full
+        自动补写时读取大纲。
+        """
+        plan = self._call_llm(PLAN_PAPER_PROMPT_PMT, PaperPlan,
+                              question=question, claims=claims, experiments=experiments)
+        write_yaml_model(path.join(self.pj_dir, 'paper_plan.yaml'), plan)
+        return plan
+
+    def tool_write_section(self, section_plan: str, evidence: str = '') -> SectionDraft:
+        """按节计划写论文正文（逐句绑定引用/结果，标记 ai_generated）。"""
+        return self._call_llm(WRITE_SECTION_PROMPT_PMT, SectionDraft,
+                              section_plan=section_plan, evidence=evidence)
+
+    def tool_write_paper_full(
+        self, outline: str = '', citations: str = '', results: str = '',
+        evidence: str = '', title: str = '', language: str = '中文',
+        min_chars: int = 1500,
+    ) -> FullPaper:
+        """按大纲逐章生成**完整论文全文**：先写摘要，再逐章写正文（每章满足最低字数），
+        组装为 Markdown 全文，保存为 paper.md 并返回全文模型。
+
+        - outline：章节大纲（可传 PaperPlan JSON，或章节标题 JSON 数组，或每行一章节）。
+        - citations/results/evidence：已验证事实（每句绑定 id，禁止编造）。
+        - title：论文标题（可空，自动取大纲/默认标题）。
+        - language：输出语言，默认中文。
+        - min_chars：每章最低字数，默认 1500。
+        """
+        # 1. 解析大纲 → 章节标题列表
+        chapters = self._parse_outline_titles(outline)
+        if not chapters:
+            chapters = ['引言', '相关工作', '方法', '实验与结果', '讨论', '结论与展望']
+        title = (title or '').strip() or '未命名研究论文'
+        # 2. 摘要
+        abs_ctx = render_prompt(
+            '{title}：{first}。研究动机与相关文献见大纲；核心结果见结果列表。',
+            title=title,
+            first=chapters[0] if chapters else '',
+        )
+        abstract = self._call_llm(WRITE_ABSTRACT_PROMPT_PMT, Abstract,
+                                  max_tokens=4096,
+                                  problem=abs_ctx, approach=outline,
+                                  results=results, contribution=outline)
+        # 3. 逐章写正文（每章独立 LLM 调用，带缓存；大 token 上限防截断）
+        draft_chapters: List[SectionDraft] = []
+        for i, ch in enumerate(chapters, 1):
+            draft = self._call_llm(
+                WRITE_PAPER_CHAPTER_PROMPT_PMT, SectionDraft,
+                max_tokens=8192,
+                chapter=f'第 {i} 章 {ch}',
+                outline=outline or '\n'.join(f'{j}. {c}' for j, c in enumerate(chapters, 1)),
+                citations=citations or '（暂无）',
+                results=results or '（暂无）',
+                evidence=evidence or '（暂无）',
+                min_chars=max(500, int(min_chars or 1500)),
+                language=language or '中文',
+            )
+            draft_chapters.append(SectionDraft(
+                section_title=ch, content=draft.content, ai_generated=True))
+        # 4. 组装全文
+        lines = [f'# {title}', '', '## 摘要', '', abstract.abstract or '', '']
+        for d in draft_chapters:
+            lines += ['## ' + d.section_title, '', d.content, '']
+        full_md = '\n'.join(lines).strip() + '\n'
+        # 5. 保存到项目工作区
+        saved_path = 'paper.md'
+        write_text(path.join(self.pj_dir, saved_path), full_md)
+        wc = len(re.sub(r'\s', '', full_md))
+        return FullPaper(
+            title=title, abstract=abstract.abstract or '',
+            chapters=draft_chapters, full_md=full_md,
+            saved_path=saved_path, word_count=wc, ai_generated=True,
+        )
+
+    def _parse_outline_titles(self, outline: str) -> List[str]:
+        """从大纲字符串解析章节标题列表（兼容 PaperPlan JSON / JSON 数组 / 文本行）。"""
+        if not outline or not outline.strip():
+            return []
+        text = outline.strip()
+        try:
+            obj = json.loads(text)
+        except Exception:
+            obj = None
+        titles: List[str] = []
+        if isinstance(obj, dict):
+            for s in (obj.get('outline') or []):
+                if isinstance(s, dict) and s.get('title'):
+                    titles.append(str(s['title']))
+                elif isinstance(s, str) and s.strip():
+                    titles.append(s.strip())
+        elif isinstance(obj, list):
+            for s in obj:
+                if isinstance(s, dict) and s.get('title'):
+                    titles.append(str(s['title']))
+                elif isinstance(s, str) and s.strip():
+                    titles.append(s.strip())
+        if titles:
+            return titles
+        # 文本行：每行 "## 标题 职责" 或 "- 标题"
+        for line in text.splitlines():
+            line = line.strip().lstrip('#-* \t')
+            if not line:
+                continue
+            # 去掉“：职责”等后缀，取标题
+            head = re.split(r'[：:]\s*', line, maxsplit=1)[0].strip()
+            if head:
+                titles.append(head)
+        return titles
+
+    def tool_reverse_outline(self, markdown: str) -> ReverseOutline:
+        """反向大纲测试：抽每段首句验证叙事连贯性。"""
+        return self._call_llm(REVERSE_OUTLINE_PROMPT_PMT, ReverseOutline,
+                              markdown=markdown)
+
+    # ── B. 论文审稿/评审 ───────────────────────────────────────
+
+    def tool_review_paper(self, text: str, focus: str = '',
+                          strictness: str = 'standard') -> ReviewReport:
+        """七大维度审稿（原创/问题/文献/方法/数据/讨论/逻辑）。"""
+        return self._call_llm(REVIEW_PAPER_PROMPT_PMT, ReviewReport,
+                              text=text, focus=focus, strictness=strictness)
+
+    def tool_classify_issues(self, issues: str) -> IssueClassification:
+        """审稿问题 A/B 分类：结构性 vs 无止境扩展型。"""
+        return self._call_llm(CLASSIFY_ISSUES_PROMPT_PMT, IssueClassification,
+                              issues=issues)
+
+    def tool_rate_maturity(self, issues: str = '',
+                           contributions: str = '') -> MaturityScore:
+        """论文成熟度五维评分 + 可终止修改信号。"""
+        return self._call_llm(RATE_MATURITY_PROMPT_PMT, MaturityScore,
+                              issues=issues, contributions=contributions)
+
+    def tool_write_rebuttal(self, review_comments: str,
+                            paper: str = '') -> Rebuttal:
+        """生成 Rebuttal 回复（缺数据标 [TBD]，不编造承诺）。"""
+        return self._call_llm(WRITE_REBUTTAL_PROMPT_PMT, Rebuttal,
+                              review_comments=review_comments, paper=paper)
+
+    def tool_detect_aigc(self, text: str, lang: str = '中文') -> AigcScore:
+        """AIGC 五维风险评分 + 高风险段落标记。"""
+        return self._call_llm(DETECT_AIGC_PROMPT_PMT, AigcScore,
+                              text=text, lang=lang)
+
+    def tool_audit_citations(self, latex: str, bibtex: str = '') -> CitationAudit:
+        """引用三元审计：存在性(确定性校验)+元数据/上下文(LLM)。"""
+        base = self.tool_validate_citations(latex, bibtex)
+        missing = set(base.missing_citations)
+        llm = self._call_llm(AUDIT_CITATIONS_PROMPT_PMT, CitationAudit,
+                             latex_context=latex, bibtex=bibtex)
+        for a in llm.audits:
+            a.exists = a.cite_key not in missing
+            if a.cite_key in missing:
+                a.decision = 'REMOVE' if a.decision == 'KEEP' else a.decision
+        return llm
+
+    def tool_detect_fraud(self, text: str) -> FraudReport:
+        """学术打假/数据异常启发式检测（图片/数据/统计/产出/引用异常）。"""
+        return self._call_llm(DETECT_FRAUD_PROMPT_PMT, FraudReport, text=text)
+
+    # ── C. 学位论文 ────────────────────────────────────────────
+
+    def tool_build_outline(self, topic: str, background: str = '') -> Outline:
+        """生成论文/学位论文章节级大纲。"""
+        return self._call_llm(BUILD_OUTLINE_PROMPT_PMT, Outline,
+                              topic=topic, background=background)
+
+    def tool_build_literature_pool(self, topic: str, max_results: int = 10) -> LiteraturePool:
+        """多源(arXiv+S2)检索并去重构建已验证文献池，写入工作区。"""
+        papers: List[Citation] = []
+        seen = set()
+        def _add(cit: Citation):
+            k = (cit.title or '').strip().lower()
+            if k and k not in seen:
+                seen.add(k)
+                papers.append(cit)
+        ar = self.tool_search_arxiv(topic, max_results, [])
+        for p in ar.papers:
+            _add(p)
+        try:
+            ss = self.tool_search_semantic_scholar(topic, max_results)
+            for p in ss.papers:
+                _add(p)
+        except Exception:
+            pass
+        pool = LiteraturePool(topic=topic, papers=papers,
+                              total=len(papers), sources=['arxiv', 's2'])
+        write_yaml_model(path.join(self.pj_dir, 'literature_pool.yaml'), pool)
+        return pool
+
+    def tool_write_thesis_chapter(self, plan: str, evidence: str = '',
+                                  references: str = '') -> SectionDraft:
+        """学位论文分章写作（Markdown，`#` 层级映射标题）。"""
+        return self._call_llm(WRITE_CHAPTER_PROMPT_PMT, SectionDraft,
+                              plan=plan, evidence=evidence, references=references)
+
+    def tool_create_three_line_table(self, caption: str, rows: Any,
+                                     columns: Optional[List[str]] = None) -> ThreeLineTable:
+        """生成三线表（LaTeX booktabs + CSV）。rows 为行数据（list 或 dict 列表）。"""
+        cols = columns or []
+        if rows and isinstance(rows[0], dict):
+            cols = cols or list(rows[0].keys())
+        def _esc(v):
+            return str(v).replace('%', '\\%').replace('_', '\\_').replace('&', '\\&')
+        header = ' & '.join(_esc(c) for c in cols) + ' \\\\'
+        body_lines = []
+        csv_rows = []
+        for r in rows:
+            if isinstance(r, dict):
+                vals = [r.get(c, '') for c in cols]
+            else:
+                vals = list(r)
+            body_lines.append(' & '.join(_esc(v) for v in vals) + ' \\\\')
+            csv_rows.append(vals)
+        colspec = 'c' * max(1, len(cols))
+        latex = (f"\\begin{{table}}[htbp]\n\\centering\n\\caption{{{caption}}}\n"
+                 f"\\begin{{tabular}}{{{colspec}}}\n\\toprule\n{header}\n\\midrule\n"
+                 + '\n'.join(body_lines) + f"\n\\bottomrule\n\\end{{tabular}}\n\\end{{table}}")
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        if cols:
+            w.writerow(cols)
+        for row in csv_rows:
+            w.writerow([str(v) for v in row])
+        return ThreeLineTable(caption=caption, latex=latex, csv=buf.getvalue().strip())
+
+    @staticmethod
+    def _figure_script(fig_type: str, spec: str, data: str, output: str) -> str:
+        """生成 matplotlib 绘图脚本（fig_type: line/scatter/bar）。"""
+        data_json = data or '{"x":[],"y":[]}'
+        return (
+            "import json\n"
+            "from matplotlib import pyplot as plt\n"
+            f"data = json.loads({data_json!r})\n"
+            "x = data.get('x', list(range(len(data.get('y', [])))))\n"
+            "y = data.get('y', [])\n"
+            f"fig_type = {fig_type!r}\n"
+            "fig, ax = plt.subplots(figsize=(6,4), dpi=300)\n"
+            "if fig_type == 'scatter':\n"
+            "    ax.scatter(x, y, s=20)\n"
+            "elif fig_type == 'bar':\n"
+            "    ax.bar([str(i) for i in x], y)\n"
+            "else:\n"
+            "    ax.plot(x, y, marker='o', linewidth=1.5)\n"
+            f"ax.set_title({spec or 'Figure'!r})\n"
+            "ax.grid(True, alpha=0.3)\n"
+            "fig.tight_layout()\n"
+            f"fig.savefig({output!r}, bbox_inches='tight')\n"
+        )
+
+    def tool_generate_figure(self, fig_type: str = 'line', spec: str = '',
+                              data: str = '', output: str = '') -> FigureResult:
+        """按规格生成期刊级图（matplotlib，300dpi），data 为 JSON {x,y} 或散点。"""
+        sandbox = path.join(self.pj_dir, 'sandbox')
+        os.makedirs(sandbox, exist_ok=True)
+        fid = 'figure_' + hashlib.md5(
+            (fig_type + spec + data).encode('utf8')).hexdigest()[:8]
+        script = path.join(sandbox, fid + '.py')
+        output = output or path.join(sandbox, fid + '.png')
+        write_text(script, self._figure_script(fig_type, spec, data, output))
+        try:
+            r = subprocess.run(['python', script], cwd=sandbox,
+                               capture_output=True, text=True, timeout=60)
+            ok = path.isfile(output) and r.returncode == 0
+        except subprocess.TimeoutExpired:
+            ok = False
+            r = None
+        return FigureResult(
+            path=output if ok else script, engine='matplotlib', spec=fig_type,
+            notes='生成成功' if ok else (
+                f'脚本已生成但渲染失败，可在沙箱运行：{(r.stderr if r else "超时")[:200]}'))
+
+    def tool_merge_drafts(self, draft_files: List[str]) -> MergeResult:
+        """合并多份章节草稿为终稿（按章节号排序，去重参考文献）。"""
+        def _key(f):
+            m = re.search(r'(\d+)', path.basename(f))
+            return int(m.group(1)) if m else 999
+        merged = []
+        for f in sorted(draft_files, key=_key):
+            fp = f if path.isabs(f) else path.join(self.pj_dir, f)
+            merged.append(read_text(fp))
+        final = '\n\n'.join(merged)
+        ref_lines = [l for l in final.splitlines()
+                     if re.match(r'^\[?\d+[\]\.]', l.strip())]
+        dedup = max(0, len(ref_lines) - len(set(ref_lines)))
+        return MergeResult(final_md=final, files_merged=sorted(draft_files),
+                           references_dedup=dedup)
+
+    def tool_format_references(self, refs: str, style: str = 'gb') -> FormattedRefs:
+        """按 gb/ieee/apa 格式化参考文献。refs 为每行一条或 JSON 数组。"""
+        obj = None
+        if refs.strip().startswith('['):
+            try:
+                obj = json.loads(refs)
+            except Exception:
+                obj = None
+        lines = [refs] if obj is None else obj
+        entries = []
+        for i, ref in enumerate(lines):
+            if isinstance(ref, dict):
+                a = ref.get('authors', '')
+                t = ref.get('title', '')
+                y = ref.get('year', '')
+                v = ref.get('venue', '')
+            else:
+                a = t = y = v = ''
+                t = str(ref)
+            if style == 'gb':
+                text = f'[{i + 1}] {a}. {t}[J]. {v}, {y}.'
+            elif style == 'ieee':
+                text = f'{a}, \u201c{t},\u201d {v}, {y}.'
+            else:  # apa
+                text = f'{a} ({y}). {t}. {v}.'
+            entries.append(ReferenceEntry(style=style, text=text))
+        return FormattedRefs(style=style, entries=entries,
+                             full_text='\n'.join(e.text for e in entries))
+
+    def tool_plan_defense_pptx(self, thesis: str) -> DefenseDeck:
+        """生成毕业答辩 PPT 提纲（12-16 页，含配图提示）。"""
+        return self._call_llm(PLAN_DEFENSE_PROMPT_PMT, DefenseDeck, thesis=thesis)
+
+    # ── D. 数学建模/期刊图/排版 ─────────────────────────────────
+
+    def tool_analyze_modeling_problem(self, problem_text: str) -> ModelingAnalysis:
+        """数模赛题分析：子问题拆解、假设、建模路线。"""
+        return self._call_llm(ANALYZE_MODELING_PROMPT_PMT, ModelingAnalysis,
+                              problem_text=problem_text)
+
+    def tool_formulate_model(self, analysis: str) -> ModelPlan:
+        """基于问题分析形成建模方案（目标/变量/约束/方法/指标/风险）。"""
+        return self._call_llm(FORMULATE_MODEL_PROMPT_PMT, ModelPlan, analysis=analysis)
+
+    def tool_generate_model_code(self, plan: str, data: str = '') -> ModelCode:
+        """生成可运行的建模 Python 代码（可在沙箱执行）。"""
+        return self._call_llm(GENERATE_MODEL_CODE_PROMPT_PMT, ModelCode,
+                              plan=plan, data=data)
+
+    def tool_generate_flow_diagram(self, description: str,
+                                   kind: str = 'mermaid') -> DiagramCode:
+        """根据描述生成流程图源码（mermaid/plantuml/dot）。"""
+        pmt = ('你是流程图生成器。根据描述生成 {kind} 图源码。\n{_JSON_OUT}\n\n'
+               'Schema：{{ "kind": "{kind}", "source": "图源码", "render_hint": "渲染提示" }}\n\n'
+               '## 描述\n[content]\n{description}\n[/content]')
+        return self._call_llm(pmt, DiagramCode, description=description, kind=kind)
+
+    def tool_ai_figure_prompt(self, context: str,
+                              palette: str = 'Okabe-Ito') -> AiFigurePrompt:
+        """生成学术 AI 生图四层提示词（配色方案）。"""
+        return self._call_llm(AI_FIGURE_PROMPT_PMT, AiFigurePrompt,
+                              context=context, palette=palette)
+
+    def tool_check_figures(self, paths: List[str]) -> FigureCheck:
+        """图表 QA 审计：尺寸/分辨率/质量检查（PIL）。"""
+        from PIL import Image
+        items = []
+        for p in paths:
+            fp = p if path.isabs(p) else path.join(self.pj_dir, p)
+            issues = []
+            try:
+                im = Image.open(fp)
+                w, h = im.size
+                dpi = im.info.get('dpi', (0, 0))
+                dpi_v = dpi[0] if isinstance(dpi, tuple) and dpi[0] else 0.0
+                ok = True
+                if w < 600:
+                    ok = False
+                    issues.append('宽度不足 600px')
+                if dpi_v and dpi_v < 150:
+                    ok = False
+                    issues.append(f'DPI 偏低 {dpi_v}')
+                items.append(FigureCheckItem(path=p, width_px=w, height_px=h,
+                                             dpi=float(dpi_v), ok=ok, issues=issues))
+            except Exception as ex:
+                items.append(FigureCheckItem(path=p, ok=False,
+                                             issues=[f'无法读取：{ex}']))
+        return FigureCheck(files=items)
+
+    def tool_format_tex_for_venue(self, markdown: str,
+                                  venue: str = 'ieee') -> VenueTeX:
+        """按 IEEE/Nature/中文核心/学位论文模板输出 LaTeX。"""
+        return self._call_llm(FORMAT_TEX_VENUE_PROMPT_PMT, VenueTeX,
+                              markdown=markdown, venue=venue)
+
+    # ── 工具参数 Schema ─────────────────────────────────────────
+
+    _TOOL_PARAMS: Dict[str, Dict[str, Any]] = {
+        **ToolsMixin._TOOL_PARAMS,
+        # 文献检索
+        "tool_search_arxiv": params_schema(
+            required=['query'],
+            query=base_schema('string', '检索词'),
+            max_results=base_schema('integer', '最大返回数 1~50，默认 10'),
+            categories=str_list_schema('arXiv 分类过滤，如 cs.CL'),
+        ),
+        "tool_search_semantic_scholar": params_schema(
+            required=['query'],
+            query=base_schema('string', '检索词'),
+            limit=base_schema('integer', '最大返回数 1~100，默认 10'),
+        ),
+        "tool_get_citation_graph": params_schema(
+            required=['paper_id'],
+            paper_id=base_schema('string', '论文ID（S2 paperId 或 arXiv ID）'),
+            direction=base_schema('string', 'citations（施引）/ references（该文引用的文献）'),
+            limit=base_schema('integer', '最大返回数，默认 10'),
+        ),
+        # 知识检索
+        "tool_retrieve_knowledge": params_schema(
+            required=['query'],
+            query=base_schema('string', '检索词'),
+            top_k=base_schema('integer', '返回条数，默认 5'),
+        ),
+        # 假设卡
+        "tool_create_hypothesis_card": params_schema(
+            required=['question', 'prediction'],
+            question=base_schema('string', '研究问题'),
+            prediction=base_schema('string', '可检验预测'),
+            baselines=str_list_schema('基线方法'),
+            metrics=str_list_schema('评估指标'),
+            risks=str_list_schema('已知风险'),
+            contribution=base_schema('string', '潜在贡献点'),
+            references=str_list_schema('支撑引用 source_id 列表'),
+        ),
+        # 沙箱 / git / 实验记录
+        "tool_run_in_sandbox": params_schema(
+            required=['command'],
+            command=base_schema('string', '要执行的 shell 命令'),
+            timeout_sec=base_schema('integer', '超时秒数，默认 120'),
+            env=str_str_map_schema('附加环境变量'),
+        ),
+        "tool_git_commit": params_schema(
+            required=['message'],
+            message=base_schema('string', '提交信息'),
+            files=str_list_schema('要提交的文件，缺省全部'),
+        ),
+        "tool_log_mlflow": params_schema(
+            run_id=base_schema('string', '运行ID，缺省自动生成'),
+            params=base_schema('object', '实验参数'),
+            metrics=base_schema('object', '实验指标'),
+            artifacts=str_list_schema('产物文件路径'),
+        ),
+        # 实验代码编写与验证
+        "tool_generate_experiment_code": params_schema(
+            required=['experiment_plan'],
+            experiment_plan=base_schema('string', '实验计划（方法、指标、基线）'),
+            hypothesis=base_schema('string', '待验证假设'),
+            data_source=base_schema('string', '数据来源（本地路径或合成说明）'),
+            filename=base_schema('string', '代码文件名，缺省 experiment.py'),
+        ),
+        "tool_verify_experiment_code": params_schema(
+            filename=base_schema('string', '沙箱内代码文件名，缺省 experiment.py'),
+            smoke=base_schema('boolean', '是否冒烟运行，默认 true'),
+            timeout_sec=base_schema('integer', '冒烟运行超时秒数，默认 60'),
+        ),
+        "tool_verify_result_consistency": params_schema(
+            required=['claimed_metrics'],
+            claimed_metrics=base_schema('string', '声称的实验指标（如 JSON 或文本）'),
+            run_id=base_schema('string', '沙箱运行 run_id，据此读取原始日志'),
+            log=base_schema('string', '真实运行日志文本（未提供 run_id 时使用）'),
+        ),
+        # 引用校验 / LaTeX
+        "tool_find_citation": params_schema(
+            required=['sentence'],
+            sentence=base_schema('string', '要检索引用文献的句子'),
+        ),
+        "tool_validate_citations": params_schema(
+            required=['latex', 'bibtex'],
+            latex=base_schema('string', 'LaTeX 正文'),
+            bibtex=base_schema('string', 'bibtex 条目'),
+        ),
+        "tool_compile_latex": params_schema(
+            required=['tex_source'],
+            tex_source=base_schema('string', 'LaTeX 源码'),
+        ),
+        # 审批 / 状态机
+        "tool_request_user_approval": params_schema(
+            required=['stage'],
+            stage=base_schema('string', '申请审批的阶段/门禁'),
+            payload=base_schema('string', '审批说明'),
+        ),
+        "tool_update_pipeline_state": params_schema(
+            stage=base_schema('string', '当前阶段（有效值见状态机）'),
+            gates=base_schema('object', '门禁通过情况，如 {G1: true}'),
+            artifacts=str_list_schema('新增产物路径'),
+            citations=str_list_schema('新增已确认引用 source_id'),
+            results=str_list_schema('新增已确认实验 run_id'),
+            approvals=str_list_schema('新增审批记录'),
+            next_action=base_schema('string', '下一步动作'),
+        ),
+
+        # ── A. 写作/润色 ───────────────────────────────────────
+        "tool_optimize_prompt": params_schema(
+            required=['raw'],
+            raw=base_schema('string', '用户模糊的原始需求'),
+            purpose=base_schema('string', '用途 review/writing/polish'),
+        ),
+        "tool_translate_paper": params_schema(
+            required=['text'],
+            text=base_schema('string', '待翻译文本'),
+            src=base_schema('string', '源语言'),
+            tgt=base_schema('string', '目标语言'),
+            medium=base_schema('string', '介质 latex/word'),
+        ),
+        "tool_polish_paper": params_schema(
+            required=['text'],
+            text=base_schema('string', '原文'),
+            mode=base_schema('string', 'polish/condense/expand'),
+        ),
+        "tool_deai_text": params_schema(
+            required=['text'],
+            text=base_schema('string', '待去 AI 味文本'),
+            lang=base_schema('string', '语言 中文/英文'),
+        ),
+        "tool_check_logic": params_schema(
+            required=['text'],
+            text=base_schema('string', '待检查文本'),
+        ),
+        "tool_style_dna": params_schema(
+            required=['samples'],
+            samples=base_schema('string', '样本文本（多篇代表作）'),
+        ),
+        "tool_write_abstract": params_schema(
+            required=['problem'],
+            problem=base_schema('string', '研究问题'),
+            approach=base_schema('string', '方法'),
+            results=base_schema('string', '关键结果'),
+            contribution=base_schema('string', '贡献'),
+        ),
+        "tool_write_introduction": params_schema(
+            required=['question'],
+            question=base_schema('string', '研究问题'),
+            gap=base_schema('string', '研究空白'),
+            approach=base_schema('string', '方法/分析框架'),
+            contributions=base_schema('string', '贡献点'),
+        ),
+        "tool_write_literature_review": params_schema(
+            required=['papers'],
+            papers=base_schema('string', '论文列表（source_id 或元数据）'),
+            question=base_schema('string', '研究问题'),
+        ),
+        "tool_plan_paper": params_schema(
+            required=['question'],
+            question=base_schema('string', '研究问题'),
+            claims=base_schema('string', '核心声明'),
+            experiments=base_schema('string', '实验'),
+        ),
+        "tool_write_section": params_schema(
+            required=['section_plan'],
+            section_plan=base_schema('string', '节计划'),
+            evidence=base_schema('string', '可用证据'),
+        ),
+        "tool_write_paper_full": params_schema(
+            outline=base_schema('string', '章节大纲（PaperPlan JSON / 数组 / 文本行）'),
+            citations=base_schema('string', '已验证引用（source_id 列表或其元数据）'),
+            results=base_schema('string', '已验证实验结果（run_id 与指标）'),
+            evidence=base_schema('string', '其他证据'),
+            title=base_schema('string', '论文标题（可空）'),
+            language=base_schema('string', '输出语言，默认中文'),
+            min_chars=base_schema('integer', '每章最低字数，默认 1500'),
+        ),
+        "tool_reverse_outline": params_schema(
+            required=['markdown'],
+            markdown=base_schema('string', '论文 Markdown'),
+        ),
+
+        # ── B. 论文审稿/评审 ───────────────────────────────────
+        "tool_review_paper": params_schema(
+            required=['text'],
+            text=base_schema('string', '论文全文'),
+            focus=base_schema('string', '审稿关注点'),
+            strictness=base_schema('string', '严格程度 standard/strict'),
+        ),
+        "tool_classify_issues": params_schema(
+            required=['issues'],
+            issues=base_schema('string', '待分类问题清单'),
+        ),
+        "tool_rate_maturity": params_schema(
+            issues=base_schema('string', '问题清单'),
+            contributions=base_schema('string', '贡献点'),
+        ),
+        "tool_write_rebuttal": params_schema(
+            required=['review_comments'],
+            review_comments=base_schema('string', '审稿意见'),
+            paper=base_schema('string', '论文'),
+        ),
+        "tool_detect_aigc": params_schema(
+            required=['text'],
+            text=base_schema('string', '待检测文本'),
+            lang=base_schema('string', '语言'),
+        ),
+        "tool_audit_citations": params_schema(
+            required=['latex'],
+            latex=base_schema('string', 'LaTeX 正文（含 \\\\cite）'),
+            bibtex=base_schema('string', 'bibtex 条目'),
+        ),
+        "tool_detect_fraud": params_schema(
+            required=['text'],
+            text=base_schema('string', '论文文本'),
+        ),
+
+        # ── C. 学位论文 ────────────────────────────────────────
+        "tool_build_outline": params_schema(
+            required=['topic'],
+            topic=base_schema('string', '论文题目/主题'),
+            background=base_schema('string', '背景/任务书'),
+        ),
+        "tool_build_literature_pool": params_schema(
+            required=['topic'],
+            topic=base_schema('string', '主题/关键词'),
+            max_results=base_schema('integer', '每源最大返回数'),
+        ),
+        "tool_write_thesis_chapter": params_schema(
+            required=['plan'],
+            plan=base_schema('string', '章计划'),
+            evidence=base_schema('string', '证据'),
+            references=base_schema('string', '参考文献 source_id'),
+        ),
+        "tool_create_three_line_table": params_schema(
+            required=['caption', 'rows'],
+            caption=base_schema('string', '表题'),
+            rows=base_schema('array', '行数据（列表或字典列表）'),
+            columns=str_list_schema('列名'),
+        ),
+        "tool_generate_figure": params_schema(
+            fig_type=base_schema('string', 'line/scatter/bar'),
+            spec=base_schema('string', '图规格/标题'),
+            data=base_schema('string', '数据 JSON，如 {"x":[...],"y":[...]}'),
+            output=base_schema('string', '输出路径，缺省自动'),
+        ),
+        "tool_merge_drafts": params_schema(
+            required=['draft_files'],
+            draft_files=str_list_schema('章节草稿文件路径'),
+        ),
+        "tool_format_references": params_schema(
+            required=['refs'],
+            refs=base_schema('string', '参考文献（每行一条或 JSON 数组）'),
+            style=base_schema('string', 'gb/ieee/apa'),
+        ),
+        "tool_plan_defense_pptx": params_schema(
+            required=['thesis'],
+            thesis=base_schema('string', '论文内容'),
+        ),
+
+        # ── D. 数学建模/期刊图/排版 ─────────────────────────────
+        "tool_analyze_modeling_problem": params_schema(
+            required=['problem_text'],
+            problem_text=base_schema('string', '赛题文本'),
+        ),
+        "tool_formulate_model": params_schema(
+            required=['analysis'],
+            analysis=base_schema('string', '问题分析'),
+        ),
+        "tool_generate_model_code": params_schema(
+            required=['plan'],
+            plan=base_schema('string', '模型方案'),
+            data=base_schema('string', '数据描述/路径'),
+        ),
+        "tool_generate_flow_diagram": params_schema(
+            required=['description'],
+            description=base_schema('string', '图描述'),
+            kind=base_schema('string', 'mermaid/plantuml/dot'),
+        ),
+        "tool_ai_figure_prompt": params_schema(
+            required=['context'],
+            context=base_schema('string', '论文内容'),
+            palette=base_schema('string', '配色方案'),
+        ),
+        "tool_check_figures": params_schema(
+            required=['paths'],
+            paths=str_list_schema('图文件路径'),
+        ),
+        "tool_format_tex_for_venue": params_schema(
+            required=['markdown'],
+            markdown=base_schema('string', 'Markdown 论文'),
+            venue=base_schema('string', 'ieee/nature/cncore/thesis'),
+        ),
+    }
