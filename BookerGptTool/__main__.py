@@ -8,7 +8,7 @@ from . import (
     md2skill, trans_epub, fmt_chunk, clean_heading, forward,
     xhs_img, play_game, play_android_game, play_game_chrome, paper2textbook, article_img, ppt, xhs_art, jike_art, podcast, gzh_art, zhanshimian, md2wiki, auto_research,
     resplit, trans_chunk, derep, bili_ai_proj,
-    zhihu_radar, re, wx_summary,
+    zhihu_radar, re, wx_summary, wx_auto_reply,
 )
 
 def main():
@@ -87,6 +87,8 @@ def main():
     re.reg_subparser(subparsers)
 
     wx_summary.reg_subparser(subparsers)
+
+    wx_auto_reply.reg_subparser(subparsers)
 
     args = parser.parse_args()
     args.func(args)
