@@ -118,7 +118,7 @@ class OpenAIClient:
             api_key=getattr(args, 'key', None),
             base_url=getattr(args, 'host', None),
             user_agent=getattr(args, 'user_agent', 'claude-cli/2.1.41 (external, cli)'),
-            stream=getattr(args, 'stream', False),
+            stream=not getattr(args, 'no_stream', False),
             timeout=openai.Timeout(
                 read=getattr(args, 'read_timeout', 120),
                 connect=getattr(args, 'conn_timeout', 60),

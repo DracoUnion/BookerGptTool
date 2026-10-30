@@ -64,11 +64,11 @@ gpt-tool --model gpt-4o-mini --retry 3 call "解释什么是向量数据库"
 | `-r, --retry` | 重试次数 | `1000000` |
 | `-tm, --temp` | temperature | `1` |
 | `-mt, --max-tokens` | 最大输出 token 数 | 不限制 |
-| `-st, --stream` | 启用流式输出 | 关闭 |
+| `-ST, --no-stream` | 关闭流式输出 | 关闭 |
 | `-ua, --user-agent` | HTTP User-Agent | `claude-cli/2.1.41 (external, cli)` |
 | `-ct, --conn-timeout` | 连接超时秒数 | `60` |
 | `-rt, --read-timeout` | 读取超时秒数 | `120` |
-| `-nt, --no-think` | 关闭思考模式 | 关闭 |
+| `-TN, --no-think` | 关闭思考模式 | 关闭 |
 
 ## 子命令
 

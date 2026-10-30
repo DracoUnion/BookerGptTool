@@ -106,5 +106,4 @@ def reg_subparser(subparsers):
     forward_parser.add_argument("-lp", "--listen-port", type=int, default=5000, help="监听端口")
     forward_parser.add_argument("-w", "--waitress", action='store_true', help="使用 waitress 服务")
     forward_parser.add_argument("-t", "--threads", type=int, default=8, help="线程数")
-    forward_parser.add_argument("-D", "--debug", action='store_true', help="调试模式")
     forward_parser.set_defaults(func=forward)
